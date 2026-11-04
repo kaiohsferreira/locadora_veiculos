@@ -9,12 +9,15 @@ namespace AutoVia.Core.Entities.PgSql
     /// km_chegada, data_devolucao_efetiva e valor_total so sao preenchidos na
     /// devolucao, por isso sao anulaveis: uma locacao EM_ANDAMENTO nao os tem.
     /// </summary>
-    public class Locacao
+    public class Locacao : BaseEntities
     {
         [Column("id_locacao")]
         public int IdLocacao { get; set; }
 
-        /// <summary>UNIQUE e anulavel (a especificacao permite locacao sem reserva de origem).</summary>
+        /// <summary>
+        /// Anulavel (a especificacao permite locacao sem reserva de origem). Uma locacao ativa
+        /// por reserva: unicidade validada no servico, sem indice unico no banco.
+        /// </summary>
         [Column("id_reserva")]
         public int? IdReserva { get; set; }
 

@@ -1,0 +1,30 @@
+{
+  "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+  "data": "2026-11-04",
+  "motivo": "Todas as entidades herdam BaseEntities (exclusao logica com disabled_at). Com soft delete, a unicidade e regra de codigo (servico + repositorio filtrando disabled_at nulo): nenhum indice unico no banco.",
+  "colunas_auditoria": {
+    "tabelas": "todas",
+    "colunas": {
+      "created_at": { "tipo": "timestamp without time zone", "not_null": true, "default": "current_timestamp" },
+      "updated_at": { "tipo": "timestamp without time zone", "not_null": true, "default": "current_timestamp" },
+      "disabled_at": { "tipo": "timestamp without time zone", "not_null": false, "default": null }
+    }
+  },
+  "unique_para_indice": {
+    "categoria_nome_key": "idx_categoria_nome",
+    "cliente_cpf_key": "idx_cliente_cpf",
+    "cliente_cnh_numero_key": "idx_cliente_cnh_numero",
+    "funcionario_cpf_key": "idx_funcionario_cpf",
+    "funcionario_matricula_key": "idx_funcionario_matricula",
+    "veiculo_placa_key": "idx_veiculo_placa",
+    "veiculo_chassi_key": "idx_veiculo_chassi",
+    "veiculo_renavam_key": "idx_veiculo_renavam",
+    "locacao_id_reserva_key": "idx_locacao_reserva",
+    "venda_id_veiculo_key": "idx_venda_veiculo",
+    "venda_numero_nota_fiscal_key": "idx_venda_numero_nota_fiscal",
+    "seguro_numero_apolice_key": "idx_seguro_numero_apolice",
+    "uq_vistoria_locacao_tipo": "idx_vistoria_locacao_tipo",
+    "integration_codigo_key": "idx_integration_codigo",
+    "uq_setting_chave": "idx_setting_chave"
+  }
+}

@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace AutoVia.Core.Entities.PgSql
 {
     /// <summary>Tabela cobranca_extra: valores apurados na devolucao (km excedente, atraso, avaria...).</summary>
-    public class CobrancaExtra
+    public class CobrancaExtra : BaseEntities
     {
         [Column("id_cobranca")]
         public int IdCobranca { get; set; }

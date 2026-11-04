@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace AutoVia.Core.Entities.PgSql
 {
     /// <summary>Tabela sinistro: ocorrencia com o veiculo, opcionalmente ligada a apolice e a locacao.</summary>
-    public class Sinistro
+    public class Sinistro : BaseEntities
     {
         [Column("id_sinistro")]
         public int IdSinistro { get; set; }

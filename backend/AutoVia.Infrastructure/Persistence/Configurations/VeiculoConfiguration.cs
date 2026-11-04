@@ -43,9 +43,9 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
 
             builder.Property(x => x.DataAquisicao).IsRequired(false).HasColumnType("date");
 
-            builder.HasIndex(x => x.Placa).IsUnique().HasDatabaseName("veiculo_placa_key");
-            builder.HasIndex(x => x.Chassi).IsUnique().HasDatabaseName("veiculo_chassi_key");
-            builder.HasIndex(x => x.Renavam).IsUnique().HasDatabaseName("veiculo_renavam_key");
+            builder.HasIndex(x => x.Placa).HasDatabaseName("idx_veiculo_placa");
+            builder.HasIndex(x => x.Chassi).HasDatabaseName("idx_veiculo_chassi");
+            builder.HasIndex(x => x.Renavam).HasDatabaseName("idx_veiculo_renavam");
             builder.HasIndex(x => x.Status).HasDatabaseName("idx_veiculo_status");
             builder.HasIndex(x => x.IdCategoria).HasDatabaseName("idx_veiculo_categoria");
 
@@ -54,6 +54,9 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .HasForeignKey(x => x.IdCategoria)
                 .HasConstraintName("fk_veiculo_categoria")
                 .OnDelete(DeleteBehavior.NoAction);
+
+            // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
+            builder.ConfigureBaseEntities();
         }
     }
 }

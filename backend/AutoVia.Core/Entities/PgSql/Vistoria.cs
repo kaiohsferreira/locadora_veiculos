@@ -7,7 +7,7 @@ namespace AutoVia.Core.Entities.PgSql
     /// Tabela vistoria: inspecao de ENTRADA (retirada) ou SAIDA (devolucao).
     /// Uma unica vistoria de cada tipo por locacao (uq_vistoria_locacao_tipo).
     /// </summary>
-    public class Vistoria
+    public class Vistoria : BaseEntities
     {
         [Column("id_vistoria")]
         public int IdVistoria { get; set; }

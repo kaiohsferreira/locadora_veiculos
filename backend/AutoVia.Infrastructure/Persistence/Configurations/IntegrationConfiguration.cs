@@ -41,19 +41,10 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
             builder.Property(x => x.Ativo).IsRequired(true).HasDefaultValue(true).HasSentinel(true);
 
             // --- BaseEntities ---
-            builder.Property(x => x.CreatedAt)
-                .IsRequired(true)
-                .HasColumnType("timestamp without time zone")
-                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+            builder.ConfigureBaseEntities();
 
-            builder.Property(x => x.UpdatedAt)
-                .IsRequired(true)
-                .HasColumnType("timestamp without time zone")
-                .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-            builder.Property(x => x.DisabledAt).IsRequired(false).HasColumnType("timestamp without time zone");
-
-            builder.HasIndex(x => x.Codigo).IsUnique().HasDatabaseName("integration_codigo_key");
+            // Codigo unico entre as integracoes ativas: validado no codigo, sem indice unico no banco.
+            builder.HasIndex(x => x.Codigo).HasDatabaseName("idx_integration_codigo");
         }
     }
 }

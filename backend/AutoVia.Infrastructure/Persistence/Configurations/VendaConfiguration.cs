@@ -38,13 +38,15 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .HasMaxLength(20)
                 .HasDefaultValue(StatusDocumentacaoVenda.PENDENTE);
 
-            builder.HasIndex(x => x.IdVeiculo).IsUnique().HasDatabaseName("venda_id_veiculo_key");
-            builder.HasIndex(x => x.NumeroNotaFiscal).IsUnique().HasDatabaseName("venda_numero_nota_fiscal_key");
+            // Uma venda ativa por veiculo e nota fiscal unica: validadas no servico, sem indice unico no banco.
+            builder.HasIndex(x => x.IdVeiculo).HasDatabaseName("idx_venda_veiculo");
+            builder.HasIndex(x => x.NumeroNotaFiscal).HasDatabaseName("idx_venda_numero_nota_fiscal");
 
-            // 1:1 — um veiculo e vendido uma unica vez.
+            // 1:N no modelo (com soft delete, uma venda desativada nao impede outra);
+            // a regra "no maximo uma venda ativa por veiculo" fica no servico.
             builder.HasOne(x => x.Veiculo)
-                .WithOne(x => x.Venda)
-                .HasForeignKey<Venda>(x => x.IdVeiculo)
+                .WithMany(x => x.Vendas)
+                .HasForeignKey(x => x.IdVeiculo)
                 .HasConstraintName("fk_venda_veiculo")
                 .OnDelete(DeleteBehavior.NoAction);
 
@@ -59,6 +61,9 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .HasForeignKey(x => x.IdFuncionario)
                 .HasConstraintName("fk_venda_funcionario")
                 .OnDelete(DeleteBehavior.NoAction);
+
+            // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
+            builder.ConfigureBaseEntities();
         }
     }
 }

@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace AutoVia.Core.Entities.PgSql
 {
     /// <summary>Tabela reserva: veiculo reservado por um cliente para um periodo.</summary>
-    public class Reserva
+    public class Reserva : BaseEntities
     {
         [Column("id_reserva")]
         public int IdReserva { get; set; }
@@ -37,7 +37,10 @@ namespace AutoVia.Core.Entities.PgSql
         public virtual Cliente Cliente { get; set; } = null!;
         public virtual Veiculo Veiculo { get; set; } = null!;
 
-        /// <summary>Uma reserva origina no maximo uma locacao (locacao.id_reserva e UNIQUE).</summary>
-        public virtual Locacao? Locacao { get; set; }
+        /// <summary>
+        /// Locacoes originadas pela reserva. Regra de negocio: no maximo UMA locacao ativa
+        /// (DisabledAt nulo) por reserva, validada no servico, sem indice unico no banco.
+        /// </summary>
+        public virtual List<Locacao> Locacoes { get; set; } = new List<Locacao>();
     }
 }

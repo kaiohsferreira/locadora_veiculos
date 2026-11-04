@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace AutoVia.Core.Entities.PgSql
 {
     /// <summary>Tabela funcionario: equipe da locadora que usa o back office.</summary>
-    public class Funcionario
+    public class Funcionario : BaseEntities
     {
         [Column("id_funcionario")]
         public int IdFuncionario { get; set; }

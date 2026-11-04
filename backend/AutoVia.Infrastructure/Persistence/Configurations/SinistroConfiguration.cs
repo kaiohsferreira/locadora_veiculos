@@ -57,6 +57,9 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .IsRequired(false)
                 .HasConstraintName("fk_sinistro_locacao")
                 .OnDelete(DeleteBehavior.NoAction);
+
+            // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
+            builder.ConfigureBaseEntities();
         }
     }
 }

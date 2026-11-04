@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace AutoVia.Core.Entities.PgSql
 {
     /// <summary>Tabela categoria: grupo de veiculos com diaria base (ex.: Economico, SUV).</summary>
-    public class Categoria
+    public class Categoria : BaseEntities
     {
         [Column("id_categoria")]
         public int IdCategoria { get; set; }

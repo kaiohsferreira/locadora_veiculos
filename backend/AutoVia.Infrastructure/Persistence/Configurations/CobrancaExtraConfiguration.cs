@@ -35,6 +35,9 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .HasForeignKey(x => x.IdLocacao)
                 .HasConstraintName("fk_cobranca_locacao")
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
+            builder.ConfigureBaseEntities();
         }
     }
 }

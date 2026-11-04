@@ -8,10 +8,9 @@ namespace AutoVia.Integrations.Entities
     /// chave/valor (client_id, client_secret, token...). Protegido = true marca
     /// valor que nunca pode aparecer em log nem em resposta de API.
     ///
-    /// Herda BaseEntities, mas a tabela da especificacao NAO tem disabled_at:
-    /// a propriedade DisabledAt e ignorada no mapeamento
-    /// (IntegrationSettingConfiguration). Desativar um setting nao e persistido;
-    /// para tirar uma chave de uso, desative a integracao inteira.
+    /// Herda BaseEntities com disabled_at mapeado (exclusao logica): leituras
+    /// filtram DisabledAt == null e a chave e unica por integracao entre os
+    /// settings ativos, regra validada no codigo (sem indice unico no banco).
     /// </summary>
     public class IntegrationSetting : BaseEntities
     {

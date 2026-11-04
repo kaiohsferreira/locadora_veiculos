@@ -39,6 +39,39 @@ Diferencas: 0
 
 Na primeira geração, apareceu uma única diferença: `locacao.valor_caucao` com `DEFAULT 0.0` em vez de `DEFAULT 0`. O mapeamento passou a usar `HasDefaultValueSql("0")` e a migration foi gerada de novo. Ela nunca tinha sido aplicada.
 
+## Desvios aprovados em 04/11/2026 (migration `AuditoriaSoftDelete`)
+
+Decisão do Kaio, depois da conferência acima:
+- **Todas as entidades herdam `BaseEntities`.** As 16 tabelas passam a ter `created_at` e `updated_at` (`NOT NULL`, `DEFAULT CURRENT_TIMESTAMP`) e `disabled_at` (anulável). A `integration_setting`, que só tinha as duas primeiras, ganhou `disabled_at`.
+- **Exclusão lógica.** Toda busca filtra `disabled_at` nulo.
+- **Nenhum índice único no banco.** Os 15 UNIQUE da especificação viraram índices comuns (`idx_*`), e a unicidade passou a ser validada no serviço, só entre os registros ativos.
+- **Relações Reserva→Locação e Veículo→Venda passam a ser 1:N no modelo.** O EF exige índice único na FK de uma relação 1:1. A regra "uma ativa por vez" fica no serviço.
+
+Os apêndices A e B **não foram alterados**. Os desvios ficam descritos em `especificacao/desvios_aprovados.json`, e o script aplica esses desvios antes de comparar:
+
+```bash
+dotnet dotnet-ef migrations script SeedIntegracoes AuditoriaSoftDelete --project AutoVia.Infrastructure --startup-project AutoVia.Api -o docs/sql/03_AuditoriaSoftDelete.sql
+dotnet dotnet-ef dbcontext script --project AutoVia.Infrastructure --startup-project AutoVia.Api -o docs/sql/00_ModeloAtual.sql
+python tools/compare_schema.py docs/especificacao/apendice_A_tabelas_negocio.sql docs/especificacao/apendice_B_tabelas_integracoes.sql docs/sql/00_ModeloAtual.sql docs/especificacao/desvios_aprovados.json
+```
+
+Resultado:
+
+```text
+Desvios aprovados aplicados a especificacao: 58   (43 colunas de auditoria + 15 unique -> indice)
+Tabelas:  especificacao=16 gerado=16
+Colunas:  especificacao=191 gerado=191
+CHECK:    especificacao=32 gerado=32
+FK:       especificacao=22 gerado=22
+UNIQUE:   especificacao=0 gerado=0
+Indices:  especificacao=26 gerado=26
+Diferencas: 0
+```
+
+Sem o arquivo de desvios, a comparação literal contra os apêndices mostra exatamente esses 58 pontos (43 colunas a mais, 15 UNIQUE a menos e 15 índices a mais), e nada além disso.
+
+A migration `AuditoriaSoftDelete` foi **gerada, não aplicada**. Num banco que já tenha a `Inicial`, ela acrescenta as colunas com DEFAULT (as linhas existentes recebem a data atual) e troca os índices.
+
 ## Diferenças de forma, que não mudam o esquema
 
 Estes pontos não aparecem como diferença porque são equivalentes. Vale registrar mesmo assim, para ninguém se surpreender ao abrir o banco:
@@ -54,7 +87,7 @@ Estes pontos não aparecem como diferença porque são equivalentes. Vale regist
 
 O Prompt 1 diz para apontar, e não corrigir por conta própria:
 
-- **`integration_setting` não tem `disabled_at`**, embora o Prompt 1 mande as duas entidades de integração herdarem `BaseEntities`. A entidade herda a classe, e o campo é ignorado no mapeamento.
+- ~~**`integration_setting` não tem `disabled_at`**~~ Resolvido em 04/11/2026: a coluna entrou na migration `AuditoriaSoftDelete` (ver "Desvios aprovados").
 - **`pagamento.forma` não tem CHECK** e continua `string`. Se a equipe quiser restringir a PIX, CARTAO e BOLETO, isso vira uma migration nova.
 - **`locacao.id_reserva` é anulável**, o que permite uma locação sem reserva de origem. A regra "a reserva de origem passa para CONCLUIDA" vale só quando existe reserva.
 - **Não há colunas para autenticação** (senha ou hash) em `cliente` nem em `funcionario`. A tarefa P2-BE-01 (login e token) vai precisar de uma decisão: tabela nova ou ASP.NET Identity. Nos dois casos, é uma migration nova.

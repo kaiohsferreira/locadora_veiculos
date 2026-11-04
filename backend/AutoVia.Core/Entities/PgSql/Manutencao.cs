@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace AutoVia.Core.Entities.PgSql
 {
     /// <summary>Tabela manutencao: ordem de servico preventiva ou corretiva de um veiculo.</summary>
-    public class Manutencao
+    public class Manutencao : BaseEntities
     {
         [Column("id_manutencao")]
         public int IdManutencao { get; set; }

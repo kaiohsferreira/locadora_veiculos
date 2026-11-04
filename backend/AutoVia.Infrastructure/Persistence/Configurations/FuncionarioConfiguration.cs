@@ -31,8 +31,11 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
             // e o banco gravaria TRUE.
             builder.Property(x => x.Ativo).IsRequired(true).HasDefaultValue(true).HasSentinel(true);
 
-            builder.HasIndex(x => x.Cpf).IsUnique().HasDatabaseName("funcionario_cpf_key");
-            builder.HasIndex(x => x.Matricula).IsUnique().HasDatabaseName("funcionario_matricula_key");
+            builder.HasIndex(x => x.Cpf).HasDatabaseName("idx_funcionario_cpf");
+            builder.HasIndex(x => x.Matricula).HasDatabaseName("idx_funcionario_matricula");
+
+            // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
+            builder.ConfigureBaseEntities();
         }
     }
 }

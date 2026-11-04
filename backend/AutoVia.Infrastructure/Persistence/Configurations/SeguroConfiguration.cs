@@ -24,13 +24,16 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
             builder.Property(x => x.ValorPremio).IsRequired(true).HasPrecision(10, 2);
             builder.Property(x => x.Cobertura).IsRequired(false).HasMaxLength(200);
 
-            builder.HasIndex(x => x.NumeroApolice).IsUnique().HasDatabaseName("seguro_numero_apolice_key");
+            builder.HasIndex(x => x.NumeroApolice).HasDatabaseName("idx_seguro_numero_apolice");
 
             builder.HasOne(x => x.Veiculo)
                 .WithMany(x => x.Seguros)
                 .HasForeignKey(x => x.IdVeiculo)
                 .HasConstraintName("fk_seguro_veiculo")
                 .OnDelete(DeleteBehavior.NoAction);
+
+            // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
+            builder.ConfigureBaseEntities();
         }
     }
 }

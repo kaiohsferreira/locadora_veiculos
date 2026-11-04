@@ -4,12 +4,12 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace AutoVia.Core.Entities.PgSql
 {
     /// <summary>Tabela venda: venda de um veiculo da frota (seminovo).</summary>
-    public class Venda
+    public class Venda : BaseEntities
     {
         [Column("id_venda")]
         public int IdVenda { get; set; }
 
-        /// <summary>UNIQUE: um veiculo e vendido uma unica vez.</summary>
+        /// <summary>Uma venda ativa por veiculo: unicidade validada no servico, sem indice unico no banco.</summary>
         [Column("id_veiculo")]
         public int IdVeiculo { get; set; }
 
@@ -30,7 +30,7 @@ namespace AutoVia.Core.Entities.PgSql
         [Column("forma_pagamento")]
         public FormaPagamentoVenda FormaPagamento { get; set; }
 
-        /// <summary>UNIQUE e anulavel.</summary>
+        /// <summary>Anulavel. Unica entre as vendas ativas: validada no servico, sem indice unico no banco.</summary>
         [Column("numero_nota_fiscal")]
         public string? NumeroNotaFiscal { get; set; }
 

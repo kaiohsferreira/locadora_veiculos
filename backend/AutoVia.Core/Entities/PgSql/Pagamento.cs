@@ -7,7 +7,7 @@ namespace AutoVia.Core.Entities.PgSql
     /// Tabela pagamento: cobranca de uma locacao OU de uma venda, nunca das duas
     /// (ck_pagamento_origem). Exatamente um entre IdLocacao e IdVenda e preenchido.
     /// </summary>
-    public class Pagamento
+    public class Pagamento : BaseEntities
     {
         [Column("id_pagamento")]
         public int IdPagamento { get; set; }

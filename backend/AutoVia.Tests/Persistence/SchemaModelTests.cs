@@ -1,3 +1,5 @@
+using AutoVia.Core.Entities;
+using AutoVia.Core.Entities.PgSql;
 using AutoVia.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -6,10 +8,10 @@ using Microsoft.EntityFrameworkCore.Metadata;
 namespace AutoVia.Tests.Persistence
 {
     /// <summary>
-    /// Confere o modelo do EF contra a especificacao (Apendices A e B) sem abrir
-    /// conexao com o PostgreSQL: o modelo e montado em memoria a partir das
-    /// configuracoes. Se alguem mudar uma configuracao e quebrar o esquema, estes
-    /// testes falham antes de qualquer migration nova.
+    /// Confere o modelo do EF contra a especificacao (Apendices A e B) mais os desvios
+    /// aprovados em 04/11/2026 (docs/especificacao/desvios_aprovados.json): toda tabela
+    /// com created_at/updated_at/disabled_at e nenhum indice unico no banco. Roda sem
+    /// conexao com o PostgreSQL: o modelo e montado em memoria a partir das configuracoes.
     /// </summary>
     public class SchemaModelTests
     {
@@ -27,13 +29,13 @@ namespace AutoVia.Tests.Persistence
             "idx_veiculo_status", "idx_veiculo_categoria", "idx_reserva_periodo", "idx_reserva_cliente",
             "idx_locacao_cliente", "idx_locacao_veiculo", "idx_locacao_status", "idx_pagamento_status",
             "idx_manutencao_veiculo", "idx_sinistro_veiculo", "idx_setting_integration",
-            // UNIQUE nomeados
-            "uq_vistoria_locacao_tipo", "uq_setting_chave",
-            // UNIQUE em linha (nome no padrao do PostgreSQL)
-            "cliente_cpf_key", "cliente_cnh_numero_key", "funcionario_cpf_key", "funcionario_matricula_key",
-            "categoria_nome_key", "veiculo_placa_key", "veiculo_chassi_key", "veiculo_renavam_key",
-            "locacao_id_reserva_key", "venda_id_veiculo_key", "venda_numero_nota_fiscal_key",
-            "seguro_numero_apolice_key", "integration_codigo_key"
+            // Antigos UNIQUE da especificacao, agora indices comuns (desvio aprovado em 04/11/2026):
+            // a unicidade e validada no servico sobre os registros ativos (disabled_at nulo).
+            "idx_vistoria_locacao_tipo", "idx_setting_chave",
+            "idx_cliente_cpf", "idx_cliente_cnh_numero", "idx_funcionario_cpf", "idx_funcionario_matricula",
+            "idx_categoria_nome", "idx_veiculo_placa", "idx_veiculo_chassi", "idx_veiculo_renavam",
+            "idx_locacao_reserva", "idx_venda_veiculo", "idx_venda_numero_nota_fiscal",
+            "idx_seguro_numero_apolice", "idx_integration_codigo"
         };
 
         private static IModel BuildModel()
@@ -62,33 +64,63 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
-        public void TabelasDeNegocio_NaoTemColunasDeAuditoria()
+        public void TodasAsEntidades_HerdamBaseEntities()
         {
             IModel model = BuildModel();
 
-            foreach (IEntityType entity in model.GetEntityTypes().Where(x => TabelasNegocio.Contains(x.GetTableName())))
+            foreach (IEntityType entity in model.GetEntityTypes())
             {
-                StoreObjectIdentifier table = StoreObjectIdentifier.Table(entity.GetTableName()!, null);
-                List<string> colunas = entity.GetProperties().Select(x => x.GetColumnName(table)!).ToList();
-
-                Assert.DoesNotContain("created_at", colunas);
-                Assert.DoesNotContain("updated_at", colunas);
-                Assert.DoesNotContain("disabled_at", colunas);
+                Assert.True(typeof(BaseEntities).IsAssignableFrom(entity.ClrType), $"{entity.ClrType.Name} precisa herdar BaseEntities.");
             }
         }
 
         [Fact]
-        public void IntegrationSetting_NaoTemDisabledAt()
+        public void TodasAsTabelas_TemColunasDeAuditoriaComExclusaoLogica()
         {
             IModel model = BuildModel();
 
-            IEntityType setting = model.GetEntityTypes().Single(x => x.GetTableName() == "integration_setting");
-            StoreObjectIdentifier table = StoreObjectIdentifier.Table("integration_setting", null);
-            List<string> colunas = setting.GetProperties().Select(x => x.GetColumnName(table)!).ToList();
+            foreach (IEntityType entity in model.GetEntityTypes())
+            {
+                StoreObjectIdentifier table = StoreObjectIdentifier.Table(entity.GetTableName()!, null);
+                IProperty createdAt = entity.FindProperty(nameof(BaseEntities.CreatedAt))!;
+                IProperty updatedAt = entity.FindProperty(nameof(BaseEntities.UpdatedAt))!;
+                IProperty disabledAt = entity.FindProperty(nameof(BaseEntities.DisabledAt))!;
 
-            Assert.Contains("created_at", colunas);
-            Assert.Contains("updated_at", colunas);
-            Assert.DoesNotContain("disabled_at", colunas);
+                Assert.Equal("created_at", createdAt.GetColumnName(table));
+                Assert.Equal("updated_at", updatedAt.GetColumnName(table));
+                Assert.Equal("disabled_at", disabledAt.GetColumnName(table));
+                Assert.False(createdAt.IsNullable);
+                Assert.False(updatedAt.IsNullable);
+                Assert.True(disabledAt.IsNullable);
+                Assert.Equal("CURRENT_TIMESTAMP", createdAt.GetDefaultValueSql());
+                Assert.Equal("CURRENT_TIMESTAMP", updatedAt.GetDefaultValueSql());
+            }
+        }
+
+        [Fact]
+        public void Banco_NaoTemIndiceUnico_UnicidadeFicaNoCodigo()
+        {
+            IModel model = BuildModel();
+
+            List<string> unicos = model.GetEntityTypes()
+                .SelectMany(x => x.GetIndexes())
+                .Where(x => x.IsUnique)
+                .Select(x => x.GetDatabaseName()!)
+                .ToList();
+
+            Assert.Empty(unicos);
+        }
+
+        [Fact]
+        public void Disable_MarcaExclusaoLogicaSemApagar()
+        {
+            Categoria categoria = new Categoria { IdCategoria = 1, Nome = "SUV", ValorDiariaBase = 199.90m };
+
+            categoria.Disable();
+
+            Assert.NotNull(categoria.DisabledAt);
+            Assert.Equal(categoria.DisabledAt, categoria.UpdatedAt);
+            Assert.Equal("SUV", categoria.Nome);
         }
 
         [Fact]

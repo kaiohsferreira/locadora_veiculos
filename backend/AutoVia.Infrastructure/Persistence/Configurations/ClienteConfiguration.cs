@@ -59,8 +59,11 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .HasDefaultValue(StatusCadastroCliente.PENDENTE);
 
             // UNIQUE da especificacao (nome no padrao do PostgreSQL para UNIQUE em linha).
-            builder.HasIndex(x => x.Cpf).IsUnique().HasDatabaseName("cliente_cpf_key");
-            builder.HasIndex(x => x.CnhNumero).IsUnique().HasDatabaseName("cliente_cnh_numero_key");
+            builder.HasIndex(x => x.Cpf).HasDatabaseName("idx_cliente_cpf");
+            builder.HasIndex(x => x.CnhNumero).HasDatabaseName("idx_cliente_cnh_numero");
+
+            // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
+            builder.ConfigureBaseEntities();
         }
     }
 }

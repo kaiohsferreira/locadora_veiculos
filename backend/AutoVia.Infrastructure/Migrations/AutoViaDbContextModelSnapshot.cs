@@ -31,11 +31,21 @@ namespace AutoVia.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdAvaria"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<string>("Descricao")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("descricao");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
 
                     b.Property<string>("Gravidade")
                         .IsRequired()
@@ -48,6 +58,12 @@ namespace AutoVia.Infrastructure.Migrations
                     b.Property<int>("IdVistoria")
                         .HasColumnType("integer")
                         .HasColumnName("id_vistoria");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<decimal?>("ValorEstimado")
                         .HasPrecision(10, 2)
@@ -72,16 +88,32 @@ namespace AutoVia.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdCategoria"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<string>("Descricao")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("descricao");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("nome");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<decimal>("ValorDiariaBase")
                         .HasPrecision(10, 2)
@@ -92,8 +124,7 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasName("categoria_pkey");
 
                     b.HasIndex("Nome")
-                        .IsUnique()
-                        .HasDatabaseName("categoria_nome_key");
+                        .HasDatabaseName("idx_categoria_nome");
 
                     b.ToTable("categoria", null, t =>
                         {
@@ -155,6 +186,12 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnName("cpf")
                         .IsFixedLength();
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<DateTime>("DataCadastro")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")
@@ -164,6 +201,10 @@ namespace AutoVia.Infrastructure.Migrations
                     b.Property<DateOnly>("DataNascimento")
                         .HasColumnType("date")
                         .HasColumnName("data_nascimento");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -207,16 +248,20 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnName("uf")
                         .IsFixedLength();
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.HasKey("IdCliente")
                         .HasName("cliente_pkey");
 
                     b.HasIndex("CnhNumero")
-                        .IsUnique()
-                        .HasDatabaseName("cliente_cnh_numero_key");
+                        .HasDatabaseName("idx_cliente_cnh_numero");
 
                     b.HasIndex("Cpf")
-                        .IsUnique()
-                        .HasDatabaseName("cliente_cpf_key");
+                        .HasDatabaseName("idx_cliente_cpf");
 
                     b.ToTable("cliente", null, t =>
                         {
@@ -235,6 +280,12 @@ namespace AutoVia.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdCobranca"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<DateOnly>("DataLancamento")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("date")
@@ -246,6 +297,10 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("descricao");
 
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
+
                     b.Property<int>("IdLocacao")
                         .HasColumnType("integer")
                         .HasColumnName("id_locacao");
@@ -255,6 +310,12 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("tipo");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<decimal>("Valor")
                         .HasPrecision(10, 2)
@@ -300,9 +361,19 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnName("cpf")
                         .IsFixedLength();
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<DateOnly>("DataAdmissao")
                         .HasColumnType("date")
                         .HasColumnName("data_admissao");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
 
                     b.Property<string>("Email")
                         .HasMaxLength(120)
@@ -321,16 +392,20 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("character varying(120)")
                         .HasColumnName("nome");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.HasKey("IdFuncionario")
                         .HasName("funcionario_pkey");
 
                     b.HasIndex("Cpf")
-                        .IsUnique()
-                        .HasDatabaseName("funcionario_cpf_key");
+                        .HasDatabaseName("idx_funcionario_cpf");
 
                     b.HasIndex("Matricula")
-                        .IsUnique()
-                        .HasDatabaseName("funcionario_matricula_key");
+                        .HasDatabaseName("idx_funcionario_matricula");
 
                     b.ToTable("funcionario", null, t =>
                         {
@@ -347,6 +422,12 @@ namespace AutoVia.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdLocacao"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<DateTime?>("DataDevolucaoEfetiva")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("data_devolucao_efetiva");
@@ -358,6 +439,10 @@ namespace AutoVia.Infrastructure.Migrations
                     b.Property<DateTime>("DataRetirada")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("data_retirada");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
 
                     b.Property<int>("IdCliente")
                         .HasColumnType("integer")
@@ -391,6 +476,12 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasDefaultValue("EM_ANDAMENTO")
                         .HasColumnName("status");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<decimal>("ValorCaucao")
                         .ValueGeneratedOnAdd()
                         .HasPrecision(10, 2)
@@ -415,8 +506,7 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasDatabaseName("idx_locacao_cliente");
 
                     b.HasIndex("IdReserva")
-                        .IsUnique()
-                        .HasDatabaseName("locacao_id_reserva_key");
+                        .HasDatabaseName("idx_locacao_reserva");
 
                     b.HasIndex("IdVeiculo")
                         .HasDatabaseName("idx_locacao_veiculo");
@@ -443,6 +533,12 @@ namespace AutoVia.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdManutencao"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<decimal?>("Custo")
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)")
@@ -460,6 +556,10 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("descricao");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
 
                     b.Property<int>("IdVeiculo")
                         .HasColumnType("integer")
@@ -479,6 +579,12 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasMaxLength(15)
                         .HasColumnType("character varying(15)")
                         .HasColumnName("tipo");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.HasKey("IdManutencao")
                         .HasName("manutencao_pkey");
@@ -503,6 +609,12 @@ namespace AutoVia.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdPagamento"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<DateOnly?>("DataPagamento")
                         .HasColumnType("date")
                         .HasColumnName("data_pagamento");
@@ -510,6 +622,10 @@ namespace AutoVia.Infrastructure.Migrations
                     b.Property<DateOnly>("DataVencimento")
                         .HasColumnType("date")
                         .HasColumnName("data_vencimento");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
 
                     b.Property<string>("Forma")
                         .HasMaxLength(20)
@@ -537,6 +653,12 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("tipo");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<decimal>("Valor")
                         .HasPrecision(12, 2)
@@ -570,6 +692,12 @@ namespace AutoVia.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdReserva"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<DateTime>("DataDevolucaoPrevista")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("data_devolucao_prevista");
@@ -583,6 +711,10 @@ namespace AutoVia.Infrastructure.Migrations
                     b.Property<DateTime>("DataRetiradaPrevista")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("data_retirada_prevista");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
 
                     b.Property<int>("IdCliente")
                         .HasColumnType("integer")
@@ -599,6 +731,12 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("character varying(20)")
                         .HasDefaultValue("ATIVA")
                         .HasColumnName("status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<decimal?>("ValorEstimado")
                         .HasPrecision(10, 2)
@@ -636,6 +774,12 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("cobertura");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<DateOnly>("DataFim")
                         .HasColumnType("date")
                         .HasColumnName("data_fim");
@@ -643,6 +787,10 @@ namespace AutoVia.Infrastructure.Migrations
                     b.Property<DateOnly>("DataInicio")
                         .HasColumnType("date")
                         .HasColumnName("data_inicio");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
 
                     b.Property<int>("IdVeiculo")
                         .HasColumnType("integer")
@@ -660,6 +808,12 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("seguradora");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<decimal>("ValorPremio")
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)")
@@ -669,8 +823,7 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasName("seguro_pkey");
 
                     b.HasIndex("NumeroApolice")
-                        .IsUnique()
-                        .HasDatabaseName("seguro_numero_apolice_key");
+                        .HasDatabaseName("idx_seguro_numero_apolice");
 
                     b.ToTable("seguro", null, t =>
                         {
@@ -687,6 +840,12 @@ namespace AutoVia.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdSinistro"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<DateOnly>("DataOcorrencia")
                         .HasColumnType("date")
                         .HasColumnName("data_ocorrencia");
@@ -694,6 +853,10 @@ namespace AutoVia.Infrastructure.Migrations
                     b.Property<string>("Descricao")
                         .HasColumnType("text")
                         .HasColumnName("descricao");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
 
                     b.Property<int?>("IdLocacao")
                         .HasColumnType("integer")
@@ -720,6 +883,12 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("tipo");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<decimal?>("ValorPrejuizo")
                         .HasPrecision(12, 2)
@@ -768,9 +937,19 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("cor");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<DateOnly?>("DataAquisicao")
                         .HasColumnType("date")
                         .HasColumnName("data_aquisicao");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
 
                     b.Property<int>("IdCategoria")
                         .HasColumnType("integer")
@@ -815,6 +994,12 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasDefaultValue("DISPONIVEL")
                         .HasColumnName("status");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<decimal>("ValorDiaria")
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)")
@@ -829,19 +1014,16 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasName("veiculo_pkey");
 
                     b.HasIndex("Chassi")
-                        .IsUnique()
-                        .HasDatabaseName("veiculo_chassi_key");
+                        .HasDatabaseName("idx_veiculo_chassi");
 
                     b.HasIndex("IdCategoria")
                         .HasDatabaseName("idx_veiculo_categoria");
 
                     b.HasIndex("Placa")
-                        .IsUnique()
-                        .HasDatabaseName("veiculo_placa_key");
+                        .HasDatabaseName("idx_veiculo_placa");
 
                     b.HasIndex("Renavam")
-                        .IsUnique()
-                        .HasDatabaseName("veiculo_renavam_key");
+                        .HasDatabaseName("idx_veiculo_renavam");
 
                     b.HasIndex("Status")
                         .HasDatabaseName("idx_veiculo_status");
@@ -867,11 +1049,21 @@ namespace AutoVia.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdVenda"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<DateOnly>("DataVenda")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("date")
                         .HasColumnName("data_venda")
                         .HasDefaultValueSql("CURRENT_DATE");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
 
                     b.Property<string>("FormaPagamento")
                         .IsRequired()
@@ -904,6 +1096,12 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasDefaultValue("PENDENTE")
                         .HasColumnName("status_documentacao");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<decimal>("ValorVenda")
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)")
@@ -913,12 +1111,10 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasName("venda_pkey");
 
                     b.HasIndex("IdVeiculo")
-                        .IsUnique()
-                        .HasDatabaseName("venda_id_veiculo_key");
+                        .HasDatabaseName("idx_venda_veiculo");
 
                     b.HasIndex("NumeroNotaFiscal")
-                        .IsUnique()
-                        .HasDatabaseName("venda_numero_nota_fiscal_key");
+                        .HasDatabaseName("idx_venda_numero_nota_fiscal");
 
                     b.ToTable("venda", null, t =>
                         {
@@ -939,11 +1135,21 @@ namespace AutoVia.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdVistoria"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<DateTime>("DataHora")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("data_hora")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
 
                     b.Property<int>("IdFuncionario")
                         .HasColumnType("integer")
@@ -972,12 +1178,17 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("tipo");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.HasKey("IdVistoria")
                         .HasName("vistoria_pkey");
 
                     b.HasIndex("IdLocacao", "Tipo")
-                        .IsUnique()
-                        .HasDatabaseName("uq_vistoria_locacao_tipo");
+                        .HasDatabaseName("idx_vistoria_locacao_tipo");
 
                     b.ToTable("vistoria", null, t =>
                         {
@@ -1059,8 +1270,7 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasName("integration_pkey");
 
                     b.HasIndex("Codigo")
-                        .IsUnique()
-                        .HasDatabaseName("integration_codigo_key");
+                        .HasDatabaseName("idx_integration_codigo");
 
                     b.ToTable("integration", null, t =>
                         {
@@ -1091,6 +1301,10 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
+
                     b.Property<int>("IdIntegration")
                         .HasColumnType("integer")
                         .HasColumnName("id_integration");
@@ -1119,8 +1333,7 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasDatabaseName("idx_setting_integration");
 
                     b.HasIndex("IdIntegration", "Chave")
-                        .IsUnique()
-                        .HasDatabaseName("uq_setting_chave");
+                        .HasDatabaseName("idx_setting_chave");
 
                     b.ToTable("integration_setting", (string)null);
                 });
@@ -1166,8 +1379,8 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasConstraintName("fk_locacao_funcionario");
 
                     b.HasOne("AutoVia.Core.Entities.PgSql.Reserva", "Reserva")
-                        .WithOne("Locacao")
-                        .HasForeignKey("AutoVia.Core.Entities.PgSql.Locacao", "IdReserva")
+                        .WithMany("Locacoes")
+                        .HasForeignKey("IdReserva")
                         .OnDelete(DeleteBehavior.NoAction)
                         .HasConstraintName("fk_locacao_reserva");
 
@@ -1308,8 +1521,8 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasConstraintName("fk_venda_funcionario");
 
                     b.HasOne("AutoVia.Core.Entities.PgSql.Veiculo", "Veiculo")
-                        .WithOne("Venda")
-                        .HasForeignKey("AutoVia.Core.Entities.PgSql.Venda", "IdVeiculo")
+                        .WithMany("Vendas")
+                        .HasForeignKey("IdVeiculo")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired()
                         .HasConstraintName("fk_venda_veiculo");
@@ -1390,7 +1603,7 @@ namespace AutoVia.Infrastructure.Migrations
 
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Reserva", b =>
                 {
-                    b.Navigation("Locacao");
+                    b.Navigation("Locacoes");
                 });
 
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Seguro", b =>
@@ -1410,7 +1623,7 @@ namespace AutoVia.Infrastructure.Migrations
 
                     b.Navigation("Sinistros");
 
-                    b.Navigation("Venda");
+                    b.Navigation("Vendas");
                 });
 
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Venda", b =>

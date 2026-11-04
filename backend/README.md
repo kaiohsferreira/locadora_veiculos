@@ -70,7 +70,7 @@ backend/
 │  ├─ Validators/<Modulo>/   um AbstractValidator por VO de entrada
 │  └─ CustomExceptions/      BusinessException (409), NotFoundException (404), IntegrationException (502)
 ├─ AutoVia.Core/             centro da solução, SEM EF Core
-│  ├─ Entities/PgSql/        as 14 entidades de negócio (+ BaseEntities, só para integrações)
+│  ├─ Entities/PgSql/        as 14 entidades de negócio (todas herdam BaseEntities: auditoria e exclusão lógica)
 │  ├─ Enums/                 valores fixos (status, tipo...), gravados como texto
 │  ├─ RepositoriesInterface/ contratos dos repositórios
 │  ├─ ServicesInterface/     contratos dos serviços (+ ILogService)
@@ -123,6 +123,10 @@ Para o Prompt 2 (provedores), o registro fica em `AutoVia.Integrations/Extension
 - **Nenhuma string mágica:** toda mensagem vem de `AutoVia.Helpers/ConstantsMessage*.cs`.
 - **Controller nunca devolve entidade:** devolve sempre um VO de saída.
 - **Leitura com `AsNoTracking()`.** Operação que altera mais de uma tabela roda em transação.
+- **Toda entidade herda `BaseEntities`** (`created_at`, `updated_at`, `disabled_at`). Exceção só com justificativa registrada.
+- **Exclusão é sempre lógica:** `entidade.Disable()` e `SaveChanges`. Nunca `Remove()` nem `DELETE`.
+- **Toda busca do repositório filtra `DisabledAt == null`.** Buscas que incluem desativados só quando o caso pedir, com o sufixo `WithDisableds` no nome (ex.: `FindByIdWithDisabledsAsync`).
+- **Unicidade é regra de código, não do banco.** Placa, chassi, renavam, CPF, CNH, matrícula, nome da categoria, apólice, nota fiscal, "uma locação ativa por reserva" e "uma venda ativa por veículo" são validados no serviço, consultando o repositório (só registros ativos), com mensagem do `ConstantsMessage`. Não crie índice único: com exclusão lógica, um registro desativado e invisível faria o banco recusar o cadastro.
 - **Formato de erro:** ProblemDetails (RFC 7807) em português, montado pelo `ErrorHandlingMiddleware`:
   - `NotFoundException` → 404
   - `BusinessException` → 409

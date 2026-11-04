@@ -1,7 +1,12 @@
-"""Compara o SQL da especificacao (apendices A e B) com o SQL gerado pela migration Inicial.
+"""Compara o SQL da especificacao (apendices A e B) com o SQL gerado pelo EF.
 
-Uso: python -I compare_schema.py <apendice_A.sql> <apendice_B.sql> <01_Inicial.sql>
+Uso: python -I compare_schema.py <apendice_A.sql> <apendice_B.sql> <gerado.sql> [desvios_aprovados.json]
+
+Com o 4o argumento, os desvios aprovados (colunas de auditoria e unique trocado por
+indice comum) sao aplicados a especificacao antes da comparacao, e o relatorio lista
+cada desvio aplicado. Sem ele, a comparacao e literal contra os apendices.
 """
+import json
 import re
 import sys
 
@@ -126,11 +131,38 @@ def compare(label, spec, gen, out):
             out.append(f"DIFERENTE        | {label} | {k}: especificacao={spec[k]} gerado={gen[k]}")
 
 
+def apply_deviations(path, tables, uniques, indexes):
+    """Aplica a especificacao os desvios aprovados e devolve a lista do que foi aplicado."""
+    dev = json.load(open(path, encoding="utf-8"))
+    applied = []
+    audit = dev.get("colunas_auditoria")
+    if audit:
+        targets = sorted(tables) if audit["tabelas"] == "todas" else audit["tabelas"]
+        for t in targets:
+            for cname, c in audit["colunas"].items():
+                if cname not in tables[t]:
+                    tables[t][cname] = (c["tipo"], c["not_null"], c["default"])
+                    applied.append(f"coluna {t}.{cname}")
+    for uname, iname in dev.get("unique_para_indice", {}).items():
+        if uname in uniques:
+            indexes[iname] = uniques.pop(uname)
+            applied.append(f"unique {uname} -> indice {iname}")
+        else:
+            applied.append(f"AVISO: unique {uname} nao existe na especificacao")
+    return applied
+
+
 def main():
     spec_sql = open(sys.argv[1], encoding="utf-8").read() + "\n" + open(sys.argv[2], encoding="utf-8").read()
     gen_sql = open(sys.argv[3], encoding="utf-8-sig").read()
     s_tab, s_chk, s_fk, s_uq, s_idx = parse(spec_sql)
     g_tab, g_chk, g_fk, g_uq, g_idx = parse(gen_sql)
+
+    if len(sys.argv) > 4:
+        applied = apply_deviations(sys.argv[4], s_tab, s_uq, s_idx)
+        print(f"Desvios aprovados aplicados a especificacao: {len(applied)}")
+        for line in applied:
+            print(f"  {line}")
 
     out = []
     compare("tabela", {t: sorted(c) for t, c in s_tab.items()}, {t: sorted(c) for t, c in g_tab.items()}, out)

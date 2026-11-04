@@ -50,6 +50,9 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .HasForeignKey(x => x.IdVeiculo)
                 .HasConstraintName("fk_reserva_veiculo")
                 .OnDelete(DeleteBehavior.NoAction);
+
+            // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
+            builder.ConfigureBaseEntities();
         }
     }
 }

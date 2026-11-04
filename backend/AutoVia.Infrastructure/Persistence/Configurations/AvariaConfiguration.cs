@@ -34,6 +34,9 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .HasForeignKey(x => x.IdVistoria)
                 .HasConstraintName("fk_avaria_vistoria")
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
+            builder.ConfigureBaseEntities();
         }
     }
 }

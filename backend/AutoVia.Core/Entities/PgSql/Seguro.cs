@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace AutoVia.Core.Entities.PgSql
 {
     /// <summary>Tabela seguro: apolice de um veiculo.</summary>
-    public class Seguro
+    public class Seguro : BaseEntities
     {
         [Column("id_seguro")]
         public int IdSeguro { get; set; }
@@ -14,7 +14,7 @@ namespace AutoVia.Core.Entities.PgSql
         [Column("seguradora")]
         public string Seguradora { get; set; } = string.Empty;
 
-        /// <summary>UNIQUE.</summary>
+        /// <summary>Unico entre os seguros ativos: validado no servico, sem indice unico no banco.</summary>
         [Column("numero_apolice")]
         public string NumeroApolice { get; set; } = string.Empty;
 

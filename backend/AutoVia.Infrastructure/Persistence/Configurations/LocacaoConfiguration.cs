@@ -40,15 +40,17 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .HasMaxLength(20)
                 .HasDefaultValue(StatusLocacao.EM_ANDAMENTO);
 
-            builder.HasIndex(x => x.IdReserva).IsUnique().HasDatabaseName("locacao_id_reserva_key");
+            // Uma locacao ativa por reserva: validada no servico, sem indice unico no banco.
+            builder.HasIndex(x => x.IdReserva).HasDatabaseName("idx_locacao_reserva");
             builder.HasIndex(x => x.IdCliente).HasDatabaseName("idx_locacao_cliente");
             builder.HasIndex(x => x.IdVeiculo).HasDatabaseName("idx_locacao_veiculo");
             builder.HasIndex(x => x.Status).HasDatabaseName("idx_locacao_status");
 
-            // 1:1 — uma reserva origina no maximo uma locacao.
+            // 1:N no modelo (com soft delete, uma locacao desativada nao impede outra);
+            // a regra "no maximo uma locacao ativa por reserva" fica no servico.
             builder.HasOne(x => x.Reserva)
-                .WithOne(x => x.Locacao)
-                .HasForeignKey<Locacao>(x => x.IdReserva)
+                .WithMany(x => x.Locacoes)
+                .HasForeignKey(x => x.IdReserva)
                 .IsRequired(false)
                 .HasConstraintName("fk_locacao_reserva")
                 .OnDelete(DeleteBehavior.NoAction);
@@ -70,6 +72,9 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .HasForeignKey(x => x.IdFuncionario)
                 .HasConstraintName("fk_locacao_funcionario")
                 .OnDelete(DeleteBehavior.NoAction);
+
+            // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
+            builder.ConfigureBaseEntities();
         }
     }
 }

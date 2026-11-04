@@ -20,7 +20,10 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
             builder.Property(x => x.Descricao).IsRequired(false).HasMaxLength(200);
             builder.Property(x => x.ValorDiariaBase).IsRequired(true).HasPrecision(10, 2);
 
-            builder.HasIndex(x => x.Nome).IsUnique().HasDatabaseName("categoria_nome_key");
+            builder.HasIndex(x => x.Nome).HasDatabaseName("idx_categoria_nome");
+
+            // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
+            builder.ConfigureBaseEntities();
         }
     }
 }

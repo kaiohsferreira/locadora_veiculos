@@ -53,6 +53,9 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .IsRequired(false)
                 .HasConstraintName("fk_pagamento_venda")
                 .OnDelete(DeleteBehavior.NoAction);
+
+            // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
+            builder.ConfigureBaseEntities();
         }
     }
 }

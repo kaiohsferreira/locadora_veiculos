@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace AutoVia.Core.Entities.PgSql
 {
     /// <summary>Tabela avaria: dano registrado em uma vistoria.</summary>
-    public class Avaria
+    public class Avaria : BaseEntities
     {
         [Column("id_avaria")]
         public int IdAvaria { get; set; }

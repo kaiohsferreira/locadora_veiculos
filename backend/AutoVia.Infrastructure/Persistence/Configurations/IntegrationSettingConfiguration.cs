@@ -18,21 +18,11 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
             builder.Property(x => x.Valor).IsRequired(true).HasColumnType("text");
             builder.Property(x => x.Protegido).IsRequired(true).HasDefaultValue(false);
 
-            // --- BaseEntities ---
-            builder.Property(x => x.CreatedAt)
-                .IsRequired(true)
-                .HasColumnType("timestamp without time zone")
-                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+            // --- BaseEntities (inclui disabled_at: exclusao logica tambem nos settings) ---
+            builder.ConfigureBaseEntities();
 
-            builder.Property(x => x.UpdatedAt)
-                .IsRequired(true)
-                .HasColumnType("timestamp without time zone")
-                .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-            // A tabela integration_setting da especificacao NAO tem disabled_at.
-            builder.Ignore(x => x.DisabledAt);
-
-            builder.HasIndex(x => new { x.IdIntegration, x.Chave }).IsUnique().HasDatabaseName("uq_setting_chave");
+            // Chave unica por integracao entre os settings ativos: validada no codigo, sem indice unico.
+            builder.HasIndex(x => new { x.IdIntegration, x.Chave }).HasDatabaseName("idx_setting_chave");
             builder.HasIndex(x => x.IdIntegration).HasDatabaseName("idx_setting_integration");
 
             // ON DELETE CASCADE da especificacao: o setting pertence a integracao.

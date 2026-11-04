@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace AutoVia.Core.Entities.PgSql
 {
     /// <summary>Tabela veiculo: frota da locadora (para aluguel e para venda).</summary>
-    public class Veiculo
+    public class Veiculo : BaseEntities
     {
         [Column("id_veiculo")]
         public int IdVeiculo { get; set; }
@@ -66,7 +66,10 @@ namespace AutoVia.Core.Entities.PgSql
         public virtual List<Seguro> Seguros { get; set; } = new List<Seguro>();
         public virtual List<Sinistro> Sinistros { get; set; } = new List<Sinistro>();
 
-        /// <summary>Um veiculo e vendido no maximo uma vez (venda.id_veiculo e UNIQUE).</summary>
-        public virtual Venda? Venda { get; set; }
+        /// <summary>
+        /// Vendas do veiculo. Regra de negocio: no maximo UMA venda ativa (DisabledAt nulo)
+        /// por veiculo, validada no servico, sem indice unico no banco.
+        /// </summary>
+        public virtual List<Venda> Vendas { get; set; } = new List<Venda>();
     }
 }

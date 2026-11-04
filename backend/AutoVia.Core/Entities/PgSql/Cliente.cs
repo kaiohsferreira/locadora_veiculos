@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace AutoVia.Core.Entities.PgSql
 {
     /// <summary>Tabela cliente: pessoa que reserva, aluga ou compra.</summary>
-    public class Cliente
+    public class Cliente : BaseEntities
     {
         [Column("id_cliente")]
         public int IdCliente { get; set; }
