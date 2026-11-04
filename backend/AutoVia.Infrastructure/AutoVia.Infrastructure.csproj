@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Acesso a dados: AutoViaDbContext, configuracoes Fluent API (uma por entidade),
+    repositorios, implementacao dos servicos e migrations.
+
+    Referencia Integrations porque o DbContext mapeia as entidades Integration e
+    IntegrationSetting (as duas tabelas entram na migration inicial). A seta e
+    Infrastructure -> Integrations; a biblioteca le o banco por IIntegrationRepository,
+    implementado aqui, entao nao ha ciclo.
+  -->
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.14" />
+    <!-- Fixado explicitamente: o Npgsql 10.0.3 traz o Relational 10.0.4 e o Design traz o 10.0.14. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.14" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AutoVia.Core\AutoVia.Core.csproj" />
+    <ProjectReference Include="..\AutoVia.Communication\AutoVia.Communication.csproj" />
+    <ProjectReference Include="..\AutoVia.Helpers\AutoVia.Helpers.csproj" />
+    <ProjectReference Include="..\AutoVia.Integrations\AutoVia.Integrations.csproj" />
+  </ItemGroup>
+
+</Project>

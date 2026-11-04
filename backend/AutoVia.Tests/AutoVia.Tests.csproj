@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Testes xUnit. Nunca usam o PostgreSQL real: o modelo do EF e inspecionado em
+    memoria (sem abrir conexao) e os repositorios sao substituidos por fakes.
+  -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AutoVia.Api\AutoVia.Api.csproj" />
+    <ProjectReference Include="..\AutoVia.Core\AutoVia.Core.csproj" />
+    <ProjectReference Include="..\AutoVia.Communication\AutoVia.Communication.csproj" />
+    <ProjectReference Include="..\AutoVia.Helpers\AutoVia.Helpers.csproj" />
+    <ProjectReference Include="..\AutoVia.Infrastructure\AutoVia.Infrastructure.csproj" />
+    <ProjectReference Include="..\AutoVia.Integrations\AutoVia.Integrations.csproj" />
+  </ItemGroup>
+
+</Project>

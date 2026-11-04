@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Biblioteca UNICA com todas as integracoes externas (PAGAMENTO, EMAIL,
+    DOCUMENTO, ARMAZENAMENTO, SEGURADORA, MULTAS). Nao crie um projeto por provedor.
+
+    Configuracao dinamica: URL, timeout e credenciais vem das tabelas
+    integration e integration_setting, via IIntegrationResolver. Nada de
+    variavel de ambiente, appsettings ou constante compilada.
+  -->
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="RestSharp" Version="114.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AutoVia.Core\AutoVia.Core.csproj" />
+    <ProjectReference Include="..\AutoVia.Communication\AutoVia.Communication.csproj" />
+    <ProjectReference Include="..\AutoVia.Helpers\AutoVia.Helpers.csproj" />
+  </ItemGroup>
+
+</Project>

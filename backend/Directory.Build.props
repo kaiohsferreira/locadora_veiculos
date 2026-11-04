@@ -1,0 +1,29 @@
+<Project>
+
+  <!--
+    Propriedades aplicadas a TODOS os projetos da solucao AutoVia.
+    O MSBuild importa este arquivo automaticamente antes de cada .csproj,
+    entao nenhum .csproj precisa repetir TargetFramework, Nullable ou ImplicitUsings.
+  -->
+
+  <PropertyGroup>
+    <!--
+      .NET 10 (LTS, suporte ate novembro de 2028). O Prompt 1 da equipe pedia
+      .NET 8, mas o suporte do .NET 8 termina em 10/11/2026, antes da entrega.
+      Todos da equipe precisam do SDK do .NET 10 (ver global.json e README).
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+
+    <!--
+      Auditoria do NuGet LIGADA, reportando da severidade mais baixa para cima.
+      E ela que avisa quando uma dependencia ganha vulnerabilidade conhecida.
+    -->
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+    <NuGetAuditMode>all</NuGetAuditMode>
+  </PropertyGroup>
+
+</Project>

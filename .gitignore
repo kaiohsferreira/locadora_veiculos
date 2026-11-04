@@ -1,0 +1,54 @@
+# =====================================================================
+# AutoVia — backend (.NET) e frontend (Vite/React)
+# =====================================================================
+
+# --- Claude / Tiao: backups locais (nao vao para o git) ---
+.claude/backups/
+
+# --- .NET ---
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/
+*.rsuser
+TestResults/
+*.trx
+*.coverage
+coverage*.xml
+artifacts/
+publish/
+
+# Configuracao local com senha do banco de cada maquina
+**/appsettings.Local.json
+**/appsettings.*.Local.json
+secrets.json
+
+# --- Node / Vite ---
+node_modules/
+dist/
+dist-ssr/
+*.local
+.env
+.env.local
+.env.*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+
+# --- Python (script de conferencia) ---
+__pycache__/
+*.pyc
+
+# --- Sistema operacional / IDEs ---
+.DS_Store
+Thumbs.db
+.idea/
+*.swp

@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-offwhite font-sans text-corpo text-texto antialiased;
+  }
+
+  /* Foco visível e consistente para navegação por teclado. */
+  :focus-visible {
+    outline: 2px solid theme('colors.orange.DEFAULT');
+    outline-offset: 2px;
+  }
+
+  /* Fonte de ícones (Material Symbols, carregada no index.html). */
+  .material-symbols-outlined {
+    font-variation-settings:
+      'FILL' 0,
+      'wght' 400,
+      'GRAD' 0,
+      'opsz' 24;
+  }
+}

@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Constantes, mensagens em portugues e metodos estaticos utilitarios.
+    Projeto folha: nao referencia nenhum outro projeto e nao conhece EF Core.
+  -->
+
+</Project>

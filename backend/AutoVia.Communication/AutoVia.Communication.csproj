@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    View objects (VOs) de entrada e saida, excecoes de negocio, validadores
+    FluentValidation e anotacoes proprias.
+
+    Referencia apenas Helpers (mensagens e validacoes de CPF/placa). O Prompt 1
+    dizia "depende apenas de Core", mas o Core guarda os Profiles do AutoMapper
+    e as interfaces de servico, que usam os VOs. Se Communication dependesse de
+    Core, haveria referencia circular. Por isso a seta e Core -> Communication.
+  -->
+
+  <PropertyGroup>
+    <!-- XML para o Swagger exibir os /// <summary> dos VOs. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="12.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AutoVia.Helpers\AutoVia.Helpers.csproj" />
+  </ItemGroup>
+
+</Project>

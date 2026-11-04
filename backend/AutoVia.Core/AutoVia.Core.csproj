@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Centro da solucao: entidades, enums, interfaces de repositorio, interfaces
+    de servico e Profiles do AutoMapper.
+
+    Regra obrigatoria: NAO referencia EF Core. O mapeamento de tabelas e colunas
+    usa apenas System.ComponentModel.DataAnnotations.Schema ([Column]), que faz
+    parte do proprio .NET. Todo o resto do mapeamento fica na Infrastructure.
+  -->
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="16.2.0" />
+    <PackageReference Include="FluentResults" Version="3.16.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AutoVia.Communication\AutoVia.Communication.csproj" />
+    <ProjectReference Include="..\AutoVia.Helpers\AutoVia.Helpers.csproj" />
+  </ItemGroup>
+
+</Project>
