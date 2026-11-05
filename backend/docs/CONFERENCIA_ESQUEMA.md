@@ -72,6 +72,12 @@ Sem o arquivo de desvios, a comparação literal contra os apêndices mostra exa
 
 A migration `AuditoriaSoftDelete` foi **gerada, não aplicada**. Num banco que já tenha a `Inicial`, ela acrescenta as colunas com DEFAULT (as linhas existentes recebem a data atual) e troca os índices.
 
+## Migrations 04 e 05 e desvio `colunas_acesso` (05/11/2026)
+
+- **Migration `AdicionarSenhaHashAcesso` (04, `sql/04_AdicionarSenhaHashAcesso.sql`):** acrescenta `senha_hash VARCHAR(255) NULL` em `cliente` e `funcionario`, guardando somente o hash. O desvio está no bloco `colunas_acesso` de `desvios_aprovados.json` (decisão D1, aprovada pelo Kaio) e o script o aplica como faz com as colunas de auditoria.
+- **Migration `AjustarIntegracoesProvedores` (05, `sql/05_AjustarIntegracoesProvedores.sql`):** migration só de dados, sem mudança de esquema. Acrescenta `provedor`, `access_token` (`DEFINIR_NO_BANCO`) e `pix_expiracao_segundos` em `integration_setting`, por isso ela não aparece na conferência.
+- **Resultado atual** (com `colunas_acesso`): `Desvios aprovados aplicados a especificacao: 60`, `Colunas: especificacao=193 gerado=193`, `Diferencas: 0`. Sem esse bloco, o script mostra 2 diferenças (`senha_hash` em `cliente` e `funcionario`).
+
 ## Diferenças de forma, que não mudam o esquema
 
 Estes pontos não aparecem como diferença porque são equivalentes. Vale registrar mesmo assim, para ninguém se surpreender ao abrir o banco:

@@ -2,9 +2,9 @@
 
 Uso: python -I compare_schema.py <apendice_A.sql> <apendice_B.sql> <gerado.sql> [desvios_aprovados.json]
 
-Com o 4o argumento, os desvios aprovados (colunas de auditoria e unique trocado por
-indice comum) sao aplicados a especificacao antes da comparacao, e o relatorio lista
-cada desvio aplicado. Sem ele, a comparacao e literal contra os apendices.
+Com o 4o argumento, os desvios aprovados (colunas de auditoria, colunas de acesso e
+unique trocado por indice comum) sao aplicados a especificacao antes da comparacao, e o
+relatorio lista cada desvio aplicado. Sem ele, a comparacao e literal contra os apendices.
 """
 import json
 import re
@@ -131,6 +131,14 @@ def compare(label, spec, gen, out):
             out.append(f"DIFERENTE        | {label} | {k}: especificacao={spec[k]} gerado={gen[k]}")
 
 
+def parse_definicao_coluna(definicao):
+    """Converte 'VARCHAR(255) NULL' (ou 'NOT NULL') no formato (tipo, not_null, default) do parse."""
+    m = re.match(r"^(.+?)\s+(NOT\s+NULL|NULL)\s*$", definicao.strip(), re.I)
+    if not m:
+        raise ValueError(f"definicao de coluna de acesso invalida: {definicao!r}")
+    return (norm_type(m.group(1)), m.group(2).upper().startswith("NOT"), None)
+
+
 def apply_deviations(path, tables, uniques, indexes):
     """Aplica a especificacao os desvios aprovados e devolve a lista do que foi aplicado."""
     dev = json.load(open(path, encoding="utf-8"))
@@ -143,6 +151,16 @@ def apply_deviations(path, tables, uniques, indexes):
                 if cname not in tables[t]:
                     tables[t][cname] = (c["tipo"], c["not_null"], c["default"])
                     applied.append(f"coluna {t}.{cname}")
+    acesso = dev.get("colunas_acesso")
+    if acesso:
+        for t, colunas in acesso["colunas"].items():
+            if t not in tables:
+                applied.append(f"AVISO: tabela {t} nao existe na especificacao (colunas_acesso)")
+                continue
+            for cname, definicao in colunas.items():
+                if cname not in tables[t]:
+                    tables[t][cname] = parse_definicao_coluna(definicao)
+                    applied.append(f"coluna {t}.{cname} (colunas_acesso)")
     for uname, iname in dev.get("unique_para_indice", {}).items():
         if uname in uniques:
             indexes[iname] = uniques.pop(uname)
