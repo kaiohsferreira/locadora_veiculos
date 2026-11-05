@@ -4,6 +4,7 @@ using AutoVia.Helpers;
 using AutoVia.Integrations.Helpers;
 using AutoVia.Tests.Fakes;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Net.Http.Headers;
 using System.Text.Json;
 
 namespace AutoVia.Tests.Api
@@ -58,6 +59,24 @@ namespace AutoVia.Tests.Api
 
             Assert.Equal(502, status);
             Assert.Contains(ConstantsIntegration.Pagamento, body.GetProperty("detail").GetString());
+        }
+
+        [Fact]
+        public async Task UnauthorizedException_Vira401ComWwwAuthenticateBearer()
+        {
+            DefaultHttpContext context = new DefaultHttpContext();
+            context.Request.Path = "/api/auth/login";
+            context.Response.Body = new MemoryStream();
+            ErrorHandlingMiddleware middleware = new ErrorHandlingMiddleware(_ => throw new UnauthorizedException(ConstantsMessage.ErroCredenciaisInvalidas), new FakeLogService());
+
+            await middleware.InvokeAsync(context);
+
+            Assert.Equal(401, context.Response.StatusCode);
+            Assert.Equal(ConstantsValues.TipoTokenBearer, context.Response.Headers[HeaderNames.WWWAuthenticate].ToString());
+            context.Response.Body.Position = 0;
+            JsonDocument document = await JsonDocument.ParseAsync(context.Response.Body);
+            Assert.Equal(ConstantsMessage.TituloNaoAutenticado, document.RootElement.GetProperty("title").GetString());
+            Assert.Equal(ConstantsMessage.ErroCredenciaisInvalidas, document.RootElement.GetProperty("detail").GetString());
         }
 
         [Fact]

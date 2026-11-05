@@ -1,6 +1,7 @@
 using AutoVia.Communication.ViewObjects.Utils;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AutoVia.Api.Controllers
@@ -12,6 +13,7 @@ namespace AutoVia.Api.Controllers
     [ApiController]
     [Route("api/health")]
     [Produces("application/json")]
+    [AllowAnonymous]
     public class HealthController : ControllerBase
     {
         private readonly ILogService _logService;

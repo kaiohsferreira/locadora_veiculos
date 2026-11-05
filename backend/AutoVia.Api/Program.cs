@@ -19,12 +19,17 @@ builder.Services.AddRepositories();
 builder.Services.AddServices();
 builder.Services.AddMapping();
 builder.Services.AddIntegrations();
+builder.Services.AddAuthenticationJwt(builder.Configuration);
+builder.Services.AddRateLimitingPublico(builder.Configuration);
 builder.Services.AddSwaggerDocumentation();
 builder.Services.AddCorsPolicy(builder.Configuration);
 
 WebApplication app = builder.Build();
 
-// Primeiro do pipeline: qualquer excecao abaixo vira ProblemDetails.
+// Primeiro do pipeline: le o IP real do cliente (X-Forwarded-For do proxy) para o limite de requisicoes.
+app.UseForwardedHeaders();
+
+// Qualquer excecao abaixo vira ProblemDetails.
 app.UseMiddleware<ErrorHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -35,7 +40,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors(ConstantsValues.PoliticaCors);
 
-// Autenticacao (JWT, perfis cliente/funcionario) entra na tarefa P2-BE-01.
+// Limite das rotas publicas (login e cadastro de cliente), antes da autenticacao.
+app.UseRateLimiter();
+
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

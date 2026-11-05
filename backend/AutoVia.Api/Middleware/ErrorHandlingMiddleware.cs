@@ -1,21 +1,22 @@
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
-using System.Diagnostics;
+using System;
+using System.Threading.Tasks;
 
 namespace AutoVia.Api.Middleware
 {
     /// <summary>
     /// Tratamento global de erros. Converte qualquer excecao em ProblemDetails
     /// (RFC 7807) com mensagem em portugues, e nunca devolve stack trace nem
-    /// mensagem tecnica ao cliente.
+    /// mensagem tecnica ao cliente. A escrita do corpo fica no ProblemDetailsWriter.
     ///
     /// NotFoundException -> 404 | BusinessException -> 409 |
-    /// ValidationException -> 400 | violacao de restricao do banco -> 409 |
-    /// IntegrationException -> 502 | qualquer outra -> 500.
+    /// ValidationException -> 400 | UnauthorizedException -> 401 (com WWW-Authenticate: Bearer) |
+    /// violacao de restricao do banco -> 409 | IntegrationException -> 502 | qualquer outra -> 500.
     /// </summary>
     public class ErrorHandlingMiddleware
     {
@@ -57,6 +58,7 @@ namespace AutoVia.Api.Middleware
             int status;
             string title;
             string detail;
+            string? cabecalhoAutenticacao = null;
 
             switch (exception)
             {
@@ -70,6 +72,14 @@ namespace AutoVia.Api.Middleware
                     status = StatusCodes.Status409Conflict;
                     title = ConstantsMessage.TituloConflito;
                     detail = business.Message;
+                    break;
+
+                case UnauthorizedException unauthorized:
+                    // Login recusado: a mensagem ja e generica, por isso nao e registrada como erro.
+                    status = StatusCodes.Status401Unauthorized;
+                    title = ConstantsMessage.TituloNaoAutenticado;
+                    detail = unauthorized.Message;
+                    cabecalhoAutenticacao = ConstantsValues.TipoTokenBearer;
                     break;
 
                 case FluentValidation.ValidationException validation:
@@ -103,20 +113,7 @@ namespace AutoVia.Api.Middleware
                     break;
             }
 
-            ProblemDetails problem = new ProblemDetails
-            {
-                Type = $"https://httpstatuses.io/{status}",
-                Title = title,
-                Status = status,
-                Detail = detail,
-                Instance = context.Request.Path
-            };
-
-            problem.Extensions["traceId"] = Activity.Current?.Id ?? context.TraceIdentifier;
-
-            context.Response.Clear();
-            context.Response.StatusCode = status;
-            await context.Response.WriteAsJsonAsync(problem, (System.Text.Json.JsonSerializerOptions?)null, "application/problem+json");
+            await ProblemDetailsWriter.WriteAsync(context, status, title, detail, cabecalhoAutenticacao);
         }
 
         private static bool IsConstraintViolation(DbUpdateException exception)

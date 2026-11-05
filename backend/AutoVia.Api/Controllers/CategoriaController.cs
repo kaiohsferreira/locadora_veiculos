@@ -3,6 +3,7 @@ using AutoVia.Communication.ViewObjects.Frota;
 using AutoVia.Communication.ViewObjects.Utils;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AutoVia.Api.Controllers
@@ -30,6 +31,7 @@ namespace AutoVia.Api.Controllers
         /// GetAll - Lista as categorias ativas, paginadas e ordenadas por nome.
         /// </summary>
         [HttpGet]
+        [AllowAnonymous]
         [ProducesResponseType(typeof(PaginaVO<ReturnCategoriaVO>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> GetAll([FromQuery] FiltroPaginacaoVO filtro)
@@ -59,6 +61,7 @@ namespace AutoVia.Api.Controllers
         /// GetById - Consulta uma categoria ativa pelo id. Desativada conta como inexistente (404).
         /// </summary>
         [HttpGet("{id:int}")]
+        [AllowAnonymous]
         [ProducesResponseType(typeof(ReturnCategoriaVO), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetById(int id)
@@ -88,6 +91,7 @@ namespace AutoVia.Api.Controllers
         /// Insert - Cadastra uma nova categoria. Devolve 201 com o header Location apontando para a consulta.
         /// </summary>
         [HttpPost]
+        [Authorize(Policy = ConstantsValues.PoliticaFuncionario)]
         [ProducesResponseType(typeof(ReturnCategoriaVO), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
@@ -118,6 +122,7 @@ namespace AutoVia.Api.Controllers
         /// Update - Altera os dados de uma categoria ativa. Devolve 204 sem corpo.
         /// </summary>
         [HttpPut("{id:int}")]
+        [Authorize(Policy = ConstantsValues.PoliticaFuncionario)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]

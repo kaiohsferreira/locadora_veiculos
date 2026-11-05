@@ -1,3 +1,5 @@
+using AutoVia.Helpers;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi;
 using System.Reflection;
 
@@ -20,6 +22,21 @@ namespace AutoVia.Api.Extensions
                     Title = "AutoVia API",
                     Version = "v1",
                     Description = "API da plataforma AutoVia: locação e venda de veículos da frota. Erros no formato ProblemDetails (RFC 7807)."
+                });
+
+                // Esquema Bearer: o botao Authorize do Swagger aceita o token de POST /api/auth/login.
+                options.AddSecurityDefinition(ConstantsValues.TipoTokenBearer, new OpenApiSecurityScheme
+                {
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "Token JWT obtido em POST /api/auth/login. Formato: Bearer {token}."
+                });
+
+                options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+                {
+                    [new OpenApiSecuritySchemeReference(ConstantsValues.TipoTokenBearer, document)] = new List<string>()
                 });
 
                 // XML da Api (controllers) e do Communication (VOs).
