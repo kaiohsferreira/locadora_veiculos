@@ -3,6 +3,8 @@ using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Frota;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Helpers;
+using System;
+using System.Threading.Tasks;
 
 namespace AutoVia.Infrastructure.Services
 {
@@ -173,7 +175,7 @@ namespace AutoVia.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                _logService.Write(ex, ConstantsMessage.ErroSalvarVeiculo, GetType().ToString());
+                _logService.Write(ex, ConstantsMessage.ErroBuscarVeiculo, GetType().ToString());
                 throw;
             }
         }

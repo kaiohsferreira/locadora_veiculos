@@ -1,4 +1,7 @@
 using AutoVia.Core.Entities.PgSql;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace AutoVia.Tests.Fakes
 {
@@ -14,6 +17,15 @@ namespace AutoVia.Tests.Fakes
 
         /// <summary>Quando nao for null, FindByIdAsync lanca esta excecao (simula falha inesperada do banco).</summary>
         public Exception? ExcecaoAoBuscarPorId { get; set; }
+
+        /// <summary>Quando nao for null, ExistsByPlacaAsync, ExistsByChassiAsync e ExistsByRenavamAsync lancam esta excecao (falha na leitura).</summary>
+        public Exception? ExcecaoAoVerificarDuplicidade { get; set; }
+
+        /// <summary>Quando nao for null, InsertAsync e UpdateAsync lancam esta excecao (falha na gravacao).</summary>
+        public Exception? ExcecaoNaGravacao { get; set; }
+
+        /// <summary>Ultima entidade recebida por InsertAsync (a mesma referencia), para conferir a navegacao Categoria.</summary>
+        public Veiculo? UltimoVeiculoInserido { get; private set; }
 
         /// <summary>Busca um veiculo ativo pelo id; devolve copia (como AsNoTracking) ou null.</summary>
         public Task<Veiculo?> FindByIdAsync(int idVeiculo)
@@ -61,6 +73,13 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Grava um novo veiculo com id gerado, CreatedAt = UpdatedAt = mesmo DateTime.Now e DisabledAt nulo.</summary>
         public Task<Veiculo> InsertAsync(Veiculo veiculo)
         {
+            if (ExcecaoNaGravacao != null)
+            {
+                throw ExcecaoNaGravacao;
+            }
+
+            UltimoVeiculoInserido = veiculo;
+
             DateTime agora = DateTime.Now;
 
             veiculo.IdVeiculo = _proximoId;
@@ -77,6 +96,11 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Atualiza os campos do cadastro do veiculo ativo; Status, CreatedAt e DisabledAt ficam. False se nao achar.</summary>
         public Task<bool> UpdateAsync(Veiculo veiculo)
         {
+            if (ExcecaoNaGravacao != null)
+            {
+                throw ExcecaoNaGravacao;
+            }
+
             if (ForcarUpdateFalse)
             {
                 return Task.FromResult(false);
@@ -110,6 +134,11 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Procura um veiculo ativo, diferente do id ignorado, com o mesmo valor (Trim e sem diferenciar maiusculas).</summary>
         private bool ExisteAtivoComValor(Func<Veiculo, string> campo, string valor, int? idVeiculoIgnorado)
         {
+            if (ExcecaoAoVerificarDuplicidade != null)
+            {
+                throw ExcecaoAoVerificarDuplicidade;
+            }
+
             string valorComparacao = valor.Trim().ToUpper();
 
             bool existe = _veiculos.Any(x =>

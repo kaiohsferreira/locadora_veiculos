@@ -1,7 +1,10 @@
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.ViewObjects.Frota;
 using AutoVia.Helpers;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Threading.Tasks;
 
 namespace AutoVia.Api.Controllers
 {

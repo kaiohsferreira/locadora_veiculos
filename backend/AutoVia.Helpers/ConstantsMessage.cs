@@ -4,9 +4,8 @@ namespace AutoVia.Helpers
     /// Mensagens gerais da API, em portugues.
     ///
     /// Regra do projeto: nenhuma mensagem de erro ou de sucesso e escrita como
-    /// string literal no codigo. Toda mensagem nova entra aqui (ou na classe de
-    /// mensagens do modulo, ex.: ConstantsMessageVeiculo) e e referenciada pela
-    /// constante.
+    /// string literal no codigo. Toda mensagem nova entra aqui (ou no arquivo parcial
+    /// do modulo, ex.: ConstantsMessage.Veiculo.cs) e e referenciada pela constante.
     ///
     /// Mensagens com {0}, {1} sao formatadas com string.Format.
     /// </summary>

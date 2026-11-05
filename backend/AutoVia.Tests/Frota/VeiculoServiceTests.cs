@@ -481,6 +481,112 @@ namespace AutoVia.Tests.Frota
             Assert.True(registrou);
         }
 
+        [Fact]
+        public async Task UpdateComRenavamDeOutroVeiculoAtivo_LancaRenavamDuplicado()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
+            FakeCategoriaRepository categorias = new FakeCategoriaRepository();
+            Categoria suv = CriarCategoria(categorias, "SUV");
+            CriarVeiculo(veiculos, suv, "ABC1D23", "9BWZZZ377VT004251", "12345678901");
+            Veiculo outro = CriarVeiculo(veiculos, suv, "XYZ9A87", "1HGCM82633A004352", "11111111111");
+            VeiculoService servico = CriarServico(veiculos, categorias, new FakeLogService());
+            VeiculoVO vo = CriarVOValido(suv.IdCategoria);
+            vo.Placa = "KLM2B34";
+            vo.Chassi = "2HGCM82633A004352";
+            vo.Renavam = "12345678901";
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => servico.UpdateAsync(outro.IdVeiculo, vo));
+
+            Assert.Equal(ConstantsMessage.ErroVeiculoRenavamDuplicado, excecao.Message);
+        }
+
+        [Fact]
+        public async Task UpdateComCategoriaDesativada_LancaNaoEncontradaDaCategoria()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
+            FakeCategoriaRepository categorias = new FakeCategoriaRepository();
+            Categoria suv = CriarCategoria(categorias, "SUV");
+            Categoria desativada = new Categoria { Nome = "Antiga", ValorDiariaBase = 90m };
+            desativada.Disable();
+            categorias.Adicionar(desativada);
+            Veiculo veiculo = CriarVeiculo(veiculos, suv, "ABC1D23", "9BWZZZ377VT004251", "12345678901");
+            VeiculoService servico = CriarServico(veiculos, categorias, new FakeLogService());
+            VeiculoVO vo = CriarVOValido(desativada.IdCategoria);
+
+            NotFoundException excecao = await Assert.ThrowsAsync<NotFoundException>(() => servico.UpdateAsync(veiculo.IdVeiculo, vo));
+
+            Assert.Equal(ConstantsMessage.ErroCategoriaNaoEncontrada, excecao.Message);
+        }
+
+        [Fact]
+        public async Task InsertGravaCreatedAtIgualAoUpdatedAt()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
+            FakeCategoriaRepository categorias = new FakeCategoriaRepository();
+            Categoria suv = CriarCategoria(categorias, "SUV");
+            VeiculoService servico = CriarServico(veiculos, categorias, new FakeLogService());
+            VeiculoVO vo = CriarVOValido(suv.IdCategoria);
+
+            ReturnVeiculoVO retorno = await servico.InsertAsync(vo);
+            Veiculo? gravado = await veiculos.FindByIdAsync(retorno.IdVeiculo);
+
+            Assert.NotNull(gravado);
+            Assert.Equal(gravado.CreatedAt, gravado.UpdatedAt);
+        }
+
+        [Fact]
+        public async Task InsertPassaAoRepositorioEntidadeSemNavegacaoDeCategoria()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
+            FakeCategoriaRepository categorias = new FakeCategoriaRepository();
+            Categoria suv = CriarCategoria(categorias, "SUV");
+            VeiculoService servico = CriarServico(veiculos, categorias, new FakeLogService());
+            VeiculoVO vo = CriarVOValido(suv.IdCategoria);
+
+            await servico.InsertAsync(vo);
+
+            Assert.NotNull(veiculos.UltimoVeiculoInserido);
+            Assert.Null(veiculos.UltimoVeiculoInserido.Categoria);
+        }
+
+        [Fact]
+        public async Task FalhaInesperadaNaGravacaoDoInsert_RelancaMesmaExcecaoERegistraLog()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
+            FakeCategoriaRepository categorias = new FakeCategoriaRepository();
+            Categoria suv = CriarCategoria(categorias, "SUV");
+            InvalidOperationException excecaoSimulada = new InvalidOperationException("falha simulada");
+            veiculos.ExcecaoNaGravacao = excecaoSimulada;
+            FakeLogService log = new FakeLogService();
+            VeiculoService servico = CriarServico(veiculos, categorias, log);
+            VeiculoVO vo = CriarVOValido(suv.IdCategoria);
+
+            InvalidOperationException excecao = await Assert.ThrowsAsync<InvalidOperationException>(() => servico.InsertAsync(vo));
+
+            Assert.Same(excecaoSimulada, excecao);
+            bool registrou = log.Entries.Any(entrada => entrada.Contains(ConstantsMessage.ErroSalvarVeiculo));
+            Assert.True(registrou);
+        }
+
+        [Fact]
+        public async Task FalhaNaLeituraDeDuplicidade_RelancaMesmaExcecaoERegistraErroDeBusca()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
+            FakeCategoriaRepository categorias = new FakeCategoriaRepository();
+            Categoria suv = CriarCategoria(categorias, "SUV");
+            InvalidOperationException excecaoSimulada = new InvalidOperationException("falha simulada");
+            veiculos.ExcecaoAoVerificarDuplicidade = excecaoSimulada;
+            FakeLogService log = new FakeLogService();
+            VeiculoService servico = CriarServico(veiculos, categorias, log);
+            VeiculoVO vo = CriarVOValido(suv.IdCategoria);
+
+            InvalidOperationException excecao = await Assert.ThrowsAsync<InvalidOperationException>(() => servico.InsertAsync(vo));
+
+            Assert.Same(excecaoSimulada, excecao);
+            bool registrouBusca = log.Entries.Any(entrada => entrada.Contains(ConstantsMessage.ErroBuscarVeiculo));
+            Assert.True(registrouBusca);
+        }
+
         private static VeiculoService CriarServico(FakeVeiculoRepository veiculos, FakeCategoriaRepository categorias, FakeLogService log)
         {
             MapperConfiguration configuracao = new MapperConfiguration(cfg =>

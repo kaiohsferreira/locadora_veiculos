@@ -1,4 +1,5 @@
 using AutoVia.Communication.ViewObjects.Frota;
+using System.Threading.Tasks;
 
 namespace AutoVia.Core.ServicesInterface
 {

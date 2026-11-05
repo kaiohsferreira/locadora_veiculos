@@ -1,5 +1,6 @@
 using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -13,9 +14,17 @@ namespace AutoVia.Tests.Fakes
     /// </summary>
     public partial class FakeVeiculoRepository
     {
+        /// <summary>Quando nao for null, FindAllAsync e CountAsync lancam esta excecao (falha inesperada na listagem).</summary>
+        public Exception? ExcecaoAoListar { get; set; }
+
         /// <summary>Lista os veiculos ativos que atendem aos filtros, ordenados por placa e id, na pagina pedida.</summary>
         public Task<List<Veiculo>> FindAllAsync(int? idCategoria, StatusVeiculo? status, string? placa, int deslocamento, int quantidade)
         {
+            if (ExcecaoAoListar != null)
+            {
+                throw ExcecaoAoListar;
+            }
+
             List<Veiculo> veiculos = FiltrarVeiculos(idCategoria, status, placa)
                 .OrderBy(x => x.Placa)
                 .ThenBy(x => x.IdVeiculo)
@@ -30,6 +39,11 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Conta os veiculos ativos que atendem aos mesmos filtros de FindAllAsync.</summary>
         public Task<int> CountAsync(int? idCategoria, StatusVeiculo? status, string? placa)
         {
+            if (ExcecaoAoListar != null)
+            {
+                throw ExcecaoAoListar;
+            }
+
             int total = FiltrarVeiculos(idCategoria, status, placa).Count();
 
             return Task.FromResult(total);

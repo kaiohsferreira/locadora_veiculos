@@ -4,6 +4,7 @@ using AutoVia.Communication.ViewObjects.Frota;
 using AutoVia.Communication.ViewObjects.Utils;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Profiles;
+using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
 using AutoVia.Tests.Fakes;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -205,6 +206,38 @@ namespace AutoVia.Tests.Frota
             Assert.Equal(new List<string> { "AAA1A11", "BBB2B22" }, PlacasDe(pagina));
         }
 
+        [Fact]
+        public async Task VeiculoDeCategoriaDesativada_ContinuaAparecendoNaListagem()
+        {
+            FakeVeiculoRepository repositorio = new FakeVeiculoRepository();
+            Categoria antiga = new Categoria { IdCategoria = 1, Nome = "Antiga", ValorDiariaBase = 90m };
+            antiga.Disable();
+            repositorio.Adicionar(CriarVeiculo(antiga, "AAA1A11", StatusVeiculo.DISPONIVEL));
+            VeiculoService servico = CriarServico(repositorio);
+
+            PaginaVO<ReturnVeiculoVO> pagina = await servico.GetAllAsync(new FiltroVeiculoVO());
+
+            Assert.Equal(1, pagina.Total);
+            Assert.Equal(new List<string> { "AAA1A11" }, PlacasDe(pagina));
+            Assert.Equal("Antiga", pagina.Itens[0].CategoriaNome);
+        }
+
+        [Fact]
+        public async Task FalhaInesperadaNaListagem_RelancaMesmaExcecaoERegistraErroDeListagem()
+        {
+            FakeVeiculoRepository repositorio = new FakeVeiculoRepository();
+            InvalidOperationException excecaoSimulada = new InvalidOperationException("falha simulada");
+            repositorio.ExcecaoAoListar = excecaoSimulada;
+            FakeLogService log = new FakeLogService();
+            VeiculoService servico = CriarServico(repositorio, log);
+
+            InvalidOperationException excecao = await Assert.ThrowsAsync<InvalidOperationException>(() => servico.GetAllAsync(new FiltroVeiculoVO()));
+
+            Assert.Same(excecaoSimulada, excecao);
+            bool registrou = log.Entries.Any(entrada => entrada.Contains(ConstantsMessage.ErroListarVeiculos));
+            Assert.True(registrou);
+        }
+
         private static List<string> PlacasDe(PaginaVO<ReturnVeiculoVO> pagina)
         {
             List<string> placas = pagina.Itens.Select(x => x.Placa).ToList();
@@ -233,11 +266,11 @@ namespace AutoVia.Tests.Frota
             return veiculo;
         }
 
-        private static VeiculoService CriarServico(FakeVeiculoRepository repositorio)
+        private static VeiculoService CriarServico(FakeVeiculoRepository repositorio, FakeLogService? log = null)
         {
             MapperConfiguration configuracao = new MapperConfiguration(cfg => cfg.AddProfile<VeiculoProfile>(), NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
-            VeiculoService servico = new VeiculoService(repositorio, new FakeCategoriaRepository(), mapper, new FakeLogService());
+            VeiculoService servico = new VeiculoService(repositorio, new FakeCategoriaRepository(), mapper, log ?? new FakeLogService());
 
             return servico;
         }
