@@ -1,0 +1,25 @@
+# Mantem fora do contexto de build tudo que nao entra na imagem.
+# Sem isso o Docker envia bin/ e obj/ de sete projetos para o Railway, o que
+# alem de deixar o upload lento pode misturar binarios de Debug compilados no
+# Windows com o publish feito dentro do container Linux.
+
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/.idea/
+
+# Testes nao vao para a imagem de producao.
+AutoVia.Tests/
+
+# Documentacao e scripts de apoio nao sao necessarios em tempo de build.
+docs/
+tools/
+README.md
+
+# Configuracao local nunca sobe: as credenciais do Railway vivem em variaveis
+# de ambiente do servico, nunca em arquivo dentro da imagem.
+**/appsettings.Local.json
+
+Dockerfile
+.dockerignore
