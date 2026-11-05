@@ -20,4 +20,9 @@
     <ProjectReference Include="..\AutoVia.Helpers\AutoVia.Helpers.csproj" />
   </ItemGroup>
 
+  <!-- Testes unitarios acessam o construtor interno do ComunicacaoService (handler falso). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="AutoVia.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -40,6 +40,25 @@ namespace AutoVia.Integrations.Services
             _client = new RestClient(options);
         }
 
+        /// <summary>
+        /// Construtor para testes: o HttpMessageHandler substitui a rede real, para que o
+        /// retry, o timeout e o cabecalho de idempotencia sejam testados sem chamar provedor.
+        /// Producao usa o construtor publico acima.
+        /// </summary>
+        internal ComunicacaoService(ILogService logService, HttpMessageHandler handler)
+        {
+            _logService = logService;
+
+            RestClientOptions options = new RestClientOptions
+            {
+                ThrowOnAnyError = false,
+                ThrowOnDeserializationError = false,
+                ConfigureMessageHandler = (HttpMessageHandler innerHandler) => handler
+            };
+
+            _client = new RestClient(options);
+        }
+
         public async Task<RequestResponse<T>> SendAsync<T>(RequestInfo request, CancellationToken cancellationToken = default)
         {
             RequestResponse<T> response = new RequestResponse<T>();
@@ -64,7 +83,9 @@ namespace AutoVia.Integrations.Services
                     RestRequest restRequest = BuildRestRequest(url, request);
                     RestResponse restResponse = await _client.ExecuteAsync(restRequest, cancellationToken);
 
-                    bool isNetworkFailure = restResponse.ResponseStatus != ResponseStatus.Completed;
+                    // RestSharp 114 marca ResponseStatus.Error para qualquer nao-2xx; por isso a falha
+                    // de rede e detectada pela ausencia de resposta HTTP (StatusCode 0).
+                    bool isNetworkFailure = (int)restResponse.StatusCode == 0;
                     bool isServerError = (int)restResponse.StatusCode >= 500;
 
                     if ((isNetworkFailure || isServerError) && attempt < maxAttempts)
@@ -215,7 +236,8 @@ namespace AutoVia.Integrations.Services
                 Attempts = attempts,
                 ElapsedMilliseconds = elapsedMilliseconds,
                 IsTimeout = restResponse.ResponseStatus == ResponseStatus.TimedOut,
-                IsNetworkFailure = restResponse.ResponseStatus != ResponseStatus.Completed
+                // Sem resposta HTTP (StatusCode 0) e falha de rede; ver comentario no loop de SendAsync.
+                IsNetworkFailure = (int)restResponse.StatusCode == 0
             };
 
             if (restResponse.Headers != null)

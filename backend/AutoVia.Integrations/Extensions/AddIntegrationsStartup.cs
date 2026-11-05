@@ -26,6 +26,7 @@ namespace AutoVia.Integrations.Extensions
             // --- Provedores (Prompt 2) ---
             // services.AddScoped<IPagamentoRequest, PagamentoRequest>();
             // services.AddScoped<IPagamentoService, PagamentoService>();
+            services.AddPixIntegration();
 
             return services;
         }
