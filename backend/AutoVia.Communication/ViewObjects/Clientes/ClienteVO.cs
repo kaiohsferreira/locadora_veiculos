@@ -27,8 +27,8 @@ namespace AutoVia.Communication.ViewObjects.Clientes
         /// <summary>Numero da CNH: 11 digitos apos remover mascara.</summary>
         public string CnhNumero { get; set; } = string.Empty;
 
-        /// <summary>Categoria da CNH (A, B, AB, C, D ou E).</summary>
-        public CategoriaCnh CnhCategoria { get; set; }
+        /// <summary>Categoria da CNH (A, B, AB, C, D ou E). Anulavel no VO para que o campo omitido seja recusado (400) em vez de virar A, o zero do enum.</summary>
+        public CategoriaCnh? CnhCategoria { get; set; }
 
         /// <summary>Validade da CNH: deve ser hoje ou uma data futura.</summary>
         public DateOnly CnhValidade { get; set; }

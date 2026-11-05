@@ -24,6 +24,8 @@ namespace AutoVia.Helpers
         public const int TamanhoMaximoSenhaLogin = 128;
         public const int TamanhoCpf = 11;
         public const int TamanhoMinimoSenhaAdminInicial = 12;
+        public const int TamanhoMaximoNomeAdminInicial = 120;
+        public const int TamanhoMaximoMatriculaAdminInicial = 20;
 
         // --- Limite de requisicoes das rotas publicas ---
         public const string PoliticaLimitePublico = "AutoViaPublico";
@@ -32,6 +34,8 @@ namespace AutoVia.Helpers
 
         // --- Hash de senha (formato v1.PBKDF2-SHA256.{iteracoes}.{salt}.{hash}) ---
         public const int HashIteracoesPbkdf2 = 600000;
+        /// <summary>Teto de iteracoes aceito na verificacao (2x o padrao). Hash com mais iteracoes e recusado sem derivar a chave (protege a API de um hash forjado no banco).</summary>
+        public const int HashIteracoesMaximasVerificacao = HashIteracoesPbkdf2 * 2;
         public const int HashTamanhoSalt = 16;
         public const int HashTamanhoChave = 32;
         public const string HashVersao = "v1";

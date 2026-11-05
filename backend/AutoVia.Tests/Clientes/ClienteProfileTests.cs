@@ -5,17 +5,38 @@ using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Profiles;
 using AutoVia.Helpers;
 using Microsoft.Extensions.Logging.Abstractions;
+using System;
 using System.Reflection;
+using System.Text.Json;
 
 namespace AutoVia.Tests.Clientes
 {
     /// <summary>
     /// Testes do ClienteProfile: formatacao de CPF, datas e data de cadastro no retorno,
-    /// entrada sem campos do servidor (id, status, hash, auditoria e navegacoes) e a
-    /// garantia por reflexao de que o retorno nao expoe nenhuma senha.
+    /// data de cadastro sem fuso no JSON, entrada sem campos do servidor (id, status, hash,
+    /// auditoria e navegacoes) e a garantia por reflexao de que o retorno nao expoe nenhuma senha.
     /// </summary>
     public class ClienteProfileTests
     {
+        private const string PadraoIsoSemFuso = @"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$";
+
+        [Fact]
+        public void DataDeCadastroSaiSemFusoNoJson()
+        {
+            IMapper mapper = CriarMapper();
+            Cliente cliente = CriarCliente();
+            cliente.DataCadastro = DateTime.Now;
+
+            ReturnClienteVO retorno = mapper.Map<ReturnClienteVO>(cliente);
+
+            Assert.Equal(DateTimeKind.Unspecified, retorno.DataCadastro.Kind);
+            Assert.Equal(cliente.DataCadastro.Ticks, retorno.DataCadastro.Ticks);
+            JsonSerializerOptions opcoes = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+            using JsonDocument documento = JsonDocument.Parse(JsonSerializer.Serialize(retorno, opcoes));
+            string dataJson = documento.RootElement.GetProperty("dataCadastro").GetString()!;
+            Assert.Matches(PadraoIsoSemFuso, dataJson);
+        }
+
         [Fact]
         public void MapeiaClienteParaRetornoComCpfEDatasFormatados()
         {

@@ -11,9 +11,9 @@ namespace AutoVia.Infrastructure.Services
 {
     /// <summary>
     /// Cria o administrador inicial a partir da configuracao. Idempotente: se ja existe
-    /// funcionario ativo com o CPF configurado, nao faz nada. Sem CPF configurado, nao
-    /// faz nada. Configuracao invalida lanca excecao (so o log recebe a mensagem); a
-    /// senha nunca e registrada.
+    /// funcionario com o CPF configurado, ativo ou desativado, nao faz nada (uma conta
+    /// desativada nao e recriada). Sem CPF configurado, nao faz nada. Configuracao invalida
+    /// lanca excecao (so o log recebe a mensagem e a subida da API segue); a senha nunca e registrada.
     /// </summary>
     public class AdminInicialService : IAdminInicialService
     {
@@ -48,7 +48,7 @@ namespace AutoVia.Infrastructure.Services
 
                 string cpf = StaticMethods.OnlyDigits(_options.Cpf);
 
-                bool existe = await _autenticacaoRepository.ExistsFuncionarioByCpfAsync(cpf);
+                bool existe = await _autenticacaoRepository.ExistsFuncionarioByCpfWithDisabledsAsync(cpf);
 
                 if (existe)
                 {
@@ -79,15 +79,17 @@ namespace AutoVia.Infrastructure.Services
             }
         }
 
-        /// <summary>Confere a configuracao do administrador: CPF valido, nome, matricula e senha com o minimo de caracteres.</summary>
+        /// <summary>Confere a configuracao do administrador: CPF valido, nome e matricula informados e dentro do tamanho da coluna, e senha com o minimo de caracteres.</summary>
         private void ValidarOpcoes()
         {
             bool cpfValido = StaticMethods.IsCpfValido(_options.Cpf);
             bool nomeInformado = !string.IsNullOrWhiteSpace(_options.Nome);
+            bool nomeCabe = nomeInformado && _options.Nome.Trim().Length <= ConstantsValues.TamanhoMaximoNomeAdminInicial;
             bool matriculaInformada = !string.IsNullOrWhiteSpace(_options.Matricula);
+            bool matriculaCabe = matriculaInformada && _options.Matricula.Trim().Length <= ConstantsValues.TamanhoMaximoMatriculaAdminInicial;
             bool senhaValida = !string.IsNullOrEmpty(_options.Senha) && _options.Senha.Length >= ConstantsValues.TamanhoMinimoSenhaAdminInicial;
 
-            if (!cpfValido || !nomeInformado || !matriculaInformada || !senhaValida)
+            if (!cpfValido || !nomeCabe || !matriculaCabe || !senhaValida)
             {
                 throw new InvalidOperationException(ConstantsMessage.ErroCriarAdminInicial);
             }

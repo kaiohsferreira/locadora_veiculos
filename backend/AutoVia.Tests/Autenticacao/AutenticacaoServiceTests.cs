@@ -8,6 +8,7 @@ using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
 using AutoVia.Tests.Fakes;
 using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace AutoVia.Tests.Autenticacao
 {
@@ -23,6 +24,7 @@ namespace AutoVia.Tests.Autenticacao
         private const string SenhaCliente = "SenhaCliente#2026";
         private const string CpfFuncionario = "11144477735";
         private const string SenhaFuncionario = "SenhaFunc#2026";
+        private const string PadraoIsoSemFuso = @"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$";
 
         private static readonly string ChaveDeTeste = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
 
@@ -70,6 +72,23 @@ namespace AutoVia.Tests.Autenticacao
             Assert.Equal(StatusCadastroCliente.PENDENTE, retorno.StatusCadastro);
             Assert.Null(retorno.Cargo);
             Assert.False(string.IsNullOrWhiteSpace(retorno.ExpiraEmStr));
+        }
+
+        [Fact]
+        public async Task Login_ExpiraEmSaiSemFusoNoJson()
+        {
+            FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
+            repositorio.AdicionarCliente(new Cliente { Nome = "Maria Cliente", Cpf = CpfCliente, SenhaHash = GerarHash(SenhaCliente), StatusCadastro = StatusCadastroCliente.PENDENTE });
+            FakeLogService log = new FakeLogService();
+            AutenticacaoService servico = CriarServico(repositorio, new SenhaHasher(log), log);
+
+            ReturnLoginVO retorno = await servico.LoginAsync(Login(PerfilUsuario.CLIENTE, CpfCliente, SenhaCliente));
+
+            Assert.Equal(DateTimeKind.Unspecified, retorno.ExpiraEm.Kind);
+            JsonSerializerOptions opcoes = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+            using JsonDocument documento = JsonDocument.Parse(JsonSerializer.Serialize(retorno, opcoes));
+            string expiraEmJson = documento.RootElement.GetProperty("expiraEm").GetString()!;
+            Assert.Matches(PadraoIsoSemFuso, expiraEmJson);
         }
 
         [Fact]

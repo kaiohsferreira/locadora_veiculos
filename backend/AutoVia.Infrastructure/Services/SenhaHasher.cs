@@ -76,6 +76,12 @@ namespace AutoVia.Infrastructure.Services
                     return false;
                 }
 
+                // Teto: um hash com custo acima de 2x o padrao e recusado antes de qualquer derivacao.
+                if (iteracoes > ConstantsValues.HashIteracoesMaximasVerificacao)
+                {
+                    return false;
+                }
+
                 byte[]? salt = DecodificarBase64(partes[3]);
                 byte[]? hashEsperado = DecodificarBase64(partes[4]);
 

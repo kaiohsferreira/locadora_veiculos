@@ -136,14 +136,14 @@ namespace AutoVia.Infrastructure.Services
             return _senhaHasher.Verify(senha, senhaHash);
         }
 
-        /// <summary>Monta o retorno do login a partir do token; a data formatada sai de StaticMethods.</summary>
+        /// <summary>Monta o retorno do login a partir do token; a data formatada sai de StaticMethods. ExpiraEm sai sem fuso (Kind Unspecified), como o contrato pede.</summary>
         private static ReturnLoginVO MontarRetorno(TokenGeradoVO token, PerfilUsuario perfil, int idUsuario, string nome)
         {
             ReturnLoginVO retorno = new ReturnLoginVO
             {
                 Token = token.Token,
                 TipoToken = ConstantsValues.TipoTokenBearer,
-                ExpiraEm = token.ExpiraEm,
+                ExpiraEm = DateTime.SpecifyKind(token.ExpiraEm, DateTimeKind.Unspecified),
                 ExpiraEmStr = StaticMethods.FormateDateTimeToPTBR(token.ExpiraEm),
                 Perfil = perfil,
                 IdUsuario = idUsuario,

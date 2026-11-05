@@ -266,6 +266,18 @@ namespace AutoVia.Tests.Clientes
         }
 
         [Fact]
+        public void CnhCategoriaAusente_FalhaComMensagemCategoria()
+        {
+            ClienteVO vo = CriarVOValido();
+            vo.CnhCategoria = null;
+
+            ValidationResult resultado = new ClienteVOValidator().Validate(vo);
+
+            Assert.False(resultado.IsValid);
+            Assert.Contains(ConstantsMessage.ErroClienteCnhCategoriaInvalida, ObterMensagens(resultado));
+        }
+
+        [Fact]
         public void CnhValidadeNaoInformada_FalhaComMensagemObrigatoria()
         {
             ClienteVO vo = CriarVOValido();

@@ -23,6 +23,7 @@ namespace AutoVia.Helpers
         // --- CORS ---
         public const string PoliticaCors = "AutoViaFrontend";
         public const string OrigemFrontendLocal = "http://localhost:5173";
+        public const string PrefixoCabecalhoCors = "Access-Control-";
 
         // --- Categoria ---
         public const int TamanhoMaximoNomeCategoria = 50;

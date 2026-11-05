@@ -130,6 +130,16 @@ namespace AutoVia.Infrastructure.Services
 
                 // 4. Mapeamento e regras do cadastro: sempre PENDENTE, senha so como hash.
                 Cliente cliente = _mapper.Map<Cliente>(clienteVO);
+
+                // A categoria chega validada pelo ClienteVOValidator (presente e definida). Sem valor, nunca grava A por padrao.
+                CategoriaCnh? categoriaCnh = clienteVO.CnhCategoria;
+
+                if (!categoriaCnh.HasValue)
+                {
+                    throw new InvalidOperationException(ConstantsMessage.ErroSalvarCliente);
+                }
+
+                cliente.CnhCategoria = categoriaCnh.Value;
                 cliente.StatusCadastro = StatusCadastroCliente.PENDENTE;
                 cliente.SenhaHash = _senhaHasher.Hash(clienteVO.Senha);
 

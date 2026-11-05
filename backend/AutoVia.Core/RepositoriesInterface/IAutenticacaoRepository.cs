@@ -17,6 +17,9 @@ namespace AutoVia.Core.RepositoriesInterface
         /// <summary>Indica se existe funcionario ativo com o CPF informado.</summary>
         Task<bool> ExistsFuncionarioByCpfAsync(string cpf);
 
+        /// <summary>Indica se existe funcionario com o CPF informado, ativo ou desativado (busca sem o filtro de DisabledAt). Usada pelo administrador inicial para nao recriar uma conta desativada.</summary>
+        Task<bool> ExistsFuncionarioByCpfWithDisabledsAsync(string cpf);
+
         /// <summary>Grava um novo funcionario com datas de auditoria e DisabledAt nulo; devolve a entidade gravada.</summary>
         Task<Funcionario> InsertFuncionarioAsync(Funcionario funcionario);
     }

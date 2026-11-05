@@ -90,6 +90,16 @@ namespace AutoVia.Tests.Fakes
             return Task.FromResult(existe);
         }
 
+        /// <summary>Indica se existe funcionario com o CPF, ativo ou desativado (sem o filtro de DisabledAt).</summary>
+        public Task<bool> ExistsFuncionarioByCpfWithDisabledsAsync(string cpf)
+        {
+            LancarSeConfigurado();
+
+            bool existe = _funcionarios.Any(x => x.Cpf == cpf);
+
+            return Task.FromResult(existe);
+        }
+
         /// <summary>Grava o funcionario com id gerado, datas de auditoria e DisabledAt nulo.</summary>
         public Task<Funcionario> InsertFuncionarioAsync(Funcionario funcionario)
         {

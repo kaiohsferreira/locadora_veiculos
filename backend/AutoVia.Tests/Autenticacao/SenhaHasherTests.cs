@@ -1,6 +1,8 @@
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
 using AutoVia.Tests.Fakes;
+using System.Globalization;
+using System.Security.Cryptography;
 
 namespace AutoVia.Tests.Autenticacao
 {
@@ -87,6 +89,26 @@ namespace AutoVia.Tests.Autenticacao
             SenhaHasher hasher = new SenhaHasher(new FakeLogService());
 
             bool confere = hasher.Verify(SenhaDeTeste, null!);
+
+            Assert.False(confere);
+        }
+
+        [Fact]
+        public void Verify_IteracoesAcimaDoTeto_DevolveFalsoMesmoComASenhaCorreta()
+        {
+            SenhaHasher hasher = new SenhaHasher(new FakeLogService());
+            byte[] salt = RandomNumberGenerator.GetBytes(ConstantsValues.HashTamanhoSalt);
+            int iteracoesAcimaDoTeto = ConstantsValues.HashIteracoesMaximasVerificacao + 1;
+            byte[] chave = Rfc2898DeriveBytes.Pbkdf2(SenhaDeTeste, salt, iteracoesAcimaDoTeto, HashAlgorithmName.SHA256, ConstantsValues.HashTamanhoChave);
+            string hashAcimaDoTeto = string.Join(
+                ".",
+                ConstantsValues.HashVersao,
+                ConstantsValues.HashAlgoritmo,
+                iteracoesAcimaDoTeto.ToString(CultureInfo.InvariantCulture),
+                Convert.ToBase64String(salt),
+                Convert.ToBase64String(chave));
+
+            bool confere = hasher.Verify(SenhaDeTeste, hashAcimaDoTeto);
 
             Assert.False(confere);
         }

@@ -81,6 +81,24 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
+        /// <summary>Indica se existe funcionario com o CPF, ativo ou desativado. Sem rastreamento; nao filtra DisabledAt de proposito.</summary>
+        public async Task<bool> ExistsFuncionarioByCpfWithDisabledsAsync(string cpf)
+        {
+            try
+            {
+                bool existe = await _db.Funcionarios
+                    .AsNoTracking()
+                    .AnyAsync(x => x.Cpf == cpf);
+
+                return existe;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarUsuarioAcesso, GetType().ToString());
+                throw;
+            }
+        }
+
         /// <summary>Grava um novo funcionario com datas de auditoria (DateTime.Now) e DisabledAt nulo.</summary>
         public async Task<Funcionario> InsertFuncionarioAsync(Funcionario funcionario)
         {

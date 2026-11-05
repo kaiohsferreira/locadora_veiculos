@@ -1,3 +1,4 @@
+using AutoVia.Api.Controllers;
 using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Options;
@@ -9,13 +10,16 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Net.Http.Headers;
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -24,11 +28,14 @@ using System.Text.Json;
 namespace AutoVia.Tests.Api
 {
     /// <summary>
-    /// Testes de ponta a ponta da autenticacao com o servidor em memoria (WebApplicationFactory
-    /// sobre Program). Usa configuracao em memoria (chave JWT gerada no teste, conexao fictícia)
-    /// e troca o repositorio de login por um fake: nenhum PostgreSQL e acessado.
+    /// Testes de ponta a ponta da autenticacao e do cadastro do cliente com o servidor em
+    /// memoria (WebApplicationFactory sobre Program). Usa configuracao em memoria (chave JWT
+    /// gerada no teste, conexao ficticia, origem do frontend liberada) e troca os repositorios
+    /// de login e de cliente por fakes: nenhum PostgreSQL e acessado.
     /// Cobre 401 sem token, 403 por perfil, 200 com token valido, token expirado ou de outra
-    /// chave, fallback, login e ida e volta do NameIdentifier, e o limite de requisicoes (429).
+    /// chave, fallback, login, o limite de requisicoes (429), a rota real de clientes
+    /// (GET com token de cliente e de funcionario, POST anonimo com 201, CPF repetido com 409),
+    /// o cabecalho de CORS nas respostas de erro e a politica de limite do POST por reflexao.
     /// </summary>
     public class AutenticacaoHttpTests : IClassFixture<AutenticacaoWebFactory>
     {
@@ -43,7 +50,18 @@ namespace AutoVia.Tests.Api
         private const string RotaSemAtributo = "/api/teste-autorizacao/sem-atributo";
         private const string RotaIdentidade = "/api/teste-autorizacao/identidade";
         private const string RotaLogin = "/api/auth/login";
+        private const string RotaClientes = "/api/clientes";
         private const string MediaProblema = "application/problem+json";
+        private const string OrigemFrontend = ConstantsValues.OrigemFrontendLocal;
+        private const string CpfNovoCliente = "39053344705";
+        private const string CnhNovoCliente = "20000000001";
+        private const string CpfDuplicado = "16899535009";
+        private const string CnhDuplicado = "30000000001";
+        private const string CpfNovoLimite1 = "86288366757";
+        private const string CnhNovoLimite1 = "20000000002";
+        private const string CpfNovoLimite2 = "12345678909";
+        private const string CnhNovoLimite2 = "20000000003";
+        private const string SenhaClienteNovo = "Senha1234Http";
 
         private readonly AutenticacaoWebFactory _fabrica;
         private readonly HttpClient _cliente;
@@ -92,6 +110,22 @@ namespace AutoVia.Tests.Api
             return requisicao;
         }
 
+        private static HttpRequestMessage RequisicaoComCorpo(string rota, object corpo)
+        {
+            HttpRequestMessage requisicao = new HttpRequestMessage(HttpMethod.Post, rota);
+            requisicao.Content = CorpoJson(corpo);
+
+            return requisicao;
+        }
+
+        /// <summary>Marca a requisicao com a origem do frontend, para o CORS responder com Access-Control-Allow-Origin.</summary>
+        private static HttpRequestMessage ComOrigem(HttpRequestMessage requisicao)
+        {
+            requisicao.Headers.Add(HeaderNames.Origin, OrigemFrontend);
+
+            return requisicao;
+        }
+
         private static StringContent CorpoJson(object corpo)
         {
             return new StringContent(JsonSerializer.Serialize(corpo), Encoding.UTF8, "application/json");
@@ -103,6 +137,36 @@ namespace AutoVia.Tests.Api
             using JsonDocument documento = JsonDocument.Parse(texto);
 
             return documento.RootElement.Clone();
+        }
+
+        /// <summary>Todos os valores de um cabecalho da resposta (vazio se o cabecalho nao veio).</summary>
+        private static List<string> ValoresDoCabecalho(HttpResponseMessage resposta, string nome)
+        {
+            List<string> valores = new List<string>();
+
+            if (resposta.Headers.TryGetValues(nome, out IEnumerable<string>? encontrados) && encontrados != null)
+            {
+                valores.AddRange(encontrados);
+            }
+
+            return valores;
+        }
+
+        /// <summary>Corpo do cliente valido para o cadastro publico, com o CPF e a CNH informados.</summary>
+        private static object CorpoClienteValido(string cpf, string cnh)
+        {
+            return new
+            {
+                nome = "Maria Teste Http",
+                cpf,
+                dataNascimento = new DateOnly(1990, 5, 20),
+                email = "maria.http@exemplo.com",
+                telefone = "11987654321",
+                cnhNumero = cnh,
+                cnhCategoria = "B",
+                cnhValidade = DateOnly.FromDateTime(DateTime.Now).AddYears(3),
+                senha = SenhaClienteNovo
+            };
         }
 
         [Fact]
@@ -283,12 +347,120 @@ namespace AutoVia.Tests.Api
             JsonElement corpo = await LerJsonAsync(ultima);
             Assert.Equal(ConstantsMessage.ErroLimiteRequisicoes, corpo.GetProperty("detail").GetString());
         }
+
+        [Fact]
+        public async Task GetClientes_TokenDeCliente_Devolve403ProblemComCors()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(ComOrigem(Requisicao(HttpMethod.Get, RotaClientes, TokenDeCliente())));
+
+            Assert.Equal(HttpStatusCode.Forbidden, resposta.StatusCode);
+            Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(ConstantsMessage.TituloAcessoNegado, corpo.GetProperty("title").GetString());
+            Assert.Contains(OrigemFrontend, ValoresDoCabecalho(resposta, HeaderNames.AccessControlAllowOrigin));
+        }
+
+        [Fact]
+        public async Task GetClientes_TokenDeFuncionario_Devolve200ComPagina()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaClientes, TokenDeFuncionario()));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(JsonValueKind.Array, corpo.GetProperty("itens").ValueKind);
+            Assert.Equal(JsonValueKind.Number, corpo.GetProperty("total").ValueKind);
+        }
+
+        [Fact]
+        public async Task GetClientes_SemToken_Devolve401ComCorsEWwwAuthenticate()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(ComOrigem(Requisicao(HttpMethod.Get, RotaClientes, null)));
+
+            Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
+            Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
+            Assert.Contains(resposta.Headers.WwwAuthenticate, cabecalho => cabecalho.Scheme == ConstantsValues.TipoTokenBearer);
+            Assert.Contains(OrigemFrontend, ValoresDoCabecalho(resposta, HeaderNames.AccessControlAllowOrigin));
+            Assert.Contains(HeaderNames.Location, ValoresDoCabecalho(resposta, HeaderNames.AccessControlExposeHeaders));
+        }
+
+        [Fact]
+        public async Task PostClientes_Anonimo_Devolve201PendenteComLocation()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(RequisicaoComCorpo(RotaClientes, CorpoClienteValido(CpfNovoCliente, CnhNovoCliente)));
+
+            Assert.Equal(HttpStatusCode.Created, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal("PENDENTE", corpo.GetProperty("statusCadastro").GetString());
+            Assert.False(corpo.TryGetProperty("senha", out _));
+            Assert.False(corpo.TryGetProperty("senhaHash", out _));
+            int idCliente = corpo.GetProperty("idCliente").GetInt32();
+            Uri? location = resposta.Headers.Location;
+            Assert.NotNull(location);
+            Assert.Equal(RotaClientes + "/" + idCliente.ToString(CultureInfo.InvariantCulture), location.AbsolutePath);
+        }
+
+        [Fact]
+        public async Task PostClientes_CpfDeClienteAtivo_Devolve409ComCors()
+        {
+            _fabrica.RepositorioClientes.Adicionar(new Cliente
+            {
+                Nome = "Cliente ja cadastrado",
+                Cpf = CpfDuplicado,
+                DataNascimento = new DateOnly(1980, 1, 1),
+                Email = "ja.cadastrado@exemplo.com",
+                Telefone = "11911112222",
+                CnhNumero = CnhDuplicado,
+                CnhCategoria = CategoriaCnh.B,
+                CnhValidade = new DateOnly(2031, 1, 1),
+                StatusCadastro = StatusCadastroCliente.APROVADO
+            });
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(ComOrigem(RequisicaoComCorpo(RotaClientes, CorpoClienteValido(CpfDuplicado, CnhNovoCliente))));
+
+            Assert.Equal(HttpStatusCode.Conflict, resposta.StatusCode);
+            Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(ConstantsMessage.ErroClienteCpfDuplicado, corpo.GetProperty("detail").GetString());
+            Assert.Contains(OrigemFrontend, ValoresDoCabecalho(resposta, HeaderNames.AccessControlAllowOrigin));
+        }
+
+        [Fact]
+        public async Task PostClientes_AcimaDoLimitePorIp_Devolve429ComCors()
+        {
+            using AutenticacaoWebFactoryLimitado fabricaLimitada = new AutenticacaoWebFactoryLimitado();
+            HttpClient cliente = fabricaLimitada.CreateClient();
+
+            HttpResponseMessage primeira = await cliente.SendAsync(RequisicaoComCorpo(RotaClientes, CorpoClienteValido(CpfNovoLimite1, CnhNovoLimite1)));
+            HttpResponseMessage segunda = await cliente.SendAsync(RequisicaoComCorpo(RotaClientes, CorpoClienteValido(CpfNovoLimite2, CnhNovoLimite2)));
+            HttpResponseMessage terceira = await cliente.SendAsync(ComOrigem(RequisicaoComCorpo(RotaClientes, CorpoClienteValido(CpfNovoLimite2, CnhNovoLimite2))));
+
+            Assert.Equal(HttpStatusCode.Created, primeira.StatusCode);
+            Assert.Equal(HttpStatusCode.Created, segunda.StatusCode);
+            Assert.Equal(HttpStatusCode.TooManyRequests, terceira.StatusCode);
+            Assert.Equal(MediaProblema, terceira.Content.Headers.ContentType?.MediaType);
+            JsonElement corpo = await LerJsonAsync(terceira);
+            Assert.Equal(ConstantsMessage.ErroLimiteRequisicoes, corpo.GetProperty("detail").GetString());
+            Assert.Contains(OrigemFrontend, ValoresDoCabecalho(terceira, HeaderNames.AccessControlAllowOrigin));
+        }
+
+        [Fact]
+        public void Insert_DeClienteTemRateLimitingComAPoliticaPublica()
+        {
+            MethodInfo? metodo = typeof(ClienteController).GetMethod(nameof(ClienteController.Insert), BindingFlags.Public | BindingFlags.Instance);
+
+            Assert.NotNull(metodo);
+            EnableRateLimitingAttribute? limite = metodo.GetCustomAttribute<EnableRateLimitingAttribute>();
+
+            Assert.NotNull(limite);
+            Assert.Equal(ConstantsValues.PoliticaLimitePublico, limite.PolicyName);
+        }
     }
 
     /// <summary>
     /// Servidor de teste: configuracao em memoria (chave JWT gerada no teste, limite
-    /// configuravel), repositorio de login trocado pelo fake com as contas de teste e o
-    /// controller de sondagem que expoe rotas com cada tipo de autorizacao.
+    /// configuravel, origem do frontend liberada), repositorios de login e de cliente
+    /// trocados pelos fakes com as contas de teste e o controller de sondagem que expoe
+    /// rotas com cada tipo de autorizacao.
     /// </summary>
     public class AutenticacaoWebFactory : WebApplicationFactory<Program>
     {
@@ -324,6 +496,9 @@ namespace AutoVia.Tests.Api
         /// <summary>Repositorio de login em memoria usado pelo servidor de teste.</summary>
         public FakeAutenticacaoRepository Repositorio { get; }
 
+        /// <summary>Repositorio de clientes em memoria usado pelo servidor de teste (POST e GET de /api/clientes).</summary>
+        public FakeClienteRepository RepositorioClientes { get; } = new FakeClienteRepository();
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseEnvironment("Testing");
@@ -337,6 +512,7 @@ namespace AutoVia.Tests.Api
                     { "Jwt:ExpiracaoMinutos", "120" },
                     { "Jwt:Chave", ChaveJwt },
                     { "Autenticacao:LimitePublicoPorMinuto", _limitePublico.ToString(CultureInfo.InvariantCulture) },
+                    { "Cors:Origens:0", ConstantsValues.OrigemFrontendLocal },
                     { "ConnectionStrings:AutoViaConnection", "Host=localhost;Port=1;Database=teste_sem_banco;Username=teste;Password=teste" }
                 };
 
@@ -347,6 +523,8 @@ namespace AutoVia.Tests.Api
             {
                 services.RemoveAll<IAutenticacaoRepository>();
                 services.AddSingleton<IAutenticacaoRepository>(Repositorio);
+                services.RemoveAll<IClienteRepository>();
+                services.AddSingleton<IClienteRepository>(RepositorioClientes);
                 services.AddControllers().AddApplicationPart(typeof(ProbeAutorizacaoController).Assembly);
             });
         }

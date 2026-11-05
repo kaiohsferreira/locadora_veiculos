@@ -1,6 +1,8 @@
+using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Clientes;
 using AutoVia.Helpers;
 using FluentValidation;
+using System;
 
 namespace AutoVia.Communication.Validators.Clientes
 {
@@ -62,7 +64,7 @@ namespace AutoVia.Communication.Validators.Clientes
                 .WithMessage(string.Format(ConstantsMessage.ErroClienteCnhNumeroInvalido, ConstantsValues.TamanhoCnhNumero));
 
             RuleFor(x => x.CnhCategoria)
-                .IsInEnum()
+                .Must(categoria => categoria.HasValue && Enum.IsDefined<CategoriaCnh>(categoria.Value))
                 .WithMessage(ConstantsMessage.ErroClienteCnhCategoriaInvalida);
 
             RuleFor(x => x.CnhValidade)

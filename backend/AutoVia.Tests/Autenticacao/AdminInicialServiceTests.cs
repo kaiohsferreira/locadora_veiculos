@@ -145,5 +145,54 @@ namespace AutoVia.Tests.Autenticacao
             Assert.Contains(log.Entries, entrada => entrada.Contains(ConstantsMessage.ErroCriarAdminInicial));
             Assert.DoesNotContain(log.Entries, entrada => entrada.Contains(SenhaAdmin));
         }
+
+        [Fact]
+        public async Task AdministradorDesativadoComOMesmoCpf_NaoEhRecriado()
+        {
+            FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
+            Funcionario desativado = new Funcionario { Nome = "Administrador antigo", Cpf = CpfAdminDigitos, Matricula = "ADM-ANTIGO", Cargo = CargoFuncionario.ADMINISTRATIVO, Ativo = false, SenhaHash = null };
+            desativado.Disable();
+            repositorio.AdicionarFuncionario(desativado);
+            FakeLogService log = new FakeLogService();
+            AdminInicialService servico = CriarServico(repositorio, OpcoesValidas(), log);
+
+            bool criou = await servico.GarantirAdminInicialAsync();
+
+            Assert.False(criou);
+            Funcionario unico = Assert.Single(repositorio.Funcionarios);
+            Assert.NotNull(unico.DisabledAt);
+        }
+
+        [Fact]
+        public async Task NomeAcimaDoTamanhoDaColuna_LancaExcecaoSemGravar()
+        {
+            FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
+            FakeLogService log = new FakeLogService();
+            AdminInicialOptions opcoes = OpcoesValidas();
+            opcoes.Nome = new string('A', ConstantsValues.TamanhoMaximoNomeAdminInicial + 1);
+            AdminInicialService servico = CriarServico(repositorio, opcoes, log);
+
+            InvalidOperationException excecao = await Assert.ThrowsAsync<InvalidOperationException>(() => servico.GarantirAdminInicialAsync());
+
+            Assert.Equal(ConstantsMessage.ErroCriarAdminInicial, excecao.Message);
+            Assert.Empty(repositorio.Funcionarios);
+            Assert.Contains(log.Entries, entrada => entrada.Contains(ConstantsMessage.ErroCriarAdminInicial));
+        }
+
+        [Fact]
+        public async Task MatriculaAcimaDoTamanhoDaColuna_LancaExcecaoSemGravar()
+        {
+            FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
+            FakeLogService log = new FakeLogService();
+            AdminInicialOptions opcoes = OpcoesValidas();
+            opcoes.Matricula = new string('M', ConstantsValues.TamanhoMaximoMatriculaAdminInicial + 1);
+            AdminInicialService servico = CriarServico(repositorio, opcoes, log);
+
+            InvalidOperationException excecao = await Assert.ThrowsAsync<InvalidOperationException>(() => servico.GarantirAdminInicialAsync());
+
+            Assert.Equal(ConstantsMessage.ErroCriarAdminInicial, excecao.Message);
+            Assert.Empty(repositorio.Funcionarios);
+            Assert.Contains(log.Entries, entrada => entrada.Contains(ConstantsMessage.ErroCriarAdminInicial));
+        }
     }
 }

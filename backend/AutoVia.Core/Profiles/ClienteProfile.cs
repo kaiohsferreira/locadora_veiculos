@@ -2,6 +2,7 @@ using AutoMapper;
 using AutoVia.Communication.ViewObjects.Clientes;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Helpers;
+using System;
 
 namespace AutoVia.Core.Profiles
 {
@@ -29,7 +30,9 @@ namespace AutoVia.Core.Profiles
                 .ForMember(dest => dest.Vendas, opt => opt.Ignore());
 
             // Entidade -> VO de retorno, com os campos formatados. Nao ha senha no retorno.
+            // DataCadastro sai sem fuso (Kind Unspecified): o contrato pede ISO 8601 sem offset.
             CreateMap<Cliente, ReturnClienteVO>()
+                .ForMember(dest => dest.DataCadastro, opt => opt.MapFrom(src => DateTime.SpecifyKind(src.DataCadastro, DateTimeKind.Unspecified)))
                 .ForMember(dest => dest.CpfStr, opt => opt.MapFrom(src => StaticMethods.FormateCpf(src.Cpf)))
                 .ForMember(dest => dest.DataNascimentoStr, opt => opt.MapFrom(src => StaticMethods.FormateDateToPTBR(src.DataNascimento)))
                 .ForMember(dest => dest.CnhValidadeStr, opt => opt.MapFrom(src => StaticMethods.FormateDateToPTBR(src.CnhValidade)))
