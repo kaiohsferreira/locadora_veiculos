@@ -399,6 +399,26 @@ namespace AutoVia.Tests.Integrations.Documento
             Assert.Equal<DateOnly?>(new DateOnly(2031, 5, 20), resultado.Validade);
         }
 
+        /// <summary>Confianca do provedor fora de 0..1 e limitada antes da media (Math.Clamp), sem virar regra.</summary>
+        [Theory]
+        [InlineData(1.5, 1.0, false)]
+        [InlineData(-0.2, 0.0, true)]
+        public async Task LerCnhAsync_ConfiancaForaDeZeroAUm_ELimitadaAntesDaMedia(double valorBruto, double esperado, bool requerConferencia)
+        {
+            decimal confianca = (decimal)valorBruto;
+            FakeLogService log = new FakeLogService();
+            ProvedorRoteirizado provedor = new ProvedorRoteirizado(ProvedorRoteiro, CriarBruto(confianca), null);
+            DocumentoOcrGateway gateway = CriarGateway(CriarRepositorio(ValoresRoteiro()), log, provedor);
+
+            CnhLeituraResultado resultado = await gateway.LerCnhAsync(ImagemValida());
+
+            Assert.Equal((decimal)esperado, resultado.ConfiancaNumero);
+            Assert.Equal((decimal)esperado, resultado.ConfiancaCategoria);
+            Assert.Equal((decimal)esperado, resultado.ConfiancaValidade);
+            Assert.Equal((decimal)esperado, resultado.ConfiancaGeral);
+            Assert.Equal(requerConferencia, resultado.RequerConferenciaManual);
+        }
+
         [Fact]
         public async Task LerCnhAsync_ConfiancaIgualAoMinimo_NaoExigeConferencia()
         {

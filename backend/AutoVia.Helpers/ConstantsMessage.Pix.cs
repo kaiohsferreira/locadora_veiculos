@@ -23,6 +23,7 @@ namespace AutoVia.Helpers
         // --- Resposta do provedor ---
         public const string ErroPixCobrancaRecusada = "A cobrança PIX foi recusada pelo provedor: {0}";
         public const string ErroPixCobrancaNaoEncontrada = "A cobrança PIX não foi encontrada no provedor.";
+        public const string ErroPixCobrancaNaoAguardaPagamento = "A cobrança PIX não está aguardando pagamento e não pode ser marcada como paga.";
         public const string ErroPixCancelarCobrancaPaga = "Não é possível cancelar uma cobrança PIX que já foi paga.";
         public const string ErroPixCredenciaisRecusadas = "O provedor de pagamento recusou as credenciais configuradas.";
         public const string ErroPixLimiteRequisicoes = "O provedor de pagamento recebeu muitas requisições. Tente novamente em instantes.";
@@ -33,5 +34,8 @@ namespace AutoVia.Helpers
         public const string ErroPixCriarCobranca = "Não foi possível criar a cobrança PIX.";
         public const string ErroPixConsultarCobranca = "Não foi possível consultar a cobrança PIX.";
         public const string ErroPixCancelarCobranca = "Não foi possível cancelar a cobrança PIX.";
+
+        // --- Registro tecnico (log, nunca devolvido ao usuario). Campos: integracao, provedor, HTTP, status do provedor, identificador. ---
+        public const string LogPixRespostaInesperada = "Resposta inesperada do provedor PIX: integração {0}, provedor {1}, HTTP {2}, status do provedor {3}, identificador {4}.";
     }
 }

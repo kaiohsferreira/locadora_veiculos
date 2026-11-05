@@ -24,6 +24,10 @@ namespace AutoVia.Integrations.Requests.Pix
             requisicao.AllowRetry = true;
             requisicao.Body = MontarCorpoCriacao(solicitacao, expiracaoSegundos, agora);
 
+            // E-mail e CPF do pagador nunca podem aparecer em log nem em motivo de recusa devolvido ao chamador.
+            AdicionarSeInformado(requisicao.SensitiveValues, solicitacao.Pagador.Email);
+            AdicionarSeInformado(requisicao.SensitiveValues, solicitacao.Pagador.Documento);
+
             return requisicao;
         }
 
@@ -74,6 +78,14 @@ namespace AutoVia.Integrations.Requests.Pix
             }
 
             return valoresSensiveis;
+        }
+
+        private static void AdicionarSeInformado(List<string> valoresSensiveis, string? valor)
+        {
+            if (!string.IsNullOrWhiteSpace(valor) && !valoresSensiveis.Contains(valor))
+            {
+                valoresSensiveis.Add(valor);
+            }
         }
 
         private static MercadoPagoCriarPagamentoRequest MontarCorpoCriacao(PixCobrancaSolicitacao solicitacao, int expiracaoSegundos, DateTime agora)

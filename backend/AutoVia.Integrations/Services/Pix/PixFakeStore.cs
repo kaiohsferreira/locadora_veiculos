@@ -8,50 +8,170 @@ namespace AutoVia.Integrations.Services.Pix
     /// <summary>
     /// Estado em memoria das cobrancas do provedor FAKE (singleton). Usado so em SANDBOX
     /// e nos testes. MarcarComoPaga simula o pagamento feito pelo pagador.
+    ///
+    /// Imutabilidade: o store guarda registros imutaveis (CobrancaArmazenada) e cada leitura
+    /// devolve uma copia nova de PixCobrancaResultado. Quem recebe a copia pode altera-la
+    /// sem mexer no que esta guardado.
+    ///
+    /// Atomicidade: toda transicao (pagar, cancelar) le e grava sob o mesmo bloqueio, entao
+    /// pagamento e cancelamento em paralelo nao deixam a cobranca inconsistente.
     /// </summary>
     public class PixFakeStore
     {
-        private readonly ConcurrentDictionary<string, PixCobrancaResultado> _cobrancas = new ConcurrentDictionary<string, PixCobrancaResultado>(StringComparer.Ordinal);
+        private readonly ConcurrentDictionary<string, CobrancaArmazenada> _cobrancas = new ConcurrentDictionary<string, CobrancaArmazenada>(StringComparer.Ordinal);
+        private readonly object _transicoes = new object();
 
-        /// <summary>Devolve a cobranca existente pelo identificador ou cria uma com a fabrica (idempotente).</summary>
+        /// <summary>Devolve uma copia da cobranca existente pelo identificador ou cria uma com a fabrica (idempotente).</summary>
         public PixCobrancaResultado ObterOuCriar(string identificador, Func<PixCobrancaResultado> fabrica)
         {
-            return _cobrancas.GetOrAdd(identificador, (string chave) => fabrica());
+            lock (_transicoes)
+            {
+                CobrancaArmazenada armazenada = _cobrancas.GetOrAdd(identificador, (string chave) => CobrancaArmazenada.DeResultado(fabrica()));
+                return ParaResultado(armazenada, DateTime.Now);
+            }
         }
 
-        /// <summary>Cobranca pelo identificador, ou null se nao existir.</summary>
+        /// <summary>Copia da cobranca pelo identificador, ou null se nao existir.</summary>
         public PixCobrancaResultado? Obter(string identificador)
         {
-            PixCobrancaResultado? cobranca;
-            _cobrancas.TryGetValue(identificador, out cobranca);
-            return cobranca;
+            lock (_transicoes)
+            {
+                CobrancaArmazenada? armazenada;
+
+                if (!_cobrancas.TryGetValue(identificador, out armazenada))
+                {
+                    return null;
+                }
+
+                return ParaResultado(armazenada, DateTime.Now);
+            }
         }
 
-        /// <summary>Simula o pagamento da cobranca (usado nos testes e no sandbox).</summary>
+        /// <summary>
+        /// Simula o pagamento. So paga cobranca aguardando pagamento; cobranca ja paga nao muda.
+        /// Cancelada ou expirada lanca BusinessException.
+        /// </summary>
         public void MarcarComoPaga(string identificador)
         {
-            PixCobrancaResultado cobranca = ObterExistente(identificador);
-            cobranca.Status = PixStatusCobranca.PAGA;
-            cobranca.PagoEm = DateTime.Now;
+            lock (_transicoes)
+            {
+                CobrancaArmazenada armazenada = ObterExistente(identificador);
+                PixStatusCobranca statusAtual = EstadoEfetivo(armazenada, DateTime.Now);
+
+                if (statusAtual == PixStatusCobranca.PAGA)
+                {
+                    return;
+                }
+
+                if (statusAtual != PixStatusCobranca.AGUARDANDO_PAGAMENTO)
+                {
+                    throw new BusinessException(ConstantsMessage.ErroPixCobrancaNaoAguardaPagamento);
+                }
+
+                _cobrancas[identificador] = armazenada with { Status = PixStatusCobranca.PAGA, PagoEm = DateTime.Now };
+            }
         }
 
-        /// <summary>Marca a cobranca como cancelada. Nao verifica se ja foi paga (quem chama verifica).</summary>
-        public void MarcarComoCancelada(string identificador)
+        /// <summary>
+        /// Cancela a cobranca, a menos que ja esteja paga: a verificacao e a gravacao acontecem no mesmo
+        /// bloqueio, entao um pagamento concorrente nao pode ser cancelado por engano.
+        /// Cobranca ja cancelada, expirada ou recusada devolve o estado atual, sem alterar nada.
+        /// </summary>
+        public PixCobrancaResultado CancelarSeNaoPaga(string identificador)
         {
-            PixCobrancaResultado cobranca = ObterExistente(identificador);
-            cobranca.Status = PixStatusCobranca.CANCELADA;
+            lock (_transicoes)
+            {
+                CobrancaArmazenada armazenada = ObterExistente(identificador);
+                DateTime agora = DateTime.Now;
+                PixStatusCobranca statusAtual = EstadoEfetivo(armazenada, agora);
+
+                if (statusAtual == PixStatusCobranca.PAGA)
+                {
+                    throw new BusinessException(ConstantsMessage.ErroPixCancelarCobrancaPaga);
+                }
+
+                if (statusAtual != PixStatusCobranca.AGUARDANDO_PAGAMENTO)
+                {
+                    return ParaResultado(armazenada, agora);
+                }
+
+                CobrancaArmazenada cancelada = armazenada with { Status = PixStatusCobranca.CANCELADA };
+                _cobrancas[identificador] = cancelada;
+
+                return ParaResultado(cancelada, agora);
+            }
         }
 
-        private PixCobrancaResultado ObterExistente(string identificador)
+        private CobrancaArmazenada ObterExistente(string identificador)
         {
-            PixCobrancaResultado? cobranca = Obter(identificador);
+            CobrancaArmazenada? armazenada;
 
-            if (cobranca == null)
+            if (!_cobrancas.TryGetValue(identificador, out armazenada))
             {
                 throw new NotFoundException(ConstantsMessage.ErroPixCobrancaNaoEncontrada);
             }
 
-            return cobranca;
+            return armazenada;
+        }
+
+        /// <summary>Estado visto por quem le: cobranca aguardando cujo prazo ja passou vira EXPIRADA.</summary>
+        private static PixStatusCobranca EstadoEfetivo(CobrancaArmazenada armazenada, DateTime agora)
+        {
+            bool prazoPassou = armazenada.ExpiraEm.HasValue && armazenada.ExpiraEm.Value < agora;
+
+            if (armazenada.Status == PixStatusCobranca.AGUARDANDO_PAGAMENTO && prazoPassou)
+            {
+                return PixStatusCobranca.EXPIRADA;
+            }
+
+            return armazenada.Status;
+        }
+
+        /// <summary>Copia nova para quem chama: alterar o resultado nao altera o que esta guardado.</summary>
+        private static PixCobrancaResultado ParaResultado(CobrancaArmazenada armazenada, DateTime agora)
+        {
+            return new PixCobrancaResultado
+            {
+                IdentificadorProvedor = armazenada.IdentificadorProvedor,
+                ReferenciaExterna = armazenada.ReferenciaExterna,
+                Status = EstadoEfetivo(armazenada, agora),
+                Valor = armazenada.Valor,
+                CopiaECola = armazenada.CopiaECola,
+                QrCodeBase64 = armazenada.QrCodeBase64,
+                UrlCobranca = armazenada.UrlCobranca,
+                ExpiraEm = armazenada.ExpiraEm,
+                PagoEm = armazenada.PagoEm,
+                Provedor = armazenada.Provedor
+            };
+        }
+
+        /// <summary>Registro imutavel guardado no store. Nunca sai dele: quem le recebe um PixCobrancaResultado novo.</summary>
+        private sealed record CobrancaArmazenada(
+            string IdentificadorProvedor,
+            string ReferenciaExterna,
+            PixStatusCobranca Status,
+            decimal Valor,
+            string? CopiaECola,
+            string? QrCodeBase64,
+            string? UrlCobranca,
+            DateTime? ExpiraEm,
+            DateTime? PagoEm,
+            string Provedor)
+        {
+            public static CobrancaArmazenada DeResultado(PixCobrancaResultado cobranca)
+            {
+                return new CobrancaArmazenada(
+                    cobranca.IdentificadorProvedor,
+                    cobranca.ReferenciaExterna,
+                    cobranca.Status,
+                    cobranca.Valor,
+                    cobranca.CopiaECola,
+                    cobranca.QrCodeBase64,
+                    cobranca.UrlCobranca,
+                    cobranca.ExpiraEm,
+                    cobranca.PagoEm,
+                    cobranca.Provedor);
+            }
         }
     }
 }

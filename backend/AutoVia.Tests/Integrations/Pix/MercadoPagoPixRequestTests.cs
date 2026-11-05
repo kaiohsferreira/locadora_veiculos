@@ -71,6 +71,15 @@ namespace AutoVia.Tests.Integrations.Pix
         }
 
         [Fact]
+        public void Criar_SensitiveValuesIncluiEmailECpfDoPagador()
+        {
+            RequestInfo requisicao = MercadoPagoPixRequest.Criar(CriarConfiguracao(), TokenSecreto, CriarSolicitacao(10.5m), 3600, Agora);
+
+            Assert.Contains("maria@exemplo.com", requisicao.SensitiveValues);
+            Assert.Contains("12345678901", requisicao.SensitiveValues);
+        }
+
+        [Fact]
         public void Criar_CorpoTemValorComDuasCasasEFormatoDoContrato()
         {
             RequestInfo requisicao = MercadoPagoPixRequest.Criar(CriarConfiguracao(), TokenSecreto, CriarSolicitacao(10.5m), 3600, Agora);

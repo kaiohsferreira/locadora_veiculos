@@ -443,5 +443,122 @@ namespace AutoVia.Tests.Integrations.Pix
             Assert.Equal(PixStatusCobranca.CANCELADA, resultado.Status);
             Assert.Equal(1, provedor.ChamadasCancelar);
         }
+
+        /// <summary>Cancelar cobranca ja encerrada devolve o estado atual e nao chama o provedor (idempotente).</summary>
+        [Theory]
+        [InlineData(PixStatusCobranca.CANCELADA)]
+        [InlineData(PixStatusCobranca.EXPIRADA)]
+        [InlineData(PixStatusCobranca.RECUSADA)]
+        public async Task CancelarCobrancaAsync_JaEncerrada_DevolveEstadoAtualSemChamarOProvedor(PixStatusCobranca status)
+        {
+            ProvedorRoteirizado provedor = new ProvedorRoteirizado(ConstantsPix.ProvedorMercadoPago);
+            provedor.StatusConsulta = status;
+            PixGateway gateway = CriarGateway(CriarRepositorio(CriarIntegracao(ConstantsPix.ProvedorMercadoPago, AmbienteIntegracao.PRODUCAO)), new FakeLogService(), provedor);
+
+            PixCobrancaResultado resultado = await gateway.CancelarCobrancaAsync("ID-1");
+
+            Assert.Equal(status, resultado.Status);
+            Assert.Equal(0, provedor.ChamadasCancelar);
+        }
+
+        // ------------------------------------------------------------------
+        // Pagador e e-mail
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public async Task CriarCobrancaAsync_PagadorNulo_LancaPagadorInvalidoSemNullReference()
+        {
+            PixCobrancaSolicitacao solicitacao = CriarSolicitacao();
+            solicitacao.Pagador = null!;
+            ProvedorRoteirizado provedor = new ProvedorRoteirizado(ConstantsPix.ProvedorMercadoPago);
+            PixGateway gateway = CriarGateway(CriarRepositorio(CriarIntegracao(ConstantsPix.ProvedorMercadoPago, AmbienteIntegracao.PRODUCAO)), new FakeLogService(), provedor);
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => gateway.CriarCobrancaAsync(solicitacao));
+
+            Assert.Equal(ConstantsMessage.ErroPixPagadorInvalido, excecao.Message);
+            Assert.Equal(0, provedor.ChamadasCriar);
+        }
+
+        [Fact]
+        public async Task CriarCobrancaAsync_EmailComMaisDe254Caracteres_LancaPagadorInvalido()
+        {
+            PixCobrancaSolicitacao solicitacao = CriarSolicitacao();
+            solicitacao.Pagador.Email = "a" + new string('a', 250) + "@exemplo.com";
+            ProvedorRoteirizado provedor = new ProvedorRoteirizado(ConstantsPix.ProvedorMercadoPago);
+            PixGateway gateway = CriarGateway(CriarRepositorio(CriarIntegracao(ConstantsPix.ProvedorMercadoPago, AmbienteIntegracao.PRODUCAO)), new FakeLogService(), provedor);
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => gateway.CriarCobrancaAsync(solicitacao));
+
+            Assert.Equal(ConstantsMessage.ErroPixPagadorInvalido, excecao.Message);
+            Assert.Equal(0, provedor.ChamadasCriar);
+        }
+
+        [Fact]
+        public async Task CriarCobrancaAsync_EmailComExatos254Caracteres_EhAceito()
+        {
+            PixCobrancaSolicitacao solicitacao = CriarSolicitacao();
+            solicitacao.Pagador.Email = new string('a', 242) + "@exemplo.com";
+            ProvedorRoteirizado provedor = new ProvedorRoteirizado(ConstantsPix.ProvedorMercadoPago);
+            PixGateway gateway = CriarGateway(CriarRepositorio(CriarIntegracao(ConstantsPix.ProvedorMercadoPago, AmbienteIntegracao.PRODUCAO)), new FakeLogService(), provedor);
+
+            await gateway.CriarCobrancaAsync(solicitacao);
+
+            Assert.Equal(1, provedor.ChamadasCriar);
+        }
+
+        // ------------------------------------------------------------------
+        // Cancelamento do chamador (OperationCanceledException)
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public async Task CriarCobrancaAsync_OperacaoCanceladaSemPedidoDoChamador_VireIntegrationException()
+        {
+            ProvedorRoteirizado provedor = new ProvedorRoteirizado(ConstantsPix.ProvedorMercadoPago);
+            provedor.ExcecaoCriar = new OperationCanceledException("tempo esgotado internamente");
+            PixGateway gateway = CriarGateway(CriarRepositorio(CriarIntegracao(ConstantsPix.ProvedorMercadoPago, AmbienteIntegracao.PRODUCAO)), new FakeLogService(), provedor);
+
+            IntegrationException excecao = await Assert.ThrowsAsync<IntegrationException>(() => gateway.CriarCobrancaAsync(CriarSolicitacao()));
+
+            Assert.Equal(ConstantsMessage.ErroPixCriarCobranca, excecao.Message);
+        }
+
+        [Fact]
+        public async Task CriarCobrancaAsync_CancelamentoPedidoPeloChamador_PropagaOperationCanceled()
+        {
+            using CancellationTokenSource cancelamento = new CancellationTokenSource();
+            ProvedorQueCancela provedor = new ProvedorQueCancela(cancelamento);
+            PixGateway gateway = CriarGateway(CriarRepositorio(CriarIntegracao(ConstantsPix.ProvedorMercadoPago, AmbienteIntegracao.PRODUCAO)), new FakeLogService(), provedor);
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() => gateway.CriarCobrancaAsync(CriarSolicitacao(), cancelamento.Token));
+        }
+
+        /// <summary>Provedor que, ao criar, simula o chamador cancelando a operacao (token realmente cancelado).</summary>
+        private sealed class ProvedorQueCancela : IPixProvider
+        {
+            private readonly CancellationTokenSource _cancelamento;
+
+            public ProvedorQueCancela(CancellationTokenSource cancelamento)
+            {
+                _cancelamento = cancelamento;
+            }
+
+            public string Nome => ConstantsPix.ProvedorMercadoPago;
+
+            public Task<PixCobrancaResultado> CriarAsync(ConfiguracaoIntegracao configuracao, PixCobrancaSolicitacao solicitacao, int expiracaoSegundos, CancellationToken cancellationToken = default)
+            {
+                _cancelamento.Cancel();
+                throw new OperationCanceledException(_cancelamento.Token);
+            }
+
+            public Task<PixCobrancaResultado> ConsultarAsync(ConfiguracaoIntegracao configuracao, string identificadorProvedor, CancellationToken cancellationToken = default)
+            {
+                throw new NotSupportedException();
+            }
+
+            public Task<PixCobrancaResultado> CancelarAsync(ConfiguracaoIntegracao configuracao, string identificadorProvedor, CancellationToken cancellationToken = default)
+            {
+                throw new NotSupportedException();
+            }
+        }
     }
 }

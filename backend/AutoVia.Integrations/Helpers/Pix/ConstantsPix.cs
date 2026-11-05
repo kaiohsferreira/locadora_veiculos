@@ -24,7 +24,12 @@ namespace AutoVia.Integrations.Helpers.Pix
         public const int ReferenciaTamanhoMaximo = 64;
         public const int DescricaoTamanhoMaximo = 140;
         public const int PagadorNomeTamanhoMaximo = 120;
+        public const int EmailTamanhoMaximo = 254;
         public const int TamanhoMaximoMotivoRecusa = 200;
+        public const int TamanhoMaximoStatusLog = 50;
+
+        // --- Marcador de valor ausente no log tecnico ---
+        public const string MarcadorAusente = "-";
 
         // --- Padroes (regex com \z para nao aceitar quebra de linha no fim) ---
         public const string PadraoReferenciaExterna = @"^[A-Za-z0-9_-]+\z";

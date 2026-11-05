@@ -413,5 +413,104 @@ namespace AutoVia.Tests.Integrations.Pix
             Assert.DoesNotContain(TokenSecreto, excecao.Message);
             Assert.DoesNotContain(logService.Entries, entrada => entrada.Contains(TokenSecreto));
         }
+
+        // ------------------------------------------------------------------
+        // Motivo de recusa: e-mail e CPF do pagador nunca voltam ao chamador.
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public async Task CriarAsync_RecusadaQueEcoaEmailECpf_MascaraOsDoisAntesDeDevolverOMotivo()
+        {
+            ComunicacaoRoteirizada comunicacao = new ComunicacaoRoteirizada();
+            comunicacao.Responder(400, "{\"message\":\"pagador maria@exemplo.com cpf 12345678901 recusado\"}");
+            MercadoPagoPixProvider provider = CriarProvider(comunicacao, new FakeLogService());
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => provider.CriarAsync(CriarConfiguracao(), CriarSolicitacao(), 3600));
+
+            Assert.DoesNotContain("maria@exemplo.com", excecao.Message);
+            Assert.DoesNotContain("12345678901", excecao.Message);
+            Assert.Contains(ConstantsIntegration.Mascara, excecao.Message);
+        }
+
+        // ------------------------------------------------------------------
+        // Log de resposta inesperada: so campos permitidos.
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public async Task CriarAsync_StatusNaoMapeado_RegistraSoCamposPermitidos()
+        {
+            ComunicacaoRoteirizada comunicacao = new ComunicacaoRoteirizada();
+            comunicacao.Responder(201, "{\"id\":42,\"status\":\"em_analise_interna\",\"transaction_amount\":10.5,\"point_of_interaction\":{\"transaction_data\":{\"qr_code\":\"COPIA-SECRETA-999\",\"qr_code_base64\":\"QRSECRETO888\"}}}");
+            FakeLogService logService = new FakeLogService();
+            MercadoPagoPixProvider provider = CriarProvider(comunicacao, logService);
+
+            IntegrationException excecao = await Assert.ThrowsAsync<IntegrationException>(() => provider.CriarAsync(CriarConfiguracao(), CriarSolicitacao(), 3600));
+
+            Assert.Equal(ConstantsMessage.ErroPixRespostaInesperada, excecao.Message);
+
+            string registro = Assert.Single(logService.Entries);
+            Assert.Contains(ConstantsMessage.ErroPixRespostaInesperada, registro);
+            Assert.Contains("integração PAGAMENTO", registro);
+            Assert.Contains("provedor MERCADOPAGO", registro);
+            Assert.Contains("HTTP 201", registro);
+            Assert.Contains("status do provedor em_analise_interna", registro);
+            Assert.Contains("identificador 42", registro);
+            Assert.DoesNotContain("COPIA-SECRETA-999", registro);
+            Assert.DoesNotContain("QRSECRETO888", registro);
+            Assert.DoesNotContain(TokenSecreto, registro);
+            Assert.DoesNotContain("maria@exemplo.com", registro);
+            Assert.DoesNotContain("12345678901", registro);
+        }
+
+        [Fact]
+        public async Task ConsultarAsync_StatusHttpNaoTratado_RegistraRespostaInesperada()
+        {
+            ComunicacaoRoteirizada comunicacao = new ComunicacaoRoteirizada();
+            comunicacao.Responder(418, "{\"message\":\"chaleira\"}");
+            FakeLogService logService = new FakeLogService();
+            MercadoPagoPixProvider provider = CriarProvider(comunicacao, logService);
+
+            IntegrationException excecao = await Assert.ThrowsAsync<IntegrationException>(() => provider.ConsultarAsync(CriarConfiguracao(), "42"));
+
+            Assert.Equal(ConstantsMessage.ErroPixRespostaInesperada, excecao.Message);
+
+            string registro = Assert.Single(logService.Entries);
+            Assert.Contains("HTTP 418", registro);
+            Assert.Contains("identificador 42", registro);
+            Assert.DoesNotContain(TokenSecreto, registro);
+        }
+
+        // ------------------------------------------------------------------
+        // Cancelamento (OperationCanceledException): so o pedido do chamador vira cancelamento.
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public async Task CriarAsync_OperacaoCanceladaSemPedidoDoChamador_VireIntegrationException()
+        {
+            ComunicacaoRoteirizada comunicacao = new ComunicacaoRoteirizada
+            {
+                ExcecaoLancada = new OperationCanceledException("tempo esgotado internamente")
+            };
+            MercadoPagoPixProvider provider = CriarProvider(comunicacao, new FakeLogService());
+
+            IntegrationException excecao = await Assert.ThrowsAsync<IntegrationException>(() => provider.CriarAsync(CriarConfiguracao(), CriarSolicitacao(), 3600));
+
+            Assert.Equal(ConstantsMessage.ErroPixCriarCobranca, excecao.Message);
+        }
+
+        [Fact]
+        public async Task CriarAsync_CancelamentoPedidoPeloChamador_PropagaOperationCanceled()
+        {
+            using CancellationTokenSource cancelamento = new CancellationTokenSource();
+            cancelamento.Cancel();
+
+            ComunicacaoRoteirizada comunicacao = new ComunicacaoRoteirizada
+            {
+                ExcecaoLancada = new OperationCanceledException(cancelamento.Token)
+            };
+            MercadoPagoPixProvider provider = CriarProvider(comunicacao, new FakeLogService());
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() => provider.CriarAsync(CriarConfiguracao(), CriarSolicitacao(), 3600, cancelamento.Token));
+        }
     }
 }

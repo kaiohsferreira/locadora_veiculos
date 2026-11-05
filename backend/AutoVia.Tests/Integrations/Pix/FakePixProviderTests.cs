@@ -64,8 +64,122 @@ namespace AutoVia.Tests.Integrations.Pix
             PixCobrancaResultado primeira = await provider.CriarAsync(CriarConfiguracao(), CriarSolicitacao(), 3600);
             PixCobrancaResultado segunda = await provider.CriarAsync(CriarConfiguracao(), CriarSolicitacao(), 3600);
 
-            Assert.Same(primeira, segunda);
+            // Copias diferentes com o mesmo conteudo: o store nunca devolve o objeto guardado.
+            Assert.NotSame(primeira, segunda);
             Assert.Equal(primeira.IdentificadorProvedor, segunda.IdentificadorProvedor);
+            Assert.Equal(primeira.Status, segunda.Status);
+            Assert.Equal(primeira.ExpiraEm, segunda.ExpiraEm);
+        }
+
+        [Fact]
+        public async Task ConsultarAsync_AlterarACopiaDevolvida_NaoAlteraACobrancaGuardada()
+        {
+            FakePixProvider provider = CriarProvider(new PixFakeStore());
+            PixCobrancaResultado criada = await provider.CriarAsync(CriarConfiguracao(), CriarSolicitacao(), 3600);
+
+            PixCobrancaResultado copia = await provider.ConsultarAsync(CriarConfiguracao(), criada.IdentificadorProvedor);
+            copia.Status = PixStatusCobranca.PAGA;
+            copia.PagoEm = DateTime.Now;
+
+            PixCobrancaResultado consultada = await provider.ConsultarAsync(CriarConfiguracao(), criada.IdentificadorProvedor);
+
+            Assert.Equal(PixStatusCobranca.AGUARDANDO_PAGAMENTO, consultada.Status);
+            Assert.Null(consultada.PagoEm);
+        }
+
+        [Fact]
+        public async Task ConsultarAsync_PrazoPassado_DevolveExpirada()
+        {
+            FakePixProvider provider = CriarProvider(new PixFakeStore());
+            // Expiracao negativa: a cobranca nasce com o prazo ja vencido.
+            PixCobrancaResultado criada = await provider.CriarAsync(CriarConfiguracao(), CriarSolicitacao(), -60);
+
+            PixCobrancaResultado consultada = await provider.ConsultarAsync(CriarConfiguracao(), criada.IdentificadorProvedor);
+
+            Assert.Equal(PixStatusCobranca.EXPIRADA, consultada.Status);
+        }
+
+        [Fact]
+        public async Task MarcarComoPaga_CobrancaCancelada_LancaBusinessExceptionEFicaCancelada()
+        {
+            PixFakeStore store = new PixFakeStore();
+            FakePixProvider provider = CriarProvider(store);
+            PixCobrancaResultado criada = await provider.CriarAsync(CriarConfiguracao(), CriarSolicitacao(), 3600);
+            await provider.CancelarAsync(CriarConfiguracao(), criada.IdentificadorProvedor);
+
+            BusinessException excecao = Assert.Throws<BusinessException>(() => store.MarcarComoPaga(criada.IdentificadorProvedor));
+            PixCobrancaResultado consultada = await provider.ConsultarAsync(CriarConfiguracao(), criada.IdentificadorProvedor);
+
+            Assert.Equal(ConstantsMessage.ErroPixCobrancaNaoAguardaPagamento, excecao.Message);
+            Assert.Equal(PixStatusCobranca.CANCELADA, consultada.Status);
+        }
+
+        /// <summary>
+        /// Pagamento e cancelamento disputam a mesma cobranca ao mesmo tempo. Em cada rodada, exatamente
+        /// um deles pode vencer: se o pagamento venceu, o cancelamento falha e a cobranca fica PAGA;
+        /// se o cancelamento venceu, o pagamento falha e a cobranca fica CANCELADA. Nunca as duas coisas.
+        /// </summary>
+        [Fact]
+        public async Task PagarECancelarEmParalelo_NuncaTerminamComResultadoInconsistente()
+        {
+            const int rodadas = 200;
+
+            for (int rodada = 0; rodada < rodadas; rodada++)
+            {
+                PixFakeStore store = new PixFakeStore();
+                FakePixProvider provider = CriarProvider(store);
+                PixCobrancaResultado criada = await provider.CriarAsync(CriarConfiguracao(), CriarSolicitacao("PED-CONC-" + rodada), 3600);
+                string identificador = criada.IdentificadorProvedor;
+
+                using ManualResetEventSlim largada = new ManualResetEventSlim(false);
+
+                Task<bool> pagamento = Task.Run(() =>
+                {
+                    largada.Wait();
+                    return TentarPagar(store, identificador);
+                });
+
+                Task<bool> cancelamento = Task.Run(() =>
+                {
+                    largada.Wait();
+                    return TentarCancelar(provider, identificador);
+                });
+
+                largada.Set();
+
+                bool pagou = await pagamento;
+                bool cancelou = await cancelamento;
+                PixCobrancaResultado final = await provider.ConsultarAsync(CriarConfiguracao(), identificador);
+
+                Assert.True(pagou != cancelou, $"Rodada {rodada}: pagou={pagou}, cancelou={cancelou}.");
+                Assert.Equal(pagou ? PixStatusCobranca.PAGA : PixStatusCobranca.CANCELADA, final.Status);
+            }
+        }
+
+        private static bool TentarPagar(PixFakeStore store, string identificador)
+        {
+            try
+            {
+                store.MarcarComoPaga(identificador);
+                return true;
+            }
+            catch (BusinessException)
+            {
+                return false;
+            }
+        }
+
+        private static bool TentarCancelar(FakePixProvider provider, string identificador)
+        {
+            try
+            {
+                provider.CancelarAsync(CriarConfiguracao(), identificador).GetAwaiter().GetResult();
+                return true;
+            }
+            catch (BusinessException)
+            {
+                return false;
+            }
         }
 
         [Fact]

@@ -92,21 +92,10 @@ namespace AutoVia.Integrations.Services.Pix
         {
             try
             {
-                PixCobrancaResultado? cobranca = _store.Obter(identificadorProvedor);
+                // A verificacao de PAGA e a gravacao do cancelamento acontecem juntas no store (atomico).
+                PixCobrancaResultado cancelada = _store.CancelarSeNaoPaga(identificadorProvedor);
 
-                if (cobranca == null)
-                {
-                    throw new NotFoundException(ConstantsMessage.ErroPixCobrancaNaoEncontrada);
-                }
-
-                if (cobranca.Status == PixStatusCobranca.PAGA)
-                {
-                    throw new BusinessException(ConstantsMessage.ErroPixCancelarCobrancaPaga);
-                }
-
-                _store.MarcarComoCancelada(identificadorProvedor);
-
-                return Task.FromResult(cobranca);
+                return Task.FromResult(cancelada);
             }
             catch (BusinessException)
             {

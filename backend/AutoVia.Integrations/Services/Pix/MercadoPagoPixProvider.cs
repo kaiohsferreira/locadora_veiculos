@@ -17,7 +17,7 @@ namespace AutoVia.Integrations.Services.Pix
     ///
     /// Erros do provedor viram excecao de negocio (400/422 recusada, 404 nao encontrada)
     /// ou de integracao (credencial, limite, 5xx, rede, resposta inesperada).
-    /// access_token nunca entra em mensagem, log ou exception.Message.
+    /// access_token, e-mail e CPF do pagador nunca entram em mensagem, log ou exception.Message.
     /// </summary>
     public class MercadoPagoPixProvider : IPixProvider
     {
@@ -40,12 +40,13 @@ namespace AutoVia.Integrations.Services.Pix
                 RequestInfo requisicao = MercadoPagoPixRequest.Criar(configuracao, accessToken, solicitacao, expiracaoSegundos, DateTime.Now);
 
                 RequestResponse<MercadoPagoPaymentResponse> resposta = await _comunicacao.SendAsync<MercadoPagoPaymentResponse>(requisicao, cancellationToken);
-                MercadoPagoPaymentResponse pagamento = ObterPagamento(resposta, requisicao, configuracao.Codigo);
+                MercadoPagoPaymentResponse pagamento = ObterPagamento(resposta, requisicao, configuracao.Codigo, null);
 
-                PixCobrancaResultado resultado = MapearResultado(pagamento, configuracao.Codigo, solicitacao.Valor, solicitacao.ReferenciaExterna);
+                PixCobrancaResultado resultado = MapearResultado(pagamento, resposta.StatusCode, requisicao, configuracao.Codigo, solicitacao.Valor, solicitacao.ReferenciaExterna);
 
                 if (string.IsNullOrWhiteSpace(resultado.CopiaECola) || string.IsNullOrWhiteSpace(resultado.QrCodeBase64))
                 {
+                    RegistrarRespostaInesperada(configuracao.Codigo, requisicao, resposta.StatusCode, pagamento.Status, resultado.IdentificadorProvedor);
                     throw new IntegrationException(configuracao.Codigo, ConstantsMessage.ErroPixRespostaInesperada);
                 }
 
@@ -63,7 +64,7 @@ namespace AutoVia.Integrations.Services.Pix
             {
                 throw;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
             }
@@ -82,9 +83,9 @@ namespace AutoVia.Integrations.Services.Pix
                 RequestInfo requisicao = MercadoPagoPixRequest.Consultar(configuracao, accessToken, identificadorProvedor);
 
                 RequestResponse<MercadoPagoPaymentResponse> resposta = await _comunicacao.SendAsync<MercadoPagoPaymentResponse>(requisicao, cancellationToken);
-                MercadoPagoPaymentResponse pagamento = ObterPagamento(resposta, requisicao, configuracao.Codigo);
+                MercadoPagoPaymentResponse pagamento = ObterPagamento(resposta, requisicao, configuracao.Codigo, identificadorProvedor);
 
-                return MapearResultado(pagamento, configuracao.Codigo, null, null);
+                return MapearResultado(pagamento, resposta.StatusCode, requisicao, configuracao.Codigo, null, null);
             }
             catch (BusinessException)
             {
@@ -98,7 +99,7 @@ namespace AutoVia.Integrations.Services.Pix
             {
                 throw;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
             }
@@ -117,9 +118,9 @@ namespace AutoVia.Integrations.Services.Pix
                 RequestInfo requisicao = MercadoPagoPixRequest.Cancelar(configuracao, accessToken, identificadorProvedor);
 
                 RequestResponse<MercadoPagoPaymentResponse> resposta = await _comunicacao.SendAsync<MercadoPagoPaymentResponse>(requisicao, cancellationToken);
-                MercadoPagoPaymentResponse pagamento = ObterPagamento(resposta, requisicao, configuracao.Codigo);
+                MercadoPagoPaymentResponse pagamento = ObterPagamento(resposta, requisicao, configuracao.Codigo, identificadorProvedor);
 
-                return MapearResultado(pagamento, configuracao.Codigo, null, null);
+                return MapearResultado(pagamento, resposta.StatusCode, requisicao, configuracao.Codigo, null, null);
             }
             catch (BusinessException)
             {
@@ -133,7 +134,7 @@ namespace AutoVia.Integrations.Services.Pix
             {
                 throw;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
             }
@@ -149,22 +150,23 @@ namespace AutoVia.Integrations.Services.Pix
         // ------------------------------------------------------------------
 
         /// <summary>Devolve o pagamento de uma resposta 2xx; em erro, lanca a excecao do contrato.</summary>
-        private static MercadoPagoPaymentResponse ObterPagamento(RequestResponse<MercadoPagoPaymentResponse> resposta, RequestInfo requisicao, string codigo)
+        private MercadoPagoPaymentResponse ObterPagamento(RequestResponse<MercadoPagoPaymentResponse> resposta, RequestInfo requisicao, string codigo, string? identificador)
         {
             if (!resposta.IsSuccess)
             {
-                throw ConstruirErroHttp(resposta, requisicao, codigo);
+                throw ConstruirErroHttp(resposta, requisicao, codigo, identificador);
             }
 
             if (resposta.Data == null)
             {
+                RegistrarRespostaInesperada(codigo, requisicao, resposta.StatusCode, null, identificador);
                 throw new IntegrationException(codigo, ConstantsMessage.ErroPixRespostaInesperada);
             }
 
             return resposta.Data;
         }
 
-        private static Exception ConstruirErroHttp(RequestResponse<MercadoPagoPaymentResponse> resposta, RequestInfo requisicao, string codigo)
+        private Exception ConstruirErroHttp(RequestResponse<MercadoPagoPaymentResponse> resposta, RequestInfo requisicao, string codigo, string? identificador)
         {
             if (resposta.IsTimeout)
             {
@@ -203,10 +205,15 @@ namespace AutoVia.Integrations.Services.Pix
                 return new IntegrationException(codigo, ConstantsMessage.ErroPixProvedorIndisponivel);
             }
 
+            // Status sem tratamento no contrato (ex.: 3xx, 418, corpo 2xx que nao virou JSON): resposta inesperada.
+            RegistrarRespostaInesperada(codigo, requisicao, status, null, identificador);
             return new IntegrationException(codigo, ConstantsMessage.ErroPixRespostaInesperada);
         }
 
-        /// <summary>Motivo do provedor mascarado (sem access_token) e truncado no limite do contrato.</summary>
+        /// <summary>
+        /// Motivo do provedor mascarado (access_token, e-mail e CPF do pagador) e truncado no limite do contrato.
+        /// Mascarar antes de truncar garante que nenhum valor protegido sobra pela metade.
+        /// </summary>
         private static string MontarMotivoRecusa(RequestResponse<MercadoPagoPaymentResponse> resposta, RequestInfo requisicao)
         {
             string motivo = SensitiveDataMasker.Mask(resposta.RawContent, requisicao.SensitiveValues);
@@ -228,10 +235,13 @@ namespace AutoVia.Integrations.Services.Pix
         // Mapeamento para o resultado do gateway
         // ------------------------------------------------------------------
 
-        private static PixCobrancaResultado MapearResultado(MercadoPagoPaymentResponse pagamento, string codigo, decimal? valorPadrao, string? referenciaPadrao)
+        private PixCobrancaResultado MapearResultado(MercadoPagoPaymentResponse pagamento, int statusHttp, RequestInfo requisicao, string codigo, decimal? valorPadrao, string? referenciaPadrao)
         {
+            string identificador = pagamento.Id.ToString(CultureInfo.InvariantCulture);
+
             if (pagamento.Id <= 0)
             {
+                RegistrarRespostaInesperada(codigo, requisicao, statusHttp, pagamento.Status, identificador);
                 throw new IntegrationException(codigo, ConstantsMessage.ErroPixRespostaInesperada);
             }
 
@@ -239,6 +249,7 @@ namespace AutoVia.Integrations.Services.Pix
 
             if (status == null)
             {
+                RegistrarRespostaInesperada(codigo, requisicao, statusHttp, pagamento.Status, identificador);
                 throw new IntegrationException(codigo, ConstantsMessage.ErroPixRespostaInesperada);
             }
 
@@ -246,6 +257,7 @@ namespace AutoVia.Integrations.Services.Pix
 
             if (valor == null)
             {
+                RegistrarRespostaInesperada(codigo, requisicao, statusHttp, pagamento.Status, identificador);
                 throw new IntegrationException(codigo, ConstantsMessage.ErroPixRespostaInesperada);
             }
 
@@ -253,7 +265,7 @@ namespace AutoVia.Integrations.Services.Pix
 
             PixCobrancaResultado resultado = new PixCobrancaResultado
             {
-                IdentificadorProvedor = pagamento.Id.ToString(CultureInfo.InvariantCulture),
+                IdentificadorProvedor = identificador,
                 ReferenciaExterna = pagamento.ExternalReference ?? referenciaPadrao ?? string.Empty,
                 Status = status.Value,
                 Valor = valor.Value,
@@ -309,6 +321,43 @@ namespace AutoVia.Integrations.Services.Pix
             }
 
             return dataOffset.ToLocalTime().DateTime;
+        }
+
+        // ------------------------------------------------------------------
+        // Log de resposta inesperada
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Registra a resposta inesperada com so os campos permitidos: codigo, provedor, status HTTP,
+        /// status do provedor (texto, mascarado e limitado) e identificador. QR, copia-e-cola, token,
+        /// CPF e e-mail nunca entram no registro.
+        /// </summary>
+        private void RegistrarRespostaInesperada(string codigo, RequestInfo requisicao, int statusHttp, string? statusProvedor, string? identificador)
+        {
+            string statusLimpo = SensitiveDataMasker.Mask(statusProvedor, requisicao.SensitiveValues);
+
+            if (statusLimpo.Length > ConstantsPix.TamanhoMaximoStatusLog)
+            {
+                statusLimpo = statusLimpo.Substring(0, ConstantsPix.TamanhoMaximoStatusLog);
+            }
+
+            if (string.IsNullOrWhiteSpace(statusLimpo))
+            {
+                statusLimpo = ConstantsPix.MarcadorAusente;
+            }
+
+            string identificadorLog = string.IsNullOrWhiteSpace(identificador) ? ConstantsPix.MarcadorAusente : identificador;
+
+            string registro = string.Format(
+                CultureInfo.InvariantCulture,
+                ConstantsMessage.LogPixRespostaInesperada,
+                codigo,
+                ConstantsPix.ProvedorMercadoPago,
+                statusHttp,
+                statusLimpo,
+                identificadorLog);
+
+            _logService.Write(registro, ConstantsMessage.ErroPixRespostaInesperada, GetType().ToString());
         }
     }
 }

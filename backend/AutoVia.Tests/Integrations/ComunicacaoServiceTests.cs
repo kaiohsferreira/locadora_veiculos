@@ -22,14 +22,14 @@ namespace AutoVia.Tests.Integrations
 
             public List<HttpRequestMessage> Requisicoes { get; } = new List<HttpRequestMessage>();
 
-            public void Responder(HttpStatusCode status)
+            public void Responder(HttpStatusCode status, string corpo = "{}")
             {
                 // RequestMessage precisa ser preenchido: o RestSharp le RequestMessage.RequestUri
                 // ao montar a resposta; sem ele a chamada vira falha de rede.
                 _roteiro.Enqueue((HttpRequestMessage requisicao, CancellationToken cancellationToken) =>
                     Task.FromResult(new HttpResponseMessage(status)
                     {
-                        Content = new StringContent("{}"),
+                        Content = new StringContent(corpo),
                         RequestMessage = requisicao
                     }));
             }
@@ -92,19 +92,27 @@ namespace AutoVia.Tests.Integrations
             Assert.Equal(3, handler.Requisicoes.Count);
         }
 
-        [Fact]
-        public async Task Get_400_NaoRepete()
+        [Theory]
+        [InlineData(400)]
+        [InlineData(404)]
+        [InlineData(429)]
+        public async Task Get_ErroDoCliente_NaoRepeteEClassificaComoErroHttp(int statusCode)
         {
+            string corpo = "{\"message\":\"recusado pelo provedor\"}";
             HandlerRoteirizado handler = new HandlerRoteirizado();
-            handler.Responder(HttpStatusCode.BadRequest);
+            handler.Responder((HttpStatusCode)statusCode, corpo);
             using ComunicacaoService servico = CriarServico(new FakeLogService(), handler);
 
             RequestResponse<string> resposta = await servico.SendAsync<string>(CriarRequisicao(HttpMethod.Get));
 
             Assert.False(resposta.IsSuccess);
-            Assert.Equal(400, resposta.StatusCode);
+            Assert.Equal(statusCode, resposta.StatusCode);
             Assert.Equal(1, resposta.Attempts);
             Assert.Single(handler.Requisicoes);
+            Assert.False(resposta.IsNetworkFailure);
+            Assert.False(resposta.IsTimeout);
+            Assert.Equal(ConstantsMessage.ErroIntegracaoExterna, resposta.ErrorMessage);
+            Assert.Equal(corpo, resposta.RawContent);
         }
 
         [Fact]
@@ -168,8 +176,9 @@ namespace AutoVia.Tests.Integrations
             Assert.Equal(3, resposta.Attempts);
         }
 
+        /// <summary>Com AllowRetry desligado, o timeout e devolvido na primeira tentativa.</summary>
         [Fact]
-        public async Task Get_Timeout_DevolveIsTimeoutSemNovaTentativa()
+        public async Task Get_TimeoutComRetryDesligado_DevolveTimeoutComUmaTentativa()
         {
             HandlerRoteirizado handler = new HandlerRoteirizado();
             handler.Expirar();
@@ -182,6 +191,26 @@ namespace AutoVia.Tests.Integrations
             Assert.False(resposta.IsSuccess);
             Assert.Equal(ConstantsMessageIntegration.ErroComunicacaoTimeout, resposta.ErrorMessage);
             Assert.Equal(1, resposta.Attempts);
+            Assert.Single(handler.Requisicoes);
+        }
+
+        /// <summary>Com AllowRetry ligado, GET com timeout e repetido ate o limite e so entao devolve o timeout.</summary>
+        [Fact]
+        public async Task Get_TimeoutComRetryLigado_TentaTresVezesEDevolveTimeout()
+        {
+            HandlerRoteirizado handler = new HandlerRoteirizado();
+            handler.Expirar();
+            handler.Expirar();
+            handler.Expirar();
+            using ComunicacaoService servico = CriarServico(new FakeLogService(), handler);
+
+            RequestResponse<string> resposta = await servico.SendAsync<string>(CriarRequisicao(HttpMethod.Get, allowRetry: true, timeoutMs: 200));
+
+            Assert.True(resposta.IsTimeout);
+            Assert.False(resposta.IsSuccess);
+            Assert.Equal(ConstantsMessageIntegration.ErroComunicacaoTimeout, resposta.ErrorMessage);
+            Assert.Equal(3, resposta.Attempts);
+            Assert.Equal(3, handler.Requisicoes.Count);
         }
 
         [Fact]
@@ -233,6 +262,15 @@ namespace AutoVia.Tests.Integrations
 
             Assert.False(resposta.IsSuccess);
             Assert.NotEmpty(logService.Entries);
+
+            // O segredo foi de fato enviado na URL da requisicao real (prova que o teste nao e vazio)...
+            string enviada = handler.Requisicoes[0].RequestUri?.ToString() ?? string.Empty;
+            Assert.Contains("segredo-ABC-123", enviada);
+
+            // ...a URL que vai para o log (a unica parte da requisicao logada) traz o valor mascarado...
+            Assert.Contains(logService.Entries, entrada => entrada.Contains("/v1/***"));
+
+            // ...e nenhuma entrada de log contem o valor real.
             Assert.DoesNotContain(logService.Entries, entrada => entrada.Contains("segredo-ABC-123"));
         }
 
@@ -251,6 +289,7 @@ namespace AutoVia.Tests.Integrations
             RequestResponse<string> resposta = await servico.SendAsync<string>(requisicao);
 
             Assert.Equal(3, resposta.Attempts);
+            Assert.Contains(logService.Entries, entrada => entrada.Contains("/v1/***"));
             Assert.DoesNotContain(logService.Entries, entrada => entrada.Contains("segredo-ABC-123"));
         }
     }

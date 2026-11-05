@@ -58,8 +58,9 @@ namespace AutoVia.Integrations.Services.Pix
             {
                 throw;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                // Cancelamento pedido pelo chamador: nao e falha do provedor.
                 throw;
             }
             catch (Exception ex)
@@ -92,8 +93,9 @@ namespace AutoVia.Integrations.Services.Pix
             {
                 throw;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                // Cancelamento pedido pelo chamador: nao e falha do provedor.
                 throw;
             }
             catch (Exception ex)
@@ -119,6 +121,12 @@ namespace AutoVia.Integrations.Services.Pix
                     throw new BusinessException(ConstantsMessage.ErroPixCancelarCobrancaPaga);
                 }
 
+                // Ja encerrada (cancelada, expirada ou recusada): devolve o estado atual, sem chamar o provedor.
+                if (EstadoEncerrado(atual.Status))
+                {
+                    return atual;
+                }
+
                 return await provider.CancelarAsync(configuracao, identificadorProvedor, cancellationToken);
             }
             catch (BusinessException)
@@ -133,8 +141,9 @@ namespace AutoVia.Integrations.Services.Pix
             {
                 throw;
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                // Cancelamento pedido pelo chamador: nao e falha do provedor.
                 throw;
             }
             catch (Exception ex)
@@ -175,14 +184,20 @@ namespace AutoVia.Integrations.Services.Pix
             }
         }
 
-        private static void ValidarPagador(PixPagador pagador)
+        private static void ValidarPagador(PixPagador? pagador)
         {
+            if (pagador == null)
+            {
+                throw new BusinessException(ConstantsMessage.ErroPixPagadorInvalido);
+            }
+
             if (string.IsNullOrWhiteSpace(pagador.Nome) || pagador.Nome.Length > ConstantsPix.PagadorNomeTamanhoMaximo)
             {
                 throw new BusinessException(ConstantsMessage.ErroPixPagadorInvalido);
             }
 
-            if (string.IsNullOrWhiteSpace(pagador.Email) || !Regex.IsMatch(pagador.Email, ConstantsPix.PadraoEmail))
+            // Limite de tamanho antes do regex: entrada enorme nao chega ao padrao de e-mail.
+            if (string.IsNullOrWhiteSpace(pagador.Email) || pagador.Email.Length > ConstantsPix.EmailTamanhoMaximo || !Regex.IsMatch(pagador.Email, ConstantsPix.PadraoEmail))
             {
                 throw new BusinessException(ConstantsMessage.ErroPixPagadorInvalido);
             }
@@ -199,6 +214,14 @@ namespace AutoVia.Integrations.Services.Pix
             {
                 throw new BusinessException(ConstantsMessage.ErroPixIdentificadorObrigatorio);
             }
+        }
+
+        /// <summary>Estados em que a cobranca ja nao muda: cancelar de novo devolve o estado atual.</summary>
+        private static bool EstadoEncerrado(PixStatusCobranca status)
+        {
+            return status == PixStatusCobranca.CANCELADA
+                || status == PixStatusCobranca.EXPIRADA
+                || status == PixStatusCobranca.RECUSADA;
         }
 
         private static bool ExpiracaoDentroDaFaixa(int expiracaoSegundos)

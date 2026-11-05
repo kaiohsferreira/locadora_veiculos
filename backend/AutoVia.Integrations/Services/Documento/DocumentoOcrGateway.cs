@@ -174,9 +174,10 @@ namespace AutoVia.Integrations.Services.Documento
             CategoriaCnh? categoria = CnhFieldNormalizer.NormalizarCategoria(bruto.Categoria);
             DateOnly? validade = CnhFieldNormalizer.NormalizarValidade(bruto.Validade);
 
-            decimal confiancaNumero = numero == null ? 0m : bruto.ConfiancaNumero;
-            decimal confiancaCategoria = categoria == null ? 0m : bruto.ConfiancaCategoria;
-            decimal confiancaValidade = validade == null ? 0m : bruto.ConfiancaValidade;
+            // Confianca do provedor e limitada a 0..1 antes da media: valor fora da faixa nao vira regra.
+            decimal confiancaNumero = numero == null ? 0m : Math.Clamp(bruto.ConfiancaNumero, 0m, 1m);
+            decimal confiancaCategoria = categoria == null ? 0m : Math.Clamp(bruto.ConfiancaCategoria, 0m, 1m);
+            decimal confiancaValidade = validade == null ? 0m : Math.Clamp(bruto.ConfiancaValidade, 0m, 1m);
 
             decimal confiancaGeral = Math.Min(confiancaNumero, Math.Min(confiancaCategoria, confiancaValidade));
 
