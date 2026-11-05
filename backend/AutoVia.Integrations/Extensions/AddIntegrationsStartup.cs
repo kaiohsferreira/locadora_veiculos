@@ -23,6 +23,8 @@ namespace AutoVia.Integrations.Extensions
             // Resolver da configuracao dinamica (le o banco: escopo da requisicao).
             services.AddScoped<IIntegrationResolver, IntegrationResolver>();
 
+            services.AddDocumentoIntegration();
+
             // --- Provedores (Prompt 2) ---
             // services.AddScoped<IPagamentoRequest, PagamentoRequest>();
             // services.AddScoped<IPagamentoService, PagamentoService>();
