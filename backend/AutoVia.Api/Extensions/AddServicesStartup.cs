@@ -17,6 +17,9 @@ namespace AutoVia.Api.Extensions
             // --- Modulos (Prompt 3) ---
             services.AddScoped<ICategoriaService, CategoriaService>();
 
+            // --- Veiculo (SEAM: base comum das tarefas P1-BE-02 e P1-BE-03) ---
+            services.AddScoped<IVeiculoService, VeiculoService>();
+
             return services;
         }
     }

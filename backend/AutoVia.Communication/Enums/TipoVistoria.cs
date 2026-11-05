@@ -1,7 +1,7 @@
-namespace AutoVia.Core.Enums
+namespace AutoVia.Communication.Enums
 {
     /// <summary>
-    /// Valores da coluna venda.forma_pagamento (restricao ck_venda_forma).
+    /// Valores da coluna vistoria.tipo (restricao ck_vistoria_tipo).
     /// Persistido como texto (HasConversion&lt;string&gt;): o NOME do membro e o valor
     /// gravado no banco, por isso os membros seguem exatamente a especificacao
     /// (MAIUSCULAS_COM_UNDERLINE) em vez de PascalCase.
@@ -10,10 +10,9 @@ namespace AutoVia.Core.Enums
     /// Nao reordene: o EF trata o valor 0 como "nao informado" no insert e deixa
     /// o banco aplicar o DEFAULT.
     /// </summary>
-    public enum FormaPagamentoVenda
+    public enum TipoVistoria
     {
-        A_VISTA,
-        FINANCIAMENTO,
-        CONSORCIO
+        ENTRADA,
+        SAIDA
     }
 }

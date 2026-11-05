@@ -1,4 +1,4 @@
-using AutoVia.Core.Enums;
+using AutoVia.Communication.Enums;
 using AutoVia.Integrations.Entities;
 using AutoVia.Integrations.Helpers;
 using Microsoft.EntityFrameworkCore;

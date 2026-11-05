@@ -1,7 +1,7 @@
-namespace AutoVia.Core.Enums
+namespace AutoVia.Communication.Enums
 {
     /// <summary>
-    /// Valores da coluna cobranca_extra.tipo (restricao ck_cobranca_tipo).
+    /// Valores da coluna pagamento.tipo (restricao ck_pagamento_tipo).
     /// Persistido como texto (HasConversion&lt;string&gt;): o NOME do membro e o valor
     /// gravado no banco, por isso os membros seguem exatamente a especificacao
     /// (MAIUSCULAS_COM_UNDERLINE) em vez de PascalCase.
@@ -10,13 +10,11 @@ namespace AutoVia.Core.Enums
     /// Nao reordene: o EF trata o valor 0 como "nao informado" no insert e deixa
     /// o banco aplicar o DEFAULT.
     /// </summary>
-    public enum TipoCobrancaExtra
+    public enum TipoPagamento
     {
-        MULTA_TRANSITO,
-        KM_EXCEDENTE,
-        ATRASO,
-        AVARIA,
-        COMBUSTIVEL,
-        LIMPEZA
+        CAUCAO,
+        DIARIA,
+        COBRANCA_EXTRA,
+        VENDA
     }
 }

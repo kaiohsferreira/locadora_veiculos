@@ -1,7 +1,7 @@
-namespace AutoVia.Core.Enums
+namespace AutoVia.Communication.Enums
 {
     /// <summary>
-    /// Valores da coluna venda.status_documentacao (restricao ck_venda_doc).
+    /// Valores da coluna cliente.status_cadastro (restricao ck_cliente_status).
     /// Persistido como texto (HasConversion&lt;string&gt;): o NOME do membro e o valor
     /// gravado no banco, por isso os membros seguem exatamente a especificacao
     /// (MAIUSCULAS_COM_UNDERLINE) em vez de PascalCase.
@@ -10,10 +10,10 @@ namespace AutoVia.Core.Enums
     /// Nao reordene: o EF trata o valor 0 como "nao informado" no insert e deixa
     /// o banco aplicar o DEFAULT.
     /// </summary>
-    public enum StatusDocumentacaoVenda
+    public enum StatusCadastroCliente
     {
         PENDENTE,
-        EM_TRANSFERENCIA,
-        CONCLUIDA
+        APROVADO,
+        RECUSADO
     }
 }

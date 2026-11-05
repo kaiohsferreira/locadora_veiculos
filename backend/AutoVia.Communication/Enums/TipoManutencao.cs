@@ -1,4 +1,4 @@
-namespace AutoVia.Core.Enums
+namespace AutoVia.Communication.Enums
 {
     /// <summary>
     /// Valores da coluna manutencao.tipo (restricao ck_manutencao_tipo).

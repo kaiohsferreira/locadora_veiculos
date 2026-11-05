@@ -10,7 +10,7 @@ namespace AutoVia.Helpers
     ///
     /// Mensagens com {0}, {1} sao formatadas com string.Format.
     /// </summary>
-    public static class ConstantsMessage
+    public static partial class ConstantsMessage
     {
         // --- Erros genericos (usados pelo middleware de erro) ---
         public const string ErroInterno = "Ocorreu um erro inesperado ao processar a requisição. Tente novamente em instantes.";

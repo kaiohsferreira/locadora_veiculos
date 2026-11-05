@@ -4,7 +4,7 @@ namespace AutoVia.Helpers
     /// Valores fixos de comportamento da aplicacao (nao sao credenciais nem
     /// configuracao de integracao, que ficam no banco).
     /// </summary>
-    public static class ConstantsValues
+    public static partial class ConstantsValues
     {
         // --- Cultura e formatos (pt-BR) ---
         public const string CulturaPadrao = "pt-BR";

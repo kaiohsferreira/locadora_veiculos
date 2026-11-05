@@ -1,4 +1,4 @@
-using AutoVia.Core.Enums;
+using AutoVia.Communication.Enums;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace AutoVia.Core.Entities.PgSql
@@ -63,6 +63,10 @@ namespace AutoVia.Core.Entities.PgSql
         /// <summary>DEFAULT 'PENDENTE'.</summary>
         [Column("status_cadastro")]
         public StatusCadastroCliente StatusCadastro { get; set; } = StatusCadastroCliente.PENDENTE;
+
+        /// <summary>Hash PBKDF2 da senha de acesso (coluna senha_hash). Guarda so o hash, nunca a senha. Nulo enquanto o cliente nao tem acesso.</summary>
+        [Column("senha_hash")]
+        public string? SenhaHash { get; set; }
 
         // --- Navegacao ---
         public virtual List<Reserva> Reservas { get; set; } = new List<Reserva>();

@@ -1,7 +1,7 @@
-namespace AutoVia.Core.Enums
+namespace AutoVia.Communication.Enums
 {
     /// <summary>
-    /// Valores da coluna sinistro.status (restricao ck_sinistro_status).
+    /// Valores da coluna funcionario.cargo (restricao ck_funcionario_cargo).
     /// Persistido como texto (HasConversion&lt;string&gt;): o NOME do membro e o valor
     /// gravado no banco, por isso os membros seguem exatamente a especificacao
     /// (MAIUSCULAS_COM_UNDERLINE) em vez de PascalCase.
@@ -10,12 +10,12 @@ namespace AutoVia.Core.Enums
     /// Nao reordene: o EF trata o valor 0 como "nao informado" no insert e deixa
     /// o banco aplicar o DEFAULT.
     /// </summary>
-    public enum StatusSinistro
+    public enum CargoFuncionario
     {
-        ABERTO,
-        EM_ANALISE,
-        APROVADO,
-        NEGADO,
-        ENCERRADO
+        ATENDENTE,
+        VENDEDOR,
+        GESTOR_FROTA,
+        FINANCEIRO,
+        ADMINISTRATIVO
     }
 }

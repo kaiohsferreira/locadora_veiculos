@@ -1,5 +1,5 @@
 using AutoVia.Core.Entities.PgSql;
-using AutoVia.Core.Enums;
+using AutoVia.Communication.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 

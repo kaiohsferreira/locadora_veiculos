@@ -1,5 +1,5 @@
 using AutoVia.Communication.CustomExceptions;
-using AutoVia.Core.Enums;
+using AutoVia.Communication.Enums;
 using AutoVia.Helpers;
 
 namespace AutoVia.Integrations.Communication.Base

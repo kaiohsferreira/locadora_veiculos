@@ -1,4 +1,4 @@
-namespace AutoVia.Core.Enums
+namespace AutoVia.Communication.Enums
 {
     /// <summary>
     /// Valores da coluna cliente.cnh_categoria (restricao ck_cliente_cnh_cat).

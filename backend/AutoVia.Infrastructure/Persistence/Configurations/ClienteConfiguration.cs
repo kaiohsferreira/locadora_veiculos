@@ -1,5 +1,6 @@
 using AutoVia.Core.Entities.PgSql;
-using AutoVia.Core.Enums;
+using AutoVia.Communication.Enums;
+using AutoVia.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -61,6 +62,8 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
             // UNIQUE da especificacao (nome no padrao do PostgreSQL para UNIQUE em linha).
             builder.HasIndex(x => x.Cpf).HasDatabaseName("idx_cliente_cpf");
             builder.HasIndex(x => x.CnhNumero).HasDatabaseName("idx_cliente_cnh_numero");
+
+            builder.Property(x => x.SenhaHash).IsRequired(false).HasMaxLength(ConstantsValues.TamanhoMaximoSenhaHash);
 
             // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
             builder.ConfigureBaseEntities();

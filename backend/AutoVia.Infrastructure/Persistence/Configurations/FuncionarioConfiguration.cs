@@ -1,4 +1,5 @@
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -33,6 +34,8 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
 
             builder.HasIndex(x => x.Cpf).HasDatabaseName("idx_funcionario_cpf");
             builder.HasIndex(x => x.Matricula).HasDatabaseName("idx_funcionario_matricula");
+
+            builder.Property(x => x.SenhaHash).IsRequired(false).HasMaxLength(ConstantsValues.TamanhoMaximoSenhaHash);
 
             // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
             builder.ConfigureBaseEntities();

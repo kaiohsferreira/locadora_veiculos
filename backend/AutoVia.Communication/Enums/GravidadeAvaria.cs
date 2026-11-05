@@ -1,7 +1,7 @@
-namespace AutoVia.Core.Enums
+namespace AutoVia.Communication.Enums
 {
     /// <summary>
-    /// Valores da coluna sinistro.tipo (restricao ck_sinistro_tipo).
+    /// Valores da coluna avaria.gravidade (restricao ck_avaria_gravidade).
     /// Persistido como texto (HasConversion&lt;string&gt;): o NOME do membro e o valor
     /// gravado no banco, por isso os membros seguem exatamente a especificacao
     /// (MAIUSCULAS_COM_UNDERLINE) em vez de PascalCase.
@@ -10,13 +10,10 @@ namespace AutoVia.Core.Enums
     /// Nao reordene: o EF trata o valor 0 como "nao informado" no insert e deixa
     /// o banco aplicar o DEFAULT.
     /// </summary>
-    public enum TipoSinistro
+    public enum GravidadeAvaria
     {
-        COLISAO,
-        ROUBO,
-        FURTO,
-        INCENDIO,
-        FENOMENO_NATURAL,
-        TERCEIROS
+        LEVE,
+        MEDIA,
+        GRAVE
     }
 }

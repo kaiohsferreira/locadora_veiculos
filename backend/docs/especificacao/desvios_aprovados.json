@@ -26,5 +26,14 @@
     "uq_vistoria_locacao_tipo": "idx_vistoria_locacao_tipo",
     "integration_codigo_key": "idx_integration_codigo",
     "uq_setting_chave": "idx_setting_chave"
+  },
+  "colunas_acesso": {
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "data": "2026-11-05",
+    "motivo": "RF-06 exige autenticacao e a especificacao nao define onde guardar a credencial. Decisao D1: coluna senha_hash. Guarda somente o hash PBKDF2, nunca a senha.",
+    "colunas": {
+      "cliente": { "senha_hash": "VARCHAR(255) NULL" },
+      "funcionario": { "senha_hash": "VARCHAR(255) NULL" }
+    }
   }
 }

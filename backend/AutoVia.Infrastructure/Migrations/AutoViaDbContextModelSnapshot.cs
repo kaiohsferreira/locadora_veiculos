@@ -228,6 +228,11 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("numero");
 
+                    b.Property<string>("SenhaHash")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("senha_hash");
+
                     b.Property<string>("StatusCadastro")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -391,6 +396,11 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)")
                         .HasColumnName("nome");
+
+                    b.Property<string>("SenhaHash")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("senha_hash");
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()

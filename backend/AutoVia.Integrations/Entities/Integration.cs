@@ -1,5 +1,5 @@
 using AutoVia.Core.Entities;
-using AutoVia.Core.Enums;
+using AutoVia.Communication.Enums;
 using AutoVia.Integrations.Helpers;
 using System.ComponentModel.DataAnnotations.Schema;
 
