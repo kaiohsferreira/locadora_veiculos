@@ -15,6 +15,7 @@ namespace AutoVia.Api.Extensions
             services.AddSingleton<ILogService, LogService>();
 
             // --- Modulos (Prompt 3) ---
+            services.AddScoped<ICategoriaService, CategoriaService>();
 
             return services;
         }

@@ -23,5 +23,9 @@ namespace AutoVia.Helpers
         // --- CORS ---
         public const string PoliticaCors = "AutoViaFrontend";
         public const string OrigemFrontendLocal = "http://localhost:5173";
+
+        // --- Categoria ---
+        public const int TamanhoMaximoNomeCategoria = 50;
+        public const int TamanhoMaximoDescricaoCategoria = 200;
     }
 }

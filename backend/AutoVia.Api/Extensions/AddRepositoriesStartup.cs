@@ -1,5 +1,6 @@
 using AutoVia.Infrastructure.Repositories;
 using AutoVia.Integrations.Interfaces;
+using AutoVia.Core.RepositoriesInterface;
 
 namespace AutoVia.Api.Extensions
 {
@@ -15,6 +16,7 @@ namespace AutoVia.Api.Extensions
             services.AddScoped<IIntegrationRepository, IntegrationRepository>();
 
             // --- Modulos (Prompt 3) ---
+            services.AddScoped<ICategoriaRepository, CategoriaRepository>();
 
             return services;
         }

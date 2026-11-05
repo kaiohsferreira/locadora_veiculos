@@ -36,5 +36,17 @@ namespace AutoVia.Helpers
         // --- Saude da aplicacao ---
         public const string SucessoAplicacaoNoAr = "A API da AutoVia está no ar.";
         public const string StatusSaudeOk = "ok";
+
+        // --- Categoria ---
+        public const string ErroCategoriaNaoEncontrada = "A categoria informada não foi encontrada.";
+        public const string ErroCategoriaNomeDuplicado = "Já existe uma categoria ativa com este nome.";
+        public const string ErroCategoriaNomeObrigatorio = "Informe o nome da categoria.";
+        public const string ErroCategoriaNomeTamanho = "O nome da categoria deve ter no máximo {0} caracteres.";
+        public const string ErroCategoriaDescricaoTamanho = "A descrição da categoria deve ter no máximo {0} caracteres.";
+        public const string ErroCategoriaValorDiaria = "O valor da diária base deve ser maior que zero.";
+        public const string ErroCategoriaValorDiariaPrecisao = "O valor da diária base deve ter no máximo 8 dígitos inteiros e 2 casas decimais.";
+        public const string ErroListarCategorias = "Não foi possível listar as categorias.";
+        public const string ErroBuscarCategoria = "Não foi possível consultar a categoria.";
+        public const string ErroSalvarCategoria = "Não foi possível salvar a categoria.";
     }
 }
