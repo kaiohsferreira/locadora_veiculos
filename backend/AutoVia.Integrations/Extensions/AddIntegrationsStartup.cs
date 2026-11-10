@@ -29,6 +29,7 @@ namespace AutoVia.Integrations.Extensions
             // services.AddScoped<IPagamentoRequest, PagamentoRequest>();
             // services.AddScoped<IPagamentoService, PagamentoService>();
             services.AddPixIntegration();
+            services.AddCaucaoIntegration();
 
             return services;
         }
