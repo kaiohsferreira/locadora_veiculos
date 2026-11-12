@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Controller, useForm, useWatch } from 'react-hook-form';
+import { useEffect, useState, type MouseEvent } from 'react';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Botao, Campo, CampoSenha, Icone } from '@/components/ui';
 import { aplicarErrosDeCampo, obterErroDeCampo, obterMensagemErro } from '@/lib/erros';
 import { formatarCpf } from '@/lib/formatters';
@@ -9,23 +9,27 @@ import {
   ACESSO_BOTAO_ENTRAR,
   ACESSO_EQUIPE_SEM_CADASTRO,
   ACESSO_LINK_CRIAR_CONTA,
+  ACESSO_LINK_ESQUECI_SENHA,
   ACESSO_PERGUNTA_SEM_CONTA,
   ACESSO_ROTULO_CPF,
   ACESSO_ROTULO_SENHA,
   ACESSO_SUBTITULO,
   ACESSO_TITULO,
 } from '@/lib/mensagens';
-import { CAMINHOS } from '@/routes/caminhos';
+import { BlocoGoogle } from '@/features/clientes/google/BlocoGoogle';
+import { lerEstadoRecuperacao, montarEstadoRecuperacao } from '@/features/clientes/recuperacao/estadoRecuperacao';
+import { CAMINHOS, obterCaminhoRetorno } from '@/routes/caminhos';
 import { ErroApi } from '@/types/api';
 import type { PerfilApi } from '@/types/autenticacao';
-import { esquemaAcesso, type ValoresAcesso } from './esquemaAcesso';
+import { CampoLembrarDeMim } from './CampoLembrarDeMim';
+import { esquemaAcesso, type EntradaAcesso, type ValoresAcesso } from './esquemaAcesso';
 import { SeletorPerfil } from './SeletorPerfil';
 
 /** Campos que o backend pode apontar num erro 400 (ProblemDetails.errors). */
 const CAMPOS_ACESSO = ['perfil', 'cpf', 'senha'] as const;
 
 export interface FormularioAcessoProps {
-  /** Perfil marcado ao abrir a tela (Cliente ou Equipe). */
+  /** Perfil marcado ao abrir a tela (Cliente ou Equipe). Um perfil vindo da recuperação de senha tem prioridade. */
   perfilInicial: PerfilApi;
   /** Envio em andamento: bloqueia o formulário e mostra o carregamento no botão. */
   enviando: boolean;
@@ -35,11 +39,23 @@ export interface FormularioAcessoProps {
   aoEnviar: (valores: ValoresAcesso) => void;
 }
 
+/** Com um envio em andamento, o link não navega (o fluxo de login ainda está em curso). */
+function impedirNavegacaoEmEnvio(ocupado: boolean) {
+  return (evento: MouseEvent<HTMLAnchorElement>) => {
+    if (ocupado) evento.preventDefault();
+  };
+}
+
 /**
- * Formulário de acesso: perfil, CPF e senha. Os textos e o link de criar conta ficam
- * aqui; o painel da marca fica em outro componente. A página decide o que acontece após o login.
+ * Formulário de acesso: perfil, CPF, senha e lembrar de mim. Os textos e o link de criar conta
+ * ficam aqui; o painel da marca fica em outro componente. A página decide o que acontece após o login.
  */
 export function FormularioAcesso({ perfilInicial, enviando, erroEnvio, aoEnviar }: FormularioAcessoProps) {
+  const localizacao = useLocation();
+  // Volta da recuperação de senha: o perfil marcado lá retorna aqui (o estado traz só campos conhecidos).
+  const estadoEntrada = lerEstadoRecuperacao(localizacao.state);
+  const caminhoRetorno = obterCaminhoRetorno(localizacao.state, '');
+
   const {
     register,
     handleSubmit,
@@ -48,13 +64,17 @@ export function FormularioAcesso({ perfilInicial, enviando, erroEnvio, aoEnviar 
     setValue,
     setFocus,
     formState: { errors },
-  } = useForm<ValoresAcesso>({
+  } = useForm<EntradaAcesso, unknown, ValoresAcesso>({
     resolver: zodResolver(esquemaAcesso),
-    defaultValues: { perfil: perfilInicial, cpf: '', senha: '' },
+    defaultValues: { perfil: estadoEntrada.perfil ?? perfilInicial, cpf: '', senha: '', lembrar: false },
   });
   const perfil = useWatch({ control, name: 'perfil' });
+  const lembrar = useWatch({ control, name: 'lembrar' });
   /** Erro que a pessoa já dispensou (ao voltar a digitar). Um novo envio gera outro erro. */
   const [erroDispensado, setErroDispensado] = useState<Error | null>(null);
+  /** Login com Google em andamento: o formulário de CPF fica bloqueado para não haver dois logins. */
+  const [ocupadoGoogle, setOcupadoGoogle] = useState(false);
+  const bloqueado = enviando || ocupadoGoogle;
 
   const erroApi = erroEnvio instanceof ErroApi ? erroEnvio : null;
   // Erro 400 com algum campo conhecido: a mensagem fica junto do campo, não no aviso geral.
@@ -94,7 +114,7 @@ export function FormularioAcesso({ perfilInicial, enviando, erroEnvio, aoEnviar 
       <p className="mt-2 text-corpo text-texto-suave">{ACESSO_SUBTITULO}</p>
 
       <form noValidate onSubmit={handleSubmit(aoEnviar)} className="mt-8 flex flex-col gap-5">
-        <fieldset disabled={enviando} className="flex min-w-0 flex-col gap-5">
+        <fieldset disabled={bloqueado} className="flex min-w-0 flex-col gap-5">
           <Controller
             name="perfil"
             control={control}
@@ -122,13 +142,27 @@ export function FormularioAcesso({ perfilInicial, enviando, erroEnvio, aoEnviar 
             {...register('cpf', { onChange: limparAviso })}
           />
 
+          {/* O link fica na linha do rótulo (antes do campo no Tab), por isso é uma ação do próprio CampoSenha. */}
           <CampoSenha
             rotulo={ACESSO_ROTULO_SENHA}
             obrigatorio
             autoComplete="current-password"
             erro={errors.senha?.message}
+            acaoRotulo={
+              <Link
+                to={CAMINHOS.recuperarSenha}
+                state={montarEstadoRecuperacao(perfil, caminhoRetorno)}
+                aria-disabled={bloqueado || undefined}
+                onClick={impedirNavegacaoEmEnvio(bloqueado)}
+                className="text-corpo-denso font-semibold text-navy underline underline-offset-4 hover:text-navy-claro"
+              >
+                {ACESSO_LINK_ESQUECI_SENHA}
+              </Link>
+            }
             {...register('senha', { onChange: limparAviso })}
           />
+
+          <CampoLembrarDeMim {...register('lembrar', { onChange: limparAviso })} />
         </fieldset>
 
         {mensagemGeral && (
@@ -141,10 +175,16 @@ export function FormularioAcesso({ perfilInicial, enviando, erroEnvio, aoEnviar 
           </div>
         )}
 
-        <Botao type="submit" larguraTotal carregando={enviando} iconeDireita="arrow_forward">
+        <Botao type="submit" larguraTotal carregando={enviando} disabled={ocupadoGoogle} iconeDireita="arrow_forward">
           {ACESSO_BOTAO_ENTRAR}
         </Botao>
       </form>
+
+      {/*
+        Bloco "Continuar com o Google" (N3, RF-51), abaixo do botão de entrar. Fica fora do <form>:
+        o campo de e-mail do modo de teste não pode disparar o envio do CPF com Enter.
+      */}
+      <BlocoGoogle perfil={perfil} lembrar={lembrar === true} aoOcupadoChange={setOcupadoGoogle} />
 
       <div className="mt-6 text-center text-corpo-denso text-texto-suave">
         {perfil === 'CLIENTE' ? (

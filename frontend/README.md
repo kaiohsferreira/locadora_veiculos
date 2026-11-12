@@ -51,7 +51,7 @@ frontend/
     ├── index.css            Tailwind + estilos base
     ├── api/
     │   ├── client.ts        instância única do Axios + interceptadores (token e ProblemDetails → ErroApi)
-    │   ├── autenticacao.ts  login (POST /api/auth/login)
+    │   ├── autenticacao.ts  login, recuperação de senha e login com Google (contratos auth*)
     │   ├── clientes.ts      cadastro de clientes
     │   └── README.md        como cada módulo ganha seu arquivo quando o contrato sair
     ├── components/
@@ -63,14 +63,18 @@ frontend/
     │   ├── vendas/ financeiro/ manutencao/ seguros/
     │   ├── area-cliente/    telas "Minhas ..." do cliente (tarefas T-FE)
     │   └── clientes/        acesso/ (login, P2-FE-01), cadastro/ (cadastro, P2-FE-02), pages/
+    │       ├── google/      login com Google (N3): botão, bloco, alerta, decisão e vínculo (tela /entrar/vincular-google)
+    │       ├── recuperacao/ recuperação de senha (N1): cartões, alertas, validação e estado de navegação
     │       └── hooks/       useEntrar (login: abre a sessão pelo contexto), useCadastrarCliente
     ├── hooks/               useDebounce, useTituloDocumento
     ├── layouts/             LayoutPublico, LayoutBackOffice
-    ├── lib/                 formatters, mensagens (+ mensagensAcesso, mensagensCadastro), sessao, erros,
-    │                        validadores, conversaoLogin, ambiente, queryClient
+    ├── lib/                 formatters, mensagens (+ mensagensAcesso, mensagensCadastro, mensagensRecuperacao, mensagensGoogle), sessao, erros,
+    │                        validadores, conversaoLogin, ambiente, queryClient,
+    │                        credencialGoogle (memória do login com Google), googleIdentity (carregador do script do Google),
+    │                        preenchimentoGoogle (nome e e-mail do Google para o cadastro, em memória), tokenRecuperacao (token do link)
     ├── routes/              rotas.tsx, caminhos.ts, paginas.ts (lazy), RotaProtegida, 404, erro e acesso negado
     │   └── autenticacao/    contexto mínimo de autenticação (useAutenticacao)
-    └── types/               api.ts (ProblemDetails, ErroApi, Pagina<T>), enums.ts, autenticacao.ts (sessão e login), clientes.ts (cadastro)
+    └── types/               api.ts (ProblemDetails, ErroApi, Pagina<T>), enums.ts, autenticacao.ts (sessão e login), clientes.ts (cadastro), google.ts (script do Google)
 ```
 
 ## Regras do projeto
@@ -100,6 +104,9 @@ Versões mobile usam a **mesma rota** da versão desktop (layout responsivo).
 | ----------------------------------------------- | ----------------------------- | --------------------- | ----------- |
 | `/`                                             | InicioPagina                  | P3-FE-01              | pública     |
 | `/entrar`                                       | AcessoPortalPagina            | P2-FE-01              | pública     |
+| `/entrar/vincular-google`                       | VincularGooglePagina          | N3 (RF-51)            | pública     |
+| `/recuperar-senha`                              | RecuperarSenhaPagina          | N1 (RF-49)            | pública     |
+| `/redefinir-senha`                              | RedefinirSenhaPagina          | N1 (RF-49)            | pública     |
 | `/cadastro`                                     | redireciona para `/cadastro/dados-pessoais` | –       | pública     |
 | `/cadastro/dados-pessoais`                      | CadastroDadosPessoaisPagina   | P2-FE-02              | pública     |
 | `/cadastro/documentos`                          | CadastroDocumentosPagina      | P2-FE-03              | pública     |
@@ -144,7 +151,7 @@ Importe de `@/components/ui`. Todos aceitam `className` quando indicado.
 | **Botao** | `variante?: 'primario' \| 'secundario' \| 'contorno' \| 'fantasma' \| 'perigo'` (padrão `primario`), `tamanho?: 'pequeno' \| 'medio' \| 'grande'`, `carregando?`, `larguraTotal?`, `icone?` e `iconeDireita?` (nome Material Symbols), e todas as props de `<button>` (`type` padrão `button`). `forwardRef`. |
 | **BotaoLink** | Mesmas props visuais do Botao + props de `Link` do React Router (`to`, `replace`, `state`...). |
 | **Campo** | `rotulo: string`, `erro?`, `dica?`, `obrigatorio?` (mostra `*` e `aria-required`), `ocultarRotulo?`, `mascara?: (valor) => string` (ex.: `formatarCpf`), e todas as props de `<input>`. `forwardRef`, compatível com `register()`. |
-| **CampoSenha** | Como o Campo, sem `type` nem `mascara`: botão mostrar/ocultar a senha (`aria-pressed`, não envia o formulário). Use `autoComplete="current-password"` (login) ou `"new-password"` (cadastro). `forwardRef`, compatível com `register()`. |
+| **CampoSenha** | Como o Campo, sem `type` nem `mascara`: botão mostrar/ocultar a senha (`aria-pressed`, não envia o formulário). Use `autoComplete="current-password"` (login) ou `"new-password"` (cadastro). `acaoRotulo?` (ReactNode, opcional): ação na linha do rótulo, à direita, antes do campo no Tab (ex.: "Esqueci minha senha"); sem ela, o componente não muda. `forwardRef`, compatível com `register()`. |
 | **Select** | `rotulo: string`, `opcoes: OpcaoSelect[]` (`{ valor, rotulo, desabilitada? }`), `erro?`, `dica?`, `obrigatorio?`, `ocultarRotulo?`, `opcaoVazia?: string \| false` (padrão "Selecione"), e todas as props de `<select>`. `forwardRef`, compatível com `register()`. |
 | **Tabela\<T\>** | `colunas: ColunaTabela<T>[]` (`{ chave, titulo, renderizar(item), alinhamento?, classe?, ocultarTitulo? }`), `dados: T[]`, `obterChave(item)`, `legenda: string` (para leitores de tela), `carregando?` (linhas de esqueleto), `linhasEsqueleto?` (padrão 5), `vazio?: ReactNode` (padrão `<EstadoVazio />`). |
 | **Etiqueta** | `status: StatusDominio` (define texto e tom), `rotulo?`, `tom?`; ou etiqueta livre com `rotulo` + `tom: 'sucesso' \| 'pendente' \| 'perigo' \| 'neutro'`. Sempre exibe texto. |

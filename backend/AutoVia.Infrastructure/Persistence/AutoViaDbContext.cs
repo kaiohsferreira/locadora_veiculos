@@ -6,8 +6,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 namespace AutoVia.Infrastructure.Persistence
 {
     /// <summary>
-    /// Contexto unico do banco da AutoVia: as 14 tabelas de negocio (Apendice A)
-    /// e as 2 tabelas da biblioteca de integracoes (Apendice B).
+    /// Contexto unico do banco da AutoVia: as 14 tabelas de negocio (Apendice A),
+    /// a tabela redefinicao_senha (desvio de 12/11/2026, RF-49) e as 2 tabelas da
+    /// biblioteca de integracoes (Apendice B).
     ///
     /// O esquema nasce daqui (code-first). Cada entidade tem a sua classe
     /// IEntityTypeConfiguration em Persistence/Configurations, aplicada por
@@ -24,6 +25,9 @@ namespace AutoVia.Infrastructure.Persistence
         public DbSet<Cliente> Clientes { get; set; } = null!;
         public DbSet<Funcionario> Funcionarios { get; set; } = null!;
         public DbSet<Categoria> Categorias { get; set; } = null!;
+
+        // --- Acesso: recuperacao de senha (RF-49) ---
+        public DbSet<RedefinicaoSenha> RedefinicaoSenhas { get; set; } = null!;
 
         // --- Frota ---
         public DbSet<Veiculo> Veiculos { get; set; } = null!;

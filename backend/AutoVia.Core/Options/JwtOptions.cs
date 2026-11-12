@@ -1,3 +1,5 @@
+using AutoVia.Helpers;
+
 namespace AutoVia.Core.Options
 {
     /// <summary>
@@ -16,6 +18,9 @@ namespace AutoVia.Core.Options
 
         /// <summary>Validade do token em minutos, contados a partir de DateTime.Now.</summary>
         public int ExpiracaoMinutos { get; set; }
+
+        /// <summary>Validade do token com "lembrar de mim", em dias corridos (1 a 90), contados a partir de DateTime.Now. Sem renovacao.</summary>
+        public int ExpiracaoLembrarDias { get; set; } = ConstantsValues.ExpiracaoLembrarDiasPadrao;
 
         /// <summary>Segredo HS256, com no minimo 32 caracteres. Nunca registrar nem devolver.</summary>
         public string Chave { get; set; } = string.Empty;

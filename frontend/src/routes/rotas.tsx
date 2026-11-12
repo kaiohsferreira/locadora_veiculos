@@ -29,9 +29,12 @@ import {
   PainelFrotaPagina,
   PainelReservasPagina,
   PropostaCompraPagina,
+  RecuperarSenhaPagina,
+  RedefinirSenhaPagina,
   ResultadosBuscaPagina,
   RetiradaVeiculoPagina,
   VerificacaoCadastrosPagina,
+  VincularGooglePagina,
   VistoriaAvariasPagina,
 } from './paginas';
 import { RotaProtegida } from './RotaProtegida';
@@ -46,6 +49,9 @@ export const rotas: RouteObject[] = [
       // Públicas
       { index: true, element: <InicioPagina /> },
       { path: CAMINHOS.entrar, element: <AcessoPortalPagina /> },
+      { path: CAMINHOS.vincularGoogle, element: <VincularGooglePagina /> },
+      { path: CAMINHOS.recuperarSenha, element: <RecuperarSenhaPagina /> },
+      { path: CAMINHOS.redefinirSenha, element: <RedefinirSenhaPagina /> },
       { path: CAMINHOS.cadastro, element: <Navigate to={CAMINHOS.cadastroDadosPessoais} replace /> },
       { path: CAMINHOS.cadastroDadosPessoais, element: <CadastroDadosPessoaisPagina /> },
       { path: CAMINHOS.cadastroDocumentos, element: <CadastroDocumentosPagina /> },

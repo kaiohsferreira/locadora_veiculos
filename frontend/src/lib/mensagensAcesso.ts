@@ -42,6 +42,9 @@ export const ACESSO_ROTULO_CPF = 'CPF';
 
 export const ACESSO_ROTULO_SENHA = 'Senha';
 
+/** Link ao lado do rótulo da senha, que leva à recuperação (N1, RF-49). */
+export const ACESSO_LINK_ESQUECI_SENHA = 'Esqueci minha senha';
+
 export const ACESSO_BOTAO_ENTRAR = 'Entrar na conta';
 
 export const ACESSO_PERGUNTA_SEM_CONTA = 'Não tem uma conta AutoVia?';
@@ -64,3 +67,15 @@ export const ACESSO_ERRO_SENHA_OBRIGATORIA = 'Informe a senha.';
 export const ACESSO_TAMANHO_MAXIMO_SENHA = 128;
 
 export const ACESSO_ERRO_SENHA_TAMANHO = `A senha deve ter no máximo ${ACESSO_TAMANHO_MAXIMO_SENHA} caracteres.`;
+
+export const ACESSO_ERRO_LEMBRAR_INVALIDO = 'Não foi possível entender a opção de lembrar de mim.';
+
+// Lembrar de mim (N2, RF-50) ----------------------------------------------------
+
+export const ACESSO_LEMBRAR_ROTULO = 'Lembrar de mim por 30 dias';
+
+export const ACESSO_LEMBRAR_DICA = 'Use apenas em computador seu.';
+
+/** Login deu certo, mas o vencimento do token já passou (relógio do dispositivo atrasado ou token vencido). */
+export const ACESSO_ERRO_SESSAO_NAO_ABERTA =
+  'Não foi possível abrir a sessão. Confira a data e a hora deste dispositivo e tente de novo.';

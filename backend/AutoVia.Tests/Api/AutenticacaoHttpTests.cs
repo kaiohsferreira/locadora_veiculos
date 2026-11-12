@@ -3,6 +3,7 @@ using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Options;
 using AutoVia.Core.RepositoriesInterface;
+using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
 using AutoVia.Tests.Fakes;
@@ -15,6 +16,8 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
 using System.Globalization;
 using System.Net;
@@ -49,6 +52,12 @@ namespace AutoVia.Tests.Api
         private const string RotaCliente = "/api/teste-autorizacao/cliente";
         private const string RotaSemAtributo = "/api/teste-autorizacao/sem-atributo";
         private const string RotaIdentidade = "/api/teste-autorizacao/identidade";
+        private const string SubNaoNumerico = "sub-nao-numerico";
+        private const string VersaoSessaoQualquer = "versao-de-teste";
+        private const string NomeDeTeste = "Usuario de teste";
+        private const string RoleDesconhecida = "SUPERUSUARIO";
+        private const string MensagemFalhaSessao = "Falha simulada na consulta da sessao.";
+        private const int IdSessaoDeTeste = 777001;
         private const string RotaLogin = "/api/auth/login";
         private const string RotaClientes = "/api/clientes";
         private const string MediaProblema = "application/problem+json";
@@ -62,6 +71,10 @@ namespace AutoVia.Tests.Api
         private const string CpfNovoLimite2 = "12345678909";
         private const string CnhNovoLimite2 = "20000000003";
         private const string SenhaClienteNovo = "Senha1234Http";
+        private const string CpfDesativadoHttp = "12312312312";
+        private const string CpfSenhaTrocadaHttp = "45645645645";
+        private const string SenhaAntigaHttp = "SenhaAntiga1Http";
+        private const string SenhaNovaHttp = "SenhaNova2Http";
 
         private readonly AutenticacaoWebFactory _fabrica;
         private readonly HttpClient _cliente;
@@ -83,7 +96,9 @@ namespace AutoVia.Tests.Api
             };
 
             TokenService tokens = new TokenService(opcoes, new FakeLogService());
-            string token = tokens.GerarToken(perfil, 1, "Usuario de teste", cargo).Token;
+            string senhaHash = perfil == PerfilUsuario.CLIENTE ? _fabrica.HashSenhaCliente : _fabrica.HashSenhaFuncionario;
+            string versaoSessao = tokens.CalcularVersaoSessao(senhaHash);
+            string token = tokens.GerarToken(perfil, 1, "Usuario de teste", cargo, versaoSessao, false).Token;
 
             return token;
         }
@@ -96,6 +111,62 @@ namespace AutoVia.Tests.Api
         private string TokenDeFuncionario()
         {
             return GerarToken(PerfilUsuario.FUNCIONARIO, CargoFuncionario.ATENDENTE, 120, _fabrica.ChaveJwt);
+        }
+
+        /// <summary>Token de um usuario com a versao da sessao calculada a partir do hash informado (o mesmo que o servidor confere).</summary>
+        private string GerarTokenPara(PerfilUsuario perfil, int idUsuario, string senhaHash, CargoFuncionario? cargo, string chave, int expiracaoMinutos)
+        {
+            JwtOptions opcoes = new JwtOptions
+            {
+                Emissor = AutenticacaoWebFactory.Emissor,
+                Audiencia = AutenticacaoWebFactory.Audiencia,
+                ExpiracaoMinutos = expiracaoMinutos,
+                Chave = chave
+            };
+
+            TokenService tokens = new TokenService(opcoes, new FakeLogService());
+            string versaoSessao = tokens.CalcularVersaoSessao(senhaHash);
+
+            return tokens.GerarToken(perfil, idUsuario, "Usuario de teste", cargo, versaoSessao, false).Token;
+        }
+
+        /// <summary>Token assinado com a chave do servidor, mas sem a claim sv (emitido antes da versao da sessao).</summary>
+        private string TokenSemVersaoDeSessao(PerfilUsuario perfil, int idUsuario)
+        {
+            Dictionary<string, object> claims = new Dictionary<string, object>
+            {
+                { JwtRegisteredClaimNames.Sub, idUsuario.ToString(CultureInfo.InvariantCulture) },
+                { ConstantsValues.ClaimRole, perfil.ToString() },
+                { ConstantsValues.ClaimNome, "Sem versao de sessao" },
+                { JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString() }
+            };
+
+            SigningCredentials credenciais = new SigningCredentials(
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_fabrica.ChaveJwt)),
+                SecurityAlgorithms.HmacSha256);
+
+            SecurityTokenDescriptor descritor = new SecurityTokenDescriptor
+            {
+                Issuer = AutenticacaoWebFactory.Emissor,
+                Audience = AutenticacaoWebFactory.Audiencia,
+                IssuedAt = DateTime.Now,
+                NotBefore = DateTime.Now,
+                Expires = DateTime.Now.AddMinutes(120),
+                Claims = claims,
+                SigningCredentials = credenciais
+            };
+
+            JsonWebTokenHandler handler = new JsonWebTokenHandler();
+
+            return handler.CreateToken(descritor);
+        }
+
+        /// <summary>Descarta no servidor de teste o resultado em cache da sessao do usuario (o que a troca de senha e a desativacao fazem).</summary>
+        private void InvalidarSessao(PerfilUsuario perfil, int idUsuario)
+        {
+            using IServiceScope escopo = _fabrica.Services.CreateScope();
+            ISessaoService sessao = escopo.ServiceProvider.GetRequiredService<ISessaoService>();
+            sessao.Invalidar(perfil, idUsuario);
         }
 
         private static HttpRequestMessage Requisicao(HttpMethod metodo, string rota, string? token)
@@ -321,6 +392,161 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public async Task Login_ComLembrar_DevolveExpiracaoDe30DiasEOTokenFunciona()
+        {
+            DateTime antes = DateTime.Now;
+            HttpResponseMessage login = await _cliente.PostAsync(RotaLogin, CorpoJson(new { perfil = "CLIENTE", cpf = CpfCliente, senha = SenhaCliente, lembrar = true }));
+            DateTime depois = DateTime.Now;
+
+            Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+            JsonElement retorno = await LerJsonAsync(login);
+            DateTime expiraEm = retorno.GetProperty("expiraEm").GetDateTime();
+            Assert.InRange(expiraEm, antes.AddDays(30).AddMinutes(-1), depois.AddDays(30).AddMinutes(1));
+
+            string token = retorno.GetProperty("token").GetString()!;
+            HttpResponseMessage identidade = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaIdentidade, token));
+            Assert.Equal(HttpStatusCode.OK, identidade.StatusCode);
+        }
+
+        [Fact]
+        public async Task ContaDesativada_DerrubaATokenComDesativacaoEInvalidacao()
+        {
+            Cliente cliente = new Cliente { Nome = "Cliente Desativado Http", Cpf = CpfDesativadoHttp, SenhaHash = _fabrica.HashSenhaCliente, StatusCadastro = StatusCadastroCliente.APROVADO };
+            _fabrica.Repositorio.AdicionarCliente(cliente);
+            string token = GerarTokenPara(PerfilUsuario.CLIENTE, cliente.IdCliente, _fabrica.HashSenhaCliente, null, _fabrica.ChaveJwt, 120);
+
+            HttpResponseMessage antes = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaIdentidade, token));
+            cliente.Disable();
+            InvalidarSessao(PerfilUsuario.CLIENTE, cliente.IdCliente);
+            HttpResponseMessage depois = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaIdentidade, token));
+
+            Assert.Equal(HttpStatusCode.OK, antes.StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, depois.StatusCode);
+            Assert.Equal(MediaProblema, depois.Content.Headers.ContentType?.MediaType);
+        }
+
+        [Fact]
+        public async Task SenhaTrocada_DerrubaOTokenAntigoAposInvalidacao()
+        {
+            string hashAntigo = new SenhaHasher(new FakeLogService()).Hash(SenhaAntigaHttp);
+            Cliente cliente = new Cliente { Nome = "Cliente Senha Trocada Http", Cpf = CpfSenhaTrocadaHttp, SenhaHash = hashAntigo, StatusCadastro = StatusCadastroCliente.APROVADO };
+            _fabrica.Repositorio.AdicionarCliente(cliente);
+            string tokenAntigo = GerarTokenPara(PerfilUsuario.CLIENTE, cliente.IdCliente, hashAntigo, null, _fabrica.ChaveJwt, 120);
+
+            HttpResponseMessage antes = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaIdentidade, tokenAntigo));
+            cliente.SenhaHash = new SenhaHasher(new FakeLogService()).Hash(SenhaNovaHttp);
+            InvalidarSessao(PerfilUsuario.CLIENTE, cliente.IdCliente);
+            HttpResponseMessage depois = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaIdentidade, tokenAntigo));
+
+            Assert.Equal(HttpStatusCode.OK, antes.StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, depois.StatusCode);
+            Assert.Equal(MediaProblema, depois.Content.Headers.ContentType?.MediaType);
+        }
+
+        [Fact]
+        public async Task TokenSemVersaoDeSessao_Devolve401()
+        {
+            string token = TokenSemVersaoDeSessao(PerfilUsuario.CLIENTE, 1);
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaIdentidade, token));
+
+            Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
+            Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
+        }
+
+        /// <summary>Fail-closed do evento de sessao: sub que nao e numero recusa com 401 (nunca 500 nem 200).</summary>
+        [Fact]
+        public async Task TokenComSubNaoNumerico_Devolve401()
+        {
+            string token = AssinarComClaims(new Dictionary<string, object>
+            {
+                { JwtRegisteredClaimNames.Sub, SubNaoNumerico },
+                { ConstantsValues.ClaimRole, PerfilUsuario.CLIENTE.ToString() },
+                { ConstantsValues.ClaimVersaoSessao, VersaoSessaoQualquer },
+                { ConstantsValues.ClaimNome, NomeDeTeste },
+                { JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString() }
+            });
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaIdentidade, token));
+
+            Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
+        }
+
+        /// <summary>Fail-closed do evento de sessao: role fora de CLIENTE e FUNCIONARIO recusa com 401.</summary>
+        [Fact]
+        public async Task TokenComRoleDesconhecida_Devolve401()
+        {
+            string token = AssinarComClaims(new Dictionary<string, object>
+            {
+                { JwtRegisteredClaimNames.Sub, IdSessaoDeTeste.ToString(CultureInfo.InvariantCulture) },
+                { ConstantsValues.ClaimRole, RoleDesconhecida },
+                { ConstantsValues.ClaimVersaoSessao, VersaoSessaoQualquer },
+                { ConstantsValues.ClaimNome, NomeDeTeste },
+                { JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString() }
+            });
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaIdentidade, token));
+
+            Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
+        }
+
+        /// <summary>
+        /// Falha ao conferir a sessao (aqui, a consulta do banco por trás do ISessaoService real) recusa com 401 e nao
+        /// deixa passar nem vira 500. Usa um id sem cadastro para o resultado nao vir do cache de outro teste.
+        /// </summary>
+        [Fact]
+        public async Task FalhaAoConferirASessao_Devolve401_NaoServidorErroNemLibera()
+        {
+            string token = GerarTokenPara(PerfilUsuario.CLIENTE, IdSessaoDeTeste, _fabrica.HashSenhaCliente, null, _fabrica.ChaveJwt, 120);
+            _fabrica.Repositorio.ExcecaoAoBuscar = new InvalidOperationException(MensagemFalhaSessao);
+
+            HttpResponseMessage resposta;
+            try
+            {
+                resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaIdentidade, token));
+            }
+            finally
+            {
+                _fabrica.Repositorio.ExcecaoAoBuscar = null;
+            }
+
+            Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
+        }
+
+        /// <summary>Token assinado com a chave do servidor e as claims informadas (usado para claims invalidas).</summary>
+        private string AssinarComClaims(Dictionary<string, object> claims)
+        {
+            SigningCredentials credenciais = new SigningCredentials(
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_fabrica.ChaveJwt)),
+                SecurityAlgorithms.HmacSha256);
+
+            SecurityTokenDescriptor descritor = new SecurityTokenDescriptor
+            {
+                Issuer = AutenticacaoWebFactory.Emissor,
+                Audience = AutenticacaoWebFactory.Audiencia,
+                IssuedAt = DateTime.Now,
+                NotBefore = DateTime.Now,
+                Expires = DateTime.Now.AddMinutes(120),
+                Claims = claims,
+                SigningCredentials = credenciais
+            };
+
+            JsonWebTokenHandler handler = new JsonWebTokenHandler();
+
+            return handler.CreateToken(descritor);
+        }
+
+        [Fact]
+        public void LembrarDeMimForaDaFaixa_ImpedeASubidaDaApi()
+        {
+            using AutenticacaoWebFactoryLembrarInvalido fabricaInvalida = new AutenticacaoWebFactoryLembrarInvalido();
+
+            Exception excecao = Assert.ThrowsAny<Exception>(() => fabricaInvalida.CreateClient());
+
+            Assert.Contains(ConstantsMessage.ErroConfiguracaoSessao, excecao.ToString());
+        }
+
+        [Fact]
         public void ChaveJwtCurta_ImpedeASubidaDaApi()
         {
             using AutenticacaoWebFactoryChaveCurta fabricaChaveCurta = new AutenticacaoWebFactoryChaveCurta();
@@ -490,6 +716,12 @@ namespace AutoVia.Tests.Api
             SemearContas();
         }
 
+        /// <summary>Hash PBKDF2 da senha do cliente semeado; a versao da sessao (sv) dos tokens de teste sai dele.</summary>
+        public string HashSenhaCliente { get; private set; } = string.Empty;
+
+        /// <summary>Hash PBKDF2 da senha da funcionaria ativa semeada.</summary>
+        public string HashSenhaFuncionario { get; private set; } = string.Empty;
+
         /// <summary>Chave JWT usada pelo servidor de teste (gerada a cada execucao).</summary>
         public string ChaveJwt { get; }
 
@@ -512,10 +744,13 @@ namespace AutoVia.Tests.Api
                     { "Jwt:ExpiracaoMinutos", "120" },
                     { "Jwt:Chave", ChaveJwt },
                     { "Autenticacao:LimitePublicoPorMinuto", _limitePublico.ToString(CultureInfo.InvariantCulture) },
+                    // Ambiente Testing nao e Development: a URL publica do front precisa ser https fora de loopback.
+                    { "Autenticacao:Recuperacao:UrlPublicaFront", "https://front.exemplo.com" },
                     { "Cors:Origens:0", ConstantsValues.OrigemFrontendLocal },
                     { "ConnectionStrings:AutoViaConnection", "Host=localhost;Port=1;Database=teste_sem_banco;Username=teste;Password=teste" }
                 };
 
+                AjustarConfiguracao(valores);
                 configuracao.AddInMemoryCollection(valores);
             });
 
@@ -529,15 +764,22 @@ namespace AutoVia.Tests.Api
             });
         }
 
+        /// <summary>Ponto de extensao para os testes trocarem valores de configuracao antes de subir o servidor.</summary>
+        protected virtual void AjustarConfiguracao(Dictionary<string, string?> valores)
+        {
+        }
+
         private void SemearContas()
         {
             SenhaHasher hasher = new SenhaHasher(new FakeLogService());
+            HashSenhaCliente = hasher.Hash(SenhaClienteDeTeste);
+            HashSenhaFuncionario = hasher.Hash(SenhaFuncionarioDeTeste);
 
             Repositorio.AdicionarCliente(new Cliente
             {
                 Nome = "Maria Cliente",
                 Cpf = CpfClienteDeTeste,
-                SenhaHash = hasher.Hash(SenhaClienteDeTeste),
+                SenhaHash = HashSenhaCliente,
                 StatusCadastro = StatusCadastroCliente.PENDENTE
             });
 
@@ -548,7 +790,7 @@ namespace AutoVia.Tests.Api
                 Matricula = "F-001",
                 Cargo = CargoFuncionario.ATENDENTE,
                 Ativo = true,
-                SenhaHash = hasher.Hash(SenhaFuncionarioDeTeste)
+                SenhaHash = HashSenhaFuncionario
             });
 
             Repositorio.AdicionarFuncionario(new Funcionario
@@ -569,6 +811,20 @@ namespace AutoVia.Tests.Api
         public AutenticacaoWebFactoryLimitado()
             : base(2, null)
         {
+        }
+    }
+
+    /// <summary>Servidor de teste com Jwt:ExpiracaoLembrarDias igual a 0 (fora da faixa 1..90), para provar que a API nao sobe.</summary>
+    public sealed class AutenticacaoWebFactoryLembrarInvalido : AutenticacaoWebFactory
+    {
+        public AutenticacaoWebFactoryLembrarInvalido()
+            : base(1000, null)
+        {
+        }
+
+        protected override void AjustarConfiguracao(Dictionary<string, string?> valores)
+        {
+            valores["Jwt:ExpiracaoLembrarDias"] = "0";
         }
     }
 

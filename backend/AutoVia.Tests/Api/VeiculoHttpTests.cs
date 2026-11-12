@@ -3,6 +3,7 @@ using AutoVia.Communication.ViewObjects.Frota;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Options;
 using AutoVia.Core.RepositoriesInterface;
+using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
 using AutoVia.Tests.Fakes;
@@ -32,6 +33,7 @@ namespace AutoVia.Tests.Api
     {
         private const string RotaVeiculos = "/api/veiculos";
         private const string MediaProblema = "application/problem+json";
+        private const string VersaoSessaoDeTeste = "versao-de-teste";
 
         private readonly VeiculoWebFactory _fabrica;
         private readonly HttpClient _cliente;
@@ -226,7 +228,7 @@ namespace AutoVia.Tests.Api
             };
 
             TokenService tokens = new TokenService(opcoes, new FakeLogService());
-            string token = tokens.GerarToken(perfil, 1, "Usuario de teste", cargo).Token;
+            string token = tokens.GerarToken(perfil, 1, "Usuario de teste", cargo, VersaoSessaoDeTeste, false).Token;
 
             return token;
         }
@@ -354,6 +356,7 @@ namespace AutoVia.Tests.Api
                     { "Jwt:ExpiracaoMinutos", "120" },
                     { "Jwt:Chave", ChaveJwt },
                     { "Autenticacao:LimitePublicoPorMinuto", "1000" },
+                    { "Autenticacao:Recuperacao:UrlPublicaFront", "https://front.exemplo.com" },
                     { "ConnectionStrings:AutoViaConnection", "Host=localhost;Port=1;Database=teste_sem_banco;Username=teste;Password=teste" }
                 };
 
@@ -366,6 +369,9 @@ namespace AutoVia.Tests.Api
                 services.AddSingleton<IVeiculoRepository>(Veiculos);
                 services.RemoveAll<ICategoriaRepository>();
                 services.AddSingleton<ICategoriaRepository>(Categorias);
+                // A conferencia de sessao (BE-2) fica sem banco: toda sessao e valida nestes testes.
+                services.RemoveAll<ISessaoService>();
+                services.AddSingleton<ISessaoService>(new FakeSessaoService());
             });
         }
     }

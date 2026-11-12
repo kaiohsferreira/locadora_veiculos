@@ -16,11 +16,26 @@ namespace AutoVia.Tests.Fakes
         private int _proximoIdCliente = 1;
         private int _proximoIdFuncionario = 1;
 
+        private int _totalBuscas;
+        private readonly object _trava = new object();
+
         /// <summary>Quando nao for null, toda consulta lanca esta excecao (simula falha do banco).</summary>
         public Exception? ExcecaoAoBuscar { get; set; }
 
+        /// <summary>
+        /// Quando nao for null, a busca por CPF espera este sinal antes de responder (simula banco lento sem tempo fixo).
+        /// O teste libera o sinal quando quiser; a espera nao tem tempo limite proprio.
+        /// </summary>
+        public TaskCompletionSource? Portao { get; set; }
+
+        /// <summary>Quantas buscas por CPF comecaram (inclusive as que esperam o Portao ou lancam). Lido com Volatile.</summary>
+        public int TotalBuscas => Volatile.Read(ref _totalBuscas);
+
         /// <summary>Funcionarios gravados (inclusive os semeados), para os testes conferirem o que foi inserido.</summary>
         public IReadOnlyList<Funcionario> Funcionarios => _funcionarios;
+
+        /// <summary>Clientes semeados (ativos e desativados), na mesma lista que o login le. Usada pelo FakeGoogleVinculoRepository (BE-6) para enxergar os mesmos clientes.</summary>
+        public IReadOnlyList<Cliente> Clientes => _clientes;
 
         /// <summary>Semeia um cliente (ativo ou desativado). Se o id for 0, gera um.</summary>
         public void AdicionarCliente(Cliente cliente)
@@ -35,7 +50,10 @@ namespace AutoVia.Tests.Fakes
                 _proximoIdCliente = cliente.IdCliente + 1;
             }
 
-            _clientes.Add(cliente);
+            lock (_trava)
+            {
+                _clientes.Add(cliente);
+            }
         }
 
         /// <summary>Semeia um funcionario (ativo ou desativado). Se o id for 0, gera um.</summary>
@@ -51,33 +69,78 @@ namespace AutoVia.Tests.Fakes
                 _proximoIdFuncionario = funcionario.IdFuncionario + 1;
             }
 
-            _funcionarios.Add(funcionario);
+            lock (_trava)
+            {
+                _funcionarios.Add(funcionario);
+            }
         }
 
-        /// <summary>Busca o cliente ativo pelo CPF; o mais antigo se houver mais de um.</summary>
-        public Task<Cliente?> FindClienteByCpfAsync(string cpf)
+        /// <summary>Busca o cliente ativo pelo CPF; o mais antigo se houver mais de um. Conta a busca e espera o Portao, se houver.</summary>
+        public async Task<Cliente?> FindClienteByCpfAsync(string cpf)
+        {
+            Interlocked.Increment(ref _totalBuscas);
+
+            await AguardarPortaoAsync();
+
+            LancarSeConfigurado();
+
+            Cliente? cliente;
+
+            lock (_trava)
+            {
+                cliente = _clientes
+                    .Where(x => x.Cpf == cpf && x.DisabledAt == null)
+                    .OrderBy(x => x.IdCliente)
+                    .FirstOrDefault();
+            }
+
+            return cliente;
+        }
+
+        /// <summary>Busca o cliente ativo pelo id (DisabledAt nulo).</summary>
+        public Task<Cliente?> FindClienteByIdAsync(int idCliente)
         {
             LancarSeConfigurado();
 
             Cliente? cliente = _clientes
-                .Where(x => x.Cpf == cpf && x.DisabledAt == null)
-                .OrderBy(x => x.IdCliente)
+                .Where(x => x.IdCliente == idCliente && x.DisabledAt == null)
                 .FirstOrDefault();
 
             return Task.FromResult(cliente);
         }
 
-        /// <summary>Busca o funcionario ativo (DisabledAt nulo) pelo CPF; a regra de Ativo fica no servico.</summary>
-        public Task<Funcionario?> FindFuncionarioByCpfAsync(string cpf)
+        /// <summary>Busca o funcionario ativo pelo id (DisabledAt nulo); a regra de Ativo fica no servico.</summary>
+        public Task<Funcionario?> FindFuncionarioByIdAsync(int idFuncionario)
         {
             LancarSeConfigurado();
 
             Funcionario? funcionario = _funcionarios
-                .Where(x => x.Cpf == cpf && x.DisabledAt == null)
-                .OrderBy(x => x.IdFuncionario)
+                .Where(x => x.IdFuncionario == idFuncionario && x.DisabledAt == null)
                 .FirstOrDefault();
 
             return Task.FromResult(funcionario);
+        }
+
+        /// <summary>Busca o funcionario ativo (DisabledAt nulo) pelo CPF; a regra de Ativo fica no servico. Conta a busca e espera o Portao, se houver.</summary>
+        public async Task<Funcionario?> FindFuncionarioByCpfAsync(string cpf)
+        {
+            Interlocked.Increment(ref _totalBuscas);
+
+            await AguardarPortaoAsync();
+
+            LancarSeConfigurado();
+
+            Funcionario? funcionario;
+
+            lock (_trava)
+            {
+                funcionario = _funcionarios
+                    .Where(x => x.Cpf == cpf && x.DisabledAt == null)
+                    .OrderBy(x => x.IdFuncionario)
+                    .FirstOrDefault();
+            }
+
+            return funcionario;
         }
 
         /// <summary>Indica se existe funcionario ativo com o CPF informado.</summary>
@@ -123,6 +186,17 @@ namespace AutoVia.Tests.Fakes
             if (ExcecaoAoBuscar != null)
             {
                 throw ExcecaoAoBuscar;
+            }
+        }
+
+        /// <summary>Espera o Portao quando ele estiver configurado; sem Portao, nao espera nada.</summary>
+        private async Task AguardarPortaoAsync()
+        {
+            TaskCompletionSource? portao = Portao;
+
+            if (portao != null)
+            {
+                await portao.Task;
             }
         }
     }

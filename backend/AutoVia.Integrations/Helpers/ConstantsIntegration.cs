@@ -14,6 +14,7 @@ namespace AutoVia.Integrations.Helpers
         public const string Armazenamento = "ARMAZENAMENTO";
         public const string Seguradora = "SEGURADORA";
         public const string Multas = "MULTAS";
+        public const string Google = "GOOGLE";
 
         // --- Cache do IIntegrationResolver (curto, para nao consultar o banco a cada chamada) ---
         public const string PrefixoCache = "autovia:integration:";

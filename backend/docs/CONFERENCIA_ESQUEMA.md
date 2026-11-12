@@ -78,6 +78,27 @@ A migration `AuditoriaSoftDelete` foi **gerada, não aplicada**. Num banco que j
 - **Migration `AjustarIntegracoesProvedores` (05, `sql/05_AjustarIntegracoesProvedores.sql`):** migration só de dados, sem mudança de esquema. Acrescenta `provedor`, `access_token` (`DEFINIR_NO_BANCO`) e `pix_expiracao_segundos` em `integration_setting`, por isso ela não aparece na conferência.
 - **Resultado atual** (com `colunas_acesso`): `Desvios aprovados aplicados a especificacao: 60`, `Colunas: especificacao=193 gerado=193`, `Diferencas: 0`. Sem esse bloco, o script mostra 2 diferenças (`senha_hash` em `cliente` e `funcionario`).
 
+## Desvio de 12/11/2026: recuperação de senha e login Google (RF-49 e RF-51)
+
+Aprovado pelo Kaio em 12/11/2026 (bloco `recuperacao_senha_e_login_google` em `especificacao/desvios_aprovados.json`):
+- Tabela nova `redefinicao_senha`: guarda só o hash SHA-256 do token do link de recuperação, a validade e o titular (cliente OU funcionario, pelo CHECK `ck_redefinicao_titular`). Tem as colunas de auditoria do `BaseEntities`.
+- Coluna nova `cliente.google_sub VARCHAR(255) NULL`: vínculo com a conta Google.
+- Índices comuns, sem UNIQUE: `idx_redefinicao_token` e `idx_cliente_google_sub`. A unicidade fica no serviço.
+- Migrations geradas, não aplicadas, nesta ordem depois da `AdicionarChavesCaucao` (06):
+  - `20261112050622_AdicionarRecuperacaoSenhaEVinculoGoogle` (esquema), script `sql/07_AdicionarRecuperacaoSenhaEVinculoGoogle.sql`;
+  - `20261112050640_AdicionarIntegracaoGoogleEChavesEmail` (dados: integration `GOOGLE`, settings `GOOGLE.client_id`, `GOOGLE.provedor` e `EMAIL.provedor`), script `sql/08_AdicionarIntegracaoGoogleEChavesEmail.sql`.
+
+Contagens depois do desvio (conferidas pelo `SchemaModelTests`):
+
+```text
+Tabelas:  16 -> 17 (14 de negocio + redefinicao_senha + integration + integration_setting)
+Colunas:  +9 (redefinicao_senha: 8; cliente.google_sub: 1)
+CHECK:    32 -> 33 (ck_redefinicao_titular)
+FK:       +2 (fk_redefinicao_cliente, fk_redefinicao_funcionario)
+UNIQUE:   0 (inalterado)
+Indices:  +2 (idx_redefinicao_token, idx_cliente_google_sub)
+```
+
 ## Diferenças de forma, que não mudam o esquema
 
 Estes pontos não aparecem como diferença porque são equivalentes. Vale registrar mesmo assim, para ninguém se surpreender ao abrir o banco:

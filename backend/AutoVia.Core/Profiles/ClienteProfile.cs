@@ -21,6 +21,7 @@ namespace AutoVia.Core.Profiles
                 .ForMember(dest => dest.IdCliente, opt => opt.Ignore())
                 .ForMember(dest => dest.StatusCadastro, opt => opt.Ignore())
                 .ForMember(dest => dest.SenhaHash, opt => opt.Ignore())
+                .ForMember(dest => dest.GoogleSub, opt => opt.Ignore())
                 .ForMember(dest => dest.DataCadastro, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())

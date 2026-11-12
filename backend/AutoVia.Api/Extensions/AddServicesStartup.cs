@@ -31,6 +31,8 @@ namespace AutoVia.Api.Extensions
             services.AddSingleton<ISenhaHasher, SenhaHasher>();
             services.AddSingleton<ITokenService, TokenService>();
             services.AddScoped<IAutenticacaoService, AutenticacaoService>();
+            // Scoped: usa o repositorio de login; o cache do resultado e o IMemoryCache (AddIntegrations).
+            services.AddScoped<ISessaoService, SessaoService>();
             services.AddScoped<IAdminInicialService, AdminInicialService>();
 
             // Garante o administrador inicial na subida (idempotente; falha so vai para o log).

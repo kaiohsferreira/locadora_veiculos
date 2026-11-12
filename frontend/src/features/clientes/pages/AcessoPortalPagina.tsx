@@ -4,9 +4,9 @@ import { FormularioAcesso } from '@/features/clientes/acesso/FormularioAcesso';
 import { PainelMarcaAcesso } from '@/features/clientes/acesso/PainelMarcaAcesso';
 import { perfilInicialPara, resolverDestinoAposLogin } from '@/features/clientes/acesso/destinoAposLogin';
 import type { ValoresAcesso } from '@/features/clientes/acesso/esquemaAcesso';
+import { montarRequisicaoLogin } from '@/features/clientes/acesso/montarRequisicaoLogin';
 import { useEntrar } from '@/features/clientes/hooks/useEntrar';
 import { useTituloDocumento } from '@/hooks/useTituloDocumento';
-import { somenteDigitos } from '@/lib/formatters';
 import { ACESSO_TITULO_PAGINA } from '@/lib/mensagens';
 import { useAutenticacao } from '@/routes/autenticacao/useAutenticacao';
 
@@ -29,7 +29,7 @@ export default function AcessoPortalPagina() {
   }
 
   function aoEnviar(valores: ValoresAcesso) {
-    entrar.mutate({ perfil: valores.perfil, cpf: somenteDigitos(valores.cpf), senha: valores.senha });
+    entrar.mutate(montarRequisicaoLogin(valores));
   }
 
   return (

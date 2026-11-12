@@ -60,3 +60,5 @@ export const MENSAGEM_AUTENTICACAO_IGNORADA =
 // Mensagens por módulo ficam em mensagens<Modulo>.ts e são reexportadas aqui.
 export * from './mensagensAcesso';
 export * from './mensagensCadastro';
+export * from './mensagensRecuperacao';
+export * from './mensagensGoogle';

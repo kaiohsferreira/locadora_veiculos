@@ -20,12 +20,18 @@ import {
   primeiroCampoNaTela,
 } from '@/features/clientes/cadastro/fluxoCadastro';
 import {
+  lerPreenchimentoCadastro,
+  type PreenchimentoCadastro,
+} from '@/features/clientes/cadastro/preenchimentoCadastro';
+import {
   ESQUEMA_CADASTRO,
   FORMULARIO_INICIAL,
   type FormularioCadastro,
 } from '@/features/clientes/cadastro/esquemaCadastro';
 import { aplicarErrosDeCampo, obterMensagemErro } from '@/lib/erros';
+import { limparPreenchimentoGoogle, obterPreenchimentoGoogle } from '@/lib/preenchimentoGoogle';
 import {
+  GOOGLE_CADASTRO_NECESSARIO,
   MENSAGEM_CADASTRO_ABERTURA,
   MENSAGEM_CADASTRO_AVISO_ANALISE,
   MENSAGEM_CADASTRO_BOTAO_CONTINUAR,
@@ -110,6 +116,14 @@ export default function CadastroDadosPessoaisPagina() {
   const { reset: resetarCadastro } = cadastro;
   const { reset: resetarLogin } = entrar;
 
+  // Lê o pré-preenchimento do Google na montagem, só uma vez. O inicializador do estado roda duas
+  // vezes no StrictMode, mas as duas leituras veem o mesmo valor: a limpeza fica no efeito abaixo,
+  // depois do mount, e o estado (já capturado) não se perde na remontagem simulada.
+  const [preenchimentoGoogle] = useState<PreenchimentoCadastro>(() =>
+    lerPreenchimentoCadastro(obterPreenchimentoGoogle()),
+  );
+  const veioDoGoogle = preenchimentoGoogle.email !== '';
+
   // `enviando` (estado) controla a tela. `emEnvio` (ref síncrona) impede um segundo envio
   // antes do próximo render: Enter repetido ou duplo clique.
   const [enviando, setEnviando] = useState(false);
@@ -117,6 +131,11 @@ export default function CadastroDadosPessoaisPagina() {
   const emEnvio = useRef(false);
   const montada = useRef(false);
   const alertaRef = useRef<HTMLDivElement>(null);
+
+  // Consome o pré-preenchimento: a memória é limpa depois que a tela já capturou os valores.
+  useEffect(() => {
+    limparPreenchimentoGoogle();
+  }, []);
 
   // Ao sair da tela, esquece as mutações (senha e dados pessoais não ficam em cache).
   // A ref `montada` impede navegar ou avisar depois que a tela desmontou.
@@ -136,7 +155,8 @@ export default function CadastroDadosPessoaisPagina() {
     setFocus,
     formState: { errors },
   } = useForm<FormularioCadastro>({
-    defaultValues: FORMULARIO_INICIAL,
+    // Nome e e-mail vindos do login com Google são só valores iniciais: a pessoa pode editar.
+    defaultValues: { ...FORMULARIO_INICIAL, ...preenchimentoGoogle },
     resolver: zodResolver(ESQUEMA_CADASTRO),
   });
 
@@ -238,6 +258,12 @@ export default function CadastroDadosPessoaisPagina() {
       </nav>
 
       <section className="mt-4 rounded-cartao bg-branco shadow-cartao">
+        {veioDoGoogle && (
+          <output className="flex items-start gap-3 rounded-t-cartao border-b border-steel bg-steel-claro px-6 py-4 text-corpo-denso text-navy">
+            <Icone nome="info" tamanho={20} className="mt-0.5 text-steel" />
+            <span>{GOOGLE_CADASTRO_NECESSARIO}</span>
+          </output>
+        )}
         <header className="border-b border-borda px-6 py-4">
           <h1 className="text-secao text-navy">{MENSAGEM_CADASTRO_TITULO_CARTAO}</h1>
           <p className="mt-1 text-corpo-denso text-texto-suave">{MENSAGEM_CADASTRO_SUBTITULO}</p>

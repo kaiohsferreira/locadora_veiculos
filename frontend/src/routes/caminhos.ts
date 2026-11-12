@@ -9,6 +9,9 @@ export const CAMINHOS = {
   // Área pública e do cliente ------------------------------------------------
   inicio: '/',
   entrar: '/entrar',
+  recuperarSenha: '/recuperar-senha',
+  redefinirSenha: '/redefinir-senha',
+  vincularGoogle: '/entrar/vincular-google',
   cadastro: '/cadastro',
   cadastroDadosPessoais: '/cadastro/dados-pessoais',
   cadastroDocumentos: '/cadastro/documentos',

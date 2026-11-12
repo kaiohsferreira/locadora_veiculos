@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ACESSO_ERRO_CPF_DIGITOS,
   ACESSO_ERRO_CPF_OBRIGATORIO,
+  ACESSO_ERRO_LEMBRAR_INVALIDO,
   ACESSO_ERRO_PERFIL_OBRIGATORIO,
   ACESSO_ERRO_SENHA_OBRIGATORIA,
   ACESSO_ERRO_SENHA_TAMANHO,
@@ -89,5 +90,31 @@ describe('esquemaAcesso', () => {
     expect(mensagemDoCampo({ ...VALORES_VALIDOS, perfil: 'cliente' }, 'perfil')).toBe(
       ACESSO_ERRO_PERFIL_OBRIGATORIO,
     );
+  });
+
+  describe('lembrar de mim', () => {
+    it('ausente vale false', () => {
+      const resultado = esquemaAcesso.safeParse(VALORES_VALIDOS);
+      expect(resultado.success).toBe(true);
+      if (resultado.success) expect(resultado.data.lembrar).toBe(false);
+    });
+
+    it('true é preservado', () => {
+      const resultado = esquemaAcesso.safeParse({ ...VALORES_VALIDOS, lembrar: true });
+      expect(resultado.success).toBe(true);
+      if (resultado.success) expect(resultado.data.lembrar).toBe(true);
+    });
+
+    it('false explícito é preservado', () => {
+      const resultado = esquemaAcesso.safeParse({ ...VALORES_VALIDOS, lembrar: false });
+      expect(resultado.success).toBe(true);
+      if (resultado.success) expect(resultado.data.lembrar).toBe(false);
+    });
+
+    it('valor que não é booleano é rejeitado', () => {
+      expect(mensagemDoCampo({ ...VALORES_VALIDOS, lembrar: 'sim' }, 'lembrar')).toBe(ACESSO_ERRO_LEMBRAR_INVALIDO);
+      expect(mensagemDoCampo({ ...VALORES_VALIDOS, lembrar: 1 }, 'lembrar')).toBe(ACESSO_ERRO_LEMBRAR_INVALIDO);
+      expect(mensagemDoCampo({ ...VALORES_VALIDOS, lembrar: null }, 'lembrar')).toBe(ACESSO_ERRO_LEMBRAR_INVALIDO);
+    });
   });
 });

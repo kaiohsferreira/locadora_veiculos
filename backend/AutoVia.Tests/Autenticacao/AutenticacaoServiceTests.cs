@@ -220,6 +220,65 @@ namespace AutoVia.Tests.Autenticacao
             Assert.DoesNotContain(log.Entries, entrada => entrada.Contains(SenhaCliente));
         }
 
+        [Fact]
+        public async Task Login_SemLembrar_ExpiraEm120Minutos()
+        {
+            FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
+            repositorio.AdicionarCliente(new Cliente { Nome = "Maria Cliente", Cpf = CpfCliente, SenhaHash = GerarHash(SenhaCliente), StatusCadastro = StatusCadastroCliente.APROVADO });
+            FakeLogService log = new FakeLogService();
+            AutenticacaoService servico = CriarServico(repositorio, new SenhaHasher(log), log);
+            DateTime antes = DateTime.Now;
+
+            ReturnLoginVO retorno = await servico.LoginAsync(Login(PerfilUsuario.CLIENTE, CpfCliente, SenhaCliente));
+            DateTime depois = DateTime.Now;
+
+            Assert.InRange(retorno.ExpiraEm, antes.AddMinutes(120).AddSeconds(-5), depois.AddMinutes(120).AddSeconds(5));
+        }
+
+        [Fact]
+        public async Task Login_ComLembrar_ExpiraEm30DiasCorridos()
+        {
+            FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
+            repositorio.AdicionarCliente(new Cliente { Nome = "Maria Cliente", Cpf = CpfCliente, SenhaHash = GerarHash(SenhaCliente), StatusCadastro = StatusCadastroCliente.APROVADO });
+            FakeLogService log = new FakeLogService();
+            AutenticacaoService servico = CriarServico(repositorio, new SenhaHasher(log), log);
+            DateTime antes = DateTime.Now;
+
+            ReturnLoginVO retorno = await servico.LoginAsync(new LoginVO { Perfil = PerfilUsuario.CLIENTE, Cpf = CpfCliente, Senha = SenhaCliente, Lembrar = true });
+            DateTime depois = DateTime.Now;
+
+            Assert.InRange(retorno.ExpiraEm, antes.AddDays(30).AddSeconds(-5), depois.AddDays(30).AddSeconds(5));
+        }
+
+        [Fact]
+        public void EmitirSessaoCliente_ComLembrar_ExpiraEm30DiasEMantemStatusDoCadastro()
+        {
+            FakeLogService log = new FakeLogService();
+            AutenticacaoService servico = CriarServico(new FakeAutenticacaoRepository(), new SenhaHasher(log), log);
+            Cliente cliente = new Cliente { IdCliente = 5, Nome = "Maria Cliente", Cpf = CpfCliente, SenhaHash = GerarHash(SenhaCliente), StatusCadastro = StatusCadastroCliente.PENDENTE };
+            DateTime antes = DateTime.Now;
+
+            ReturnLoginVO retorno = servico.EmitirSessaoCliente(cliente, true);
+            DateTime depois = DateTime.Now;
+
+            Assert.Equal(PerfilUsuario.CLIENTE, retorno.Perfil);
+            Assert.Equal(5, retorno.IdUsuario);
+            Assert.Equal(StatusCadastroCliente.PENDENTE, retorno.StatusCadastro);
+            Assert.InRange(retorno.ExpiraEm, antes.AddDays(30).AddSeconds(-5), depois.AddDays(30).AddSeconds(5));
+        }
+
+        [Fact]
+        public void EmitirSessaoCliente_SemSenhaCadastrada_RecusaComAMesmaMensagem()
+        {
+            FakeLogService log = new FakeLogService();
+            AutenticacaoService servico = CriarServico(new FakeAutenticacaoRepository(), new SenhaHasher(log), log);
+            Cliente cliente = new Cliente { IdCliente = 5, Nome = "Maria Cliente", Cpf = CpfCliente, SenhaHash = null };
+
+            UnauthorizedException excecao = Assert.Throws<UnauthorizedException>(() => servico.EmitirSessaoCliente(cliente, false));
+
+            Assert.Equal(ConstantsMessage.ErroCredenciaisInvalidas, excecao.Message);
+        }
+
         /// <summary>Espiao do ISenhaHasher: conta as chamadas de verificacao e de simulacao, sem o custo do PBKDF2 na simulacao.</summary>
         private sealed class SenhaHasherEspiao : ISenhaHasher
         {

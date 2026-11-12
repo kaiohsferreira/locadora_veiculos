@@ -44,6 +44,44 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
+        /// <summary>Busca o cliente ativo pelo id; nulo se nao existir. Sem rastreamento.</summary>
+        public async Task<Cliente?> FindClienteByIdAsync(int idCliente)
+        {
+            try
+            {
+                Cliente? cliente = await _db.Clientes
+                    .AsNoTracking()
+                    .Where(x => x.IdCliente == idCliente && x.DisabledAt == null)
+                    .FirstOrDefaultAsync();
+
+                return cliente;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarUsuarioAcesso, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Busca o funcionario ativo pelo id (DisabledAt nulo); nulo se nao existir. A regra de Ativo fica no servico. Sem rastreamento.</summary>
+        public async Task<Funcionario?> FindFuncionarioByIdAsync(int idFuncionario)
+        {
+            try
+            {
+                Funcionario? funcionario = await _db.Funcionarios
+                    .AsNoTracking()
+                    .Where(x => x.IdFuncionario == idFuncionario && x.DisabledAt == null)
+                    .FirstOrDefaultAsync();
+
+                return funcionario;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarUsuarioAcesso, GetType().ToString());
+                throw;
+            }
+        }
+
         /// <summary>Busca o funcionario ativo pelo CPF (somente digitos); nulo se nao existir. Sem rastreamento.</summary>
         public async Task<Funcionario?> FindFuncionarioByCpfAsync(string cpf)
         {

@@ -20,6 +20,8 @@ builder.Services.AddServices();
 builder.Services.AddMapping();
 builder.Services.AddIntegrations();
 builder.Services.AddAuthenticationJwt(builder.Configuration);
+builder.Services.AddRecuperacaoSenha(builder.Configuration, builder.Environment);
+builder.Services.AddLoginGoogle();
 builder.Services.AddRateLimitingPublico(builder.Configuration);
 builder.Services.AddSwaggerDocumentation();
 builder.Services.AddCorsPolicy(builder.Configuration);

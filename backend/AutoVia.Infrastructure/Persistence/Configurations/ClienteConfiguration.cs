@@ -65,6 +65,10 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
 
             builder.Property(x => x.SenhaHash).IsRequired(false).HasMaxLength(ConstantsValues.TamanhoMaximoSenhaHash);
 
+            // Vinculo com a conta Google (RN3.5: uma conta Google para no maximo um cliente ativo, validado no servico).
+            builder.Property(x => x.GoogleSub).IsRequired(false).HasMaxLength(255);
+            builder.HasIndex(x => x.GoogleSub).HasDatabaseName("idx_cliente_google_sub");
+
             // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
             builder.ConfigureBaseEntities();
         }

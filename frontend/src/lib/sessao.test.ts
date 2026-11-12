@@ -76,6 +76,56 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe('sessão de 30 dias (lembrar de mim)', () => {
+  const DIA_MS = 86_400_000;
+
+  it('continua aberta aos 25 dias, com o temporizador reagendado, e encerra ao passar dos 30 dias', () => {
+    const vencimento = new Date(INSTANTE.getTime() + 30 * DIA_MS).toISOString();
+    sessao.salvarSessao('token-30', { nome: 'Lara', perfil: 'cliente', expiraEm: vencimento });
+    const ouvinte = vi.fn();
+    sessao.inscreverMudancasSessao(ouvinte);
+
+    // O primeiro temporizador é limitado a ~24,8 dias: ao disparar, a sessão é reagendada.
+    vi.advanceTimersByTime(25 * DIA_MS);
+    expect(sessao.obterToken()).toBe('token-30');
+    expect(vi.getTimerCount()).toBe(1);
+    expect(ouvinte).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(5 * DIA_MS - 1);
+    expect(sessao.obterToken()).toBe('token-30');
+    expect(ouvinte).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    expect(sessao.obterUsuarioSessao()).toBeNull();
+    expect(armazenamento.getItem(CHAVE_TOKEN)).toBeNull();
+    expect(ouvinte).toHaveBeenCalledTimes(1);
+  });
+
+  it('sobrevive à recarga do módulo (fechar e abrir o navegador) e ainda expira no prazo', async () => {
+    const vencimento = new Date(INSTANTE.getTime() + 30 * DIA_MS).toISOString();
+    sessao.salvarSessao('token-31', { nome: 'Mara', perfil: 'funcionario', expiraEm: vencimento });
+
+    vi.advanceTimersByTime(10 * DIA_MS);
+    const reaberto = await recarregarSessao();
+
+    expect(reaberto.obterToken()).toBe('token-31');
+    expect(reaberto.obterUsuarioSessao()).toEqual({
+      nome: 'Mara',
+      perfil: 'funcionario',
+      expiraEm: vencimento,
+    });
+
+    const ouvinte = vi.fn();
+    reaberto.inscreverMudancasSessao(ouvinte);
+    vi.advanceTimersByTime(20 * DIA_MS - 1);
+    expect(reaberto.obterToken()).toBe('token-31');
+
+    vi.advanceTimersByTime(1);
+    expect(reaberto.obterToken()).toBeNull();
+    expect(ouvinte).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('expiração inválida e armazenamento', () => {
   it('expiraEm que não é data não agenda temporizador e a sessão continua aberta', () => {
     sessao.salvarSessao('token-11', { nome: 'Lia', perfil: 'cliente', expiraEm: 'x' });

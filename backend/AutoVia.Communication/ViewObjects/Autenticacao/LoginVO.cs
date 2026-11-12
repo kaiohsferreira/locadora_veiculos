@@ -17,5 +17,8 @@ namespace AutoVia.Communication.ViewObjects.Autenticacao
 
         /// <summary>Senha em texto, enviada so nesta requisicao. Nunca e gravada nem registrada.</summary>
         public string Senha { get; set; } = string.Empty;
+
+        /// <summary>Lembrar de mim: true emite token de Jwt:ExpiracaoLembrarDias dias; false (padrao) mantem Jwt:ExpiracaoMinutos. Sem regra de validacao.</summary>
+        public bool Lembrar { get; set; }
     }
 }
