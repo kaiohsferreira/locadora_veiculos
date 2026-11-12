@@ -31,6 +31,14 @@ export function somenteDigitos(valor: string): string {
   return valor.replace(/\D/g, '');
 }
 
+/**
+ * Só dígitos, cortados no máximo informado. Serve de máscara para campos de
+ * tamanho fixo (ex.: número da CNH com 11 dígitos).
+ */
+export function limitarDigitos(valor: string, maximo: number): string {
+  return somenteDigitos(valor).slice(0, Math.max(0, maximo));
+}
+
 // Números --------------------------------------------------------------------
 
 /** 1234.5 → "R$ 1.234,50" */

@@ -30,13 +30,14 @@ npm run dev               # http://localhost:5173
 | `npm run build`   | Checagem de tipos (`tsc -b`) + build de produção |
 | `npm run lint`    | Lint (oxlint, o padrão do template do Vite)      |
 | `npm run preview` | Serve o build de produção localmente             |
+| `npm test`        | Testes unitários (Vitest, `*.test.ts` ao lado do arquivo) |
 
 ### Variáveis de ambiente (`.env`)
 
 | Variável                    | Exemplo                 | Uso                                                                                                                                  |
 | --------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `VITE_API_URL`              | `http://localhost:5000` | URL base da API (ASP.NET Core)                                                                                                       |
-| `VITE_IGNORAR_AUTENTICACAO` | `true`                  | Libera as rotas protegidas enquanto o login (P2-BE-01) não existe. **Só vale no `npm run dev`**: no build a proteção sempre é aplicada. |
+| `VITE_IGNORAR_AUTENTICACAO` | `false`                 | `true` libera as rotas protegidas sem passar pela API de login, só para navegar no `npm run dev` com o backend parado. **Só vale no `npm run dev`**: no build a proteção sempre é aplicada. |
 
 ## Estrutura de pastas
 
@@ -50,21 +51,26 @@ frontend/
     ├── index.css            Tailwind + estilos base
     ├── api/
     │   ├── client.ts        instância única do Axios + interceptadores (token e ProblemDetails → ErroApi)
+    │   ├── autenticacao.ts  login (POST /api/auth/login)
+    │   ├── clientes.ts      cadastro de clientes
     │   └── README.md        como cada módulo ganha seu arquivo quando o contrato sair
     ├── components/
     │   ├── ui/              componentes de base (ver lista abaixo) + index.ts
     │   │   └── aviso/       notificações: AvisoProvider e useAviso()
     │   ├── PaginaEsqueleto.tsx, CarregandoPagina.tsx, Logotipo.tsx, AvisoModoDesenvolvimento.tsx
     ├── features/            uma pasta por processo; cada uma com pages/ (e hooks/ quando houver contrato)
-    │   ├── frota/ clientes/ reservas/ locacoes/ devolucao/
+    │   ├── frota/ reservas/ locacoes/ devolucao/
     │   ├── vendas/ financeiro/ manutencao/ seguros/
-    │   └── area-cliente/    telas "Minhas ..." do cliente (tarefas T-FE)
+    │   ├── area-cliente/    telas "Minhas ..." do cliente (tarefas T-FE)
+    │   └── clientes/        acesso/ (login, P2-FE-01), cadastro/ (cadastro, P2-FE-02), pages/
+    │       └── hooks/       useEntrar (login: abre a sessão pelo contexto), useCadastrarCliente
     ├── hooks/               useDebounce, useTituloDocumento
     ├── layouts/             LayoutPublico, LayoutBackOffice
-    ├── lib/                 formatters, mensagens, sessao, erros, ambiente, queryClient
+    ├── lib/                 formatters, mensagens (+ mensagensAcesso, mensagensCadastro), sessao, erros,
+    │                        validadores, conversaoLogin, ambiente, queryClient
     ├── routes/              rotas.tsx, caminhos.ts, paginas.ts (lazy), RotaProtegida, 404, erro e acesso negado
     │   └── autenticacao/    contexto mínimo de autenticação (useAutenticacao)
-    └── types/               api.ts (ProblemDetails, ErroApi, Pagina<T>), enums.ts, autenticacao.ts
+    └── types/               api.ts (ProblemDetails, ErroApi, Pagina<T>), enums.ts, autenticacao.ts (sessão e login), clientes.ts (cadastro)
 ```
 
 ## Regras do projeto
@@ -138,6 +144,7 @@ Importe de `@/components/ui`. Todos aceitam `className` quando indicado.
 | **Botao** | `variante?: 'primario' \| 'secundario' \| 'contorno' \| 'fantasma' \| 'perigo'` (padrão `primario`), `tamanho?: 'pequeno' \| 'medio' \| 'grande'`, `carregando?`, `larguraTotal?`, `icone?` e `iconeDireita?` (nome Material Symbols), e todas as props de `<button>` (`type` padrão `button`). `forwardRef`. |
 | **BotaoLink** | Mesmas props visuais do Botao + props de `Link` do React Router (`to`, `replace`, `state`...). |
 | **Campo** | `rotulo: string`, `erro?`, `dica?`, `obrigatorio?` (mostra `*` e `aria-required`), `ocultarRotulo?`, `mascara?: (valor) => string` (ex.: `formatarCpf`), e todas as props de `<input>`. `forwardRef`, compatível com `register()`. |
+| **CampoSenha** | Como o Campo, sem `type` nem `mascara`: botão mostrar/ocultar a senha (`aria-pressed`, não envia o formulário). Use `autoComplete="current-password"` (login) ou `"new-password"` (cadastro). `forwardRef`, compatível com `register()`. |
 | **Select** | `rotulo: string`, `opcoes: OpcaoSelect[]` (`{ valor, rotulo, desabilitada? }`), `erro?`, `dica?`, `obrigatorio?`, `ocultarRotulo?`, `opcaoVazia?: string \| false` (padrão "Selecione"), e todas as props de `<select>`. `forwardRef`, compatível com `register()`. |
 | **Tabela\<T\>** | `colunas: ColunaTabela<T>[]` (`{ chave, titulo, renderizar(item), alinhamento?, classe?, ocultarTitulo? }`), `dados: T[]`, `obterChave(item)`, `legenda: string` (para leitores de tela), `carregando?` (linhas de esqueleto), `linhasEsqueleto?` (padrão 5), `vazio?: ReactNode` (padrão `<EstadoVazio />`). |
 | **Etiqueta** | `status: StatusDominio` (define texto e tom), `rotulo?`, `tom?`; ou etiqueta livre com `rotulo` + `tom: 'sucesso' \| 'pendente' \| 'perigo' \| 'neutro'`. Sempre exibe texto. |

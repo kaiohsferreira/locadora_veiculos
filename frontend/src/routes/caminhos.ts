@@ -48,15 +48,45 @@ export interface EstadoRedirecionamentoLogin {
   de: string;
 }
 
+/** Tem caractere de controle (abaixo de 0x20 ou 0x7F) ou espaço. Não faz parte de um caminho válido. */
+function contemControleOuEspaco(texto: string): boolean {
+  for (const caractere of texto) {
+    const codigo = caractere.charCodeAt(0);
+    if (codigo <= 0x20 || codigo === 0x7f) return true;
+  }
+  return false;
+}
+
+/** Origem usada na checagem. Fora do navegador (testes sem window), usa uma base fixa só para comparar. */
+function obterOrigemAplicacao(): string {
+  return typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+}
+
+/**
+ * Caminho de retorno seguro: começa com "/", não é "//" nem tem "\", não tem controle nem
+ * espaço, resolve para a mesma origem da aplicação e não é a própria tela de login.
+ */
+function ehCaminhoInternoSeguro(caminho: string): boolean {
+  if (!caminho.startsWith('/') || caminho.startsWith('//') || caminho.includes('\\')) return false;
+  if (contemControleOuEspaco(caminho)) return false;
+  const origem = obterOrigemAplicacao();
+  try {
+    const destino = new URL(caminho, origem);
+    if (destino.origin !== origem) return false;
+    return destino.pathname !== CAMINHOS.entrar;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Caminho de retorno após o login, lido do `location.state`.
- * Só aceita caminhos internos ("/..."): bloqueia "//site", "/\site" e URLs
- * absolutas, evitando redirecionamento para fora da aplicação.
+ * Só aceita caminho interno da própria origem; qualquer outra coisa (inclusive a tela de
+ * login, para não voltar a ela depois de entrar) cai no padrão.
  */
 export function obterCaminhoRetorno(estado: unknown, padrao: string = CAMINHOS.inicio): string {
   if (typeof estado !== 'object' || estado === null) return padrao;
   const de = (estado as Partial<Record<keyof EstadoRedirecionamentoLogin, unknown>>).de;
   if (typeof de !== 'string') return padrao;
-  const interno = de.startsWith('/') && !de.startsWith('//') && !de.includes('\\');
-  return interno ? de : padrao;
+  return ehCaminhoInternoSeguro(de) ? de : padrao;
 }

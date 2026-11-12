@@ -1,8 +1,8 @@
 # src/api
 
-Por enquanto só existe `client.ts`: a instância única do Axios com os dois
-interceptadores (token na requisição e conversão do ProblemDetails em `ErroApi`
-na resposta).
+Existem `client.ts` (a instância única do Axios com os dois interceptadores:
+token na requisição e conversão do ProblemDetails em `ErroApi` na resposta) e
+`autenticacao.ts` (login, `POST /api/auth/login`).
 
 ## Regra: nenhum endpoint inventado
 
