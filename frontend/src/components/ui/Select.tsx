@@ -1,6 +1,15 @@
 import { forwardRef, useId, type SelectHTMLAttributes } from 'react';
 import { Icone } from './Icone';
-import { CLASSES_DICA, CLASSES_ERRO, CLASSES_ROTULO, classesControle, idsDescricao } from './estilosCampo';
+import {
+  CLASSES_ERRO,
+  classesControle,
+  classesControleCartao,
+  classesDica,
+  classesEnvoltorioCampo,
+  classesRotulo,
+  idsDescricao,
+  type VarianteCampo,
+} from './estilosCampo';
 
 export interface OpcaoSelect {
   valor: string;
@@ -23,6 +32,8 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   ocultarRotulo?: boolean;
   /** Texto da primeira opção, de valor vazio. `false` remove essa opção. Padrão: "Selecione". */
   opcaoVazia?: string | false;
+  /** `padrao` (visual de sempre) ou `cartao` (cartão-campo da etapa de documentos do cadastro). Padrão: `padrao`. */
+  variante?: Extract<VarianteCampo, 'padrao' | 'cartao'>;
 }
 
 /**
@@ -38,6 +49,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     obrigatorio = false,
     ocultarRotulo = false,
     opcaoVazia = 'Selecione',
+    variante = 'padrao',
     id,
     className = '',
     ...props
@@ -50,8 +62,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   const idDica = `${idCampo}-dica`;
 
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={idCampo} className={ocultarRotulo ? 'sr-only' : CLASSES_ROTULO}>
+    <div className={classesEnvoltorioCampo(variante)}>
+      <label htmlFor={idCampo} className={ocultarRotulo ? 'sr-only' : classesRotulo(variante)}>
         {rotulo}
         {obrigatorio && (
           <span className="ml-0.5 text-status-perigo" aria-hidden="true">
@@ -67,7 +79,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           aria-invalid={erro ? true : undefined}
           aria-required={obrigatorio || undefined}
           aria-describedby={idsDescricao(dica && !erro && idDica, erro && idErro)}
-          className={`${classesControle(Boolean(erro))} appearance-none pr-10 ${className}`}
+          className={`${variante === 'cartao' ? classesControleCartao(Boolean(erro)) : classesControle(Boolean(erro))} appearance-none pr-10 ${className}`}
         >
           {opcaoVazia !== false && <option value="">{opcaoVazia}</option>}
           {opcoes.map((opcao) => (
@@ -82,7 +94,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         />
       </div>
       {dica && !erro && (
-        <p id={idDica} className={CLASSES_DICA}>
+        <p id={idDica} className={classesDica(variante)}>
           {dica}
         </p>
       )}

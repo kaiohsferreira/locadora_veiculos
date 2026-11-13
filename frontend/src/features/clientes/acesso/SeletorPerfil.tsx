@@ -35,12 +35,9 @@ export function SeletorPerfil({ valor, aoMudar, erro, campoRef }: SeletorPerfilP
   const nomeGrupo = `${idGerado}-perfil`;
 
   return (
-    <div className="flex flex-col gap-1">
-      <span id={idRotulo} className="text-corpo-denso font-medium text-texto">
+    <div className="flex flex-col gap-1.5">
+      <span id={idRotulo} className="block text-corpo-denso font-semibold text-navy">
         {ACESSO_ROTULO_PERFIL}
-        <span className="ml-0.5 text-status-perigo" aria-hidden="true">
-          *
-        </span>
       </span>
 
       <div
@@ -56,11 +53,11 @@ export function SeletorPerfil({ valor, aoMudar, erro, campoRef }: SeletorPerfilP
             <label
               key={opcao.valor}
               className={
-                'flex h-11 cursor-pointer items-center gap-2 rounded-md border px-3 text-corpo-denso font-medium transition-colors ' +
-                'focus-within:border-steel focus-within:ring-2 focus-within:ring-steel ' +
+                'flex h-11 cursor-pointer items-center gap-2 rounded px-3.5 text-corpo-denso font-medium shadow-sm transition-all ' +
+                'focus-within:ring-2 focus-within:ring-steel ' +
                 (selecionado
-                  ? 'border-navy bg-steel-claro text-navy'
-                  : 'border-borda-forte bg-branco text-texto hover:bg-offwhite')
+                  ? 'bg-steel-claro text-navy ring-2 ring-navy'
+                  : 'bg-branco text-texto hover:bg-steel-claro/50')
               }
             >
               <input
@@ -72,7 +69,7 @@ export function SeletorPerfil({ valor, aoMudar, erro, campoRef }: SeletorPerfilP
                 onChange={() => aoMudar(opcao.valor)}
                 className="sr-only"
               />
-              <Icone nome={opcao.icone} tamanho={18} />
+              <Icone nome={opcao.icone} tamanho={20} className="text-texto-suave" />
               <span>{opcao.rotulo}</span>
               {selecionado && <Icone nome="check_circle" tamanho={18} className="ml-auto text-navy" />}
             </label>

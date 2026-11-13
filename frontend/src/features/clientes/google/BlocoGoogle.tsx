@@ -20,6 +20,13 @@ const BlocoGoogleTeste = import.meta.env.DEV
   ? lazy(() => import('./BlocoGoogleTeste').then((modulo) => ({ default: modulo.BlocoGoogleTeste })))
   : null;
 
+/**
+ * Altura reservada ao bloco do Google (sem a margem de cima). Valor único, igual para todos os estados:
+ * divisor 1px + espaço 28px (gap-7) + botão do Google 44px (iframe `large`) = 73px. Mais a margem `mt-7`
+ * (28px), a área ocupa 101px. O modo de teste (só em desenvolvimento) é mais alto e cresce.
+ */
+const CLASSES_RESERVA_GOOGLE = 'mt-7 min-h-[73px]';
+
 export interface BlocoGoogleProps {
   /** Perfil escolhido no seletor. O bloco só existe para Cliente (RN3.1). */
   perfil: PerfilApi;
@@ -132,14 +139,17 @@ export function BlocoGoogle({ perfil, lembrar, aoOcupadoChange }: BlocoGooglePro
 
   const configuracaoPronta = configuracao.data;
   const modo = obterModoBlocoGoogle(ativo ? configuracaoPronta : undefined, import.meta.env.DEV);
-  if (modo.tipo === 'oculto') return null;
+  // Equipe: o bloco não existe e a tela reserva a altura por conta própria (FormularioAcesso).
+  if (!ativo) return null;
+  // Cliente sem Google (carregando a configuração ou indisponível): mantém o espaço vazio para a linha
+  // "Criar conta" não subir nem descer quando o botão aparecer.
+  if (modo.tipo === 'oculto') return <div aria-hidden="true" className={CLASSES_RESERVA_GOOGLE} />;
 
   return (
-    <div className="mt-6 flex flex-col gap-4">
-      <div className="flex items-center gap-3">
-        <hr aria-hidden="true" className="flex-1 border-borda-forte" />
-        <span className="text-legenda text-texto-suave">{GOOGLE_SEPARADOR}</span>
-        <hr aria-hidden="true" className="flex-1 border-borda-forte" />
+    <div className={`${CLASSES_RESERVA_GOOGLE} flex flex-col gap-7`}>
+      <div className="relative flex items-center justify-center">
+        <div aria-hidden="true" className="h-px w-full bg-borda" />
+        <span className="absolute bg-offwhite px-4 text-legenda text-status-neutro">{GOOGLE_SEPARADOR}</span>
       </div>
 
       {modo.tipo === 'teste' && BlocoGoogleTeste !== null ? (
@@ -151,7 +161,7 @@ export function BlocoGoogle({ perfil, lembrar, aoOcupadoChange }: BlocoGooglePro
       ) : null}
 
       {/* Região de status: existe sempre; sem texto não ocupa espaço (empty:hidden). */}
-      <output className="block text-corpo-denso text-texto-suave empty:hidden">
+      <output className="block text-center text-corpo-denso text-status-neutro empty:hidden">
         {entrandoGoogle ? GOOGLE_ENTRANDO : null}
       </output>
 

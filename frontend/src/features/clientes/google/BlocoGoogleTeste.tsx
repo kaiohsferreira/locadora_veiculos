@@ -40,7 +40,7 @@ export function BlocoGoogleTeste({ ocupado, aoCredencial }: BlocoGoogleTesteProp
     <form
       noValidate
       onSubmit={enviar}
-      className="flex flex-col gap-3 rounded-md border border-dashed border-borda-forte bg-offwhite p-4"
+      className="flex flex-col gap-3 rounded border border-dashed border-borda-forte bg-branco p-4 shadow-sm"
     >
       <p className="text-corpo-denso font-semibold text-navy">{GOOGLE_TESTE_TITULO}</p>
       <fieldset disabled={ocupado} className="flex min-w-0 flex-col gap-3 border-0 p-0">
@@ -50,6 +50,9 @@ export function BlocoGoogleTeste({ ocupado, aoCredencial }: BlocoGoogleTesteProp
           dica={GOOGLE_TESTE_DICA}
           type="email"
           autoComplete="off"
+          variante="portal"
+          iconeInicial="mail"
+          ocultarAsterisco
           obrigatorio
           value={email}
           erro={erro ?? undefined}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Botao } from '@/components/ui';
 import { carregarScriptGoogle } from '@/lib/googleIdentity';
 import { GOOGLE_CARREGANDO, GOOGLE_FALHA_SCRIPT, GOOGLE_TENTAR_NOVAMENTE } from '@/lib/mensagens';
+import type { OpcoesBotaoGoogle } from '@/types/google';
 import { AlertaGoogle } from './AlertaGoogle';
 
 export interface BotaoGoogleProps {
@@ -11,6 +12,26 @@ export interface BotaoGoogleProps {
   aoCredencial: (credencial: string) => void;
   /** Login em andamento: o botão deixa de receber cliques (o contêiner ignora o ponteiro). */
   ocupado?: boolean;
+}
+
+/** Menor e maior largura que o Google aceita para o botão (em pixels). */
+const LARGURA_MINIMA_BOTAO = 200;
+const LARGURA_MAXIMA_BOTAO = 400;
+
+/**
+ * Opções do botão usadas na tela de acesso: as do tipo base mais forma, alinhamento do logo e largura.
+ * Fica aqui (e não em `@/types/google`) porque só esta tela usa as opções extras.
+ */
+interface OpcoesBotaoGoogleAcesso extends OpcoesBotaoGoogle {
+  shape: 'rectangular';
+  logo_alignment: 'center';
+  width: number;
+}
+
+/** Largura da coluna do formulário, limitada ao intervalo que o Google aceita. Medida zerada usa o máximo. */
+function calcularLarguraBotao(larguraColuna: number): number {
+  if (larguraColuna <= 0) return LARGURA_MAXIMA_BOTAO;
+  return Math.min(LARGURA_MAXIMA_BOTAO, Math.max(LARGURA_MINIMA_BOTAO, Math.round(larguraColuna)));
 }
 
 /**
@@ -70,13 +91,17 @@ export function BotaoGoogle({ clientId, aoCredencial, ocupado = false }: BotaoGo
           });
           // Remove o que uma montagem anterior (StrictMode ou nova tentativa) deixou antes de desenhar.
           elemento.replaceChildren();
-          api.renderButton(elemento, {
+          const opcoes: OpcoesBotaoGoogleAcesso = {
             type: 'standard',
             theme: 'outline',
             size: 'large',
             text: 'continue_with',
             locale: 'pt-BR',
-          });
+            shape: 'rectangular',
+            logo_alignment: 'center',
+            width: calcularLarguraBotao(elemento.clientWidth),
+          };
+          api.renderButton(elemento, opcoes);
           setEstado('pronto');
         } catch {
           setEstado('falhou');
@@ -109,9 +134,9 @@ export function BotaoGoogle({ clientId, aoCredencial, ocupado = false }: BotaoGo
       )}
 
       {/* O contêiner do botão fica montado sempre (a ref precisa dele); só some quando há falha. */}
-      <div className={falhou ? 'hidden' : 'relative min-h-10 w-full'}>
-        <div ref={elementoRef} className="flex min-h-10 w-full justify-center" />
-        {aguardando && <div aria-hidden="true" className="absolute inset-0 animate-pulse rounded-md bg-offwhite" />}
+      <div className={falhou ? 'hidden' : 'relative min-h-11 w-full'}>
+        <div ref={elementoRef} className="flex min-h-11 w-full items-center justify-center" />
+        {aguardando && <div aria-hidden="true" className="absolute inset-0 animate-pulse rounded bg-branco shadow-sm" />}
         {/* A região de status existe desde o início, vazia: o texto entra quando o estado muda. */}
         <output className="sr-only">{estado === 'carregando' ? GOOGLE_CARREGANDO : ''}</output>
       </div>

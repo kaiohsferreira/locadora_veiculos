@@ -17,18 +17,45 @@ export const ACESSO_DESCRICAO_PAINEL = 'Apresentação da AutoVia';
 
 export const ACESSO_FRASE_PAINEL = 'Alugue ou compre veículos da própria frota da AutoVia.';
 
+export const ACESSO_PARAGRAFO_PAINEL =
+  'Reserve online, acompanhe suas locações e pagamentos e conheça os seminovos da frota.';
+
+/** Linha de apoio sob a marca (aparece em caixa alta pelo estilo). */
+export const ACESSO_MARCA_PREFIXO = 'Auto';
+export const ACESSO_MARCA_SUFIXO = 'Via';
+export const ACESSO_LINHA_MARCA = 'Gestão Inteligente de Frotas';
+
+/** Selo em forma de pílula acima do título do painel. */
+export const ACESSO_SELO_PAINEL = 'Aluguel & Seminovos';
+
+/** Leitura da marca do painel, que leva ao início. */
+export const ACESSO_MARCA_ROTULO_LINK = 'AutoVia, ir para o início';
+
+/** Link "Pular para o conteúdo" do layout da tela de acesso. */
+export const ACESSO_PULAR_CONTEUDO = 'Pular para o conteúdo';
+
+// Faixas superior e inferior da coluna do formulário ---------------------------------
+
+export const ACESSO_FAIXA_ROTULO = 'Acesso ao portal';
+
+export const ACESSO_FAIXA_VOLTAR = 'Voltar ao início';
+
+/** Faixa inferior da coluna do formulário. O ano vem de quem chama. */
+export function mensagemRodapeAcesso(ano: number): string {
+  return `© ${ano} AutoVia · Aluguel e venda de veículos da própria frota.`;
+}
+
 export const ACESSO_DESTAQUE_RESERVA_TITULO = 'Reserva online';
 
-export const ACESSO_DESTAQUE_RESERVA_TEXTO = 'Escolha o veículo e reserve pelo portal.';
+export const ACESSO_DESTAQUE_RESERVA_TEXTO = 'Reserve pelo portal';
 
 export const ACESSO_DESTAQUE_CADASTRO_TITULO = 'Cadastro verificado';
 
-export const ACESSO_DESTAQUE_CADASTRO_TEXTO =
-  'A equipe confere seus documentos antes da primeira reserva.';
+export const ACESSO_DESTAQUE_CADASTRO_TEXTO = 'Conferido pela equipe';
 
 export const ACESSO_DESTAQUE_SEMINOVOS_TITULO = 'Seminovos da frota';
 
-export const ACESSO_DESTAQUE_SEMINOVOS_TEXTO = 'Veículos da própria frota à venda.';
+export const ACESSO_DESTAQUE_SEMINOVOS_TEXTO = 'Veículos próprios à venda';
 
 // Formulário ----------------------------------------------------------------
 
@@ -42,10 +69,17 @@ export const ACESSO_ROTULO_CPF = 'CPF';
 
 export const ACESSO_ROTULO_SENHA = 'Senha';
 
+/** Rótulos da tela /entrar (as outras telas seguem com ACESSO_ROTULO_CPF e ACESSO_ROTULO_SENHA). */
+export const ACESSO_ROTULO_CPF_CADASTRADO = 'CPF cadastrado';
+
+export const ACESSO_PLACEHOLDER_CPF = '000.000.000-00';
+
+export const ACESSO_ROTULO_SENHA_ACESSO = 'Senha de acesso';
+
 /** Link ao lado do rótulo da senha, que leva à recuperação (N1, RF-49). */
 export const ACESSO_LINK_ESQUECI_SENHA = 'Esqueci minha senha';
 
-export const ACESSO_BOTAO_ENTRAR = 'Entrar na conta';
+export const ACESSO_BOTAO_ENTRAR = 'Entrar na Conta';
 
 export const ACESSO_PERGUNTA_SEM_CONTA = 'Não tem uma conta AutoVia?';
 

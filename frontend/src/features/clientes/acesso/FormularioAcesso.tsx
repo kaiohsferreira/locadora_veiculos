@@ -11,8 +11,9 @@ import {
   ACESSO_LINK_CRIAR_CONTA,
   ACESSO_LINK_ESQUECI_SENHA,
   ACESSO_PERGUNTA_SEM_CONTA,
-  ACESSO_ROTULO_CPF,
-  ACESSO_ROTULO_SENHA,
+  ACESSO_PLACEHOLDER_CPF,
+  ACESSO_ROTULO_CPF_CADASTRADO,
+  ACESSO_ROTULO_SENHA_ACESSO,
   ACESSO_SUBTITULO,
   ACESSO_TITULO,
 } from '@/lib/mensagens';
@@ -110,10 +111,12 @@ export function FormularioAcesso({ perfilInicial, enviando, erroEnvio, aoEnviar 
 
   return (
     <div className="flex w-full flex-col">
-      <h1 className="text-titulo text-navy">{ACESSO_TITULO}</h1>
-      <p className="mt-2 text-corpo text-texto-suave">{ACESSO_SUBTITULO}</p>
+      <div className="mb-8">
+        <h1 className="mb-2 text-titulo-acesso text-navy">{ACESSO_TITULO}</h1>
+        <p className="text-corpo-denso text-status-neutro">{ACESSO_SUBTITULO}</p>
+      </div>
 
-      <form noValidate onSubmit={handleSubmit(aoEnviar)} className="mt-8 flex flex-col gap-5">
+      <form noValidate onSubmit={handleSubmit(aoEnviar)} className="flex flex-col gap-5">
         <fieldset disabled={bloqueado} className="flex min-w-0 flex-col gap-5">
           <Controller
             name="perfil"
@@ -132,7 +135,11 @@ export function FormularioAcesso({ perfilInicial, enviando, erroEnvio, aoEnviar 
           />
 
           <Campo
-            rotulo={ACESSO_ROTULO_CPF}
+            rotulo={ACESSO_ROTULO_CPF_CADASTRADO}
+            variante="portal"
+            iconeInicial="fingerprint"
+            ocultarAsterisco
+            placeholder={ACESSO_PLACEHOLDER_CPF}
             obrigatorio
             inputMode="numeric"
             autoComplete="username"
@@ -144,7 +151,10 @@ export function FormularioAcesso({ perfilInicial, enviando, erroEnvio, aoEnviar 
 
           {/* O link fica na linha do rótulo (antes do campo no Tab), por isso é uma ação do próprio CampoSenha. */}
           <CampoSenha
-            rotulo={ACESSO_ROTULO_SENHA}
+            rotulo={ACESSO_ROTULO_SENHA_ACESSO}
+            variante="portal"
+            iconeInicial="lock"
+            ocultarAsterisco
             obrigatorio
             autoComplete="current-password"
             erro={errors.senha?.message}
@@ -154,7 +164,7 @@ export function FormularioAcesso({ perfilInicial, enviando, erroEnvio, aoEnviar 
                 state={montarEstadoRecuperacao(perfil, caminhoRetorno)}
                 aria-disabled={bloqueado || undefined}
                 onClick={impedirNavegacaoEmEnvio(bloqueado)}
-                className="text-corpo-denso font-semibold text-navy underline underline-offset-4 hover:text-navy-claro"
+                className="rounded text-rotulo text-navy transition-colors hover:text-status-pendente hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-steel"
               >
                 {ACESSO_LINK_ESQUECI_SENHA}
               </Link>
@@ -168,14 +178,22 @@ export function FormularioAcesso({ perfilInicial, enviando, erroEnvio, aoEnviar 
         {mensagemGeral && (
           <div
             role="alert"
-            className="flex items-start gap-2 rounded-md bg-status-perigo-fundo px-4 py-3 text-corpo-denso font-medium text-status-perigo"
+            className="flex items-start gap-2 rounded bg-status-perigo-fundo px-4 py-3 text-corpo-denso font-medium text-status-perigo"
           >
             <Icone nome="error" tamanho={18} className="mt-px" />
             <span>{mensagemGeral}</span>
           </div>
         )}
 
-        <Botao type="submit" larguraTotal carregando={enviando} disabled={ocupadoGoogle} iconeDireita="arrow_forward">
+        <Botao
+          type="submit"
+          tamanho="grande"
+          larguraTotal
+          carregando={enviando}
+          disabled={ocupadoGoogle}
+          iconeDireita="arrow_forward"
+          className="mt-2 !rounded shadow-md hover:shadow-lg"
+        >
           {ACESSO_BOTAO_ENTRAR}
         </Botao>
       </form>
@@ -184,15 +202,21 @@ export function FormularioAcesso({ perfilInicial, enviando, erroEnvio, aoEnviar 
         Bloco "Continuar com o Google" (N3, RF-51), abaixo do botão de entrar. Fica fora do <form>:
         o campo de e-mail do modo de teste não pode disparar o envio do CPF com Enter.
       */}
+      {/*
+        Área abaixo do botão principal com altura mínima igual nos dois perfis (evita o salto do bloco, que é
+        centralizado na vertical). 149px = bloco do Google (28 de margem + 73) + linha "Criar conta" (28 de
+        margem + 20 de linha). Flex coluna para as margens de cima não escaparem do mínimo.
+      */}
+      <div className="flex min-h-[149px] flex-col">
       <BlocoGoogle perfil={perfil} lembrar={lembrar === true} aoOcupadoChange={setOcupadoGoogle} />
 
-      <div className="mt-6 text-center text-corpo-denso text-texto-suave">
+      <div className="mt-7 text-center text-corpo-denso text-status-neutro">
         {perfil === 'CLIENTE' ? (
           <p>
             {ACESSO_PERGUNTA_SEM_CONTA}{' '}
             <Link
               to={CAMINHOS.cadastroDadosPessoais}
-              className="font-semibold text-navy underline underline-offset-4 hover:text-navy-claro"
+              className="ml-1 rounded font-semibold text-status-pendente decoration-2 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-steel"
             >
               {ACESSO_LINK_CRIAR_CONTA}
             </Link>
@@ -200,6 +224,7 @@ export function FormularioAcesso({ perfilInicial, enviando, erroEnvio, aoEnviar 
         ) : (
           <p>{ACESSO_EQUIPE_SEM_CADASTRO}</p>
         )}
+      </div>
       </div>
     </div>
   );

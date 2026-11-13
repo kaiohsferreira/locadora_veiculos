@@ -6,7 +6,7 @@
 // Bloco do Google na tela de acesso -----------------------------------------------
 
 /** Separador entre o botão de CPF e a opção do Google. */
-export const GOOGLE_SEPARADOR = 'ou';
+export const GOOGLE_SEPARADOR = 'ou continue com';
 
 /** Leitura para quem usa leitor de tela enquanto o botão do Google ainda carrega. */
 export const GOOGLE_CARREGANDO = 'Carregando o login com o Google...';

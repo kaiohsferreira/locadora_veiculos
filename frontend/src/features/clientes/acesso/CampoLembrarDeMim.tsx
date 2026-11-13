@@ -15,18 +15,18 @@ export const CampoLembrarDeMim = forwardRef<HTMLInputElement, CampoLembrarDeMimP
   const idDica = `${idGerado}-dica`;
 
   return (
-    <div className="flex flex-col gap-1">
-      <label className="flex min-h-11 cursor-pointer items-center gap-3">
+    <div className="flex flex-col pt-1">
+      <label className="flex min-h-8 cursor-pointer select-none items-center gap-2.5">
         <input
           {...props}
           ref={ref}
           type="checkbox"
           aria-describedby={idDica}
-          className="h-5 w-5 shrink-0 cursor-pointer accent-navy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-steel disabled:cursor-not-allowed"
+          className="h-4 w-4 shrink-0 cursor-pointer rounded accent-status-pendente focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-steel disabled:cursor-not-allowed"
         />
-        <span className="text-corpo-denso font-medium text-texto">{ACESSO_LEMBRAR_ROTULO}</span>
+        <span className="text-corpo-denso text-status-neutro">{ACESSO_LEMBRAR_ROTULO}</span>
       </label>
-      <p id={idDica} className="pl-8 text-legenda text-texto-suave">
+      <p id={idDica} className="pl-[26px] text-legenda text-status-neutro">
         {ACESSO_LEMBRAR_DICA}
       </p>
     </div>

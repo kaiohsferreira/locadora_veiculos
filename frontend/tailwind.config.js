@@ -28,6 +28,18 @@ export default {
       steel: {
         DEFAULT: '#5C80A8',
         claro: '#E3EBF5',
+        /** Texto de apoio sobre fundo escuro (ex.: linha sob a marca na tela de acesso). Passa AA sobre navy. */
+        neblina: '#9DB0CC',
+        /** Texto corrido claro sobre fundo escuro (ex.: parágrafo do painel da tela de acesso). */
+        palido: '#B4C7E9',
+        /** Cadastro (designs 20 e 21): fundo azulado mais claro (surface-container-low): cabeçalho do indicador, blocos e caixas. */
+        fundo: '#EFF4FF',
+        /** Cadastro: fundo azulado de faixas, etiquetas e ícones (surface-container). */
+        suave: '#E5EEFF',
+        /** Cadastro: círculo de etapa inativa e botão secundário em repouso (surface-container-high). */
+        alto: '#DCE9FF',
+        /** Cadastro: linha do indicador de etapas e trilho da barra de progresso (surface-variant). */
+        linha: '#D3E4FE',
       },
       /** Apenas ações primárias, estados ativos e destaques. */
       orange: {
@@ -90,6 +102,16 @@ export default {
         'corpo-denso': ['0.875rem', { lineHeight: '1.25rem' }],
         /** Legendas, rótulos de coluna e etiquetas. */
         legenda: ['0.75rem', { lineHeight: '1rem' }],
+        /** Tela de acesso (design 01): título grande do painel da marca (36/44, bold). */
+        'titulo-hero': ['2.25rem', { lineHeight: '2.75rem', fontWeight: '700', letterSpacing: '-0.02em' }],
+        /** Tela de acesso: título do formulário (30/38, bold). */
+        'titulo-acesso': ['1.875rem', { lineHeight: '2.375rem', fontWeight: '700', letterSpacing: '-0.015em' }],
+        /** Tela de acesso: nome da marca (22/28, bold). */
+        marca: ['1.375rem', { lineHeight: '1.75rem', fontWeight: '700', letterSpacing: '-0.01em' }],
+        /** Tela de acesso: microtexto em caixa alta (11/14). */
+        micro: ['0.6875rem', { lineHeight: '0.875rem', fontWeight: '500', letterSpacing: '0.03em' }],
+        /** Tela de acesso: rótulo curto e link de apoio (12/16, semibold). */
+        rotulo: ['0.75rem', { lineHeight: '1rem', fontWeight: '600', letterSpacing: '0.02em' }],
       },
       borderRadius: {
         cartao: '8px',
@@ -97,6 +119,8 @@ export default {
       boxShadow: {
         cartao: '0 1px 2px 0 rgb(16 36 62 / 0.06), 0 1px 3px 0 rgb(16 36 62 / 0.10)',
         elevado: '0 12px 32px -8px rgb(16 36 62 / 0.30)',
+        /** Cadastro (design 20): sombra larga e suave do cartão principal. */
+        destaque: '0 12px 40px -8px rgb(16 36 62 / 0.08), 0 2px 8px -2px rgb(16 36 62 / 0.04)',
       },
     },
   },

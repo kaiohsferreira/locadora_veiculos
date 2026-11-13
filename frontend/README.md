@@ -54,6 +54,7 @@ frontend/
     │   ├── autenticacao.ts  login, recuperação de senha e login com Google (contratos auth*)
     │   ├── clientes.ts      cadastro de clientes
     │   └── README.md        como cada módulo ganha seu arquivo quando o contrato sair
+    ├── assets/              imagens da interface (ex.: foto de fundo da tela de acesso)
     ├── components/
     │   ├── ui/              componentes de base (ver lista abaixo) + index.ts
     │   │   └── aviso/       notificações: AvisoProvider e useAviso()
@@ -67,7 +68,7 @@ frontend/
     │       ├── recuperacao/ recuperação de senha (N1): cartões, alertas, validação e estado de navegação
     │       └── hooks/       useEntrar (login: abre a sessão pelo contexto), useCadastrarCliente
     ├── hooks/               useDebounce, useTituloDocumento
-    ├── layouts/             LayoutPublico, LayoutBackOffice
+    ├── layouts/             LayoutPublico, LayoutBackOffice, LayoutAcesso (tela cheia do login)
     ├── lib/                 formatters, mensagens (+ mensagensAcesso, mensagensCadastro, mensagensRecuperacao, mensagensGoogle), sessao, erros,
     │                        validadores, conversaoLogin, ambiente, queryClient,
     │                        credencialGoogle (memória do login com Google), googleIdentity (carregador do script do Google),
@@ -108,8 +109,8 @@ Versões mobile usam a **mesma rota** da versão desktop (layout responsivo).
 | `/recuperar-senha`                              | RecuperarSenhaPagina          | N1 (RF-49)            | pública     |
 | `/redefinir-senha`                              | RedefinirSenhaPagina          | N1 (RF-49)            | pública     |
 | `/cadastro`                                     | redireciona para `/cadastro/dados-pessoais` | –       | pública     |
-| `/cadastro/dados-pessoais`                      | CadastroDadosPessoaisPagina   | P2-FE-02              | pública     |
-| `/cadastro/documentos`                          | CadastroDocumentosPagina      | P2-FE-03              | pública     |
+| `/cadastro/dados-pessoais`                      | CadastroDadosPessoaisPagina (etapa 1; dados só em memória no `ProvedorCadastro`) | P2-FE-02 | pública |
+| `/cadastro/documentos`                          | CadastroDocumentosPagina (etapa 2 provisória: CNH digitada, endereço e senha; envio de arquivos previsto na P2-FE-03) | P2-FE-02 (+ P2-FE-03) | pública |
 | `/veiculos`                                     | ResultadosBuscaPagina         | P3-FE-02 (+ P3-FE-07) | pública     |
 | `/veiculos/:veiculoId`                          | DetalheVeiculoPagina          | P3-FE-03              | pública     |
 | `/seminovos`                                    | CatalogoSeminovosPagina       | P6-FE-01 (+ P6-FE-04) | pública     |
@@ -150,9 +151,9 @@ Importe de `@/components/ui`. Todos aceitam `className` quando indicado.
 | --- | --- |
 | **Botao** | `variante?: 'primario' \| 'secundario' \| 'contorno' \| 'fantasma' \| 'perigo'` (padrão `primario`), `tamanho?: 'pequeno' \| 'medio' \| 'grande'`, `carregando?`, `larguraTotal?`, `icone?` e `iconeDireita?` (nome Material Symbols), e todas as props de `<button>` (`type` padrão `button`). `forwardRef`. |
 | **BotaoLink** | Mesmas props visuais do Botao + props de `Link` do React Router (`to`, `replace`, `state`...). |
-| **Campo** | `rotulo: string`, `erro?`, `dica?`, `obrigatorio?` (mostra `*` e `aria-required`), `ocultarRotulo?`, `mascara?: (valor) => string` (ex.: `formatarCpf`), e todas as props de `<input>`. `forwardRef`, compatível com `register()`. |
-| **CampoSenha** | Como o Campo, sem `type` nem `mascara`: botão mostrar/ocultar a senha (`aria-pressed`, não envia o formulário). Use `autoComplete="current-password"` (login) ou `"new-password"` (cadastro). `acaoRotulo?` (ReactNode, opcional): ação na linha do rótulo, à direita, antes do campo no Tab (ex.: "Esqueci minha senha"); sem ela, o componente não muda. `forwardRef`, compatível com `register()`. |
-| **Select** | `rotulo: string`, `opcoes: OpcaoSelect[]` (`{ valor, rotulo, desabilitada? }`), `erro?`, `dica?`, `obrigatorio?`, `ocultarRotulo?`, `opcaoVazia?: string \| false` (padrão "Selecione"), e todas as props de `<select>`. `forwardRef`, compatível com `register()`. |
+| **Campo** | `rotulo: string`, `erro?`, `dica?`, `obrigatorio?` (mostra `*` e `aria-required`), `ocultarRotulo?`, `mascara?: (valor) => string` (ex.: `formatarCpf`), `variante?: 'padrao' \| 'portal' \| 'cadastro' \| 'cartao'` (visual; padrão `padrao`), `iconeInicial?` (ícone Material Symbols à esquerda, dentro do campo), `ocultarAsterisco?` (esconde só o `*` visual), `apoioRotulo?` (texto à direita do rótulo; abaixo de `sm` vai para a linha de baixo), `valido?` (ícone de conferido à direita; some se houver `erro`), `dicaIcone?` (ícone antes da `dica`), e todas as props de `<input>`. `forwardRef`, compatível com `register()`. |
+| **CampoSenha** | Como o Campo (inclui `variante`), sem `type`, `mascara`, `apoioRotulo`, `valido` e `dicaIcone`: botão mostrar/ocultar a senha (`aria-pressed`, não envia o formulário). Use `autoComplete="current-password"` (login) ou `"new-password"` (cadastro). `acaoRotulo?` (ReactNode, opcional): ação na linha do rótulo, à direita, antes do campo no Tab (ex.: "Esqueci minha senha"); sem ela, o componente não muda. `forwardRef`, compatível com `register()`. |
+| **Select** | `rotulo: string`, `opcoes: OpcaoSelect[]` (`{ valor, rotulo, desabilitada? }`), `erro?`, `dica?`, `obrigatorio?`, `ocultarRotulo?`, `opcaoVazia?: string \| false` (padrão "Selecione"), `variante?: 'padrao' \| 'cartao'` (visual; padrão `padrao`), e todas as props de `<select>`. `forwardRef`, compatível com `register()`. |
 | **Tabela\<T\>** | `colunas: ColunaTabela<T>[]` (`{ chave, titulo, renderizar(item), alinhamento?, classe?, ocultarTitulo? }`), `dados: T[]`, `obterChave(item)`, `legenda: string` (para leitores de tela), `carregando?` (linhas de esqueleto), `linhasEsqueleto?` (padrão 5), `vazio?: ReactNode` (padrão `<EstadoVazio />`). |
 | **Etiqueta** | `status: StatusDominio` (define texto e tom), `rotulo?`, `tom?`; ou etiqueta livre com `rotulo` + `tom: 'sucesso' \| 'pendente' \| 'perigo' \| 'neutro'`. Sempre exibe texto. |
 | **Modal** | `aberto`, `aoFechar()`, `titulo`, `descricao?`, `children`, `rodape?`, `tamanho?: 'pequeno' \| 'medio' \| 'grande'`, `fecharAoClicarFora?` (padrão `true`). `<dialog>` nativo: foco preso, Esc fecha, foco volta ao gatilho. |

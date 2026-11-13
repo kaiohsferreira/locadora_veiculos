@@ -90,13 +90,41 @@ export interface FormularioCadastro {
   confirmarSenha: string;
 }
 
-/** Estado inicial do formulário (todos os campos vazios). */
-export const FORMULARIO_INICIAL: FormularioCadastro = {
+/** Campos da etapa 1 (dados pessoais), como texto. */
+export type DadosPessoaisCadastro = Pick<
+  FormularioCadastro,
+  'nome' | 'cpf' | 'dataNascimento' | 'email' | 'telefone'
+>;
+
+/** Campos da etapa 2 que podem ser guardados em memória entre as telas: CNH e endereço (nunca a senha). */
+export type DocumentosCadastro = Pick<
+  FormularioCadastro,
+  | 'cnhNumero'
+  | 'cnhCategoria'
+  | 'cnhValidade'
+  | 'cep'
+  | 'logradouro'
+  | 'numero'
+  | 'complemento'
+  | 'bairro'
+  | 'cidade'
+  | 'uf'
+>;
+
+/** Formulário da etapa 2: documentos mais a senha e a confirmação (a senha só existe nesta tela). */
+export type FormularioDocumentos = DocumentosCadastro & Pick<FormularioCadastro, 'senha' | 'confirmarSenha'>;
+
+/** Valores iniciais da etapa 1. */
+export const DADOS_PESSOAIS_INICIAL: DadosPessoaisCadastro = {
   nome: '',
   cpf: '',
   dataNascimento: '',
   email: '',
   telefone: '',
+};
+
+/** Valores iniciais dos documentos (CNH e endereço), sem senha. */
+export const DOCUMENTOS_INICIAL: DocumentosCadastro = {
   cnhNumero: '',
   cnhCategoria: '',
   cnhValidade: '',
@@ -107,8 +135,6 @@ export const FORMULARIO_INICIAL: FormularioCadastro = {
   bairro: '',
   cidade: '',
   uf: '',
-  senha: '',
-  confirmarSenha: '',
 };
 
 /** A categoria existe em CATEGORIA_CNH (exige a grafia exata). */
@@ -127,134 +153,164 @@ function caberNoLimite(valor: string, maximo: number): boolean {
 }
 
 /**
- * Esquema do formulário. Cada campo para na primeira regra que falha (o resolver
+ * Campos da etapa 1 (dados pessoais). Cada campo para na primeira regra que falha (o resolver
  * mostra só o primeiro erro de cada campo), na mesma ordem do backend.
+ */
+function criarCamposDadosPessoais(agora: () => Date) {
+  return {
+    nome: z
+      .string()
+      .refine(temTexto, { error: MENSAGEM_CADASTRO_NOME_OBRIGATORIO })
+      .refine((valor) => caberNoLimite(valor, LIMITES_CADASTRO.nome), {
+        error: mensagemCadastroCampoTamanho('nome', LIMITES_CADASTRO.nome),
+      }),
+
+    cpf: z
+      .string()
+      .refine(temTexto, { error: MENSAGEM_CADASTRO_CPF_OBRIGATORIO })
+      .refine(ehCpfValido, { error: MENSAGEM_CADASTRO_CPF_INVALIDO }),
+
+    dataNascimento: z
+      .string()
+      .refine((valor) => valor !== '' && ehDataIsoValida(valor), {
+        error: MENSAGEM_CADASTRO_DATA_NASCIMENTO_OBRIGATORIA,
+      })
+      .refine((valor) => !ehDataIsoFutura(valor, agora()), {
+        error: MENSAGEM_CADASTRO_DATA_NASCIMENTO_FUTURA,
+      })
+      .refine((valor) => (calcularIdade(valor, agora()) ?? 0) >= LIMITES_CADASTRO.idadeMinima, {
+        error: mensagemCadastroMenorDeIdade(LIMITES_CADASTRO.idadeMinima),
+      }),
+
+    email: z
+      .string()
+      .refine(temTexto, { error: MENSAGEM_CADASTRO_EMAIL_OBRIGATORIO })
+      .refine((valor) => caberNoLimite(valor, LIMITES_CADASTRO.email), {
+        error: mensagemCadastroCampoTamanho('e-mail', LIMITES_CADASTRO.email),
+      })
+      .refine((valor) => REGEX_EMAIL.test(valor.trim()), { error: MENSAGEM_CADASTRO_EMAIL_INVALIDO }),
+
+    telefone: z
+      .string()
+      .refine(temTexto, { error: MENSAGEM_CADASTRO_TELEFONE_OBRIGATORIO })
+      .refine((valor) => {
+        const quantidade = somenteDigitos(valor).length;
+        return (
+          quantidade >= LIMITES_CADASTRO.telefoneMinimo &&
+          quantidade <= LIMITES_CADASTRO.telefoneMaximo
+        );
+      }, { error: MENSAGEM_CADASTRO_TELEFONE_INVALIDO }),
+  };
+}
+
+/** Campos da etapa 2 que não são senha: habilitação (CNH) e endereço opcional. */
+function criarCamposDocumentos(agora: () => Date) {
+  return {
+    cnhNumero: z
+      .string()
+      .refine(temTexto, { error: MENSAGEM_CADASTRO_CNH_NUMERO_OBRIGATORIO })
+      .refine((valor) => somenteDigitos(valor).length === LIMITES_CADASTRO.cnhNumero, {
+        error: mensagemCadastroCnhNumeroInvalido(LIMITES_CADASTRO.cnhNumero),
+      }),
+
+    cnhCategoria: z
+      .string()
+      .refine(ehCategoriaCnh, { error: MENSAGEM_CADASTRO_CNH_CATEGORIA_INVALIDA }),
+
+    cnhValidade: z
+      .string()
+      .refine((valor) => valor !== '' && ehDataIsoValida(valor), {
+        error: MENSAGEM_CADASTRO_CNH_VALIDADE_OBRIGATORIA,
+      })
+      .refine((valor) => !ehDataIsoPassada(valor, agora()), { error: MENSAGEM_CADASTRO_CNH_VENCIDA }),
+
+    // Endereço (opcional): cada campo só é checado quando preenchido.
+    cep: z
+      .string()
+      .refine((valor) => !temTexto(valor) || somenteDigitos(valor).length === LIMITES_CADASTRO.cep, {
+        error: MENSAGEM_CADASTRO_CEP_INVALIDO,
+      }),
+
+    logradouro: z
+      .string()
+      .refine((valor) => caberNoLimite(valor, LIMITES_CADASTRO.logradouro), {
+        error: mensagemCadastroCampoTamanho('logradouro', LIMITES_CADASTRO.logradouro),
+      }),
+
+    numero: z
+      .string()
+      .refine((valor) => caberNoLimite(valor, LIMITES_CADASTRO.numero), {
+        error: mensagemCadastroCampoTamanho('número', LIMITES_CADASTRO.numero),
+      }),
+
+    complemento: z
+      .string()
+      .refine((valor) => caberNoLimite(valor, LIMITES_CADASTRO.complemento), {
+        error: mensagemCadastroCampoTamanho('complemento', LIMITES_CADASTRO.complemento),
+      }),
+
+    bairro: z
+      .string()
+      .refine((valor) => caberNoLimite(valor, LIMITES_CADASTRO.bairro), {
+        error: mensagemCadastroCampoTamanho('bairro', LIMITES_CADASTRO.bairro),
+      }),
+
+    cidade: z
+      .string()
+      .refine((valor) => caberNoLimite(valor, LIMITES_CADASTRO.cidade), {
+        error: mensagemCadastroCampoTamanho('cidade', LIMITES_CADASTRO.cidade),
+      }),
+
+    uf: z
+      .string()
+      .refine((valor) => !temTexto(valor) || ehSiglaUf(valor), { error: MENSAGEM_CADASTRO_UF_INVALIDA }),
+  };
+}
+
+/** Senha e confirmação (a confirmação só existe no front). */
+function criarCamposSenha() {
+  return {
+    senha: z
+      .string()
+      .refine(temTexto, { error: MENSAGEM_CADASTRO_SENHA_OBRIGATORIA })
+      .refine(
+        (valor) => valor.length >= LIMITES_CADASTRO.senhaMinima && valor.length <= LIMITES_CADASTRO.senhaMaxima,
+        {
+          error: mensagemCadastroSenhaTamanho(LIMITES_CADASTRO.senhaMinima, LIMITES_CADASTRO.senhaMaxima),
+        },
+      )
+      .refine((valor) => /\p{L}/u.test(valor) && /\p{Nd}/u.test(valor), {
+        error: MENSAGEM_CADASTRO_SENHA_FRACA,
+      }),
+
+    confirmarSenha: z.string(),
+  };
+}
+
+/** Regra do objeto: a confirmação tem de ser igual à senha. */
+function confirmacaoConfereComSenha(dados: { senha: string; confirmarSenha: string }): boolean {
+  return dados.confirmarSenha === dados.senha;
+}
+
+/**
+ * Esquema do formulário completo (os 17 campos). Cada campo para na primeira regra que falha,
+ * na mesma ordem do backend.
  *
  * A confirmação de senha é uma regra do objeto. Ela roda junto com os erros dos outros
  * campos (teste "documenta: a confirmação é checada mesmo com outro campo inválido"),
  * porque todos os campos são texto e nenhum erro de tipo aborta a validação.
+ *
+ * O cadastro é preenchido em duas telas (dados pessoais; documentos e senha), mas o envio final
+ * sempre passa por este esquema completo.
  */
 export function criarEsquemaCadastro(agora: () => Date = () => new Date()) {
   return z
     .object({
-      nome: z
-        .string()
-        .refine(temTexto, { error: MENSAGEM_CADASTRO_NOME_OBRIGATORIO })
-        .refine((valor) => caberNoLimite(valor, LIMITES_CADASTRO.nome), {
-          error: mensagemCadastroCampoTamanho('nome', LIMITES_CADASTRO.nome),
-        }),
-
-      cpf: z
-        .string()
-        .refine(temTexto, { error: MENSAGEM_CADASTRO_CPF_OBRIGATORIO })
-        .refine(ehCpfValido, { error: MENSAGEM_CADASTRO_CPF_INVALIDO }),
-
-      dataNascimento: z
-        .string()
-        .refine((valor) => valor !== '' && ehDataIsoValida(valor), {
-          error: MENSAGEM_CADASTRO_DATA_NASCIMENTO_OBRIGATORIA,
-        })
-        .refine((valor) => !ehDataIsoFutura(valor, agora()), {
-          error: MENSAGEM_CADASTRO_DATA_NASCIMENTO_FUTURA,
-        })
-        .refine((valor) => (calcularIdade(valor, agora()) ?? 0) >= LIMITES_CADASTRO.idadeMinima, {
-          error: mensagemCadastroMenorDeIdade(LIMITES_CADASTRO.idadeMinima),
-        }),
-
-      email: z
-        .string()
-        .refine(temTexto, { error: MENSAGEM_CADASTRO_EMAIL_OBRIGATORIO })
-        .refine((valor) => caberNoLimite(valor, LIMITES_CADASTRO.email), {
-          error: mensagemCadastroCampoTamanho('e-mail', LIMITES_CADASTRO.email),
-        })
-        .refine((valor) => REGEX_EMAIL.test(valor.trim()), { error: MENSAGEM_CADASTRO_EMAIL_INVALIDO }),
-
-      telefone: z
-        .string()
-        .refine(temTexto, { error: MENSAGEM_CADASTRO_TELEFONE_OBRIGATORIO })
-        .refine((valor) => {
-          const quantidade = somenteDigitos(valor).length;
-          return (
-            quantidade >= LIMITES_CADASTRO.telefoneMinimo &&
-            quantidade <= LIMITES_CADASTRO.telefoneMaximo
-          );
-        }, { error: MENSAGEM_CADASTRO_TELEFONE_INVALIDO }),
-
-      cnhNumero: z
-        .string()
-        .refine(temTexto, { error: MENSAGEM_CADASTRO_CNH_NUMERO_OBRIGATORIO })
-        .refine((valor) => somenteDigitos(valor).length === LIMITES_CADASTRO.cnhNumero, {
-          error: mensagemCadastroCnhNumeroInvalido(LIMITES_CADASTRO.cnhNumero),
-        }),
-
-      cnhCategoria: z
-        .string()
-        .refine(ehCategoriaCnh, { error: MENSAGEM_CADASTRO_CNH_CATEGORIA_INVALIDA }),
-
-      cnhValidade: z
-        .string()
-        .refine((valor) => valor !== '' && ehDataIsoValida(valor), {
-          error: MENSAGEM_CADASTRO_CNH_VALIDADE_OBRIGATORIA,
-        })
-        .refine((valor) => !ehDataIsoPassada(valor, agora()), { error: MENSAGEM_CADASTRO_CNH_VENCIDA }),
-
-      // Endereço (opcional): cada campo só é checado quando preenchido.
-      cep: z
-        .string()
-        .refine((valor) => !temTexto(valor) || somenteDigitos(valor).length === LIMITES_CADASTRO.cep, {
-          error: MENSAGEM_CADASTRO_CEP_INVALIDO,
-        }),
-
-      logradouro: z
-        .string()
-        .refine((valor) => caberNoLimite(valor, LIMITES_CADASTRO.logradouro), {
-          error: mensagemCadastroCampoTamanho('logradouro', LIMITES_CADASTRO.logradouro),
-        }),
-
-      numero: z
-        .string()
-        .refine((valor) => caberNoLimite(valor, LIMITES_CADASTRO.numero), {
-          error: mensagemCadastroCampoTamanho('número', LIMITES_CADASTRO.numero),
-        }),
-
-      complemento: z
-        .string()
-        .refine((valor) => caberNoLimite(valor, LIMITES_CADASTRO.complemento), {
-          error: mensagemCadastroCampoTamanho('complemento', LIMITES_CADASTRO.complemento),
-        }),
-
-      bairro: z
-        .string()
-        .refine((valor) => caberNoLimite(valor, LIMITES_CADASTRO.bairro), {
-          error: mensagemCadastroCampoTamanho('bairro', LIMITES_CADASTRO.bairro),
-        }),
-
-      cidade: z
-        .string()
-        .refine((valor) => caberNoLimite(valor, LIMITES_CADASTRO.cidade), {
-          error: mensagemCadastroCampoTamanho('cidade', LIMITES_CADASTRO.cidade),
-        }),
-
-      uf: z
-        .string()
-        .refine((valor) => !temTexto(valor) || ehSiglaUf(valor), { error: MENSAGEM_CADASTRO_UF_INVALIDA }),
-
-      senha: z
-        .string()
-        .refine(temTexto, { error: MENSAGEM_CADASTRO_SENHA_OBRIGATORIA })
-        .refine(
-          (valor) => valor.length >= LIMITES_CADASTRO.senhaMinima && valor.length <= LIMITES_CADASTRO.senhaMaxima,
-          {
-            error: mensagemCadastroSenhaTamanho(LIMITES_CADASTRO.senhaMinima, LIMITES_CADASTRO.senhaMaxima),
-          },
-        )
-        .refine((valor) => /\p{L}/u.test(valor) && /\p{Nd}/u.test(valor), {
-          error: MENSAGEM_CADASTRO_SENHA_FRACA,
-        }),
-
-      confirmarSenha: z.string(),
+      ...criarCamposDadosPessoais(agora),
+      ...criarCamposDocumentos(agora),
+      ...criarCamposSenha(),
     })
-    .refine((dados) => dados.confirmarSenha === dados.senha, {
+    .refine(confirmacaoConfereComSenha, {
       error: MENSAGEM_CADASTRO_SENHAS_NAO_CONFEREM,
       path: ['confirmarSenha'],
     });
@@ -262,3 +318,27 @@ export function criarEsquemaCadastro(agora: () => Date = () => new Date()) {
 
 /** Esquema com o relógio real (usado pela tela). */
 export const ESQUEMA_CADASTRO = criarEsquemaCadastro();
+
+/** Esquema só da etapa 1 (dados pessoais): as mesmas regras do esquema completo para esses cinco campos. */
+export function criarEsquemaDadosPessoais(agora: () => Date = () => new Date()) {
+  return z.object(criarCamposDadosPessoais(agora));
+}
+
+/** Esquema da etapa 1 com o relógio real (usado pela tela). */
+export const ESQUEMA_DADOS_PESSOAIS = criarEsquemaDadosPessoais();
+
+/** Esquema da etapa 2 (habilitação, endereço opcional e senha), com as mesmas regras do esquema completo. */
+export function criarEsquemaDocumentos(agora: () => Date = () => new Date()) {
+  return z
+    .object({
+      ...criarCamposDocumentos(agora),
+      ...criarCamposSenha(),
+    })
+    .refine(confirmacaoConfereComSenha, {
+      error: MENSAGEM_CADASTRO_SENHAS_NAO_CONFEREM,
+      path: ['confirmarSenha'],
+    });
+}
+
+/** Esquema da etapa 2 com o relógio real (usado pela tela). */
+export const ESQUEMA_DOCUMENTOS = criarEsquemaDocumentos();
