@@ -36,6 +36,9 @@ namespace AutoVia.Api.Extensions
             // Garante o administrador inicial na subida (idempotente; falha so vai para o log).
             services.AddHostedService<AdminInicialHostedService>();
 
+            // --- Seguros (P9-BE-01) ---
+            services.AddScoped<ISeguroService, SeguroService>();
+
             return services;
         }
     }

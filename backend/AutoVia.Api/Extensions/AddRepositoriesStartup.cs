@@ -27,6 +27,9 @@ namespace AutoVia.Api.Extensions
             // --- Autenticacao ---
             services.AddScoped<IAutenticacaoRepository, AutenticacaoRepository>();
 
+            // --- Seguros (P9-BE-01) ---
+            services.AddScoped<ISeguroRepository, SeguroRepository>();
+
             return services;
         }
     }
