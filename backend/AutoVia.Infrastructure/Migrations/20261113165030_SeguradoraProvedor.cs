@@ -18,7 +18,7 @@ namespace AutoVia.Infrastructure.Migrations
     /// Down faz EXCLUSAO LOGICA (disabled_at) da chave desta migration. Nao usa DELETE:
     /// a regra do projeto proibe exclusao fisica.
     ///
-    /// GERADA, NAO APLICADA: quem aplica e o Kaio (script em docs/sql/07_SeguradoraProvedor.sql).
+    /// GERADA, NAO APLICADA: quem aplica e o Kaio (script em docs/sql/10_SeguradoraProvedor.sql).
     /// </summary>
     public partial class SeguradoraProvedor : Migration
     {

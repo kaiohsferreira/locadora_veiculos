@@ -14,7 +14,7 @@ namespace AutoVia.Infrastructure.Migrations
     ///   tabela sinistro_historico, com CHECK dos cinco status em status_anterior/status_novo,
     ///   CHECK da origem e CHECK que exige id_funcionario quando a origem e FUNCIONARIO.
     ///
-    /// GERADA, NAO APLICADA: quem aplica e o Kaio (script em docs/sql/06_SinistroHistorico.sql).
+    /// GERADA, NAO APLICADA: quem aplica e o Kaio (script em docs/sql/09_SinistroHistorico.sql).
     /// Down desfaz o esquema (padrao das migrations de esquema do projeto).
     /// </summary>
     public partial class SinistroHistorico : Migration
