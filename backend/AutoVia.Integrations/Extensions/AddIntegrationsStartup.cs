@@ -30,6 +30,9 @@ namespace AutoVia.Integrations.Extensions
             // services.AddScoped<IPagamentoService, PagamentoService>();
             services.AddPixIntegration();
 
+            // --- Seguradora (P9-INT-01) ---
+            services.AddSeguradoraIntegration();
+
             return services;
         }
     }

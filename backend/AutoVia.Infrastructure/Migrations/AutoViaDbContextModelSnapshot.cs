@@ -880,6 +880,11 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("id_veiculo");
 
+                    b.Property<string>("ProtocoloSeguradora")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("protocolo_seguradora");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -916,6 +921,83 @@ namespace AutoVia.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_sinistro_status", "status IN ('ABERTO', 'EM_ANALISE', 'APROVADO', 'NEGADO', 'ENCERRADO')");
 
                             t.HasCheckConstraint("ck_sinistro_tipo", "tipo IN ('COLISAO', 'ROUBO', 'FURTO', 'INCENDIO', 'FENOMENO_NATURAL', 'TERCEIROS')");
+                        });
+                });
+
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.SinistroHistorico", b =>
+                {
+                    b.Property<int>("IdSinistroHistorico")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id_sinistro_historico");
+
+                    NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdSinistroHistorico"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime>("DataAlteracao")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("data_alteracao");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
+
+                    b.Property<int?>("IdFuncionario")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_funcionario");
+
+                    b.Property<int>("IdSinistro")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_sinistro");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("observacao");
+
+                    b.Property<string>("Origem")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("origem");
+
+                    b.Property<string>("StatusAnterior")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status_anterior");
+
+                    b.Property<string>("StatusNovo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status_novo");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("IdSinistroHistorico")
+                        .HasName("sinistro_historico_pkey");
+
+                    b.HasIndex("IdSinistro", "DataAlteracao")
+                        .HasDatabaseName("idx_sinistro_historico_sinistro");
+
+                    b.ToTable("sinistro_historico", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_sinistro_historico_funcionario", "origem <> 'FUNCIONARIO' OR id_funcionario IS NOT NULL");
+
+                            t.HasCheckConstraint("ck_sinistro_historico_origem", "origem IN ('FUNCIONARIO', 'SEGURADORA')");
+
+                            t.HasCheckConstraint("ck_sinistro_historico_status_anterior", "status_anterior IS NULL OR status_anterior IN ('ABERTO', 'EM_ANALISE', 'APROVADO', 'NEGADO', 'ENCERRADO')");
+
+                            t.HasCheckConstraint("ck_sinistro_historico_status_novo", "status_novo IN ('ABERTO', 'EM_ANALISE', 'APROVADO', 'NEGADO', 'ENCERRADO')");
                         });
                 });
 
@@ -1502,6 +1584,26 @@ namespace AutoVia.Infrastructure.Migrations
                     b.Navigation("Veiculo");
                 });
 
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.SinistroHistorico", b =>
+                {
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Funcionario", "Funcionario")
+                        .WithMany()
+                        .HasForeignKey("IdFuncionario")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_sinistro_historico_funcionario");
+
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Sinistro", "Sinistro")
+                        .WithMany("Historicos")
+                        .HasForeignKey("IdSinistro")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_sinistro_historico_sinistro");
+
+                    b.Navigation("Funcionario");
+
+                    b.Navigation("Sinistro");
+                });
+
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Veiculo", b =>
                 {
                     b.HasOne("AutoVia.Core.Entities.PgSql.Categoria", "Categoria")
@@ -1619,6 +1721,11 @@ namespace AutoVia.Infrastructure.Migrations
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Seguro", b =>
                 {
                     b.Navigation("Sinistros");
+                });
+
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Sinistro", b =>
+                {
+                    b.Navigation("Historicos");
                 });
 
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Veiculo", b =>

@@ -35,5 +35,39 @@
       "cliente": { "senha_hash": "VARCHAR(255) NULL" },
       "funcionario": { "senha_hash": "VARCHAR(255) NULL" }
     }
+  },
+  "sinistro_acompanhamento": {
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "data": "2026-11-13",
+    "tarefa": "P9-INT-01",
+    "motivo": "RF-43 exige linha do tempo do sinistro com autor e data de cada mudanca de status, mas a tabela sinistro so guarda o status atual. O acompanhamento junto a seguradora tambem precisa do protocolo devolvido por ela na abertura.",
+    "colunas": {
+      "sinistro": { "protocolo_seguradora": "VARCHAR(40) NULL" }
+    },
+    "tabelas_novas": {
+      "sinistro_historico": {
+        "colunas": {
+          "id_sinistro_historico": "SERIAL PRIMARY KEY",
+          "id_sinistro": "INTEGER NOT NULL, FK fk_sinistro_historico_sinistro -> sinistro (id_sinistro)",
+          "status_anterior": "VARCHAR(20) NULL",
+          "status_novo": "VARCHAR(20) NOT NULL",
+          "origem": "VARCHAR(20) NOT NULL",
+          "id_funcionario": "INTEGER NULL, FK fk_sinistro_historico_funcionario -> funcionario (id_funcionario)",
+          "observacao": "VARCHAR(500) NULL",
+          "data_alteracao": "TIMESTAMP NOT NULL",
+          "created_at / updated_at / disabled_at": "auditoria padrao (colunas_auditoria)"
+        },
+        "checks": {
+          "ck_sinistro_historico_status_anterior": "status_anterior IS NULL OR status_anterior IN ('ABERTO', 'EM_ANALISE', 'APROVADO', 'NEGADO', 'ENCERRADO')",
+          "ck_sinistro_historico_status_novo": "status_novo IN ('ABERTO', 'EM_ANALISE', 'APROVADO', 'NEGADO', 'ENCERRADO')",
+          "ck_sinistro_historico_origem": "origem IN ('FUNCIONARIO', 'SEGURADORA')",
+          "ck_sinistro_historico_funcionario": "origem <> 'FUNCIONARIO' OR id_funcionario IS NOT NULL"
+        },
+        "indices": { "idx_sinistro_historico_sinistro": "id_sinistro, data_alteracao" }
+      }
+    },
+    "dados": {
+      "integration_setting": { "SEGURADORA.provedor": "FAKE (migration de dados SeguradoraProvedor; mesmo padrao de AjustarIntegracoesProvedores)" }
+    }
   }
 }

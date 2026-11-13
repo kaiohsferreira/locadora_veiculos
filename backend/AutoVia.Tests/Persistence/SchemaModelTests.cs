@@ -21,6 +21,13 @@ namespace AutoVia.Tests.Persistence
             "avaria", "cobranca_extra", "venda", "pagamento", "manutencao", "seguro", "sinistro"
         };
 
+        /// <summary>Tabelas fora da especificacao, aprovadas pelo Kaio (desvios_aprovados.json).</summary>
+        private static readonly string[] TabelasDesvioAprovado = new string[]
+        {
+            // 13/11/2026 (P9-INT-01): linha do tempo do sinistro (RF-43).
+            "sinistro_historico"
+        };
+
         private static readonly string[] TabelasIntegracao = new string[] { "integration", "integration_setting" };
 
         private static readonly string[] IndicesEsperados = new string[]
@@ -35,7 +42,9 @@ namespace AutoVia.Tests.Persistence
             "idx_cliente_cpf", "idx_cliente_cnh_numero", "idx_funcionario_cpf", "idx_funcionario_matricula",
             "idx_categoria_nome", "idx_veiculo_placa", "idx_veiculo_chassi", "idx_veiculo_renavam",
             "idx_locacao_reserva", "idx_venda_veiculo", "idx_venda_numero_nota_fiscal",
-            "idx_seguro_numero_apolice", "idx_integration_codigo"
+            "idx_seguro_numero_apolice", "idx_integration_codigo",
+            // Desvio aprovado em 13/11/2026 (P9-INT-01): tabela sinistro_historico.
+            "idx_sinistro_historico_sinistro"
         };
 
         private static IModel BuildModel()
@@ -53,12 +62,12 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
-        public void Modelo_TemExatamenteAs16TabelasDaEspecificacao()
+        public void Modelo_TemAs16TabelasDaEspecificacaoMaisAsDosDesviosAprovados()
         {
             IModel model = BuildModel();
 
             List<string> tabelas = model.GetEntityTypes().Select(x => x.GetTableName()!).OrderBy(x => x).ToList();
-            List<string> esperadas = TabelasNegocio.Concat(TabelasIntegracao).OrderBy(x => x).ToList();
+            List<string> esperadas = TabelasNegocio.Concat(TabelasIntegracao).Concat(TabelasDesvioAprovado).OrderBy(x => x).ToList();
 
             Assert.Equal(esperadas, tabelas);
         }
@@ -138,13 +147,50 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
-        public void Modelo_TemAs32RestricoesCheckDaEspecificacao()
+        public void Modelo_TemAs32RestricoesCheckDaEspecificacaoMaisAs4DoHistoricoDeSinistro()
         {
             IModel model = BuildModel();
 
             int totalChecks = model.GetEntityTypes().SelectMany(x => x.GetCheckConstraints()).Count();
 
-            Assert.Equal(32, totalChecks);
+            // 32 da especificacao + 4 da sinistro_historico (desvio aprovado em 13/11/2026).
+            Assert.Equal(36, totalChecks);
+        }
+
+        [Fact]
+        public void SinistroHistorico_TemOsChecksDeStatusOrigemEFuncionario()
+        {
+            IModel model = BuildModel();
+
+            IEntityType historico = model.GetEntityTypes().Single(x => x.GetTableName() == "sinistro_historico");
+            Dictionary<string, string> checks = historico.GetCheckConstraints().ToDictionary(x => x.Name!, x => x.Sql);
+            string statusValidos = "('ABERTO', 'EM_ANALISE', 'APROVADO', 'NEGADO', 'ENCERRADO')";
+
+            Assert.Equal("status_anterior IS NULL OR status_anterior IN " + statusValidos, checks["ck_sinistro_historico_status_anterior"]);
+            Assert.Equal("status_novo IN " + statusValidos, checks["ck_sinistro_historico_status_novo"]);
+            Assert.Equal("origem IN ('FUNCIONARIO', 'SEGURADORA')", checks["ck_sinistro_historico_origem"]);
+            Assert.Equal("origem <> 'FUNCIONARIO' OR id_funcionario IS NOT NULL", checks["ck_sinistro_historico_funcionario"]);
+        }
+
+        [Fact]
+        public void SinistroHistorico_ChavesEstrangeirasSemCascataEColunasNulaveisCertas()
+        {
+            IModel model = BuildModel();
+
+            IEntityType historico = model.GetEntityTypes().Single(x => x.GetTableName() == "sinistro_historico");
+            List<string> fks = historico.GetForeignKeys().Select(x => x.GetConstraintName()!).OrderBy(x => x).ToList();
+
+            Assert.Equal(new List<string> { "fk_sinistro_historico_funcionario", "fk_sinistro_historico_sinistro" }, fks);
+            Assert.All(historico.GetForeignKeys(), fk => Assert.Equal(DeleteBehavior.NoAction, fk.DeleteBehavior));
+            Assert.True(historico.FindProperty(nameof(SinistroHistorico.StatusAnterior))!.IsNullable);
+            Assert.False(historico.FindProperty(nameof(SinistroHistorico.StatusNovo))!.IsNullable);
+            Assert.True(historico.FindProperty(nameof(SinistroHistorico.IdFuncionario))!.IsNullable);
+            Assert.Equal(typeof(string), historico.FindProperty(nameof(SinistroHistorico.Origem))!.GetProviderClrType());
+
+            IEntityType sinistro = model.GetEntityTypes().Single(x => x.GetTableName() == "sinistro");
+            IProperty protocolo = sinistro.FindProperty(nameof(Sinistro.ProtocoloSeguradora))!;
+            Assert.True(protocolo.IsNullable);
+            Assert.Equal(40, protocolo.GetMaxLength());
         }
 
         [Fact]

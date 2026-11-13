@@ -36,6 +36,9 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .HasMaxLength(20)
                 .HasDefaultValue(StatusSinistro.ABERTO);
 
+            // Desvio aprovado pelo Kaio em 13/11/2026 (P9-INT-01): protocolo da seguradora.
+            builder.Property(x => x.ProtocoloSeguradora).IsRequired(false).HasMaxLength(40);
+
             builder.HasIndex(x => new { x.IdVeiculo, x.DataOcorrencia }).HasDatabaseName("idx_sinistro_veiculo");
 
             builder.HasOne(x => x.Veiculo)

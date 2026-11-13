@@ -44,6 +44,9 @@ namespace AutoVia.Infrastructure.Persistence
         public DbSet<Seguro> Seguros { get; set; } = null!;
         public DbSet<Sinistro> Sinistros { get; set; } = null!;
 
+        /// <summary>Linha do tempo do sinistro (RF-43). Desvio aprovado pelo Kaio em 13/11/2026.</summary>
+        public DbSet<SinistroHistorico> SinistroHistoricos { get; set; } = null!;
+
         // --- Biblioteca de integracoes ---
         public DbSet<Integration> Integrations { get; set; } = null!;
         public DbSet<IntegrationSetting> IntegrationSettings { get; set; } = null!;
