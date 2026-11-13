@@ -23,6 +23,15 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Quando nao for null, InsertAsync lanca esta excecao (simula falha ao gravar).</summary>
         public Exception? ExcecaoAoInserir { get; set; }
 
+        /// <summary>Quando nao for null, as consultas de existencia (CPF, e-mail, CNH) lancam esta excecao (simula falha do banco).</summary>
+        public Exception? ExcecaoAoConsultarExistencia { get; set; }
+
+        /// <summary>Quantas consultas de existencia (CPF, e-mail ou CNH) foram feitas. Os testes conferem que a entrada malformada nao chegou a consultar.</summary>
+        public int ConsultasDeExistencia { get; private set; }
+
+        /// <summary>Ultimo e-mail recebido por ExistsByEmailAsync, exatamente como o servico o passou (sem normalizacao feita aqui). Os testes conferem a normalizacao do servico.</summary>
+        public string? UltimoEmailConsultado { get; private set; }
+
         /// <summary>Semeia um cliente (ativo ou desativado) sem passar pelo servico. Se o id for 0, gera um.</summary>
         public void Adicionar(Cliente cliente)
         {
@@ -83,6 +92,8 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Verifica se existe cliente ativo com o mesmo CPF.</summary>
         public Task<bool> ExistsByCpfAsync(string cpf)
         {
+            RegistrarConsultaDeExistencia();
+
             bool existe = Armazenados.Any(x => x.DisabledAt == null && x.Cpf == cpf);
 
             return Task.FromResult(existe);
@@ -91,9 +102,34 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Verifica se existe cliente ativo com a mesma CNH.</summary>
         public Task<bool> ExistsByCnhNumeroAsync(string cnhNumero)
         {
+            RegistrarConsultaDeExistencia();
+
             bool existe = Armazenados.Any(x => x.DisabledAt == null && x.CnhNumero == cnhNumero);
 
             return Task.FromResult(existe);
+        }
+
+        /// <summary>Verifica se existe cliente ativo com o mesmo e-mail, sem diferenciar maiusculas nem bordas (como o banco faz com lower(email)).</summary>
+        public Task<bool> ExistsByEmailAsync(string email)
+        {
+            RegistrarConsultaDeExistencia();
+            UltimoEmailConsultado = email;
+
+            string emailNormalizado = email.Trim().ToLowerInvariant();
+            bool existe = Armazenados.Any(x => x.DisabledAt == null && x.Email.Trim().ToLowerInvariant() == emailNormalizado);
+
+            return Task.FromResult(existe);
+        }
+
+        /// <summary>Conta a consulta de existencia e, se configurado, lanca a excecao simulada antes de responder.</summary>
+        private void RegistrarConsultaDeExistencia()
+        {
+            ConsultasDeExistencia++;
+
+            if (ExcecaoAoConsultarExistencia != null)
+            {
+                throw ExcecaoAoConsultarExistencia;
+            }
         }
 
         /// <summary>Grava um novo cliente com id gerado, DataCadastro, CreatedAt e UpdatedAt iguais a DateTime.Now e DisabledAt nulo.</summary>

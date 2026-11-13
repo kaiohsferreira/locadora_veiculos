@@ -8,6 +8,9 @@ import { lazy } from 'react';
 // Área pública e do cliente ---------------------------------------------------
 export const InicioPagina = lazy(() => import('@/features/reservas/pages/InicioPagina'));
 export const AcessoPortalPagina = lazy(() => import('@/features/clientes/pages/AcessoPortalPagina'));
+export const RecuperarSenhaPagina = lazy(() => import('@/features/clientes/pages/RecuperarSenhaPagina'));
+export const RedefinirSenhaPagina = lazy(() => import('@/features/clientes/pages/RedefinirSenhaPagina'));
+export const VincularGooglePagina = lazy(() => import('@/features/clientes/pages/VincularGooglePagina'));
 export const CadastroDadosPessoaisPagina = lazy(() => import('@/features/clientes/pages/CadastroDadosPessoaisPagina'));
 export const CadastroDocumentosPagina = lazy(() => import('@/features/clientes/pages/CadastroDocumentosPagina'));
 export const ResultadosBuscaPagina = lazy(() => import('@/features/reservas/pages/ResultadosBuscaPagina'));

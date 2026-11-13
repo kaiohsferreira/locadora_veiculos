@@ -11,6 +11,11 @@ namespace AutoVia.Helpers
         public const string ErroClienteNaoEncontrada = "O cliente informado não foi encontrado.";
         public const string ErroClienteCpfDuplicado = "Já existe um cliente ativo com este CPF.";
         public const string ErroClienteCnhDuplicada = "Já existe um cliente ativo com este número de CNH.";
+        public const string ErroClienteEmailDuplicado = "Já existe um cliente ativo com este e-mail.";
+
+        // --- Cliente: verificacao de cadastro (POST /api/clientes/verificar-cadastro) ---
+        public const string ErroClienteVerificacaoCampoInvalido = "Informe qual campo verificar: CPF, EMAIL ou CNH.";
+        public const string ErroClienteVerificacaoValorInvalido = "O valor informado para verificação é inválido.";
 
         // --- Cliente: validacao do VO de entrada ---
         public const string ErroClienteNomeObrigatorio = "Informe o nome do cliente.";
@@ -49,5 +54,6 @@ namespace AutoVia.Helpers
         public const string ErroListarClientes = "Não foi possível listar os clientes.";
         public const string ErroBuscarCliente = "Não foi possível consultar o cliente.";
         public const string ErroSalvarCliente = "Não foi possível salvar o cliente.";
+        public const string ErroVerificarCadastroCliente = "Não foi possível verificar o cadastro.";
     }
 }

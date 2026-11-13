@@ -28,6 +28,9 @@ namespace AutoVia.Tests.Api
         private const string RotaSeguros = "/api/seguros";
         private const string MediaProblema = "application/problem+json";
 
+        // Versao de sessao (claim sv) exigida pelo TokenService desde a sessao revogavel; o FakeSessaoService aceita qualquer valor.
+        private const string VersaoSessaoDeTeste = "versao-de-teste";
+
         private readonly SeguroWebFactory _fabrica;
         private readonly HttpClient _cliente;
 
@@ -154,7 +157,7 @@ namespace AutoVia.Tests.Api
             };
 
             TokenService tokens = new TokenService(opcoes, new FakeLogService());
-            string token = tokens.GerarToken(perfil, 1, "Usuario de teste", cargo).Token;
+            string token = tokens.GerarToken(perfil, 1, "Usuario de teste", cargo, VersaoSessaoDeTeste, false).Token;
 
             return token;
         }

@@ -212,6 +212,11 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("character varying(120)")
                         .HasColumnName("email");
 
+                    b.Property<string>("GoogleSub")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("google_sub");
+
                     b.Property<string>("Logradouro")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)")
@@ -267,6 +272,9 @@ namespace AutoVia.Infrastructure.Migrations
 
                     b.HasIndex("Cpf")
                         .HasDatabaseName("idx_cliente_cpf");
+
+                    b.HasIndex("GoogleSub")
+                        .HasDatabaseName("idx_cliente_google_sub");
 
                     b.ToTable("cliente", null, t =>
                         {
@@ -690,6 +698,62 @@ namespace AutoVia.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_pagamento_tipo", "tipo IN ('CAUCAO', 'DIARIA', 'COBRANCA_EXTRA', 'VENDA')");
 
                             t.HasCheckConstraint("ck_pagamento_valor", "valor > 0");
+                        });
+                });
+
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.RedefinicaoSenha", b =>
+                {
+                    b.Property<int>("IdRedefinicaoSenha")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id_redefinicao_senha");
+
+                    NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdRedefinicaoSenha"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
+
+                    b.Property<DateTime>("ExpiraEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("expira_em");
+
+                    b.Property<int?>("IdCliente")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_cliente");
+
+                    b.Property<int?>("IdFuncionario")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_funcionario");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .HasColumnName("token_hash")
+                        .IsFixedLength();
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("IdRedefinicaoSenha")
+                        .HasName("redefinicao_senha_pkey");
+
+                    b.HasIndex("TokenHash")
+                        .HasDatabaseName("idx_redefinicao_token");
+
+                    b.ToTable("redefinicao_senha", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_redefinicao_titular", "(id_cliente IS NOT NULL AND id_funcionario IS NULL) OR (id_cliente IS NULL AND id_funcionario IS NOT NULL)");
                         });
                 });
 
@@ -1521,6 +1585,25 @@ namespace AutoVia.Infrastructure.Migrations
                     b.Navigation("Locacao");
 
                     b.Navigation("Venda");
+                });
+
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.RedefinicaoSenha", b =>
+                {
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Cliente", "Cliente")
+                        .WithMany()
+                        .HasForeignKey("IdCliente")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_redefinicao_cliente");
+
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Funcionario", "Funcionario")
+                        .WithMany()
+                        .HasForeignKey("IdFuncionario")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_redefinicao_funcionario");
+
+                    b.Navigation("Cliente");
+
+                    b.Navigation("Funcionario");
                 });
 
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Reserva", b =>

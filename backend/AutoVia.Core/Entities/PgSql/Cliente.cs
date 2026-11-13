@@ -68,6 +68,13 @@ namespace AutoVia.Core.Entities.PgSql
         [Column("senha_hash")]
         public string? SenhaHash { get; set; }
 
+        /// <summary>
+        /// Identificador (sub) da conta Google vinculada a este cliente (coluna google_sub, VARCHAR(255)).
+        /// Nulo sem vinculo. Nunca sai em resposta de API.
+        /// </summary>
+        [Column("google_sub")]
+        public string? GoogleSub { get; set; }
+
         // --- Navegacao ---
         public virtual List<Reserva> Reservas { get; set; } = new List<Reserva>();
         public virtual List<Locacao> Locacoes { get; set; } = new List<Locacao>();

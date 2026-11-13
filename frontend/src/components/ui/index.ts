@@ -3,6 +3,8 @@ export { Botao, BotaoLink } from './Botao';
 export type { BotaoLinkProps, BotaoProps, TamanhoBotao, VarianteBotao } from './Botao';
 export { Campo } from './Campo';
 export type { CampoProps } from './Campo';
+export { CampoSenha } from './CampoSenha';
+export type { CampoSenhaProps } from './CampoSenha';
 export { Select } from './Select';
 export type { OpcaoSelect, SelectProps } from './Select';
 export { Tabela } from './Tabela';

@@ -18,7 +18,9 @@ namespace AutoVia.Tests.Persistence
         private static readonly string[] TabelasNegocio = new string[]
         {
             "cliente", "funcionario", "categoria", "veiculo", "reserva", "locacao", "vistoria",
-            "avaria", "cobranca_extra", "venda", "pagamento", "manutencao", "seguro", "sinistro"
+            "avaria", "cobranca_extra", "venda", "pagamento", "manutencao", "seguro", "sinistro",
+            // Desvio aprovado em 12/11/2026 (RF-49): link de recuperacao de senha.
+            "redefinicao_senha"
         };
 
         /// <summary>Tabelas fora da especificacao, aprovadas pelo Kaio (desvios_aprovados.json).</summary>
@@ -43,6 +45,8 @@ namespace AutoVia.Tests.Persistence
             "idx_categoria_nome", "idx_veiculo_placa", "idx_veiculo_chassi", "idx_veiculo_renavam",
             "idx_locacao_reserva", "idx_venda_veiculo", "idx_venda_numero_nota_fiscal",
             "idx_seguro_numero_apolice", "idx_integration_codigo",
+            // Desvio aprovado em 12/11/2026 (RF-49 e RF-51): indices comuns, sem UNIQUE.
+            "idx_redefinicao_token", "idx_cliente_google_sub",
             // Desvio aprovado em 13/11/2026 (P9-INT-01): tabela sinistro_historico.
             "idx_sinistro_historico_sinistro"
         };
@@ -147,14 +151,15 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
-        public void Modelo_TemAs32RestricoesCheckDaEspecificacaoMaisAs4DoHistoricoDeSinistro()
+        public void Modelo_TemAs32RestricoesCheckDaEspecificacaoMaisAsDosDesviosAprovados()
         {
             IModel model = BuildModel();
 
             int totalChecks = model.GetEntityTypes().SelectMany(x => x.GetCheckConstraints()).Count();
 
-            // 32 da especificacao + 4 da sinistro_historico (desvio aprovado em 13/11/2026).
-            Assert.Equal(36, totalChecks);
+            // 32 da especificacao + 1 da redefinicao_senha (desvio aprovado em 12/11/2026)
+            // + 4 da sinistro_historico (desvio aprovado em 13/11/2026).
+            Assert.Equal(37, totalChecks);
         }
 
         [Fact]
@@ -235,6 +240,87 @@ namespace AutoVia.Tests.Persistence
             };
 
             Assert.Equal(esperadas, cascatas);
+        }
+
+        [Fact]
+        public void RedefinicaoSenha_TemAsColunasTiposENulabilidadeDoDesvio()
+        {
+            IModel model = BuildModel();
+            StoreObjectIdentifier table = StoreObjectIdentifier.Table("redefinicao_senha", null);
+            IEntityType entity = model.GetEntityTypes().Single(x => x.GetTableName() == "redefinicao_senha");
+
+            Dictionary<string, string> tiposEsperados = new Dictionary<string, string>
+            {
+                ["id_redefinicao_senha"] = "integer",
+                ["id_cliente"] = "integer",
+                ["id_funcionario"] = "integer",
+                ["token_hash"] = "character(64)",
+                ["expira_em"] = "timestamp without time zone",
+                ["created_at"] = "timestamp without time zone",
+                ["updated_at"] = "timestamp without time zone",
+                ["disabled_at"] = "timestamp without time zone"
+            };
+
+            List<string> colunas = entity.GetProperties().Select(x => x.GetColumnName(table)!).OrderBy(x => x).ToList();
+            Assert.Equal(tiposEsperados.Keys.OrderBy(x => x).ToList(), colunas);
+
+            List<string> anulaveisEsperadas = new List<string> { "id_cliente", "id_funcionario", "disabled_at" };
+            foreach (IProperty propriedade in entity.GetProperties())
+            {
+                string coluna = propriedade.GetColumnName(table)!;
+                Assert.Equal(tiposEsperados[coluna], propriedade.GetColumnType(table));
+
+                bool anulavelEsperado = anulaveisEsperadas.Contains(coluna);
+                Assert.Equal(anulavelEsperado, propriedade.IsNullable);
+            }
+        }
+
+        [Fact]
+        public void RedefinicaoSenha_TemUmSoCheckDeTitularUnico()
+        {
+            IModel model = BuildModel();
+            IEntityType entity = model.GetEntityTypes().Single(x => x.GetTableName() == "redefinicao_senha");
+
+            List<ICheckConstraint> checks = entity.GetCheckConstraints().ToList();
+
+            Assert.Single(checks);
+            Assert.Equal("ck_redefinicao_titular", checks[0].Name);
+            Assert.Equal(
+                "(id_cliente IS NOT NULL AND id_funcionario IS NULL) OR (id_cliente IS NULL AND id_funcionario IS NOT NULL)",
+                checks[0].Sql);
+        }
+
+        [Fact]
+        public void Cliente_GoogleSubTem255CaracteresEAnulavel()
+        {
+            IModel model = BuildModel();
+            IEntityType cliente = model.GetEntityTypes().Single(x => x.ClrType == typeof(Cliente));
+            IProperty googleSub = cliente.FindProperty(nameof(Cliente.GoogleSub))!;
+            StoreObjectIdentifier table = StoreObjectIdentifier.Table("cliente", null);
+
+            Assert.Equal("google_sub", googleSub.GetColumnName(table));
+            Assert.Equal(255, googleSub.GetMaxLength());
+            Assert.True(googleSub.IsNullable);
+        }
+
+        [Fact]
+        public void IndicesDoDesvio_SaoComuns_NenhumEUnico()
+        {
+            IModel model = BuildModel();
+            List<string> novos = new List<string> { "idx_redefinicao_token", "idx_cliente_google_sub" };
+
+            List<IIndex> encontrados = model.GetEntityTypes()
+                .SelectMany(x => x.GetIndexes())
+                .Where(x => novos.Contains(x.GetDatabaseName()!))
+                .ToList();
+
+            List<string> nomes = encontrados.Select(x => x.GetDatabaseName()!).OrderBy(x => x).ToList();
+            Assert.Equal(novos.OrderBy(x => x).ToList(), nomes);
+
+            foreach (IIndex indice in encontrados)
+            {
+                Assert.False(indice.IsUnique);
+            }
         }
     }
 }

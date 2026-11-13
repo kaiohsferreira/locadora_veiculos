@@ -36,6 +36,31 @@
       "funcionario": { "senha_hash": "VARCHAR(255) NULL" }
     }
   },
+  "recuperacao_senha_e_login_google": {
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "data": "2026-11-12",
+    "motivo": "RF-49 (recuperacao de senha por link) e RF-51 (login com Google), incluidos pelo Kaio em 12/11/2026 depois das 83 tarefas. A recuperacao precisa guardar o link (so o hash), a validade, o uso unico e o limite por conta; o login Google precisa lembrar qual conta Google pertence a qual cliente. N2 (lembrar de mim) nao muda o esquema.",
+    "tabelas_novas": {
+      "redefinicao_senha": {
+        "colunas": {
+          "id_redefinicao_senha": "SERIAL PK",
+          "id_cliente": "INT NULL FK cliente",
+          "id_funcionario": "INT NULL FK funcionario",
+          "token_hash": "CHAR(64) NOT NULL",
+          "expira_em": "TIMESTAMP NOT NULL"
+        },
+        "check": "ck_redefinicao_titular: exatamente um entre id_cliente e id_funcionario",
+        "indices": ["idx_redefinicao_token (comum)"],
+        "auditoria": "created_at, updated_at, disabled_at (BaseEntities)"
+      }
+    },
+    "colunas_acesso_google": {
+      "cliente": { "google_sub": "VARCHAR(255) NULL" },
+      "indices": ["idx_cliente_google_sub (comum)"]
+    },
+    "dados": "integration GOOGLE (client_id, provedor) e integration_setting EMAIL.provedor = FAKE, por migration de dados",
+    "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico (unicidade no servico)"
+  },
   "sinistro_acompanhamento": {
     "aprovado_por": "Kaio Henrique dos Santos Ferreira",
     "data": "2026-11-13",

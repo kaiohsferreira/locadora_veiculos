@@ -2,6 +2,7 @@ using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Clientes;
 using AutoVia.Helpers;
 using FluentValidation;
+using FluentValidation.Results;
 using System;
 
 namespace AutoVia.Communication.Validators.Clientes
@@ -46,7 +47,7 @@ namespace AutoVia.Communication.Validators.Clientes
                 .WithMessage(ConstantsMessage.ErroClienteEmailObrigatorio)
                 .Must(email => TamanhoAteAposTrim(email, ConstantsValues.TamanhoMaximoEmailCliente))
                 .WithMessage(string.Format(ConstantsMessage.ErroClienteCampoTamanho, ConstantsMessage.RotuloEmailCliente, ConstantsValues.TamanhoMaximoEmailCliente))
-                .EmailAddress()
+                .Must(email => EmailValidoAposTrim(email))
                 .WithMessage(ConstantsMessage.ErroClienteEmailInvalido);
 
             RuleFor(x => x.Telefone)
@@ -118,6 +119,27 @@ namespace AutoVia.Communication.Validators.Clientes
             DateOnly hoje = DateOnly.FromDateTime(DateTime.Now);
 
             return hoje;
+        }
+
+        /// <summary>Validador de e-mail do proprio FluentValidation (regra EmailAddress), aplicado ao texto ja aparado, como o servico grava.</summary>
+        private static readonly InlineValidator<string> ValidadorEmail = CriarValidadorEmail();
+
+        /// <summary>Monta o validador de e-mail uma vez, sobre o proprio texto.</summary>
+        private static InlineValidator<string> CriarValidadorEmail()
+        {
+            InlineValidator<string> validador = new InlineValidator<string>();
+            validador.RuleFor(texto => texto).EmailAddress();
+
+            return validador;
+        }
+
+        /// <summary>E-mail valido depois de remover as bordas. Nulo ou so espacos nao chega aqui (a regra de obrigatorio para antes).</summary>
+        private static bool EmailValidoAposTrim(string? email)
+        {
+            string aparado = email == null ? string.Empty : email.Trim();
+            ValidationResult resultado = ValidadorEmail.Validate(aparado);
+
+            return resultado.IsValid;
         }
 
         /// <summary>Texto opcional ou obrigatorio medido sem as bordas: nulo passa, senao o tamanho do Trim nao pode passar do maximo.</summary>

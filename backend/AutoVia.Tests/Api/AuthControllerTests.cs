@@ -61,6 +61,24 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public async Task Login_ComLembrar_DevolveExpiracaoDe30Dias()
+        {
+            FakeLogService log = new FakeLogService();
+            FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
+            repositorio.AdicionarCliente(new Cliente { Nome = "Maria", Cpf = CpfCliente, SenhaHash = new SenhaHasher(log).Hash(SenhaCliente), StatusCadastro = StatusCadastroCliente.APROVADO });
+            AuthController controller = CriarController(repositorio, log);
+            LoginVO vo = new LoginVO { Perfil = PerfilUsuario.CLIENTE, Cpf = CpfCliente, Senha = SenhaCliente, Lembrar = true };
+            DateTime antes = DateTime.Now;
+
+            IActionResult resultado = await controller.Login(vo);
+            DateTime depois = DateTime.Now;
+
+            OkObjectResult ok = Assert.IsType<OkObjectResult>(resultado);
+            ReturnLoginVO retorno = Assert.IsType<ReturnLoginVO>(ok.Value);
+            Assert.InRange(retorno.ExpiraEm, antes.AddDays(30).AddSeconds(-5), depois.AddDays(30).AddSeconds(5));
+        }
+
+        [Fact]
         public async Task Login_CredenciaisRecusadas_PropagaUnauthorizedException()
         {
             FakeLogService log = new FakeLogService();

@@ -56,3 +56,9 @@ export const MENSAGEM_ERRO_INESPERADO =
 
 export const MENSAGEM_AUTENTICACAO_IGNORADA =
   'Modo de desenvolvimento: a verificação de login está desativada (VITE_IGNORAR_AUTENTICACAO=true).';
+
+// Mensagens por módulo ficam em mensagens<Modulo>.ts e são reexportadas aqui.
+export * from './mensagensAcesso';
+export * from './mensagensCadastro';
+export * from './mensagensRecuperacao';
+export * from './mensagensGoogle';

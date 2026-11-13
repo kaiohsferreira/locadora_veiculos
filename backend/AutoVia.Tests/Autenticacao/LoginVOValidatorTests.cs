@@ -111,6 +111,18 @@ namespace AutoVia.Tests.Autenticacao
         }
 
         [Fact]
+        public void Lembrar_NaoTemRegraDeValidacao()
+        {
+            LoginVO marcado = VoValido();
+            marcado.Lembrar = true;
+            LoginVO desmarcado = VoValido();
+            desmarcado.Lembrar = false;
+
+            Assert.Empty(MensagensDe(marcado));
+            Assert.Empty(MensagensDe(desmarcado));
+        }
+
+        [Fact]
         public void Senha128Caracteres_Passa()
         {
             LoginVO vo = VoValido();

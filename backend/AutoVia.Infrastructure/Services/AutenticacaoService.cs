@@ -11,10 +11,11 @@ using System.Threading.Tasks;
 namespace AutoVia.Infrastructure.Services
 {
     /// <summary>
-    /// Fluxo de login (RF-06). Cliente entra em qualquer status de cadastro; funcionario
+    /// Fluxo de login (RF-06, RF-50). Cliente entra em qualquer status de cadastro; funcionario
     /// so entra com Ativo = true. Toda recusa vira UnauthorizedException com a mesma
     /// mensagem. Se o CPF nao existe, a verificacao de senha e simulada para gastar o
-    /// mesmo tempo. Senha e hash nunca sao registrados.
+    /// mesmo tempo. Senha e hash nunca sao registrados. Com lembrar=true o token dura
+    /// Jwt:ExpiracaoLembrarDias dias; sem marcar, Jwt:ExpiracaoMinutos.
     /// </summary>
     public class AutenticacaoService : IAutenticacaoService
     {
@@ -44,12 +45,12 @@ namespace AutoVia.Infrastructure.Services
 
                 if (loginVO.Perfil == PerfilUsuario.CLIENTE)
                 {
-                    return await LoginClienteAsync(cpf, loginVO.Senha);
+                    return await LoginClienteAsync(cpf, loginVO.Senha, loginVO.Lembrar);
                 }
 
                 if (loginVO.Perfil == PerfilUsuario.FUNCIONARIO)
                 {
-                    return await LoginFuncionarioAsync(cpf, loginVO.Senha);
+                    return await LoginFuncionarioAsync(cpf, loginVO.Senha, loginVO.Lembrar);
                 }
 
                 throw new UnauthorizedException(ConstantsMessage.ErroCredenciaisInvalidas);
@@ -73,7 +74,36 @@ namespace AutoVia.Infrastructure.Services
             }
         }
 
-        private async Task<ReturnLoginVO> LoginClienteAsync(string cpf, string senha)
+        /// <summary>Abre a sessao de um cliente ja identificado por outro meio (login Google, BE-6), com a mesma regra de validade do login por senha.</summary>
+        public ReturnLoginVO EmitirSessaoCliente(Cliente cliente, bool lembrar)
+        {
+            try
+            {
+                ReturnLoginVO retorno = EmitirSessao(PerfilUsuario.CLIENTE, cliente.IdCliente, cliente.Nome, null, cliente.SenhaHash, lembrar);
+                retorno.StatusCadastro = cliente.StatusCadastro;
+
+                return retorno;
+            }
+            catch (UnauthorizedException)
+            {
+                throw;
+            }
+            catch (BusinessException)
+            {
+                throw;
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroAutenticar, GetType().ToString());
+                throw;
+            }
+        }
+
+        private async Task<ReturnLoginVO> LoginClienteAsync(string cpf, string senha, bool lembrar)
         {
             Cliente? cliente = await _autenticacaoRepository.FindClienteByCpfAsync(cpf);
 
@@ -90,15 +120,13 @@ namespace AutoVia.Infrastructure.Services
                 throw new UnauthorizedException(ConstantsMessage.ErroCredenciaisInvalidas);
             }
 
-            TokenGeradoVO token = _tokenService.GerarToken(PerfilUsuario.CLIENTE, cliente.IdCliente, cliente.Nome, null);
-
-            ReturnLoginVO retorno = MontarRetorno(token, PerfilUsuario.CLIENTE, cliente.IdCliente, cliente.Nome);
+            ReturnLoginVO retorno = EmitirSessao(PerfilUsuario.CLIENTE, cliente.IdCliente, cliente.Nome, null, cliente.SenhaHash, lembrar);
             retorno.StatusCadastro = cliente.StatusCadastro;
 
             return retorno;
         }
 
-        private async Task<ReturnLoginVO> LoginFuncionarioAsync(string cpf, string senha)
+        private async Task<ReturnLoginVO> LoginFuncionarioAsync(string cpf, string senha, bool lembrar)
         {
             Funcionario? funcionario = await _autenticacaoRepository.FindFuncionarioByCpfAsync(cpf);
 
@@ -116,12 +144,24 @@ namespace AutoVia.Infrastructure.Services
                 throw new UnauthorizedException(ConstantsMessage.ErroCredenciaisInvalidas);
             }
 
-            TokenGeradoVO token = _tokenService.GerarToken(PerfilUsuario.FUNCIONARIO, funcionario.IdFuncionario, funcionario.Nome, funcionario.Cargo);
-
-            ReturnLoginVO retorno = MontarRetorno(token, PerfilUsuario.FUNCIONARIO, funcionario.IdFuncionario, funcionario.Nome);
+            ReturnLoginVO retorno = EmitirSessao(PerfilUsuario.FUNCIONARIO, funcionario.IdFuncionario, funcionario.Nome, funcionario.Cargo, funcionario.SenhaHash, lembrar);
             retorno.Cargo = funcionario.Cargo;
 
             return retorno;
+        }
+
+        /// <summary>Emite o token com a versao da sessao (sv) calculada a partir da senha_hash atual. Sem senha_hash, recusa.</summary>
+        private ReturnLoginVO EmitirSessao(PerfilUsuario perfil, int idUsuario, string nome, CargoFuncionario? cargo, string? senhaHash, bool lembrar)
+        {
+            if (string.IsNullOrWhiteSpace(senhaHash))
+            {
+                throw new UnauthorizedException(ConstantsMessage.ErroCredenciaisInvalidas);
+            }
+
+            string versaoSessao = _tokenService.CalcularVersaoSessao(senhaHash);
+            TokenGeradoVO token = _tokenService.GerarToken(perfil, idUsuario, nome, cargo, versaoSessao, lembrar);
+
+            return MontarRetorno(token, perfil, idUsuario, nome);
         }
 
         /// <summary>Confere a senha; sem hash cadastrado, simula a verificacao e recusa.</summary>

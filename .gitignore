@@ -24,6 +24,9 @@ coverage*.xml
 artifacts/
 publish/
 
+# Caixa de e-mail de teste (provedor FAKE, so em Development): nao vai para o git
+backend/AutoVia.Api/App_Data/email-fake/
+
 # Configuracao local com senha do banco de cada maquina
 **/appsettings.Local.json
 **/appsettings.*.Local.json

@@ -14,10 +14,11 @@ using System.Threading.Tasks;
 namespace AutoVia.Infrastructure.Services
 {
     /// <summary>
-    /// Regras de negocio do cliente (RF-07): normaliza a entrada, impede CPF e CNH
-    /// repetidos entre os ativos (409), grava o cadastro PENDENTE com o hash da senha
-    /// e devolve so o VO de retorno, sem senha. A senha nunca vai para o log nem para
-    /// a excecao. O VO de entrada chega validado pelo ClienteVOValidator antes.
+    /// Regras de negocio do cliente (RF-07): normaliza a entrada, impede CPF, e-mail e CNH
+    /// repetidos entre os ativos (409), grava o cadastro PENDENTE com o hash da senha e devolve
+    /// so o VO de retorno, sem senha. Tambem responde a verificacao publica de cadastro, so com
+    /// a existencia, usando a mesma normalizacao do cadastro. A senha e o valor consultado nunca
+    /// vao para o log nem para a excecao. O VO de entrada chega validado pelo validador antes.
     /// </summary>
     public class ClienteService : IClienteService
     {
@@ -92,17 +93,17 @@ namespace AutoVia.Infrastructure.Services
             }
         }
 
-        /// <summary>Cadastra um cliente PENDENTE; lanca BusinessException se o CPF ou a CNH ja existem entre os ativos.</summary>
+        /// <summary>Cadastra um cliente PENDENTE; lanca BusinessException se o CPF, o e-mail ou a CNH ja existem entre os ativos (nessa ordem).</summary>
         public async Task<ReturnClienteVO> InsertAsync(ClienteVO clienteVO)
         {
             try
             {
                 // 1. Normalizacao da entrada (mesma forma que fica gravada).
                 clienteVO.Nome = clienteVO.Nome.Trim();
-                clienteVO.Cpf = StaticMethods.OnlyDigits(clienteVO.Cpf);
+                clienteVO.Cpf = NormalizarCpf(clienteVO.Cpf);
                 clienteVO.Telefone = StaticMethods.OnlyDigits(clienteVO.Telefone);
-                clienteVO.CnhNumero = StaticMethods.OnlyDigits(clienteVO.CnhNumero);
-                clienteVO.Email = clienteVO.Email.Trim().ToLowerInvariant();
+                clienteVO.CnhNumero = NormalizarCnh(clienteVO.CnhNumero);
+                clienteVO.Email = NormalizarEmail(clienteVO.Email);
                 clienteVO.Logradouro = string.IsNullOrWhiteSpace(clienteVO.Logradouro) ? null : clienteVO.Logradouro.Trim();
                 clienteVO.Numero = string.IsNullOrWhiteSpace(clienteVO.Numero) ? null : clienteVO.Numero.Trim();
                 clienteVO.Complemento = string.IsNullOrWhiteSpace(clienteVO.Complemento) ? null : clienteVO.Complemento.Trim();
@@ -120,7 +121,15 @@ namespace AutoVia.Infrastructure.Services
                     throw new BusinessException(ConstantsMessage.ErroClienteCpfDuplicado);
                 }
 
-                // 3. CNH unica entre os ativos.
+                // 3. E-mail unico entre os ativos (sem diferenciar maiusculas; checado antes da CNH).
+                bool emailDuplicado = await _clienteRepository.ExistsByEmailAsync(clienteVO.Email);
+
+                if (emailDuplicado)
+                {
+                    throw new BusinessException(ConstantsMessage.ErroClienteEmailDuplicado);
+                }
+
+                // 4. CNH unica entre os ativos.
                 bool cnhDuplicada = await _clienteRepository.ExistsByCnhNumeroAsync(clienteVO.CnhNumero);
 
                 if (cnhDuplicada)
@@ -128,7 +137,7 @@ namespace AutoVia.Infrastructure.Services
                     throw new BusinessException(ConstantsMessage.ErroClienteCnhDuplicada);
                 }
 
-                // 4. Mapeamento e regras do cadastro: sempre PENDENTE, senha so como hash.
+                // 5. Mapeamento e regras do cadastro: sempre PENDENTE, senha so como hash.
                 Cliente cliente = _mapper.Map<Cliente>(clienteVO);
 
                 // A categoria chega validada pelo ClienteVOValidator (presente e definida). Sem valor, nunca grava A por padrao.
@@ -143,7 +152,7 @@ namespace AutoVia.Infrastructure.Services
                 cliente.StatusCadastro = StatusCadastroCliente.PENDENTE;
                 cliente.SenhaHash = _senhaHasher.Hash(clienteVO.Senha);
 
-                // 5. Gravacao (o repositorio define DataCadastro, CreatedAt e UpdatedAt).
+                // 6. Gravacao (o repositorio define DataCadastro, CreatedAt e UpdatedAt).
                 Cliente gravado = await _clienteRepository.InsertAsync(cliente);
                 ReturnClienteVO retorno = _mapper.Map<ReturnClienteVO>(gravado);
 
@@ -162,6 +171,83 @@ namespace AutoVia.Infrastructure.Services
                 _logService.Write(ex, ConstantsMessage.ErroSalvarCliente, GetType().ToString());
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Verifica se existe cliente ativo com o valor do campo (CPF, EMAIL ou CNH), normalizado como no cadastro.
+        /// Consulta so a tabela de clientes ativos (PENDENTE e RECUSADO contam). Nao grava nada e devolve so a existencia.
+        /// </summary>
+        public async Task<ReturnVerificacaoCadastroVO> VerificarCadastroAsync(VerificarCadastroVO verificarCadastroVO)
+        {
+            try
+            {
+                CampoVerificacaoCadastro? campo = verificarCadastroVO.Campo;
+                bool existe;
+
+                if (campo == CampoVerificacaoCadastro.CPF)
+                {
+                    string cpf = NormalizarCpf(verificarCadastroVO.Valor);
+                    existe = await _clienteRepository.ExistsByCpfAsync(cpf);
+                }
+                else if (campo == CampoVerificacaoCadastro.EMAIL)
+                {
+                    string email = NormalizarEmail(verificarCadastroVO.Valor);
+                    existe = await _clienteRepository.ExistsByEmailAsync(email);
+                }
+                else if (campo == CampoVerificacaoCadastro.CNH)
+                {
+                    string cnh = NormalizarCnh(verificarCadastroVO.Valor);
+                    existe = await _clienteRepository.ExistsByCnhNumeroAsync(cnh);
+                }
+                else
+                {
+                    throw new InvalidOperationException(ConstantsMessage.ErroVerificarCadastroCliente);
+                }
+
+                ReturnVerificacaoCadastroVO retorno = new ReturnVerificacaoCadastroVO
+                {
+                    Existe = existe
+                };
+
+                return retorno;
+            }
+            catch (BusinessException)
+            {
+                throw;
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroVerificarCadastroCliente, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>CPF gravado e consultado so com digitos (com ou sem mascara na entrada).</summary>
+        private static string NormalizarCpf(string cpf)
+        {
+            string digitos = StaticMethods.OnlyDigits(cpf);
+
+            return digitos;
+        }
+
+        /// <summary>Numero da CNH gravado e consultado so com digitos.</summary>
+        private static string NormalizarCnh(string cnh)
+        {
+            string digitos = StaticMethods.OnlyDigits(cnh);
+
+            return digitos;
+        }
+
+        /// <summary>E-mail gravado e consultado aparado e em minusculas.</summary>
+        private static string NormalizarEmail(string email)
+        {
+            string normalizado = email.Trim().ToLowerInvariant();
+
+            return normalizado;
         }
     }
 }

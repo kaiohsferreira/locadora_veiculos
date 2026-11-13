@@ -13,15 +13,19 @@ using System.Text;
 namespace AutoVia.Tests.Autenticacao
 {
     /// <summary>
-    /// Testes do TokenService: claims do token, expiracao a partir de DateTime.Now, validacao
-    /// com os parametros da API (chave, emissor, audiencia, validade) e ida e volta
-    /// (token gerado, validado e lido como NameIdentifier). A chave e gerada no proprio teste.
+    /// Testes do TokenService: claims do token (inclusive sv), expiracao de 120 minutos ou de
+    /// 30 dias (lembrar de mim), calculo da versao da sessao, validacao com os parametros da API
+    /// (chave, emissor, audiencia, validade) e ida e volta. A chave e gerada no proprio teste.
     /// </summary>
     public class TokenServiceTests
     {
         private static readonly string ChaveDeTeste = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
         private const string EmissorDeTeste = "AutoVia.Api";
         private const string AudienciaDeTeste = "AutoVia.Web";
+        private const string VersaoSessaoDeTeste = "versao-de-teste";
+        private const string SenhaHashA = "v1.PBKDF2-SHA256.600000.salt-a.hash-a";
+        private const string SenhaHashB = "v1.PBKDF2-SHA256.600000.salt-b.hash-b";
+        private const int TamanhoVersaoEsperado = 22;
 
         private static JwtOptions OpcoesPadrao(int expiracaoMinutos = 120)
         {
@@ -70,7 +74,7 @@ namespace AutoVia.Tests.Autenticacao
         {
             TokenService servico = new TokenService(OpcoesPadrao(), new FakeLogService());
 
-            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 42, "Maria Cliente", null);
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 42, "Maria Cliente", null, VersaoSessaoDeTeste, false);
             TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
 
             Assert.True(resultado.IsValid);
@@ -88,7 +92,7 @@ namespace AutoVia.Tests.Autenticacao
         {
             TokenService servico = new TokenService(OpcoesPadrao(), new FakeLogService());
 
-            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.FUNCIONARIO, 7, "Ana Funcionaria", CargoFuncionario.GESTOR_FROTA);
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.FUNCIONARIO, 7, "Ana Funcionaria", CargoFuncionario.GESTOR_FROTA, VersaoSessaoDeTeste, false);
             TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
 
             Assert.True(resultado.IsValid);
@@ -101,7 +105,7 @@ namespace AutoVia.Tests.Autenticacao
         {
             TokenService servico = new TokenService(OpcoesPadrao(), new FakeLogService());
 
-            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.FUNCIONARIO, 1234, "Carlos", CargoFuncionario.ATENDENTE);
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.FUNCIONARIO, 1234, "Carlos", CargoFuncionario.ATENDENTE, VersaoSessaoDeTeste, false);
             TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
 
             Assert.True(resultado.IsValid);
@@ -114,7 +118,7 @@ namespace AutoVia.Tests.Autenticacao
             TokenService servico = new TokenService(OpcoesPadrao(120), new FakeLogService());
             DateTime antes = DateTime.Now;
 
-            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null);
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null, VersaoSessaoDeTeste, false);
             DateTime depois = DateTime.Now;
             TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
 
@@ -126,12 +130,76 @@ namespace AutoVia.Tests.Autenticacao
         }
 
         [Fact]
+        public async Task LembrarDeMim_ExpiracaoDe30DiasCorridos()
+        {
+            TokenService servico = new TokenService(OpcoesPadrao(120), new FakeLogService());
+            DateTime antes = DateTime.Now;
+
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null, VersaoSessaoDeTeste, true);
+            DateTime depois = DateTime.Now;
+            TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
+
+            Assert.True(resultado.IsValid);
+            JsonWebToken jwt = Assert.IsType<JsonWebToken>(resultado.SecurityToken);
+            Assert.InRange(jwt.ValidTo, antes.AddDays(30).ToUniversalTime().AddSeconds(-5), depois.AddDays(30).ToUniversalTime().AddSeconds(5));
+            Assert.InRange(gerado.ExpiraEm, antes.AddDays(30).AddSeconds(-5), depois.AddDays(30).AddSeconds(5));
+        }
+
+        [Fact]
+        public async Task Sv_PresenteNoTokenEIgualAVersaoInformada()
+        {
+            TokenService servico = new TokenService(OpcoesPadrao(), new FakeLogService());
+            string versao = servico.CalcularVersaoSessao(SenhaHashA);
+
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null, versao, false);
+            TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
+
+            Assert.Equal(versao, resultado.ClaimsIdentity.FindFirst(ConstantsValues.ClaimVersaoSessao)?.Value);
+        }
+
+        [Fact]
+        public void CalcularVersaoSessao_MesmaSenhaHash_DevolveMesmoValor()
+        {
+            TokenService servico = new TokenService(OpcoesPadrao(), new FakeLogService());
+
+            string primeira = servico.CalcularVersaoSessao(SenhaHashA);
+            string segunda = servico.CalcularVersaoSessao(SenhaHashA);
+
+            Assert.Equal(primeira, segunda);
+        }
+
+        [Fact]
+        public void CalcularVersaoSessao_SenhaHashDiferente_MudaAVersao()
+        {
+            TokenService servico = new TokenService(OpcoesPadrao(), new FakeLogService());
+
+            string antiga = servico.CalcularVersaoSessao(SenhaHashA);
+            string nova = servico.CalcularVersaoSessao(SenhaHashB);
+
+            Assert.NotEqual(antiga, nova);
+        }
+
+        [Fact]
+        public void CalcularVersaoSessao_EmBase64UrlDe16Bytes_NaoExpoeOHash()
+        {
+            TokenService servico = new TokenService(OpcoesPadrao(), new FakeLogService());
+
+            string versao = servico.CalcularVersaoSessao(SenhaHashA);
+
+            Assert.Equal(TamanhoVersaoEsperado, versao.Length);
+            Assert.DoesNotContain('+', versao);
+            Assert.DoesNotContain('/', versao);
+            Assert.DoesNotContain('=', versao);
+            Assert.DoesNotContain(SenhaHashA, versao);
+        }
+
+        [Fact]
         public async Task Token_AssinadoComOutraChave_NaoValida()
         {
             TokenService servico = new TokenService(OpcoesPadrao(), new FakeLogService());
             string outraChave = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
 
-            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null);
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null, VersaoSessaoDeTeste, false);
             TokenValidationResult resultado = await ValidarAsync(gerado.Token, outraChave);
 
             Assert.False(resultado.IsValid);
@@ -142,7 +210,7 @@ namespace AutoVia.Tests.Autenticacao
         {
             TokenService servico = new TokenService(OpcoesPadrao(-10), new FakeLogService());
 
-            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null);
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null, VersaoSessaoDeTeste, false);
             TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
 
             Assert.False(resultado.IsValid);

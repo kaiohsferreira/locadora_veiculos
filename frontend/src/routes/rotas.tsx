@@ -1,6 +1,8 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-dom';
+import { LayoutAcesso } from '@/layouts/LayoutAcesso';
 import { LayoutBackOffice } from '@/layouts/LayoutBackOffice';
 import { LayoutPublico } from '@/layouts/LayoutPublico';
+import { ProvedorCadastro } from '@/features/clientes/cadastro/ProvedorCadastro';
 import { CAMINHOS } from './caminhos';
 import { ErroInesperado } from './ErroInesperado';
 import { PaginaNaoEncontrada } from './PaginaNaoEncontrada';
@@ -29,9 +31,12 @@ import {
   PainelFrotaPagina,
   PainelReservasPagina,
   PropostaCompraPagina,
+  RecuperarSenhaPagina,
+  RedefinirSenhaPagina,
   ResultadosBuscaPagina,
   RetiradaVeiculoPagina,
   VerificacaoCadastrosPagina,
+  VincularGooglePagina,
   VistoriaAvariasPagina,
 } from './paginas';
 import { RotaProtegida } from './RotaProtegida';
@@ -39,16 +44,30 @@ import { RotaProtegida } from './RotaProtegida';
 /** Todas as rotas da aplicação. Os caminhos vêm de `CAMINHOS` (fonte única). */
 export const rotas: RouteObject[] = [
   {
+    // Tela de acesso: tela cheia, sem menu do topo nem rodapé (layout próprio).
+    element: <LayoutAcesso />,
+    errorElement: <ErroInesperado />,
+    children: [{ path: CAMINHOS.entrar, element: <AcessoPortalPagina /> }],
+  },
+  {
     path: CAMINHOS.inicio,
     element: <LayoutPublico />,
     errorElement: <ErroInesperado />,
     children: [
       // Públicas
       { index: true, element: <InicioPagina /> },
-      { path: CAMINHOS.entrar, element: <AcessoPortalPagina /> },
+      { path: CAMINHOS.vincularGoogle, element: <VincularGooglePagina /> },
+      { path: CAMINHOS.recuperarSenha, element: <RecuperarSenhaPagina /> },
+      { path: CAMINHOS.redefinirSenha, element: <RedefinirSenhaPagina /> },
       { path: CAMINHOS.cadastro, element: <Navigate to={CAMINHOS.cadastroDadosPessoais} replace /> },
-      { path: CAMINHOS.cadastroDadosPessoais, element: <CadastroDadosPessoaisPagina /> },
-      { path: CAMINHOS.cadastroDocumentos, element: <CadastroDocumentosPagina /> },
+      {
+        // Rota-pai sem caminho: guarda em memória os dados das duas telas do cadastro (sem a senha).
+        element: <ProvedorCadastro />,
+        children: [
+          { path: CAMINHOS.cadastroDadosPessoais, element: <CadastroDadosPessoaisPagina /> },
+          { path: CAMINHOS.cadastroDocumentos, element: <CadastroDocumentosPagina /> },
+        ],
+      },
       { path: CAMINHOS.resultadosBusca, element: <ResultadosBuscaPagina /> },
       { path: CAMINHOS.detalheVeiculo, element: <DetalheVeiculoPagina /> },
       { path: CAMINHOS.seminovos, element: <CatalogoSeminovosPagina /> },

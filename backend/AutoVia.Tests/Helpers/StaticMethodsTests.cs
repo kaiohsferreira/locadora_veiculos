@@ -80,5 +80,24 @@ namespace AutoVia.Tests.Helpers
             Assert.True(resultado.IsValid);
             Assert.Equal(0, new FiltroPaginacaoVO { Pagina = 1 }.Deslocamento);
         }
+
+        [Fact]
+        public void OnlyDigits_DescartaDigitosNaoAscii()
+        {
+            // "1" + digito arabico-indico U+0662 (2) + "3": so os ASCII 1 e 3 sobram.
+            string misturado = "1٢" + "3";
+
+            Assert.Equal("13", StaticMethods.OnlyDigits(misturado));
+            Assert.Equal(string.Empty, StaticMethods.OnlyDigits("١٢٣"));
+        }
+
+        [Fact]
+        public void IsCpfValido_RecusaCpfComDigitosArabicoIndicos()
+        {
+            // 52998224725 (CPF valido) escrito com digitos arabico-indicos U+0660..U+0669: nao pode ser aceito.
+            string arabico = "٥٢٩٩٨٢٢٤٧٢٥";
+
+            Assert.False(StaticMethods.IsCpfValido(arabico));
+        }
     }
 }

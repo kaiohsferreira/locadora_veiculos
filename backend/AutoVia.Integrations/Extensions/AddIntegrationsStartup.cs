@@ -29,6 +29,9 @@ namespace AutoVia.Integrations.Extensions
             // services.AddScoped<IPagamentoRequest, PagamentoRequest>();
             // services.AddScoped<IPagamentoService, PagamentoService>();
             services.AddPixIntegration();
+            services.AddCaucaoIntegration();
+            services.AddEmailIntegration();
+            services.AddGoogleIntegration();
 
             // --- Seguradora (P9-INT-01) ---
             services.AddSeguradoraIntegration();
