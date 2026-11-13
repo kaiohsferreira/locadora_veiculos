@@ -9,15 +9,16 @@ import { converterFormularioParaRequisicao } from './conversaoCadastro';
 import type { FormularioCadastro } from './esquemaCadastro';
 
 /** Campos que a 409 (conflito) pode apontar. */
-export type CampoConflito = 'cpf' | 'cnhNumero';
+export type CampoConflito = 'cpf' | 'cnhNumero' | 'email';
 
 /**
- * Qual campo o conflito 409 aponta, pela mensagem da API ("...CNH..." ou "...CPF...").
- * Null quando a mensagem não cita nenhum dos dois: vai para o alerta geral.
+ * Qual campo o conflito 409 aponta, pela mensagem da API ("...CNH...", "...CPF..." ou "...e-mail...").
+ * Null quando a mensagem não cita nenhum deles: vai para o alerta geral.
  */
 export function escolherCampoDoConflito(mensagem: string): CampoConflito | null {
   if (mensagem.includes('CNH')) return 'cnhNumero';
   if (mensagem.includes('CPF')) return 'cpf';
+  if (/e-?mail/i.test(mensagem)) return 'email';
   return null;
 }
 

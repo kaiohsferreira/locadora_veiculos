@@ -97,6 +97,40 @@ namespace AutoVia.Api.Controllers
         }
 
         /// <summary>
+        /// VerificarCadastro - Informa se ja existe cliente ativo com o CPF, o e-mail ou a CNH informados (um campo por chamada, valor so no corpo). Rota publica, com limite proprio por IP. Devolve 200 com { existe } (true ou false) e nada mais.
+        /// </summary>
+        [HttpPost("verificar-cadastro")]
+        [AllowAnonymous]
+        [EnableRateLimiting(ConstantsValues.PoliticaLimiteVerificacaoCadastro)]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+        [RequestSizeLimit(ConstantsValues.TamanhoMaximoCorpoVerificacaoCadastro)]
+        [ProducesResponseType(typeof(ReturnVerificacaoCadastroVO), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+        public async Task<IActionResult> VerificarCadastro([FromBody] VerificarCadastroVO verificarCadastroVO)
+        {
+            try
+            {
+                ReturnVerificacaoCadastroVO retorno = await _clienteService.VerificarCadastroAsync(verificarCadastroVO);
+
+                return Ok(retorno);
+            }
+            catch (BusinessException)
+            {
+                throw;
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroVerificarCadastroCliente, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
         /// GetById - Consulta um cliente ativo pelo id. Exige token de funcionario. Desativado conta como inexistente (404).
         /// </summary>
         [HttpGet("{id:int}")]

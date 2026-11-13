@@ -22,5 +22,13 @@ namespace AutoVia.Helpers
         public const int IdadeMinimaCliente = 18;
         public const int TamanhoMinimoSenhaCadastro = 8;
         public const int TamanhoMaximoSenhaCadastro = 64;
+
+        // --- Cliente: limite de requisicoes da verificacao de cadastro (politica propria, por IP) ---
+        public const string PoliticaLimiteVerificacaoCadastro = "AutoViaVerificacaoCadastro";
+        public const string ChaveLimiteVerificacaoCadastro = "Clientes:LimiteVerificacaoCadastroPorMinuto";
+        public const int LimiteVerificacaoCadastroPorMinutoPadrao = 30;
+        public const int TamanhoMaximoValorVerificacaoCadastro = 200;
+        /// <summary>Teto do corpo da verificacao de cadastro, em bytes: o valor de 200 caracteres cabe com folga; corpo maior nem chega ao binding.</summary>
+        public const int TamanhoMaximoCorpoVerificacaoCadastro = 1024;
     }
 }

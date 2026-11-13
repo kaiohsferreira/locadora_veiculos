@@ -163,6 +163,55 @@ namespace AutoVia.Tests.Clientes
             Assert.Contains(ConstantsMessage.ErroClienteEmailObrigatorio, ObterMensagens(resultado));
         }
 
+        [Theory]
+        [InlineData(" @b.com")]
+        [InlineData("a@ ")]
+        public void EmailInvalidoAposTrim_FalhaMesmoComEspacosNasBordas(string email)
+        {
+            ClienteVO vo = CriarVOValido();
+            vo.Email = email;
+
+            ValidationResult resultado = new ClienteVOValidator().Validate(vo);
+
+            Assert.Contains(ConstantsMessage.ErroClienteEmailInvalido, ObterMensagens(resultado));
+        }
+
+        [Fact]
+        public void EmailValidoComEspacosNasBordas_PassaDepoisDoTrim()
+        {
+            ClienteVO vo = CriarVOValido();
+            vo.Email = "  maria.silva@exemplo.com  ";
+
+            ValidationResult resultado = new ClienteVOValidator().Validate(vo);
+
+            Assert.DoesNotContain(ConstantsMessage.ErroClienteEmailInvalido, ObterMensagens(resultado));
+        }
+
+        [Fact]
+        public void CpfComDigitosArabicoIndicos_FalhaComMensagemInvalido()
+        {
+            // 52998224725 (CPF valido) com digitos arabico-indicos: o validador recusa, nao aceita por valor numerico.
+            ClienteVO vo = CriarVOValido();
+            vo.Cpf = "٥٢٩٩٨٢٢٤٧٢٥";
+
+            ValidationResult resultado = new ClienteVOValidator().Validate(vo);
+
+            Assert.Contains(ConstantsMessage.ErroClienteCpfInvalido, ObterMensagens(resultado));
+        }
+
+        [Fact]
+        public void CnhComDigitosArabicoIndicos_FalhaComMensagemDeQuantidade()
+        {
+            // 11 digitos arabico-indicos: contam como zero digitos ASCII, entao a CNH e recusada.
+            ClienteVO vo = CriarVOValido();
+            vo.CnhNumero = "١٢٣٤٥٦٧٨٩٠١";
+
+            ValidationResult resultado = new ClienteVOValidator().Validate(vo);
+
+            string mensagem = string.Format(ConstantsMessage.ErroClienteCnhNumeroInvalido, ConstantsValues.TamanhoCnhNumero);
+            Assert.Contains(mensagem, ObterMensagens(resultado));
+        }
+
         [Fact]
         public void EmailSemArroba_FalhaComMensagemInvalido()
         {

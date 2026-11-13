@@ -27,6 +27,9 @@ namespace AutoVia.Core.RepositoriesInterface
         /// <summary>Verifica se existe cliente ativo com o numero de CNH informado (somente digitos).</summary>
         Task<bool> ExistsByCnhNumeroAsync(string cnhNumero);
 
+        /// <summary>Verifica se existe cliente ativo com o e-mail informado, sem diferenciar maiusculas nem bordas (PENDENTE e RECUSADO tambem contam).</summary>
+        Task<bool> ExistsByEmailAsync(string email);
+
         /// <summary>Grava um novo cliente com id gerado, datas de auditoria em DateTime.Now e DisabledAt nulo.</summary>
         Task<Cliente> InsertAsync(Cliente cliente);
     }

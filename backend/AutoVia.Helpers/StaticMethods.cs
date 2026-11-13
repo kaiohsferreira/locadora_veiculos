@@ -61,7 +61,7 @@ namespace AutoVia.Helpers
         // Texto
         // ------------------------------------------------------------------
 
-        /// <summary>Remove tudo que nao for digito (mascara de CPF, CEP, telefone).</summary>
+        /// <summary>Remove tudo que nao for digito ASCII 0 a 9 (mascara de CPF, CEP, telefone). Digitos de outros alfabetos (ex.: arabico-indicos) sao descartados.</summary>
         public static string OnlyDigits(string? value)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -70,7 +70,7 @@ namespace AutoVia.Helpers
             StringBuilder builder = new StringBuilder(value.Length);
             foreach (char character in value)
             {
-                if (char.IsDigit(character))
+                if (character >= '0' && character <= '9')
                     builder.Append(character);
             }
 

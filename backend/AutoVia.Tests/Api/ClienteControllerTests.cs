@@ -11,7 +11,9 @@ using AutoVia.Infrastructure.Services;
 using AutoVia.Tests.Fakes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Reflection;
 
@@ -128,6 +130,78 @@ namespace AutoVia.Tests.Api
             BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => controller.Insert(CriarVOValido()));
 
             Assert.Equal(ConstantsMessage.ErroClienteCnhDuplicada, excecao.Message);
+        }
+
+        [Fact]
+        public async Task Insert_EmailDeClienteAtivo_PropagaEmailDuplicado()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            Cliente existente = CriarCliente("Existente", "98765432100", "CNH998", StatusCadastroCliente.APROVADO);
+            existente.Email = "maria.silva@exemplo.com";
+            repositorio.Adicionar(existente);
+            ClienteController controller = CriarController(repositorio);
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => controller.Insert(CriarVOValido()));
+
+            Assert.Equal(ConstantsMessage.ErroClienteEmailDuplicado, excecao.Message);
+        }
+
+        [Fact]
+        public async Task VerificarCadastro_CpfDeClienteAtivo_DevolveOkComExisteVerdadeiro()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            repositorio.Adicionar(CriarCliente("Maria", CpfA, CnhA, StatusCadastroCliente.PENDENTE));
+            ClienteController controller = CriarController(repositorio);
+            VerificarCadastroVO vo = new VerificarCadastroVO { Campo = CampoVerificacaoCadastro.CPF, Valor = "123.456.789-09" };
+
+            IActionResult resultado = await controller.VerificarCadastro(vo);
+
+            OkObjectResult ok = Assert.IsType<OkObjectResult>(resultado);
+            ReturnVerificacaoCadastroVO corpo = Assert.IsType<ReturnVerificacaoCadastroVO>(ok.Value);
+            Assert.True(corpo.Existe);
+        }
+
+        [Fact]
+        public async Task VerificarCadastro_CnhLivre_DevolveOkComExisteFalso()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            ClienteController controller = CriarController(repositorio);
+            VerificarCadastroVO vo = new VerificarCadastroVO { Campo = CampoVerificacaoCadastro.CNH, Valor = CnhA };
+
+            IActionResult resultado = await controller.VerificarCadastro(vo);
+
+            OkObjectResult ok = Assert.IsType<OkObjectResult>(resultado);
+            ReturnVerificacaoCadastroVO corpo = Assert.IsType<ReturnVerificacaoCadastroVO>(ok.Value);
+            Assert.False(corpo.Existe);
+        }
+
+        [Fact]
+        public void VerificarCadastro_EhRotaAnonimaComPoliticaPropriaDeLimite()
+        {
+            MethodInfo metodo = ObterMetodo(nameof(ClienteController.VerificarCadastro));
+
+            Assert.NotNull(metodo.GetCustomAttribute<AllowAnonymousAttribute>());
+            Assert.Null(metodo.GetCustomAttribute<AuthorizeAttribute>());
+            EnableRateLimitingAttribute? limite = metodo.GetCustomAttribute<EnableRateLimitingAttribute>();
+            Assert.NotNull(limite);
+            Assert.Equal(ConstantsValues.PoliticaLimiteVerificacaoCadastro, limite.PolicyName);
+            Assert.NotEqual(ConstantsValues.PoliticaLimitePublico, limite.PolicyName);
+        }
+
+        [Fact]
+        public void VerificarCadastro_NaoGravaCacheENaoAceitaCorpoAcimaDoTeto()
+        {
+            MethodInfo metodo = ObterMetodo(nameof(ClienteController.VerificarCadastro));
+
+            ResponseCacheAttribute? cache = metodo.GetCustomAttribute<ResponseCacheAttribute>();
+            RequestSizeLimitAttribute? tamanho = metodo.GetCustomAttribute<RequestSizeLimitAttribute>();
+
+            Assert.NotNull(cache);
+            Assert.True(cache.NoStore);
+            Assert.Equal(ResponseCacheLocation.None, cache.Location);
+            Assert.NotNull(tamanho);
+            IRequestSizeLimitMetadata metadadoTamanho = tamanho;
+            Assert.Equal<long?>(ConstantsValues.TamanhoMaximoCorpoVerificacaoCadastro, metadadoTamanho.MaxRequestBodySize);
         }
 
         [Fact]

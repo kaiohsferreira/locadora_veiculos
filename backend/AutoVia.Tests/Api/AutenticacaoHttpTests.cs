@@ -37,8 +37,10 @@ namespace AutoVia.Tests.Api
     /// de login e de cliente por fakes: nenhum PostgreSQL e acessado.
     /// Cobre 401 sem token, 403 por perfil, 200 com token valido, token expirado ou de outra
     /// chave, fallback, login, o limite de requisicoes (429), a rota real de clientes
-    /// (GET com token de cliente e de funcionario, POST anonimo com 201, CPF repetido com 409),
+    /// (GET com token de cliente e de funcionario, POST anonimo com 201, CPF ou e-mail repetido com 409),
     /// o cabecalho de CORS nas respostas de erro e a politica de limite do POST por reflexao.
+    /// Tambem cobre a verificacao de cadastro (200 so com existe, 400 sem consultar o banco, 429 no
+    /// limite proprio e independencia entre as duas politicas de limite).
     /// </summary>
     public class AutenticacaoHttpTests : IClassFixture<AutenticacaoWebFactory>
     {
@@ -75,6 +77,14 @@ namespace AutoVia.Tests.Api
         private const string CpfSenhaTrocadaHttp = "45645645645";
         private const string SenhaAntigaHttp = "SenhaAntiga1Http";
         private const string SenhaNovaHttp = "SenhaNova2Http";
+        private const string RotaVerificacao = "/api/clientes/verificar-cadastro";
+        private const string EmailVerificado = "cliente.verificado@exemplo.com";
+        private const string CnhVerificada = "40000000001";
+        private const string CpfEmailOcupado = "98765432100";
+        private const string EmailOcupado = "email.ocupado@exemplo.com";
+        private const string CnhEmailOcupado = "40000000002";
+        private const string CpfLivreVerificacao = "11144477735";
+        private const string CabecalhoXForwardedFor = "X-Forwarded-For";
 
         private readonly AutenticacaoWebFactory _fabrica;
         private readonly HttpClient _cliente;
@@ -223,15 +233,21 @@ namespace AutoVia.Tests.Api
             return valores;
         }
 
-        /// <summary>Corpo do cliente valido para o cadastro publico, com o CPF e a CNH informados.</summary>
+        /// <summary>Corpo do cliente valido para o cadastro publico, com o CPF e a CNH informados. O e-mail deriva do CPF, para que cada chamada tenha um e-mail unico (o cadastro recusa e-mail repetido).</summary>
         private static object CorpoClienteValido(string cpf, string cnh)
+        {
+            return CorpoClienteComEmail(cpf, cnh, "maria.http." + cpf + "@exemplo.com");
+        }
+
+        /// <summary>Corpo do cliente valido para o cadastro publico, com o e-mail informado.</summary>
+        private static object CorpoClienteComEmail(string cpf, string cnh, string email)
         {
             return new
             {
                 nome = "Maria Teste Http",
                 cpf,
                 dataNascimento = new DateOnly(1990, 5, 20),
-                email = "maria.http@exemplo.com",
+                email,
                 telefone = "11987654321",
                 cnhNumero = cnh,
                 cnhCategoria = "B",
@@ -680,6 +696,333 @@ namespace AutoVia.Tests.Api
             Assert.NotNull(limite);
             Assert.Equal(ConstantsValues.PoliticaLimitePublico, limite.PolicyName);
         }
+
+        [Fact]
+        public async Task PostClientes_EmailDeClienteAtivoEmOutraGrafia_Devolve409ComEmailDuplicado()
+        {
+            _fabrica.RepositorioClientes.Adicionar(CriarClienteParaVerificacao(CpfEmailOcupado, EmailOcupado, CnhEmailOcupado));
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(ComOrigem(RequisicaoComCorpo(RotaClientes, CorpoClienteComEmail(CpfNovoLimite2, CnhNovoLimite2, "EMAIL.Ocupado@exemplo.com"))));
+
+            Assert.Equal(HttpStatusCode.Conflict, resposta.StatusCode);
+            Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(ConstantsMessage.ErroClienteEmailDuplicado, corpo.GetProperty("detail").GetString());
+        }
+
+        [Fact]
+        public async Task PostVerificarCadastro_CpfComMascaraDeClienteAtivo_Devolve200SoComExiste()
+        {
+            _fabrica.RepositorioClientes.Adicionar(CriarClienteParaVerificacao(CpfCliente, EmailVerificado, CnhVerificada));
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(RequisicaoComCorpo(RotaVerificacao, new { campo = "CPF", valor = CpfCliente_Mascarado }));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(new List<string> { "existe" }, NomesDasPropriedades(corpo));
+            Assert.True(corpo.GetProperty("existe").GetBoolean());
+        }
+
+        [Fact]
+        public async Task PostVerificarCadastro_CpfLivre_Devolve200ComExisteFalso()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(RequisicaoComCorpo(RotaVerificacao, new { campo = "CPF", valor = CpfLivreVerificacao }));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(new List<string> { "existe" }, NomesDasPropriedades(corpo));
+            Assert.False(corpo.GetProperty("existe").GetBoolean());
+        }
+
+        [Fact]
+        public async Task PostVerificarCadastro_EmailComEspacosEMaiusculas_Devolve200ComExisteVerdadeiro()
+        {
+            _fabrica.RepositorioClientes.Adicionar(CriarClienteParaVerificacao(CpfCliente, EmailVerificado, CnhVerificada));
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(RequisicaoComCorpo(RotaVerificacao, new { campo = "EMAIL", valor = "  CLIENTE.Verificado@Exemplo.com " }));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.True(corpo.GetProperty("existe").GetBoolean());
+        }
+
+        [Fact]
+        public async Task PostVerificarCadastro_CnhComTracos_Devolve200ComExisteVerdadeiro()
+        {
+            _fabrica.RepositorioClientes.Adicionar(CriarClienteParaVerificacao(CpfCliente, EmailVerificado, CnhVerificada));
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(RequisicaoComCorpo(RotaVerificacao, new { campo = "CNH", valor = "400-000-000-01" }));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.True(corpo.GetProperty("existe").GetBoolean());
+        }
+
+        [Theory]
+        [InlineData("CPF", "123")]
+        [InlineData("CNH", "1234567890")]
+        [InlineData("EMAIL", "nao-e-email")]
+        public async Task PostVerificarCadastro_ValorMalformado_Devolve400SemConsultarOBanco(string campo, string valor)
+        {
+            int consultasAntes = _fabrica.RepositorioClientes.ConsultasDeExistencia;
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(RequisicaoComCorpo(RotaVerificacao, new { campo, valor }));
+
+            Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+            Assert.Equal(consultasAntes, _fabrica.RepositorioClientes.ConsultasDeExistencia);
+        }
+
+        [Fact]
+        public async Task PostVerificarCadastro_CampoDesconhecido_Devolve400SemConsultarOBanco()
+        {
+            int consultasAntes = _fabrica.RepositorioClientes.ConsultasDeExistencia;
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(RequisicaoComCorpo(RotaVerificacao, new { campo = "RG", valor = CpfCliente }));
+
+            Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+            Assert.Equal(consultasAntes, _fabrica.RepositorioClientes.ConsultasDeExistencia);
+        }
+
+        [Fact]
+        public async Task PostVerificarCadastro_CorpoNulo_Devolve400SemConsultarOBanco()
+        {
+            int consultasAntes = _fabrica.RepositorioClientes.ConsultasDeExistencia;
+            HttpRequestMessage requisicao = new HttpRequestMessage(HttpMethod.Post, RotaVerificacao)
+            {
+                Content = new StringContent("null", Encoding.UTF8, "application/json")
+            };
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(requisicao);
+
+            Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+            Assert.Equal(consultasAntes, _fabrica.RepositorioClientes.ConsultasDeExistencia);
+        }
+
+        [Fact]
+        public async Task PostVerificarCadastro_CpfComDigitosArabicoIndicos_Devolve400SemConsultarOBanco()
+        {
+            int consultasAntes = _fabrica.RepositorioClientes.ConsultasDeExistencia;
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(RequisicaoComCorpo(RotaVerificacao, new { campo = "CPF", valor = "٥٢٩٩٨٢٢٤٧٢٥" }));
+
+            Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+            Assert.Equal(consultasAntes, _fabrica.RepositorioClientes.ConsultasDeExistencia);
+        }
+
+        [Fact]
+        public async Task PostVerificarCadastro_ValorNulo_Devolve400SemConsultarOBanco()
+        {
+            int consultasAntes = _fabrica.RepositorioClientes.ConsultasDeExistencia;
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(RequisicaoComCorpo(RotaVerificacao, new { campo = "CPF", valor = (string?)null }));
+
+            Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+            Assert.Equal(consultasAntes, _fabrica.RepositorioClientes.ConsultasDeExistencia);
+        }
+
+        [Fact]
+        public async Task PostVerificarCadastro_CorpoAcimaDoTeto_Devolve400SemConsultarOBanco()
+        {
+            int consultasAntes = _fabrica.RepositorioClientes.ConsultasDeExistencia;
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(RequisicaoComCorpo(RotaVerificacao, new { campo = "CPF", valor = new string('1', 2000) }));
+
+            // O teto do corpo (RequestSizeLimit) corta a leitura antes do validador: o binder devolve 400 e nada chega ao banco.
+            Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+            Assert.Equal(consultasAntes, _fabrica.RepositorioClientes.ConsultasDeExistencia);
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("0")]
+        [InlineData("-5")]
+        public async Task LimiteDeVerificacaoAusenteOuNaoPositivo_CaiNoPadrao(string? valorConfigurado)
+        {
+            using AutenticacaoWebFactoryLimiteVerificacao fabricaAjustada = new AutenticacaoWebFactoryLimiteVerificacao(valorConfigurado);
+            HttpClient cliente = fabricaAjustada.CreateClient();
+
+            for (int indice = 0; indice < 3; indice++)
+            {
+                HttpResponseMessage resposta = await cliente.SendAsync(RequisicaoComCorpo(RotaVerificacao, new { campo = "CPF", valor = CpfLivreVerificacao }));
+
+                Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            }
+        }
+
+        [Fact]
+        public async Task LimiteDeVerificacaoMenorQueOPublico_CadaRotaObedeceASuaPropria()
+        {
+            using AutenticacaoWebFactoryLimitesSeparados fabrica = new AutenticacaoWebFactoryLimitesSeparados(100, 2);
+            HttpClient cliente = fabrica.CreateClient();
+
+            HttpResponseMessage primeira = await VerificarCpf(cliente, CpfLivreVerificacao);
+            HttpResponseMessage segunda = await VerificarCpf(cliente, CpfLivreVerificacao);
+            HttpResponseMessage terceira = await VerificarCpf(cliente, CpfLivreVerificacao);
+
+            Assert.Equal(HttpStatusCode.OK, primeira.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, segunda.StatusCode);
+            Assert.Equal(HttpStatusCode.TooManyRequests, terceira.StatusCode);
+
+            for (int indice = 0; indice < 3; indice++)
+            {
+                HttpResponseMessage login = await cliente.PostAsync(RotaLogin, CorpoJsonLogin());
+                Assert.NotEqual(HttpStatusCode.TooManyRequests, login.StatusCode);
+            }
+
+            HttpResponseMessage cadastro = await cliente.SendAsync(RequisicaoComCorpo(RotaClientes, CorpoClienteValido(CpfNovoLimite1, CnhNovoLimite1)));
+            Assert.Equal(HttpStatusCode.Created, cadastro.StatusCode);
+        }
+
+        [Fact]
+        public async Task LimiteDePublicoMenorQueOdaVerificacao_CadaRotaObedeceASuaPropria()
+        {
+            using AutenticacaoWebFactoryLimitesSeparados fabrica = new AutenticacaoWebFactoryLimitesSeparados(2, 100);
+            HttpClient cliente = fabrica.CreateClient();
+
+            for (int indice = 0; indice < 3; indice++)
+            {
+                HttpResponseMessage verificacao = await VerificarCpf(cliente, CpfLivreVerificacao);
+                Assert.Equal(HttpStatusCode.OK, verificacao.StatusCode);
+            }
+
+            HttpResponseMessage primeiroLogin = await cliente.PostAsync(RotaLogin, CorpoJsonLogin());
+            HttpResponseMessage segundoLogin = await cliente.PostAsync(RotaLogin, CorpoJsonLogin());
+            HttpResponseMessage terceiroLogin = await cliente.PostAsync(RotaLogin, CorpoJsonLogin());
+
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, primeiroLogin.StatusCode);
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, segundoLogin.StatusCode);
+            Assert.Equal(HttpStatusCode.TooManyRequests, terceiroLogin.StatusCode);
+        }
+
+        [Fact]
+        public async Task VerificacaoEsgotadaPorUmIp_NaoBloqueiaOutroIp()
+        {
+            using AutenticacaoWebFactoryVerificacaoLimitada fabrica = new AutenticacaoWebFactoryVerificacaoLimitada();
+            HttpClient cliente = fabrica.CreateClient();
+            const string ipA = "203.0.113.10";
+            const string ipB = "203.0.113.20";
+
+            HttpResponseMessage a1 = await VerificarCpf(cliente, CpfLivreVerificacao, ipA);
+            HttpResponseMessage a2 = await VerificarCpf(cliente, CpfLivreVerificacao, ipA);
+            HttpResponseMessage a3 = await VerificarCpf(cliente, CpfLivreVerificacao, ipA);
+            HttpResponseMessage b1 = await VerificarCpf(cliente, CpfLivreVerificacao, ipB);
+            HttpResponseMessage b2 = await VerificarCpf(cliente, CpfLivreVerificacao, ipB);
+
+            Assert.Equal(HttpStatusCode.OK, a1.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, a2.StatusCode);
+            Assert.Equal(HttpStatusCode.TooManyRequests, a3.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, b1.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, b2.StatusCode);
+        }
+
+        /// <summary>Verificacao de um CPF; com ip informado, o X-Forwarded-For define o IP que o limitador enxerga (ForwardedHeaders ativo).</summary>
+        private static Task<HttpResponseMessage> VerificarCpf(HttpClient cliente, string cpf, string? ip = null)
+        {
+            HttpRequestMessage requisicao = RequisicaoComCorpo(RotaVerificacao, new { campo = "CPF", valor = cpf });
+
+            if (ip != null)
+            {
+                requisicao.Headers.Add(CabecalhoXForwardedFor, ip);
+            }
+
+            return cliente.SendAsync(requisicao);
+        }
+
+        [Fact]
+        public async Task PostVerificarCadastro_AcimaDoLimiteProprio_Devolve429ComProblemaDeLimite()
+        {
+            using AutenticacaoWebFactoryVerificacaoLimitada fabricaLimitada = new AutenticacaoWebFactoryVerificacaoLimitada();
+            HttpClient cliente = fabricaLimitada.CreateClient();
+
+            HttpResponseMessage primeira = await cliente.SendAsync(RequisicaoComCorpo(RotaVerificacao, new { campo = "CPF", valor = CpfNovoLimite2 }));
+            HttpResponseMessage segunda = await cliente.SendAsync(RequisicaoComCorpo(RotaVerificacao, new { campo = "CPF", valor = CpfNovoLimite2 }));
+            HttpResponseMessage terceira = await cliente.SendAsync(ComOrigem(RequisicaoComCorpo(RotaVerificacao, new { campo = "CPF", valor = CpfNovoLimite2 })));
+
+            Assert.Equal(HttpStatusCode.OK, primeira.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, segunda.StatusCode);
+            Assert.Equal(HttpStatusCode.TooManyRequests, terceira.StatusCode);
+            Assert.Equal(MediaProblema, terceira.Content.Headers.ContentType?.MediaType);
+            JsonElement corpo = await LerJsonAsync(terceira);
+            Assert.Equal(ConstantsMessage.ErroLimiteRequisicoes, corpo.GetProperty("detail").GetString());
+            Assert.Contains(OrigemFrontend, ValoresDoCabecalho(terceira, HeaderNames.AccessControlAllowOrigin));
+        }
+
+        [Fact]
+        public async Task VerificacaoEsgotada_NaoBloqueiaLoginNemCadastro()
+        {
+            using AutenticacaoWebFactoryVerificacaoLimitada fabricaLimitada = new AutenticacaoWebFactoryVerificacaoLimitada();
+            HttpClient cliente = fabricaLimitada.CreateClient();
+            await cliente.SendAsync(RequisicaoComCorpo(RotaVerificacao, new { campo = "CPF", valor = CpfNovoLimite2 }));
+            await cliente.SendAsync(RequisicaoComCorpo(RotaVerificacao, new { campo = "CPF", valor = CpfNovoLimite2 }));
+            HttpResponseMessage verificacaoEsgotada = await cliente.SendAsync(RequisicaoComCorpo(RotaVerificacao, new { campo = "CPF", valor = CpfNovoLimite2 }));
+
+            HttpResponseMessage login = await cliente.PostAsync(RotaLogin, CorpoJson(new { perfil = "CLIENTE", cpf = CpfCliente, senha = "senha-errada" }));
+            HttpResponseMessage cadastro = await cliente.SendAsync(RequisicaoComCorpo(RotaClientes, CorpoClienteValido(CpfNovoLimite2, CnhNovoLimite2)));
+
+            Assert.Equal(HttpStatusCode.TooManyRequests, verificacaoEsgotada.StatusCode);
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, login.StatusCode);
+            Assert.Equal(HttpStatusCode.Created, cadastro.StatusCode);
+        }
+
+        [Fact]
+        public async Task LoginEsgotado_NaoBloqueiaVerificacaoDeCadastro()
+        {
+            using AutenticacaoWebFactoryVerificacaoLimitada fabricaLimitada = new AutenticacaoWebFactoryVerificacaoLimitada();
+            HttpClient cliente = fabricaLimitada.CreateClient();
+            await cliente.PostAsync(RotaLogin, CorpoJsonLogin());
+            await cliente.PostAsync(RotaLogin, CorpoJsonLogin());
+            HttpResponseMessage loginEsgotado = await cliente.PostAsync(RotaLogin, CorpoJsonLogin());
+
+            HttpResponseMessage verificacao = await cliente.SendAsync(RequisicaoComCorpo(RotaVerificacao, new { campo = "CPF", valor = CpfNovoLimite2 }));
+
+            Assert.Equal(HttpStatusCode.TooManyRequests, loginEsgotado.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, verificacao.StatusCode);
+        }
+
+        [Fact]
+        public void VerificarCadastro_TemPoliticaDeLimitePropriaNaoAPublica()
+        {
+            MethodInfo? metodo = typeof(ClienteController).GetMethod(nameof(ClienteController.VerificarCadastro), BindingFlags.Public | BindingFlags.Instance);
+
+            Assert.NotNull(metodo);
+            EnableRateLimitingAttribute? limite = metodo.GetCustomAttribute<EnableRateLimitingAttribute>();
+
+            Assert.NotNull(limite);
+            Assert.Equal(ConstantsValues.PoliticaLimiteVerificacaoCadastro, limite.PolicyName);
+        }
+
+        private static HttpContent CorpoJsonLogin()
+        {
+            return CorpoJson(new { perfil = "CLIENTE", cpf = CpfCliente, senha = "senha-errada" });
+        }
+
+        private static List<string> NomesDasPropriedades(JsonElement elemento)
+        {
+            List<string> nomes = new List<string>();
+
+            foreach (JsonProperty propriedade in elemento.EnumerateObject())
+            {
+                nomes.Add(propriedade.Name);
+            }
+
+            return nomes;
+        }
+
+        private static Cliente CriarClienteParaVerificacao(string cpf, string email, string cnh)
+        {
+            return new Cliente
+            {
+                Nome = "Cliente verificado",
+                Cpf = cpf,
+                DataNascimento = new DateOnly(1980, 1, 1),
+                Email = email,
+                Telefone = "11911112222",
+                CnhNumero = cnh,
+                CnhCategoria = CategoriaCnh.B,
+                CnhValidade = new DateOnly(2031, 1, 1),
+                StatusCadastro = StatusCadastroCliente.PENDENTE
+            };
+        }
     }
 
     /// <summary>
@@ -744,6 +1087,8 @@ namespace AutoVia.Tests.Api
                     { "Jwt:ExpiracaoMinutos", "120" },
                     { "Jwt:Chave", ChaveJwt },
                     { "Autenticacao:LimitePublicoPorMinuto", _limitePublico.ToString(CultureInfo.InvariantCulture) },
+                    // Limite da verificacao de cadastro alto por padrao, para os testes funcionais nao baterem no 429 proprio.
+                    { ConstantsValues.ChaveLimiteVerificacaoCadastro, "1000" },
                     // Ambiente Testing nao e Development: a URL publica do front precisa ser https fora de loopback.
                     { "Autenticacao:Recuperacao:UrlPublicaFront", "https://front.exemplo.com" },
                     { "Cors:Origens:0", ConstantsValues.OrigemFrontendLocal },
@@ -811,6 +1156,61 @@ namespace AutoVia.Tests.Api
         public AutenticacaoWebFactoryLimitado()
             : base(2, null)
         {
+        }
+    }
+
+    /// <summary>Servidor de teste com limite de 2 por minuto nas DUAS politicas (publica e verificacao de cadastro), para provar o 429 proprio e a independencia entre elas.</summary>
+    public sealed class AutenticacaoWebFactoryVerificacaoLimitada : AutenticacaoWebFactory
+    {
+        public AutenticacaoWebFactoryVerificacaoLimitada()
+            : base(2, null)
+        {
+        }
+
+        protected override void AjustarConfiguracao(Dictionary<string, string?> valores)
+        {
+            valores[ConstantsValues.ChaveLimiteVerificacaoCadastro] = "2";
+        }
+    }
+
+    /// <summary>Servidor de teste com limites DIFERENTES nas duas politicas: publica (login, cadastro) e verificacao de cadastro. Prova que cada rota obedece ao seu proprio limite.</summary>
+    public sealed class AutenticacaoWebFactoryLimitesSeparados : AutenticacaoWebFactory
+    {
+        private readonly int _limiteVerificacao;
+
+        public AutenticacaoWebFactoryLimitesSeparados(int limitePublico, int limiteVerificacao)
+            : base(limitePublico, null)
+        {
+            _limiteVerificacao = limiteVerificacao;
+        }
+
+        protected override void AjustarConfiguracao(Dictionary<string, string?> valores)
+        {
+            valores[ConstantsValues.ChaveLimiteVerificacaoCadastro] = _limiteVerificacao.ToString(CultureInfo.InvariantCulture);
+        }
+    }
+
+    /// <summary>Servidor de teste com Clientes:LimiteVerificacaoCadastroPorMinuto no valor informado (nulo = chave ausente), para provar o padrao quando o valor nao e positivo.</summary>
+    public sealed class AutenticacaoWebFactoryLimiteVerificacao : AutenticacaoWebFactory
+    {
+        private readonly string? _valorConfigurado;
+
+        public AutenticacaoWebFactoryLimiteVerificacao(string? valorConfigurado)
+            : base(1000, null)
+        {
+            _valorConfigurado = valorConfigurado;
+        }
+
+        protected override void AjustarConfiguracao(Dictionary<string, string?> valores)
+        {
+            if (_valorConfigurado == null)
+            {
+                valores.Remove(ConstantsValues.ChaveLimiteVerificacaoCadastro);
+            }
+            else
+            {
+                valores[ConstantsValues.ChaveLimiteVerificacaoCadastro] = _valorConfigurado;
+            }
         }
     }
 

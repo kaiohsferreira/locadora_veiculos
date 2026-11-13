@@ -63,10 +63,19 @@ export interface CamposDadosPessoaisProps {
   registrar: UseFormRegister<DadosPessoaisCadastro>;
   erros: FieldErrors<DadosPessoaisCadastro>;
   validos: CamposValidosDadosPessoais;
+  /** Chamado ao sair do campo CPF (verificação de cadastro). Opcional. */
+  aoSairCpf?: () => void;
+  /** Chamado ao sair do campo e-mail (verificação de cadastro). Opcional. */
+  aoSairEmail?: () => void;
+}
+
+/** Opções do `register` com o gancho de saída do campo, quando a tela passou um. */
+function opcoesAoSair(aoSair: (() => void) | undefined): { onBlur: () => void } | undefined {
+  return aoSair === undefined ? undefined : { onBlur: () => aoSair() };
 }
 
 /** Etapa 1: nome (linha inteira), CPF e nascimento, e-mail e telefone, em grade de duas colunas. */
-export function CamposDadosPessoais({ registrar, erros, validos }: CamposDadosPessoaisProps) {
+export function CamposDadosPessoais({ registrar, erros, validos, aoSairCpf, aoSairEmail }: CamposDadosPessoaisProps) {
   return (
     <div className="grid grid-cols-1 gap-x-6 gap-y-4 pt-1 md:grid-cols-2">
       <div className="md:col-span-2">
@@ -93,7 +102,7 @@ export function CamposDadosPessoais({ registrar, erros, validos }: CamposDadosPe
         mascara={formatarCpf}
         valido={validos.cpf}
         erro={erros.cpf?.message}
-        {...registrar('cpf')}
+        {...registrar('cpf', opcoesAoSair(aoSairCpf))}
       />
       <Campo
         variante="cadastro"
@@ -118,7 +127,7 @@ export function CamposDadosPessoais({ registrar, erros, validos }: CamposDadosPe
         autoComplete="email"
         valido={validos.email}
         erro={erros.email?.message}
-        {...registrar('email')}
+        {...registrar('email', opcoesAoSair(aoSairEmail))}
       />
       <Campo
         variante="cadastro"
@@ -143,8 +152,13 @@ export interface BlocoDocumentosProps {
   erros: FieldErrors<FormularioDocumentos>;
 }
 
+export interface BlocoHabilitacaoProps extends BlocoDocumentosProps {
+  /** Chamado ao sair do campo número da CNH (verificação de cadastro). Opcional. */
+  aoSairCnh?: () => void;
+}
+
 /** Etapa 2, bloco "Dados da CNH": número do registro, categoria e validade, digitados. */
-export function BlocoHabilitacao({ registrar, erros }: BlocoDocumentosProps) {
+export function BlocoHabilitacao({ registrar, erros, aoSairCnh }: BlocoHabilitacaoProps) {
   return (
     <BlocoDadosCadastro
       icone="id_card"
@@ -160,7 +174,7 @@ export function BlocoHabilitacao({ registrar, erros }: BlocoDocumentosProps) {
         autoComplete="off"
         mascara={mascaraCnh}
         erro={erros.cnhNumero?.message}
-        {...registrar('cnhNumero')}
+        {...registrar('cnhNumero', opcoesAoSair(aoSairCnh))}
       />
       <Select
         variante="cartao"

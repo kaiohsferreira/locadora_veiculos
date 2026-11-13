@@ -60,6 +60,14 @@ export const MENSAGEM_CADASTRO_SENHA_FRACA = 'A senha deve ter ao menos uma letr
 /** Front only: a confirmação não existe no backend. */
 export const MENSAGEM_CADASTRO_SENHAS_NAO_CONFEREM = 'As senhas não conferem.';
 
+// Duplicidade (verificação ao sair do campo e 409 do envio) ---------------------
+// Mesmo texto do backend (ErroClienteCpfDuplicado, ErroClienteEmailDuplicado, ErroClienteCnhDuplicada):
+// o 409 do envio é reconhecido por estes textos (`escolherCampoDoConflito`).
+
+export const MENSAGEM_CADASTRO_CPF_JA_CADASTRADO = 'Já existe um cliente ativo com este CPF.';
+export const MENSAGEM_CADASTRO_EMAIL_JA_CADASTRADO = 'Já existe um cliente ativo com este e-mail.';
+export const MENSAGEM_CADASTRO_CNH_JA_CADASTRADA = 'Já existe um cliente ativo com este número de CNH.';
+
 // Textos comuns às duas etapas ------------------------------------------------
 
 export const MENSAGEM_CADASTRO_TRILHA_ROTULO = 'Trilha de navegação';

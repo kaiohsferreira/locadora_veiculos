@@ -135,6 +135,25 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
+        /// <summary>Verifica se existe cliente ativo com o e-mail informado. A comparacao ignora maiusculas e bordas: o e-mail chega aparado em minusculas (lower(email) no SQL).</summary>
+        public async Task<bool> ExistsByEmailAsync(string email)
+        {
+            try
+            {
+                string emailMinusculo = email.Trim().ToLowerInvariant();
+
+                bool existe = await _db.Clientes
+                    .AnyAsync(x => x.DisabledAt == null && x.Email.ToLower() == emailMinusculo);
+
+                return existe;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarCliente, GetType().ToString());
+                throw;
+            }
+        }
+
         /// <summary>Grava um novo cliente: id gerado pelo banco, DataCadastro, CreatedAt e UpdatedAt com o mesmo DateTime.Now, DisabledAt nulo.</summary>
         public async Task<Cliente> InsertAsync(Cliente cliente)
         {

@@ -52,7 +52,7 @@ frontend/
     ├── api/
     │   ├── client.ts        instância única do Axios + interceptadores (token e ProblemDetails → ErroApi)
     │   ├── autenticacao.ts  login, recuperação de senha e login com Google (contratos auth*)
-    │   ├── clientes.ts      cadastro de clientes
+    │   ├── clientes.ts      cadastro de clientes e verificação de CPF, e-mail e CNH já cadastrados (contrato cliente v2)
     │   └── README.md        como cada módulo ganha seu arquivo quando o contrato sair
     ├── assets/              imagens da interface (ex.: foto de fundo da tela de acesso)
     ├── components/
@@ -66,7 +66,8 @@ frontend/
     │   └── clientes/        acesso/ (login, P2-FE-01), cadastro/ (cadastro, P2-FE-02), pages/
     │       ├── google/      login com Google (N3): botão, bloco, alerta, decisão e vínculo (tela /entrar/vincular-google)
     │       ├── recuperacao/ recuperação de senha (N1): cartões, alertas, validação e estado de navegação
-    │       └── hooks/       useEntrar (login: abre a sessão pelo contexto), useCadastrarCliente
+    │       └── hooks/       useEntrar (login: abre a sessão pelo contexto), useCadastrarCliente,
+    │           useVerificarCadastro (verifica CPF, e-mail e CNH ao sair do campo; nunca bloqueia por falha)
     ├── hooks/               useDebounce, useTituloDocumento
     ├── layouts/             LayoutPublico, LayoutBackOffice, LayoutAcesso (tela cheia do login)
     ├── lib/                 formatters, mensagens (+ mensagensAcesso, mensagensCadastro, mensagensRecuperacao, mensagensGoogle), sessao, erros,

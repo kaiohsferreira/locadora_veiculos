@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef, useState, type MouseEvent } from 'react';
+import { forwardRef, useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { flushSync } from 'react-dom';
@@ -7,6 +7,7 @@ import { Botao, Icone, useAviso } from '@/components/ui';
 import { useTituloDocumento } from '@/hooks/useTituloDocumento';
 import { useCadastrarCliente } from '@/features/clientes/hooks/useCadastrarCliente';
 import { useEntrar } from '@/features/clientes/hooks/useEntrar';
+import { useVerificarCadastro } from '@/features/clientes/hooks/useVerificarCadastro';
 import { BlocoEndereco, BlocoHabilitacao, BlocoSenha } from '@/features/clientes/cadastro/CamposCadastro';
 import { IndicadorEtapasProgresso } from '@/features/clientes/cadastro/IndicadorEtapas';
 import {
@@ -31,6 +32,16 @@ import {
   primeiroCampoNaTela,
 } from '@/features/clientes/cadastro/fluxoCadastro';
 import { useCadastroEtapas } from '@/features/clientes/cadastro/useCadastroEtapas';
+import {
+  CAMPO_API_POR_CAMPO_FORMULARIO,
+  TIPO_ERRO_DUPLICADO,
+  deveBloquearContinuar,
+  mensagemDeDuplicidade,
+  normalizarValorVerificacao,
+  resultadoVigente,
+  valorVerificavel,
+  type RegistroVerificacao,
+} from '@/features/clientes/cadastro/verificacaoCadastro';
 import { aplicarErrosDeCampo, obterMensagemErro } from '@/lib/erros';
 import {
   MENSAGEM_CADASTRO_BOTAO_FINALIZAR,
@@ -106,6 +117,7 @@ export default function CadastroDocumentosPagina() {
   } = useCadastroEtapas();
   const cadastro = useCadastrarCliente();
   const entrar = useEntrar();
+  const { verificar } = useVerificarCadastro();
   const { reset: resetarCadastro } = cadastro;
   const { reset: resetarLogin } = entrar;
 
@@ -146,16 +158,47 @@ export default function CadastroDocumentosPagina() {
     };
   }, [getValues, salvarDocumentos, resetarCadastro, resetarLogin]);
 
-  // Editar um campo com erro vindo da API limpa o erro daquele campo (a validação normal segue valendo).
+  // Editar um campo com erro vindo da API (ou de duplicidade) limpa o erro daquele campo (a validação normal segue valendo).
   useEffect(() => {
     return subscribe({
       formState: { values: true },
       callback: ({ name, type }) => {
         if (type !== 'change' || name === undefined || !ehCampoDaEtapa2(name)) return;
-        if (getFieldState(name).error?.type === 'server') clearErrors(name);
+        const tipoErro = getFieldState(name).error?.type;
+        if (tipoErro === 'server' || tipoErro === TIPO_ERRO_DUPLICADO) clearErrors(name);
       },
     });
   }, [subscribe, getFieldState, clearErrors]);
+
+  // Verificação da CNH ao sair do campo. O registro diz para qual número (só dígitos) o resultado vale:
+  // resultado de número antigo é descartado. O envio só consulta o que já se sabe, nunca espera a verificação.
+  const registroCnh = useRef<RegistroVerificacao | undefined>(undefined);
+
+  const verificarCnh = useCallback(async () => {
+    const valor = valorVerificavel('cnhNumero', getValues('cnhNumero'));
+    if (valor === null) return;
+
+    const marcarDuplicado = () => {
+      if (normalizarValorVerificacao('cnhNumero', getValues('cnhNumero')) !== valor) return;
+      setError('cnhNumero', { type: TIPO_ERRO_DUPLICADO, message: mensagemDeDuplicidade('cnhNumero') });
+    };
+
+    const registro = registroCnh.current;
+    if (registro?.valor === valor) {
+      if (registro.estado === 'existe') marcarDuplicado();
+      return;
+    }
+
+    registroCnh.current = { valor, estado: 'verificando' };
+    const resultado = await verificar(CAMPO_API_POR_CAMPO_FORMULARIO.cnhNumero, valor);
+    if (registroCnh.current?.valor !== valor) return;
+    registroCnh.current = { valor, estado: resultado };
+    if (resultado === 'existe') marcarDuplicado();
+  }, [verificar, getValues, setError]);
+
+  const aoSairCnh = useCallback(() => {
+    void verificarCnh();
+  }, [verificarCnh]);
 
   /** Mostra os erros de campo desta tela e leva o foco ao primeiro, na ordem da tela. */
   function mostrarErrosDaEtapa2(erros: readonly ErroCampoCadastro[]) {
@@ -234,6 +277,15 @@ export default function CadastroDocumentosPagina() {
     const validacao = validarCadastroCompleto(juntarFormulario(dadosPessoais, dadosEtapa2));
     if (!validacao.ok) {
       encaminharErros(validacao.erros, MENSAGEM_ERRO_API_PADRAO);
+      return;
+    }
+
+    // CNH já conhecida como cadastrada: mostra o erro no campo e não faz o POST. Não espera a
+    // verificação pendente: o POST é a autoridade (o 409 continua tratado abaixo).
+    const resultadoCnh = resultadoVigente(registroCnh.current, 'cnhNumero', dadosEtapa2.cnhNumero);
+    if (deveBloquearContinuar(resultadoCnh)) {
+      setError('cnhNumero', { type: TIPO_ERRO_DUPLICADO, message: mensagemDeDuplicidade('cnhNumero') });
+      setFocus('cnhNumero');
       return;
     }
 
@@ -327,7 +379,7 @@ export default function CadastroDocumentosPagina() {
           }}
         >
           <fieldset disabled={enviando} className="min-w-0 border-0 p-0">
-            <BlocoHabilitacao registrar={register} erros={errors} />
+            <BlocoHabilitacao registrar={register} erros={errors} aoSairCnh={aoSairCnh} />
             <BlocoEndereco registrar={register} erros={errors} />
             <BlocoSenha registrar={register} erros={errors} />
           </fieldset>

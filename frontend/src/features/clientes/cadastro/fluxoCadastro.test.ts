@@ -6,6 +6,11 @@ import {
   type DependenciasCadastro,
 } from '@/features/clientes/cadastro/fluxoCadastro';
 import type { FormularioCadastro } from '@/features/clientes/cadastro/esquemaCadastro';
+import {
+  MENSAGEM_CADASTRO_CNH_JA_CADASTRADA,
+  MENSAGEM_CADASTRO_CPF_JA_CADASTRADO,
+  MENSAGEM_CADASTRO_EMAIL_JA_CADASTRADO,
+} from '@/lib/mensagens';
 import type { RespostaCliente } from '@/types/clientes';
 
 const FORMULARIO: FormularioCadastro = {
@@ -75,8 +80,29 @@ describe('escolherCampoDoConflito', () => {
     expect(escolherCampoDoConflito('Já existe um cliente ativo com este número de CNH.')).toBe('cnhNumero');
   });
 
+  it('aponta email com a mensagem exata do backend', () => {
+    expect(escolherCampoDoConflito('Já existe um cliente ativo com este e-mail.')).toBe('email');
+  });
+
+  it('reconhece e-mail com ou sem hífen e em qualquer caixa', () => {
+    expect(escolherCampoDoConflito('E-MAIL já cadastrado.')).toBe('email');
+    expect(escolherCampoDoConflito('Este email já existe.')).toBe('email');
+  });
+
   it('devolve null para outra mensagem (vai para o alerta geral)', () => {
     expect(escolherCampoDoConflito('Não foi possível concluir a operação.')).toBeNull();
+  });
+
+  it('cada mensagem de duplicidade do front mapeia de volta ao campo certo', () => {
+    expect(escolherCampoDoConflito(MENSAGEM_CADASTRO_CPF_JA_CADASTRADO)).toBe('cpf');
+    expect(escolherCampoDoConflito(MENSAGEM_CADASTRO_EMAIL_JA_CADASTRADO)).toBe('email');
+    expect(escolherCampoDoConflito(MENSAGEM_CADASTRO_CNH_JA_CADASTRADA)).toBe('cnhNumero');
+  });
+
+  it('as mensagens de duplicidade têm o texto exato do backend', () => {
+    expect(MENSAGEM_CADASTRO_CPF_JA_CADASTRADO).toBe('Já existe um cliente ativo com este CPF.');
+    expect(MENSAGEM_CADASTRO_EMAIL_JA_CADASTRADO).toBe('Já existe um cliente ativo com este e-mail.');
+    expect(MENSAGEM_CADASTRO_CNH_JA_CADASTRADA).toBe('Já existe um cliente ativo com este número de CNH.');
   });
 });
 

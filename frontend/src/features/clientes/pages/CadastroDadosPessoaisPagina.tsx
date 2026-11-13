@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Botao, Icone } from '@/components/ui';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useTituloDocumento } from '@/hooks/useTituloDocumento';
+import { useVerificarCadastro } from '@/features/clientes/hooks/useVerificarCadastro';
 import { CamposDadosPessoais } from '@/features/clientes/cadastro/CamposCadastro';
 import { IndicadorEtapasCabecalho } from '@/features/clientes/cadastro/IndicadorEtapas';
 import {
@@ -12,11 +14,26 @@ import {
   type DadosPessoaisCadastro,
 } from '@/features/clientes/cadastro/esquemaCadastro';
 import {
+  CAMPOS_ETAPA_1,
   calcularCamposValidos,
   ehCampoDaEtapa1,
   errosParaAplicarNaEtapa,
 } from '@/features/clientes/cadastro/etapasCadastro';
 import { primeiroCampoNaTela } from '@/features/clientes/cadastro/fluxoCadastro';
+import {
+  ATRASO_VERIFICACAO_CPF_MS,
+  CAMPO_API_POR_CAMPO_FORMULARIO,
+  TIPO_ERRO_DUPLICADO,
+  combinarValidosComVerificacao,
+  deveBloquearContinuar,
+  estadoVigente,
+  mensagemDeDuplicidade,
+  normalizarValorVerificacao,
+  precisaVerificarAgora,
+  valorVerificavel,
+  type RegistroVerificacao,
+  type ResultadoVerificacao,
+} from '@/features/clientes/cadastro/verificacaoCadastro';
 import {
   lerPreenchimentoCadastro,
   type PreenchimentoCadastro,
@@ -83,18 +100,26 @@ const PILARES: readonly PilarCadastro[] = [
   },
 ];
 
+/** Campos da etapa 1 que a verificação de cadastro cobre. */
+type CampoVerificadoEtapa1 = 'cpf' | 'email';
+
+/** O que a tela lembra de cada verificação: para qual valor vale e em que ponto está. */
+type RegistrosVerificacao = Partial<Record<CampoVerificadoEtapa1, RegistroVerificacao>>;
+
 const FOCO_LINK =
   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-steel';
 
 /**
  * P2-FE-02 · Cadastro do cliente, etapa 1: dados pessoais (RF-07, design 20).
- * Só valida e guarda os dados em memória (provedor das duas telas): a API não é chamada aqui.
- * O envio de tudo, a CNH e a senha ficam na etapa 2 (`CadastroDocumentosPagina`).
+ * Só valida e guarda os dados em memória (provedor das duas telas). A única chamada à API é a verificação
+ * de CPF e e-mail já cadastrados (ao sair do campo e ao continuar), que nunca bloqueia por falha: só um
+ * `existe` impede de avançar. O envio de tudo, a CNH e a senha ficam na etapa 2 (`CadastroDocumentosPagina`).
  */
 export default function CadastroDadosPessoaisPagina() {
   useTituloDocumento(MENSAGEM_CADASTRO_TITULO_PAGINA);
   const navigate = useNavigate();
   const { autenticado } = useAutenticacao();
+  const { verificar } = useVerificarCadastro();
   const {
     dadosPessoais,
     veioDoGoogle: veioDoGoogleSalvo,
@@ -125,6 +150,7 @@ export default function CadastroDadosPessoaisPagina() {
     control,
     subscribe,
     getFieldState,
+    getValues,
     clearErrors,
     formState: { errors },
   } = useForm<DadosPessoaisCadastro>({
@@ -133,16 +159,92 @@ export default function CadastroDadosPessoaisPagina() {
     resolver: zodResolver(ESQUEMA_DADOS_PESSOAIS),
   });
 
-  // Editar um campo com erro vindo da API limpa o erro daquele campo (a validação normal segue valendo).
+  // Editar um campo com erro vindo da API (ou de duplicidade) limpa o erro daquele campo (a validação normal segue valendo).
   useEffect(() => {
     return subscribe({
       formState: { values: true },
       callback: ({ name, type }) => {
         if (type !== 'change' || name === undefined || !ehCampoDaEtapa1(name)) return;
-        if (getFieldState(name).error?.type === 'server') clearErrors(name);
+        const tipoErro = getFieldState(name).error?.type;
+        if (tipoErro === 'server' || tipoErro === TIPO_ERRO_DUPLICADO) clearErrors(name);
       },
     });
   }, [subscribe, getFieldState, clearErrors]);
+
+  // Verificação de CPF e e-mail já cadastrados. O registro diz para qual valor (normalizado) a resposta
+  // vale: resposta de valor antigo é descartada. A ref guarda o mesmo dado de forma síncrona (o estado
+  // só serve para redesenhar o ícone de "conferido").
+  const [registros, setRegistros] = useState<RegistrosVerificacao>({});
+  const registrosRef = useRef<RegistrosVerificacao>({});
+  const emAndamento = useRef<Partial<Record<CampoVerificadoEtapa1, Promise<ResultadoVerificacao>>>>({});
+  const montada = useRef(false);
+  const [verificandoAvanco, setVerificandoAvanco] = useState(false);
+  const avancoEmCurso = useRef(false);
+
+  useEffect(() => {
+    montada.current = true;
+    return () => {
+      montada.current = false;
+    };
+  }, []);
+
+  const guardarRegistro = useCallback((campo: CampoVerificadoEtapa1, registro: RegistroVerificacao) => {
+    registrosRef.current = { ...registrosRef.current, [campo]: registro };
+    setRegistros(registrosRef.current);
+  }, []);
+
+  /** Mostra o erro de duplicidade no campo, se o valor digitado ainda é o que foi verificado. */
+  const marcarDuplicado = useCallback(
+    (campo: CampoVerificadoEtapa1, valor: string) => {
+      if (normalizarValorVerificacao(campo, getValues(campo)) !== valor) return;
+      setError(campo, { type: TIPO_ERRO_DUPLICADO, message: mensagemDeDuplicidade(campo) });
+    },
+    [getValues, setError],
+  );
+
+  /**
+   * Verifica o valor do campo se ele passa no Zod do próprio campo e ainda não foi verificado: o mesmo
+   * valor não se repete, e uma verificação em andamento do mesmo valor é aproveitada. Devolve o resultado
+   * (ou null quando o valor não é verificável) e nunca lança.
+   */
+  const verificarCampo = useCallback(
+    async (
+      campo: CampoVerificadoEtapa1,
+      valorDigitado: string,
+      tentarNovamenteIndisponivel = false,
+    ): Promise<ResultadoVerificacao | null> => {
+      const valor = valorVerificavel(campo, valorDigitado);
+      if (valor === null) return null;
+
+      const registro = registrosRef.current[campo];
+      const repetir = tentarNovamenteIndisponivel && precisaVerificarAgora(registro, campo, valorDigitado);
+      if (registro?.valor === valor && !repetir) {
+        if (registro.estado === 'verificando') return emAndamento.current[campo] ?? null;
+        if (registro.estado === 'existe') marcarDuplicado(campo, valor);
+        return registro.estado;
+      }
+
+      guardarRegistro(campo, { valor, estado: 'verificando' });
+      const promessa = verificar(CAMPO_API_POR_CAMPO_FORMULARIO[campo], valor).then((resultado) => {
+        if (registrosRef.current[campo]?.valor === valor) {
+          guardarRegistro(campo, { valor, estado: resultado });
+          if (resultado === 'existe') marcarDuplicado(campo, valor);
+        }
+        return resultado;
+      });
+      emAndamento.current[campo] = promessa;
+      return promessa;
+    },
+    [verificar, guardarRegistro, marcarDuplicado],
+  );
+
+  const aoSairCpf = useCallback(() => {
+    void verificarCampo('cpf', getValues('cpf'));
+  }, [verificarCampo, getValues]);
+
+  const aoSairEmail = useCallback(() => {
+    void verificarCampo('email', getValues('email'));
+  }, [verificarCampo, getValues]);
 
   // Erros da API que apontam para um campo desta tela (ex.: 409 de CPF ou 400 em um campo da etapa 1):
   // a etapa 2 devolveu a pessoa para cá. Mostra o erro no campo e leva o foco ao primeiro, na ordem da tela.
@@ -158,12 +260,58 @@ export default function CadastroDadosPessoaisPagina() {
   }, [errosServidor, removerErrosServidor, setError, setFocus]);
 
   const valores = useWatch({ control });
-  const validos = calcularCamposValidos(valores);
+  const cpfDigitado = valores.cpf ?? '';
+  const emailDigitado = valores.email ?? '';
+  const validos = combinarValidosComVerificacao(calcularCamposValidos(valores), {
+    cpf: estadoVigente(registros.cpf, 'cpf', cpfDigitado),
+    email: estadoVigente(registros.email, 'email', emailDigitado),
+  });
 
-  /** Envio já validado pelo Zod: guarda os dados em memória e abre a etapa 2. Não chama a API. */
-  function continuar(dados: DadosPessoaisCadastro) {
-    salvarDadosPessoais(dados, veioDoGoogle);
-    navigate(CAMINHOS.cadastroDocumentos);
+  // CPF também é verificado quando fica válido (depois de uma pausa na digitação), sem esperar o blur.
+  // O CPF que já veio preenchido ao reabrir a tela não é verificado de novo na montagem.
+  const cpfDebounced = useDebounce(cpfDigitado, ATRASO_VERIFICACAO_CPF_MS);
+  const cpfInicial = useRef(cpfDigitado);
+  useEffect(() => {
+    if (cpfDebounced === cpfInicial.current || cpfDebounced !== getValues('cpf')) return;
+    void verificarCampo('cpf', cpfDebounced);
+  }, [cpfDebounced, getValues, verificarCampo]);
+
+  /**
+   * Envio já validado pelo Zod. Antes de abrir a etapa 2, verifica na hora o CPF e o e-mail que ainda não
+   * foram verificados (em paralelo, aproveitando a chamada em andamento). Só `existe` do valor atual
+   * impede de avançar (erro no campo, foco no primeiro da tela); falha da verificação segue em frente.
+   * Guarda os dados em memória e abre a etapa 2.
+   */
+  async function continuar(dados: DadosPessoaisCadastro) {
+    if (avancoEmCurso.current) return;
+    avancoEmCurso.current = true;
+    setVerificandoAvanco(true);
+    try {
+      const [resultadoCpf, resultadoEmail] = await Promise.all([
+        verificarCampo('cpf', dados.cpf, true),
+        verificarCampo('email', dados.email, true),
+      ]);
+      if (!montada.current) return;
+
+      // A pessoa editou algum campo enquanto esperava: não avança com dados que já não são os da tela.
+      const atuais = getValues();
+      if (CAMPOS_ETAPA_1.some((campo) => ehCampoDaEtapa1(campo) && atuais[campo] !== dados[campo])) return;
+
+      const comDuplicidade: string[] = [];
+      if (deveBloquearContinuar(resultadoCpf)) comDuplicidade.push('cpf');
+      if (deveBloquearContinuar(resultadoEmail)) comDuplicidade.push('email');
+      if (comDuplicidade.length > 0) {
+        const primeiro = primeiroCampoNaTela(comDuplicidade);
+        if (primeiro !== undefined && ehCampoDaEtapa1(primeiro)) setFocus(primeiro);
+        return;
+      }
+
+      salvarDadosPessoais(dados, veioDoGoogle);
+      navigate(CAMINHOS.cadastroDocumentos);
+    } finally {
+      avancoEmCurso.current = false;
+      if (montada.current) setVerificandoAvanco(false);
+    }
   }
 
   // Quem já tem sessão não precisa de cadastro.
@@ -248,7 +396,13 @@ export default function CadastroDadosPessoaisPagina() {
               }}
               className="space-y-6 px-8 pb-8"
             >
-              <CamposDadosPessoais registrar={register} erros={errors} validos={validos} />
+              <CamposDadosPessoais
+                registrar={register}
+                erros={errors}
+                validos={validos}
+                aoSairCpf={aoSairCpf}
+                aoSairEmail={aoSairEmail}
+              />
 
               <p className="rounded-sm bg-steel-suave p-2 text-legenda leading-relaxed text-status-neutro">
                 {MENSAGEM_CADASTRO_DECLARACAO_TITULAR}
@@ -272,6 +426,7 @@ export default function CadastroDadosPessoaisPagina() {
                   type="submit"
                   tamanho="grande"
                   iconeDireita="arrow_forward"
+                  carregando={verificandoAvanco}
                   className="order-1 w-full !rounded !px-8 tracking-wide shadow-lg sm:order-2 sm:w-auto"
                 >
                   {MENSAGEM_CADASTRO_BOTAO_CONTINUAR}

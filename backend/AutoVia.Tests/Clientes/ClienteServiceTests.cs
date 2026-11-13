@@ -5,6 +5,7 @@ using AutoVia.Communication.ViewObjects.Clientes;
 using AutoVia.Communication.ViewObjects.Utils;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Profiles;
+using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
 using AutoVia.Tests.Fakes;
@@ -290,6 +291,295 @@ namespace AutoVia.Tests.Clientes
             Assert.Contains(log.Entries, entrada => entrada.Contains(ConstantsMessage.ErroBuscarCliente));
         }
 
+        [Fact]
+        public async Task InsertComEmailDeClienteAtivo_LancaEmailDuplicado()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            Cliente existente = CriarClienteAtivo(CpfBSemMascara, CnhB, StatusCadastroCliente.APROVADO);
+            existente.Email = "maria.silva@exemplo.com";
+            repositorio.Adicionar(existente);
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => servico.InsertAsync(CriarVOValido()));
+
+            Assert.Equal(ConstantsMessage.ErroClienteEmailDuplicado, excecao.Message);
+            Assert.Single(repositorio.Armazenados);
+        }
+
+        [Fact]
+        public async Task InsertComEmailLegadoEmMaiusculas_LancaEmailDuplicadoSemDiferenciarMaiusculas()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            Cliente legado = CriarClienteAtivo(CpfBSemMascara, CnhB, StatusCadastroCliente.APROVADO);
+            legado.Email = "MARIA.Silva@EXEMPLO.com";
+            repositorio.Adicionar(legado);
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+            ClienteVO vo = CriarVOValido();
+            vo.Email = "  Maria.SILVA@exemplo.COM ";
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => servico.InsertAsync(vo));
+
+            Assert.Equal(ConstantsMessage.ErroClienteEmailDuplicado, excecao.Message);
+        }
+
+        [Fact]
+        public async Task InsertComEmailDeClienteDesativado_NaoBloqueia()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            Cliente desativado = CriarClienteAtivo(CpfBSemMascara, CnhB, StatusCadastroCliente.APROVADO);
+            desativado.Email = "maria.silva@exemplo.com";
+            desativado.Disable();
+            repositorio.Adicionar(desativado);
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            ReturnClienteVO retorno = await servico.InsertAsync(CriarVOValido());
+
+            Assert.True(retorno.IdCliente > 0);
+        }
+
+        [Theory]
+        [InlineData(StatusCadastroCliente.PENDENTE)]
+        [InlineData(StatusCadastroCliente.RECUSADO)]
+        public async Task InsertComEmailDePendenteOuRecusado_Bloqueia(StatusCadastroCliente status)
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            Cliente existente = CriarClienteAtivo(CpfBSemMascara, CnhB, status);
+            existente.Email = "maria.silva@exemplo.com";
+            repositorio.Adicionar(existente);
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => servico.InsertAsync(CriarVOValido()));
+
+            Assert.Equal(ConstantsMessage.ErroClienteEmailDuplicado, excecao.Message);
+        }
+
+        [Fact]
+        public async Task InsertComEmailECnhDuplicados_InformaEmailAntesDaCnh()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            Cliente existente = CriarClienteAtivo(CpfBSemMascara, CnhA, StatusCadastroCliente.PENDENTE);
+            existente.Email = "maria.silva@exemplo.com";
+            repositorio.Adicionar(existente);
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => servico.InsertAsync(CriarVOValido()));
+
+            Assert.Equal(ConstantsMessage.ErroClienteEmailDuplicado, excecao.Message);
+        }
+
+        [Fact]
+        public async Task InsertComCpfEEmailDuplicados_InformaCpfAntesDoEmail()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            Cliente existente = CriarClienteAtivo(CpfASemMascara, CnhB, StatusCadastroCliente.PENDENTE);
+            existente.Email = "maria.silva@exemplo.com";
+            repositorio.Adicionar(existente);
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => servico.InsertAsync(CriarVOValido()));
+
+            Assert.Equal(ConstantsMessage.ErroClienteCpfDuplicado, excecao.Message);
+        }
+
+        [Fact]
+        public async Task VerificarCadastro_CpfComMascaraDeClienteExistente_DevolveExiste()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            repositorio.Adicionar(CriarClienteAtivo(CpfASemMascara, CnhB, StatusCadastroCliente.PENDENTE));
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            ReturnVerificacaoCadastroVO retorno = await servico.VerificarCadastroAsync(CriarVerificacao(CampoVerificacaoCadastro.CPF, CpfA));
+
+            Assert.True(retorno.Existe);
+        }
+
+        [Fact]
+        public async Task VerificarCadastro_CpfLivre_DevolveNaoExiste()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            repositorio.Adicionar(CriarClienteAtivo(CpfASemMascara, CnhB, StatusCadastroCliente.PENDENTE));
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            ReturnVerificacaoCadastroVO retorno = await servico.VerificarCadastroAsync(CriarVerificacao(CampoVerificacaoCadastro.CPF, "987.654.321-00"));
+
+            Assert.False(retorno.Existe);
+        }
+
+        [Fact]
+        public async Task VerificarCadastro_EmailComEspacosEMaiusculas_DevolveExisteSemDiferenciarMaiusculas()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            Cliente existente = CriarClienteAtivo(CpfASemMascara, CnhA, StatusCadastroCliente.APROVADO);
+            existente.Email = "maria.silva@exemplo.com";
+            repositorio.Adicionar(existente);
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            ReturnVerificacaoCadastroVO retorno = await servico.VerificarCadastroAsync(CriarVerificacao(CampoVerificacaoCadastro.EMAIL, "  MARIA.Silva@Exemplo.com "));
+
+            Assert.True(retorno.Existe);
+        }
+
+        [Fact]
+        public async Task VerificarCadastro_EmailLivre_DevolveNaoExiste()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            repositorio.Adicionar(CriarClienteAtivo(CpfASemMascara, CnhA, StatusCadastroCliente.APROVADO));
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            ReturnVerificacaoCadastroVO retorno = await servico.VerificarCadastroAsync(CriarVerificacao(CampoVerificacaoCadastro.EMAIL, "outra.pessoa@exemplo.com"));
+
+            Assert.False(retorno.Existe);
+        }
+
+        [Fact]
+        public async Task VerificarCadastro_CnhComTracos_DevolveExiste()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            repositorio.Adicionar(CriarClienteAtivo(CpfBSemMascara, CnhA, StatusCadastroCliente.PENDENTE));
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            ReturnVerificacaoCadastroVO retorno = await servico.VerificarCadastroAsync(CriarVerificacao(CampoVerificacaoCadastro.CNH, "123-456-789-01"));
+
+            Assert.True(retorno.Existe);
+        }
+
+        [Fact]
+        public async Task VerificarCadastro_CnhLivre_DevolveNaoExiste()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            repositorio.Adicionar(CriarClienteAtivo(CpfBSemMascara, CnhA, StatusCadastroCliente.PENDENTE));
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            ReturnVerificacaoCadastroVO retorno = await servico.VerificarCadastroAsync(CriarVerificacao(CampoVerificacaoCadastro.CNH, CnhB));
+
+            Assert.False(retorno.Existe);
+        }
+
+        [Fact]
+        public async Task VerificarCadastro_ClienteDesativado_NaoConta()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            Cliente desativado = CriarClienteAtivo(CpfASemMascara, CnhA, StatusCadastroCliente.APROVADO);
+            desativado.Disable();
+            repositorio.Adicionar(desativado);
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            ReturnVerificacaoCadastroVO retorno = await servico.VerificarCadastroAsync(CriarVerificacao(CampoVerificacaoCadastro.CPF, CpfA));
+
+            Assert.False(retorno.Existe);
+        }
+
+        [Fact]
+        public async Task VerificarCadastro_ClienteRecusado_ContaComoExistente()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            repositorio.Adicionar(CriarClienteAtivo(CpfASemMascara, CnhA, StatusCadastroCliente.RECUSADO));
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            ReturnVerificacaoCadastroVO retorno = await servico.VerificarCadastroAsync(CriarVerificacao(CampoVerificacaoCadastro.CPF, CpfA));
+
+            Assert.True(retorno.Existe);
+        }
+
+        [Fact]
+        public async Task VerificarCadastroFalhaInesperadaDoRepositorio_LogaSoAMensagemPadraoSemOValor()
+        {
+            // CPF distinto e reconhecivel: se qualquer argumento logado trouxesse o valor, o teste acusa.
+            const string cpfConsultado = "529.982.247-25";
+            const string digitosConsultados = "52998224725";
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            InvalidOperationException excecaoSimulada = new InvalidOperationException("falha simulada");
+            repositorio.ExcecaoAoConsultarExistencia = excecaoSimulada;
+            LogCapturado log = new LogCapturado();
+            ClienteService servico = CriarServico(repositorio, log);
+
+            InvalidOperationException excecao = await Assert.ThrowsAsync<InvalidOperationException>(() => servico.VerificarCadastroAsync(CriarVerificacao(CampoVerificacaoCadastro.CPF, cpfConsultado)));
+
+            Assert.Same(excecaoSimulada, excecao);
+            Assert.Single(log.MensagensAmigaveis);
+            Assert.Equal(ConstantsMessage.ErroVerificarCadastroCliente, log.MensagensAmigaveis[0]);
+            Assert.DoesNotContain(log.Textos, texto => texto.Contains(cpfConsultado) || texto.Contains(digitosConsultados));
+        }
+
+        [Fact]
+        public async Task VerificarCadastro_EmailEntregueAoRepositorioJaNormalizado()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            await servico.VerificarCadastroAsync(CriarVerificacao(CampoVerificacaoCadastro.EMAIL, "  MARIA.Silva@EXEMPLO.com "));
+
+            Assert.Equal("maria.silva@exemplo.com", repositorio.UltimoEmailConsultado);
+        }
+
+        [Fact]
+        public async Task VerificarCadastro_CampoForaDoEnum_LancaInvalidOperationSemConsultarERegistra()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            LogCapturado log = new LogCapturado();
+            ClienteService servico = CriarServico(repositorio, log);
+
+            InvalidOperationException excecao = await Assert.ThrowsAsync<InvalidOperationException>(() => servico.VerificarCadastroAsync(CriarVerificacao((CampoVerificacaoCadastro)99, CpfA)));
+
+            Assert.Equal(ConstantsMessage.ErroVerificarCadastroCliente, excecao.Message);
+            Assert.Equal(0, repositorio.ConsultasDeExistencia);
+            Assert.Equal(ConstantsMessage.ErroVerificarCadastroCliente, Assert.Single(log.MensagensAmigaveis));
+        }
+
+        [Fact]
+        public async Task VerificarCadastro_CampoNulo_LancaInvalidOperationSemConsultar()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            ClienteService servico = CriarServico(repositorio, new LogCapturado());
+            VerificarCadastroVO vo = new VerificarCadastroVO { Campo = null, Valor = CpfA };
+
+            InvalidOperationException excecao = await Assert.ThrowsAsync<InvalidOperationException>(() => servico.VerificarCadastroAsync(vo));
+
+            Assert.Equal(ConstantsMessage.ErroVerificarCadastroCliente, excecao.Message);
+            Assert.Equal(0, repositorio.ConsultasDeExistencia);
+        }
+
+        /// <summary>Log que guarda cada argumento de texto recebido (mensagem, friendly e origem), para o teste conferir o que sairia no log.</summary>
+        private sealed class LogCapturado : ILogService
+        {
+            public List<string> Textos { get; } = new List<string>();
+
+            public List<string> MensagensAmigaveis { get; } = new List<string>();
+
+            public void Write(string message, string friendlyMessage, string source)
+            {
+                Textos.Add(message);
+                Textos.Add(friendlyMessage);
+                Textos.Add(source);
+                MensagensAmigaveis.Add(friendlyMessage);
+            }
+
+            public void Write(Exception exception, string friendlyMessage, string source)
+            {
+                Textos.Add(exception.Message);
+                Textos.Add(friendlyMessage);
+                Textos.Add(source);
+                MensagensAmigaveis.Add(friendlyMessage);
+            }
+
+            public void WriteInfo(string message, string source)
+            {
+                Textos.Add(message);
+                Textos.Add(source);
+            }
+        }
+
+        private static VerificarCadastroVO CriarVerificacao(CampoVerificacaoCadastro campo, string valor)
+        {
+            VerificarCadastroVO vo = new VerificarCadastroVO
+            {
+                Campo = campo,
+                Valor = valor
+            };
+
+            return vo;
+        }
+
         /// <summary>VO valido com CPF, CNH e senha de teste; cada teste altera o que precisa.</summary>
         private static ClienteVO CriarVOValido()
         {
@@ -343,12 +633,12 @@ namespace AutoVia.Tests.Clientes
             return cliente;
         }
 
-        private static ClienteService CriarServico(FakeClienteRepository repositorio, FakeLogService log)
+        private static ClienteService CriarServico(FakeClienteRepository repositorio, ILogService log)
         {
             return CriarServico(repositorio, log, new FakeSenhaHasher());
         }
 
-        private static ClienteService CriarServico(FakeClienteRepository repositorio, FakeLogService log, FakeSenhaHasher hasher)
+        private static ClienteService CriarServico(FakeClienteRepository repositorio, ILogService log, FakeSenhaHasher hasher)
         {
             MapperConfiguration configuracao = new MapperConfiguration(cfg => cfg.AddProfile<ClienteProfile>(), NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
