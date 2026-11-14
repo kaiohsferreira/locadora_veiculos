@@ -28,7 +28,8 @@ namespace AutoVia.Core.Profiles
                 .ForMember(dest => dest.DisabledAt, opt => opt.Ignore())
                 .ForMember(dest => dest.Reservas, opt => opt.Ignore())
                 .ForMember(dest => dest.Locacoes, opt => opt.Ignore())
-                .ForMember(dest => dest.Vendas, opt => opt.Ignore());
+                .ForMember(dest => dest.Vendas, opt => opt.Ignore())
+                .ForMember(dest => dest.Locadoras, opt => opt.Ignore());
 
             // Entidade -> VO de retorno, com os campos formatados. Nao ha senha no retorno.
             // DataCadastro sai sem fuso (Kind Unspecified): o contrato pede ISO 8601 sem offset.

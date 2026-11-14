@@ -100,5 +100,30 @@
     "unicidade_no_servico": "cnpj e e-mail da empresa; matricula por empresa; cpf de funcionario, placa, chassi e renavam em toda a plataforma",
     "dados": "empresa inicial criada pela migration (dados provisorios ate o Kaio informar os reais); todo funcionario e veiculo existente (inclusive desativados) passa a ser dela; o administrador inicial vira ADMINISTRADOR",
     "nao_muda": "demais tabelas e CHECKs; nenhum indice unico; categoria e cliente continuam globais; sem id_empresa nas tabelas operacionais"
+  },
+  "cliente_locadora": {
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "data": "2026-11-14",
+    "motivo": "Aprovacao do cadastro do cliente por locadora (RF-74 a RF-83, decisao do Kaio de 14/11/2026): cada locadora aprova o cliente que negociou com ela. O status global do cadastro (cliente.status_cadastro) fica na tabela, congelado.",
+    "tabelas_novas": {
+      "cliente_locadora": {
+        "colunas": {
+          "id_cliente_locadora": "SERIAL PK",
+          "id_cliente": "INT NOT NULL, fk_cliente_locadora_cliente (NO ACTION)",
+          "id_empresa": "INT NOT NULL, fk_cliente_locadora_empresa (NO ACTION)",
+          "status": "VARCHAR(15) NOT NULL DEFAULT 'PENDENTE' (enum StatusCadastroCliente gravado como texto)",
+          "justificativa_recusa": "VARCHAR(500) NULL (motivo interno da recusa; obrigatorio na recusa, validado no servico)",
+          "id_funcionario_verificador": "INT NULL, fk_cliente_locadora_funcionario (NO ACTION)",
+          "data_solicitacao": "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP",
+          "data_verificacao": "TIMESTAMP NULL"
+        },
+        "check": "ck_cliente_locadora_status: status IN ('PENDENTE', 'APROVADO', 'RECUSADO')",
+        "indices": ["idx_cliente_locadora_empresa_cliente (id_empresa, id_cliente) (comum)", "idx_cliente_locadora_cliente (id_cliente) (comum)"],
+        "auditoria": "created_at, updated_at, disabled_at (BaseEntities)"
+      }
+    },
+    "status_cadastro_global": "cliente.status_cadastro mantida e congelada: o cadastro continua gravando PENDENTE, ninguem a atualiza e nenhuma regra nova a le (RF-81). Sem migracao destrutiva.",
+    "dados": "migration AdicionarClienteLocadora preenche um vinculo para cada par (cliente ativo com status APROVADO ou RECUSADO, locadora) com reserva, locacao ou venda ativa em veiculo dela, com o mesmo status global do cliente; cliente PENDENTE nao ganha vinculo (RF-83, decisao do QA de 14/11); verificador e justificativa nulos.",
+    "nao_muda": "nenhum indice unico (a unicidade do vinculo ativo de menor id fica no servico); demais tabelas, colunas e CHECKs"
   }
 }

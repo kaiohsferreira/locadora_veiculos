@@ -284,6 +284,81 @@ namespace AutoVia.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.ClienteLocadora", b =>
+                {
+                    b.Property<int>("IdClienteLocadora")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id_cliente_locadora");
+
+                    NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdClienteLocadora"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime>("DataSolicitacao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("data_solicitacao")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime?>("DataVerificacao")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("data_verificacao");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
+
+                    b.Property<int>("IdCliente")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_cliente");
+
+                    b.Property<int>("IdEmpresa")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_empresa");
+
+                    b.Property<int?>("IdFuncionarioVerificador")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_funcionario_verificador");
+
+                    b.Property<string>("JustificativaRecusa")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("justificativa_recusa");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(15)
+                        .HasColumnType("character varying(15)")
+                        .HasDefaultValue("PENDENTE")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("IdClienteLocadora")
+                        .HasName("cliente_locadora_pkey");
+
+                    b.HasIndex("IdCliente")
+                        .HasDatabaseName("idx_cliente_locadora_cliente");
+
+                    b.HasIndex("IdEmpresa", "IdCliente")
+                        .HasDatabaseName("idx_cliente_locadora_empresa_cliente");
+
+                    b.ToTable("cliente_locadora", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_cliente_locadora_status", "status IN ('PENDENTE', 'APROVADO', 'RECUSADO')");
+                        });
+                });
+
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.CobrancaExtra", b =>
                 {
                     b.Property<int>("IdCobranca")
@@ -1564,6 +1639,35 @@ namespace AutoVia.Infrastructure.Migrations
                     b.Navigation("Vistoria");
                 });
 
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.ClienteLocadora", b =>
+                {
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Cliente", "Cliente")
+                        .WithMany("Locadoras")
+                        .HasForeignKey("IdCliente")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_cliente_locadora_cliente");
+
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Empresa", "Empresa")
+                        .WithMany("Clientes")
+                        .HasForeignKey("IdEmpresa")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_cliente_locadora_empresa");
+
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Funcionario", "FuncionarioVerificador")
+                        .WithMany()
+                        .HasForeignKey("IdFuncionarioVerificador")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_cliente_locadora_funcionario");
+
+                    b.Navigation("Cliente");
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("FuncionarioVerificador");
+                });
+
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.CobrancaExtra", b =>
                 {
                     b.HasOne("AutoVia.Core.Entities.PgSql.Locacao", "Locacao")
@@ -1830,6 +1934,8 @@ namespace AutoVia.Infrastructure.Migrations
                 {
                     b.Navigation("Locacoes");
 
+                    b.Navigation("Locadoras");
+
                     b.Navigation("Reservas");
 
                     b.Navigation("Vendas");
@@ -1837,6 +1943,8 @@ namespace AutoVia.Infrastructure.Migrations
 
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Empresa", b =>
                 {
+                    b.Navigation("Clientes");
+
                     b.Navigation("Funcionarios");
 
                     b.Navigation("Veiculos");

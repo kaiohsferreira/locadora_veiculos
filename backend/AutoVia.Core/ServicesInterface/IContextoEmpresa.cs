@@ -16,6 +16,9 @@ namespace AutoVia.Core.ServicesInterface
         /// <summary>Id do funcionario autenticado; 0 quando nao ha contexto.</summary>
         int IdFuncionario { get; }
 
+        /// <summary>Id do cliente autenticado (perfil CLIENTE); 0 quando o token nao e de cliente.</summary>
+        int IdCliente { get; }
+
         /// <summary>Cargo do funcionario autenticado; nulo quando nao ha contexto.</summary>
         CargoFuncionario? Cargo { get; }
 
@@ -27,5 +30,8 @@ namespace AutoVia.Core.ServicesInterface
 
         /// <summary>Define o contexto da requisicao com os valores lidos do banco. Chamado uma vez, na validacao do token.</summary>
         void Definir(int idEmpresa, int idFuncionario, CargoFuncionario cargo, bool empresaOperadora);
+
+        /// <summary>Define o cliente da requisicao com o id conferido no banco. Chamado na validacao do token, no ramo CLIENTE.</summary>
+        void DefinirCliente(int idCliente);
     }
 }

@@ -79,5 +79,8 @@ namespace AutoVia.Core.Entities.PgSql
         public virtual List<Reserva> Reservas { get; set; } = new List<Reserva>();
         public virtual List<Locacao> Locacoes { get; set; } = new List<Locacao>();
         public virtual List<Venda> Vendas { get; set; } = new List<Venda>();
+
+        /// <summary>Vinculos com as locadoras (aprovacao do cadastro por locadora). Filtrados pelo contexto de cada locadora.</summary>
+        public virtual List<ClienteLocadora> Locadoras { get; set; } = new List<ClienteLocadora>();
     }
 }

@@ -21,6 +21,7 @@ namespace AutoVia.Tests.Clientes
         private const string TabelaReserva = "reserva";
         private const string TabelaLocacao = "locacao";
         private const string TabelaVenda = "venda";
+        private const string TabelaClienteLocadora = "cliente_locadora";
         private const string ClienteAtivoSql = "disabled_at";
         private const string DisabledAtNulo = "disabled_at IS NULL";
 
@@ -49,10 +50,23 @@ namespace AutoVia.Tests.Clientes
         {
             string sql = SqlDaConsulta(EmpresaConsultada, EmpresaConsultada);
 
-            Assert.Equal(3, CountOcorrencias(sql, ExistsSql));
+            Assert.Equal(4, CountOcorrencias(sql, ExistsSql));
             Assert.Contains(TabelaReserva, sql);
             Assert.Contains(TabelaLocacao, sql);
             Assert.Contains(TabelaVenda, sql);
+            Assert.Contains(TabelaClienteLocadora, sql);
+        }
+
+        /// <summary>O vinculo cliente x locadora conta em qualquer status (PENDENTE, APROVADO ou RECUSADO): a subconsulta nao filtra status.</summary>
+        [Fact]
+        public void Consulta_VinculoClienteLocadoraContaEmQualquerStatus()
+        {
+            string sql = SqlDaConsulta(EmpresaConsultada, EmpresaConsultada);
+
+            string subconsultaDoVinculo = sql.Split(ExistsSql).Skip(1).Single(trecho => trecho.Contains(TabelaClienteLocadora));
+
+            Assert.DoesNotContain("status", subconsultaDoVinculo, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains(DisabledAtNulo, subconsultaDoVinculo);
         }
 
         [Fact]
@@ -88,7 +102,7 @@ namespace AutoVia.Tests.Clientes
 
             List<string> subconsultas = sql.Split(ExistsSql).Skip(1).ToList();
 
-            Assert.Equal(3, subconsultas.Count);
+            Assert.Equal(4, subconsultas.Count);
             foreach (string subconsulta in subconsultas)
             {
                 Assert.Contains(DisabledAtNulo, subconsulta);

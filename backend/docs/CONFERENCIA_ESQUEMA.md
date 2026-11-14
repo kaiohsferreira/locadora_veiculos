@@ -130,3 +130,14 @@ Aprovado pelo Kaio em 13/11/2026 (bloco `empresa_locadora` em `especificacao/des
 - **Dados da empresa inicial são PROVISÓRIOS** (razão social "AutoVia (empresa inicial)", CNPJ `00000000000000`, demais campos "a definir"/valores válidos). Estão em constantes no topo da migration e devem ser trocados pelos reais antes de aplicar.
 - **`docs/sql/00_ModeloAtual.sql` foi regenerado.** A versão anterior estava defasada: não tinha `redefinicao_senha`, `cliente.google_sub` nem os índices `idx_redefinicao_token` e `idx_cliente_google_sub` (desvio de 12/11). A nova versão traz tudo isso mais a empresa.
 - Resultado do `compare_schema.py` depois do desvio de 13/11: `Tabelas: especificacao=16 gerado=18`, `CHECK: 32 -> 34`, `FK: 22 -> 26`, `Indices: 26 -> 32`, `Diferencas: 21`. As 21 diferenças são só os itens dos desvios de 12/11 (`redefinicao_senha`, `cliente.google_sub` e seus índices e FKs) e de 13/11 (`empresa`, `id_empresa`, FKs, índices e CHECK de cargo). O script ainda não lê as entradas `tabelas_novas` e `colunas_novas` dos blocos de desvio, por isso lista esses itens como sobra. Ajustar o script é um passo à parte.
+
+## Desvio de 14/11/2026: aprovação do cadastro por locadora (T-BE-05)
+
+Aprovado pelo Kaio em 14/11/2026 (bloco `cliente_locadora` em `especificacao/desvios_aprovados.json`):
+- Tabela nova `cliente_locadora`: um vínculo por par cliente x locadora, com `status` (PENDENTE, APROVADO ou RECUSADO; enum gravado como texto, CHECK `ck_cliente_locadora_status`), `justificativa_recusa` (motivo interno da recusa), `id_funcionario_verificador`, `data_solicitacao` e `data_verificacao`. Colunas de auditoria do `BaseEntities`.
+- FKs `fk_cliente_locadora_cliente`, `fk_cliente_locadora_empresa` e `fk_cliente_locadora_funcionario`, todas NO ACTION.
+- Índices comuns, sem UNIQUE: `idx_cliente_locadora_empresa_cliente` e `idx_cliente_locadora_cliente`. A unicidade do vínculo ativo de menor id fica no serviço (T-BE-06).
+- `cliente.status_cadastro` fica congelada: o cadastro continua gravando PENDENTE, nenhum código novo a lê ou atualiza, e não há migração destrutiva.
+- Migration `20261114202316_AdicionarClienteLocadora`: gerada, não aplicada. Depois da `AdicionarEmpresaLocadora` (11). Preenche um vínculo por par (cliente ativo com status APROVADO ou RECUSADO, locadora) com reserva, locação ou venda ativa em veículo dela, com o mesmo status global do cliente. Cliente PENDENTE não ganha vínculo (RF-83, decisão do QA de 14/11); verificador e justificativa ficam nulos. Script `sql/12_AdicionarClienteLocadora.sql`.
+
+Contagens que o `SchemaModelTests` passa a conferir: tabelas 18 -> 19, CHECK 34 -> 35, +3 FKs, +2 índices comuns, +11 colunas (8 de negócio e 3 de auditoria), UNIQUE 0 (inalterado).

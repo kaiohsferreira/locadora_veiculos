@@ -35,6 +35,15 @@ namespace AutoVia.Infrastructure.Persistence
             }
         }
 
+        /// <summary>Id do cliente do contexto da requisicao (0 = sem cliente). Lido pelo filtro "Empresa" do vinculo cliente x locadora.</summary>
+        public int IdClienteContexto
+        {
+            get
+            {
+                return _contextoEmpresa.IdCliente;
+            }
+        }
+
         // --- Locadora (multi-locadora, T-BE-03a): empresa cadastrada na plataforma ---
         public DbSet<Empresa> Empresas { get; set; } = null!;
 
@@ -42,6 +51,9 @@ namespace AutoVia.Infrastructure.Persistence
         public DbSet<Cliente> Clientes { get; set; } = null!;
         public DbSet<Funcionario> Funcionarios { get; set; } = null!;
         public DbSet<Categoria> Categorias { get; set; } = null!;
+
+        // --- Aprovacao do cadastro do cliente por locadora (cliente_locadora, T-BE-05) ---
+        public DbSet<ClienteLocadora> ClientesLocadoras { get; set; } = null!;
 
         // --- Acesso: recuperacao de senha (RF-49) ---
         public DbSet<RedefinicaoSenha> RedefinicaoSenhas { get; set; } = null!;

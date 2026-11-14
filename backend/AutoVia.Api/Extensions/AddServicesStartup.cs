@@ -22,6 +22,7 @@ namespace AutoVia.Api.Extensions
 
             // --- Cliente ---
             services.AddScoped<IClienteService, ClienteService>();
+            services.AddScoped<IClienteLocadoraService, ClienteLocadoraService>();
 
             // --- Locadora (cadastro publico, P10-BE-01) ---
             services.AddScoped<IEmpresaService, EmpresaService>();

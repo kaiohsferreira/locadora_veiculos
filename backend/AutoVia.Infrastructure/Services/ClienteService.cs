@@ -49,6 +49,15 @@ namespace AutoVia.Infrastructure.Services
                 int total = await _clienteRepository.CountAsync(idEmpresa, filtro.Status);
                 List<Cliente> clientes = await _clienteRepository.FindAllAsync(idEmpresa, filtro.Status, filtro.Deslocamento, filtro.TamanhoPagina);
                 List<ReturnClienteVO> itens = _mapper.Map<List<ReturnClienteVO>>(clientes);
+
+                if (!PodeVerCnhCompleta())
+                {
+                    foreach (ReturnClienteVO item in itens)
+                    {
+                        item.CnhNumero = StaticMethods.MascararCnh(item.CnhNumero);
+                    }
+                }
+
                 PaginaVO<ReturnClienteVO> pagina = new PaginaVO<ReturnClienteVO>(itens, total, filtro.Pagina, filtro.TamanhoPagina);
 
                 return pagina;
@@ -84,6 +93,11 @@ namespace AutoVia.Infrastructure.Services
                 }
 
                 ReturnClienteVO retorno = _mapper.Map<ReturnClienteVO>(cliente);
+
+                if (!PodeVerCnhCompleta())
+                {
+                    retorno.CnhNumero = StaticMethods.MascararCnh(retorno.CnhNumero);
+                }
 
                 return retorno;
             }
@@ -233,6 +247,17 @@ namespace AutoVia.Infrastructure.Services
                 _logService.Write(ex, ConstantsMessage.ErroVerificarCadastroCliente, GetType().ToString());
                 throw;
             }
+        }
+
+        /// <summary>
+        /// CNH completa so para quem verifica cadastro (ATENDENTE ou ADMINISTRADOR). Os demais cargos veem a CNH mascarada
+        /// no servidor (T-BE-06). Sem cargo no contexto, a CNH nao e completa.
+        /// </summary>
+        private bool PodeVerCnhCompleta()
+        {
+            CargoFuncionario? cargo = _contextoEmpresa.Cargo;
+
+            return cargo == CargoFuncionario.ATENDENTE || cargo == CargoFuncionario.ADMINISTRADOR;
         }
 
         /// <summary>CPF gravado e consultado so com digitos (com ou sem mascara na entrada).</summary>

@@ -6,8 +6,10 @@ using AutoVia.Communication.ViewObjects.Clientes;
 using AutoVia.Communication.ViewObjects.Utils;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Profiles;
+using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
+using AutoVia.Tests.ClienteLocadora;
 using AutoVia.Tests.Fakes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -314,8 +316,11 @@ namespace AutoVia.Tests.Api
             MapperConfiguration configuracao = new MapperConfiguration(cfg => cfg.AddProfile<ClienteProfile>(), NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
             FakeLogService logService = new FakeLogService();
-            ClienteService servico = new ClienteService(repositorio, new FakeSenhaHasher(), mapper, logService, ContextoEmpresaDeTeste.Criar(EmpresaDoContexto));
-            ClienteController controller = new ClienteController(servico, logService);
+            IContextoEmpresa contextoEmpresa = ContextoEmpresaDeTeste.Criar(EmpresaDoContexto);
+            ClienteService servico = new ClienteService(repositorio, new FakeSenhaHasher(), mapper, logService, contextoEmpresa);
+            FakeClienteLocadoraRepository repositorioLocadora = new FakeClienteLocadoraRepository(contextoEmpresa, new ArmazenamentoClienteLocadora());
+            ClienteLocadoraService servicoLocadora = new ClienteLocadoraService(repositorioLocadora, contextoEmpresa, new FakeRelogio(DateTime.Now), mapper, logService);
+            ClienteController controller = new ClienteController(servico, servicoLocadora, logService);
 
             return controller;
         }

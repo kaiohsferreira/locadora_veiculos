@@ -24,7 +24,8 @@ namespace AutoVia.Core.Profiles
                 .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
                 .ForMember(dest => dest.DisabledAt, opt => opt.Ignore())
                 .ForMember(dest => dest.Funcionarios, opt => opt.Ignore())
-                .ForMember(dest => dest.Veiculos, opt => opt.Ignore());
+                .ForMember(dest => dest.Veiculos, opt => opt.Ignore())
+                .ForMember(dest => dest.Clientes, opt => opt.Ignore());
 
             // VO de entrada -> funcionario responsavel. Cargo, matricula, senha (hash), ativo e data de admissao
             // sao definidos no servico; id, empresa e auditoria nao vem do VO.

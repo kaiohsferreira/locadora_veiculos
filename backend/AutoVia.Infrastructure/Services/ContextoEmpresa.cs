@@ -25,6 +25,9 @@ namespace AutoVia.Infrastructure.Services
         /// <summary>Id do funcionario autenticado; 0 quando nao ha contexto.</summary>
         public int IdFuncionario { get; private set; }
 
+        /// <summary>Id do cliente autenticado (perfil CLIENTE); 0 quando o token nao e de cliente.</summary>
+        public int IdCliente { get; private set; }
+
         /// <summary>Cargo do funcionario autenticado; nulo quando nao ha contexto.</summary>
         public CargoFuncionario? Cargo { get; private set; }
 
@@ -50,10 +53,39 @@ namespace AutoVia.Infrastructure.Services
                     throw new InvalidOperationException(ConstantsMessage.ErroDefinirContextoEmpresa);
                 }
 
+                if (IdCliente > 0)
+                {
+                    throw new InvalidOperationException(ConstantsMessage.ErroContextoMisto);
+                }
+
                 IdEmpresa = idEmpresa;
                 IdFuncionario = idFuncionario;
                 Cargo = cargo;
                 EmpresaOperadora = empresaOperadora;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroDefinirContextoEmpresa, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Define o cliente da requisicao com o id conferido no banco. Recusa id de cliente nao positivo.</summary>
+        public void DefinirCliente(int idCliente)
+        {
+            try
+            {
+                if (idCliente <= 0)
+                {
+                    throw new InvalidOperationException(ConstantsMessage.ErroDefinirContextoEmpresa);
+                }
+
+                if (IdEmpresa > 0)
+                {
+                    throw new InvalidOperationException(ConstantsMessage.ErroContextoMisto);
+                }
+
+                IdCliente = idCliente;
             }
             catch (Exception ex)
             {

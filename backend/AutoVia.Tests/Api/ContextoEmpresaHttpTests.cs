@@ -54,6 +54,7 @@ namespace AutoVia.Tests.Api
             Assert.Equal(fabrica.AdminOperadora.IdFuncionario, corpo.GetProperty("idFuncionario").GetInt32());
             Assert.Equal(CargoFuncionario.ADMINISTRADOR.ToString(), corpo.GetProperty("cargo").GetString());
             Assert.True(corpo.GetProperty("empresaOperadora").GetBoolean());
+            Assert.Equal(0, corpo.GetProperty("idCliente").GetInt32());
         }
 
         [Fact]
@@ -69,6 +70,24 @@ namespace AutoVia.Tests.Api
             JsonElement corpo = await LerJsonAsync(resposta);
             Assert.Equal(fabrica.EmpresaComum.IdEmpresa, corpo.GetProperty("idEmpresa").GetInt32());
             Assert.False(corpo.GetProperty("empresaOperadora").GetBoolean());
+            Assert.Equal(0, corpo.GetProperty("idCliente").GetInt32());
+        }
+
+        [Fact]
+        public async Task Contexto_ClienteValido_PreencheIdClienteEDeixaEmpresaZerada()
+        {
+            using ContextoEmpresaWebFactory fabrica = new ContextoEmpresaWebFactory();
+            using HttpClient cliente = fabrica.CreateClient();
+            string token = TokenDeCliente(fabrica);
+
+            HttpResponseMessage resposta = await cliente.SendAsync(Requisicao(HttpMethod.Get, RotaContexto, token));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(fabrica.Repositorio.Clientes[0].IdCliente, corpo.GetProperty("idCliente").GetInt32());
+            Assert.Equal(0, corpo.GetProperty("idEmpresa").GetInt32());
+            Assert.Equal(0, corpo.GetProperty("idFuncionario").GetInt32());
+            Assert.Equal(JsonValueKind.Null, corpo.GetProperty("cargo").ValueKind);
         }
 
         [Fact]
@@ -84,6 +103,7 @@ namespace AutoVia.Tests.Api
             JsonElement corpo = await LerJsonAsync(resposta);
             Assert.Equal(0, corpo.GetProperty("idEmpresa").GetInt32());
             Assert.Equal(0, corpo.GetProperty("idFuncionario").GetInt32());
+            Assert.Equal(fabrica.Repositorio.Clientes[0].IdCliente, corpo.GetProperty("idCliente").GetInt32());
             Assert.Equal(JsonValueKind.Null, corpo.GetProperty("cargo").ValueKind);
             Assert.False(corpo.GetProperty("empresaOperadora").GetBoolean());
         }
@@ -510,7 +530,8 @@ namespace AutoVia.Tests.Api
                 idEmpresa = _contextoEmpresa.IdEmpresa,
                 idFuncionario = _contextoEmpresa.IdFuncionario,
                 cargo = _contextoEmpresa.Cargo?.ToString(),
-                empresaOperadora = _contextoEmpresa.EmpresaOperadora
+                empresaOperadora = _contextoEmpresa.EmpresaOperadora,
+                idCliente = _contextoEmpresa.IdCliente
             });
         }
 

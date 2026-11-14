@@ -86,6 +86,14 @@ namespace AutoVia.Api.Extensions
                     policy.AddRequirements(new RequisitoOperadora());
                 });
 
+                // Verificacao do cadastro do cliente pela locadora (T-BE-06): ATENDENTE ou ADMINISTRADOR da locadora do contexto.
+                options.AddPolicy(ConstantsValues.PoliticaVerificadorCadastro, policy =>
+                {
+                    policy.RequireAuthenticatedUser();
+                    policy.RequireRole(nameof(PerfilUsuario.FUNCIONARIO));
+                    policy.AddRequirements(new RequisitoVerificadorCadastro());
+                });
+
                 // Rota sem nenhuma declaracao exige usuario autenticado (o teste de guarda AutorizacaoRotasTests reprova rota sem declaracao).
                 options.FallbackPolicy = new AuthorizationPolicyBuilder()
                     .RequireAuthenticatedUser()
@@ -97,6 +105,7 @@ namespace AutoVia.Api.Extensions
             // Handlers das politicas por empresa: Scoped, porque leem o IContextoEmpresa da requisicao.
             services.AddScoped<IAuthorizationHandler, AutorizacaoAdministradorHandler>();
             services.AddScoped<IAuthorizationHandler, AutorizacaoOperadoraHandler>();
+            services.AddScoped<IAuthorizationHandler, AutorizacaoVerificadorCadastroHandler>();
 
             return services;
         }
@@ -156,7 +165,8 @@ namespace AutoVia.Api.Extensions
         /// Conferencia de sessao depois da assinatura: sub numerico, role conhecida e sv presente, e
         /// ISessaoService confirma conta ativa e versao atual. Para FUNCIONARIO (v3), a claim emp e
         /// obrigatoria e precisa bater com a empresa do banco; o contexto de empresa e preenchido com os
-        /// valores do banco. Qualquer recusa ou excecao vira 401 (fail-closed).
+        /// valores do banco. Para CLIENTE, o id conferido vai para o IContextoEmpresa (IdCliente) e a empresa fica zerada.
+        /// Qualquer recusa ou excecao vira 401 (fail-closed).
         /// </summary>
         private static async Task ValidarSessaoAsync(TokenValidatedContext contexto)
         {
@@ -206,6 +216,12 @@ namespace AutoVia.Api.Extensions
                     {
                         contexto.Fail(ConstantsMessage.ErroSessaoInvalida);
                     }
+                }
+                else if (perfil == PerfilUsuario.CLIENTE)
+                {
+                    // SessaoValidaAsync acabou de conferir no banco que a conta do cliente esta ativa; o id vai para o contexto.
+                    IContextoEmpresa contextoEmpresa = contexto.HttpContext.RequestServices.GetRequiredService<IContextoEmpresa>();
+                    contextoEmpresa.DefinirCliente(idUsuario);
                 }
             }
             catch (Exception ex)

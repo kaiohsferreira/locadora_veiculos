@@ -29,12 +29,13 @@ namespace AutoVia.Infrastructure.Repositories
         }
 
         /// <summary>
-        /// Consulta dos clientes ativos com vinculo com a empresa (RF-59): ao menos uma reserva, locacao OU venda em
-        /// veiculo da empresa. Cliente e global, entao nao ha filtro "Empresa" na propria entidade: o escopo e este
-        /// EXISTS explicito. Reserva, Locacao e Venda ja tem o filtro global "Empresa", que entra em cada subconsulta
+        /// Consulta dos clientes ativos com vinculo com a empresa (RF-59, T-BE-06): ao menos uma reserva, locacao OU venda
+        /// em veiculo da empresa, OU um vinculo ativo em cliente_locadora com a empresa (qualquer status, inclusive
+        /// PENDENTE e RECUSADO). Cliente e global, entao nao ha filtro "Empresa" na propria entidade: o escopo e estes
+        /// EXISTS explicitos. Reserva, Locacao e Venda ja tem o filtro global "Empresa", que entra em cada subconsulta
         /// com o mesmo id do contexto; a condicao explicita repete esse valor (sem anular nem somar outra regra).
-        /// Cada subconsulta so conta registro ativo (DisabledAt nulo): reserva, locacao ou venda excluida logicamente
-        /// nao gera vinculo. Status cancelado continua contando (o cliente ja negociou com a locadora).
+        /// Cada subconsulta so conta registro ativo (DisabledAt nulo): reserva, locacao, venda ou vinculo excluido
+        /// logicamente nao gera vinculo. Status cancelado continua contando (o cliente ja negociou com a locadora).
         /// Id nao positivo gera a condicao falsa (fail-closed). Sem rastreamento.
         /// </summary>
         public IQueryable<Cliente> ConsultaDeClientesDaEmpresa(int idEmpresa)
@@ -47,7 +48,8 @@ namespace AutoVia.Infrastructure.Repositories
                         && idEmpresa > 0
                         && (_db.Reservas.Any(r => r.DisabledAt == null && r.IdCliente == x.IdCliente && r.Veiculo.IdEmpresa == idEmpresa)
                             || _db.Locacoes.Any(l => l.DisabledAt == null && l.IdCliente == x.IdCliente && l.Veiculo.IdEmpresa == idEmpresa)
-                            || _db.Vendas.Any(v => v.DisabledAt == null && v.IdCliente == x.IdCliente && v.Veiculo.IdEmpresa == idEmpresa)));
+                            || _db.Vendas.Any(v => v.DisabledAt == null && v.IdCliente == x.IdCliente && v.Veiculo.IdEmpresa == idEmpresa)
+                            || _db.ClientesLocadoras.Any(vinculo => vinculo.DisabledAt == null && vinculo.IdCliente == x.IdCliente && vinculo.IdEmpresa == idEmpresa)));
 
                 return consulta;
             }

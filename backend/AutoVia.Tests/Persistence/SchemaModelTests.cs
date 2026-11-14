@@ -27,7 +27,9 @@ namespace AutoVia.Tests.Persistence
             // Desvio aprovado em 12/11/2026 (RF-49): link de recuperacao de senha.
             "redefinicao_senha",
             // Desvio aprovado em 13/11/2026 (multi-locadora): tabela empresa.
-            "empresa"
+            "empresa",
+            // Desvio aprovado em 14/11/2026 (aprovacao do cadastro por locadora): vinculo cliente x locadora.
+            "cliente_locadora"
         };
 
         private static readonly string[] TabelasIntegracao = new string[] { "integration", "integration_setting" };
@@ -48,7 +50,9 @@ namespace AutoVia.Tests.Persistence
             // Desvio aprovado em 12/11/2026 (RF-49 e RF-51): indices comuns, sem UNIQUE.
             "idx_redefinicao_token", "idx_cliente_google_sub",
             // Desvio aprovado em 13/11/2026 (multi-locadora): indices comuns, sem UNIQUE.
-            "idx_empresa_cnpj", "idx_empresa_email", "idx_funcionario_empresa", "idx_veiculo_empresa"
+            "idx_empresa_cnpj", "idx_empresa_email", "idx_funcionario_empresa", "idx_veiculo_empresa",
+            // Desvio aprovado em 14/11/2026 (aprovacao por locadora): indices comuns, sem UNIQUE.
+            "idx_cliente_locadora_empresa_cliente", "idx_cliente_locadora_cliente"
         };
 
         /// <summary>
@@ -75,7 +79,7 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
-        public void Modelo_TemExatamenteAs18TabelasDaEspecificacaoMaisODesvios()
+        public void Modelo_TemExatamenteAs19TabelasDaEspecificacaoMaisODesvios()
         {
             IModel model = BuildModel();
 
@@ -160,13 +164,102 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
-        public void Modelo_TemAs34RestricoesCheckDaEspecificacaoMaisODesvios()
+        public void Modelo_TemAs35RestricoesCheckDaEspecificacaoMaisODesvios()
         {
             IModel model = BuildModel();
 
             int totalChecks = model.GetEntityTypes().SelectMany(x => x.GetCheckConstraints()).Count();
 
-            Assert.Equal(34, totalChecks);
+            Assert.Equal(35, totalChecks);
+        }
+
+        [Fact]
+        public void ClienteLocadora_TemAsColunasTiposENulabilidadeDoDesvio()
+        {
+            IModel model = BuildModel();
+            StoreObjectIdentifier table = StoreObjectIdentifier.Table("cliente_locadora", null);
+            IEntityType entity = model.GetEntityTypes().Single(x => x.GetTableName() == "cliente_locadora");
+
+            Dictionary<string, string> tiposEsperados = new Dictionary<string, string>
+            {
+                ["id_cliente_locadora"] = "integer",
+                ["id_cliente"] = "integer",
+                ["id_empresa"] = "integer",
+                ["status"] = "character varying(15)",
+                ["justificativa_recusa"] = "character varying(500)",
+                ["id_funcionario_verificador"] = "integer",
+                ["data_solicitacao"] = "timestamp without time zone",
+                ["data_verificacao"] = "timestamp without time zone",
+                ["created_at"] = "timestamp without time zone",
+                ["updated_at"] = "timestamp without time zone",
+                ["disabled_at"] = "timestamp without time zone"
+            };
+
+            List<string> colunas = entity.GetProperties().Select(x => x.GetColumnName(table)!).OrderBy(x => x).ToList();
+            Assert.Equal(tiposEsperados.Keys.OrderBy(x => x).ToList(), colunas);
+
+            List<string> anulaveisEsperadas = new List<string> { "justificativa_recusa", "id_funcionario_verificador", "data_verificacao", "disabled_at" };
+            foreach (IProperty propriedade in entity.GetProperties())
+            {
+                string coluna = propriedade.GetColumnName(table)!;
+                Assert.Equal(tiposEsperados[coluna], propriedade.GetColumnType(table));
+
+                bool anulavelEsperado = anulaveisEsperadas.Contains(coluna);
+                Assert.Equal(anulavelEsperado, propriedade.IsNullable);
+            }
+        }
+
+        [Fact]
+        public void ClienteLocadora_TemOCheckDeStatusDoCadastro()
+        {
+            IModel model = BuildModel();
+            IEntityType entity = model.GetEntityTypes().Single(x => x.GetTableName() == "cliente_locadora");
+
+            List<ICheckConstraint> checks = entity.GetCheckConstraints().ToList();
+
+            Assert.Single(checks);
+            Assert.Equal("ck_cliente_locadora_status", checks[0].Name);
+            Assert.Equal("status IN ('PENDENTE', 'APROVADO', 'RECUSADO')", checks[0].Sql);
+        }
+
+        [Fact]
+        public void ClienteLocadora_TemTresFksNoActionEChavePrimariaComNomePadrao()
+        {
+            IModel model = BuildModel();
+            IEntityType entity = model.GetEntityTypes().Single(x => x.GetTableName() == "cliente_locadora");
+
+            Dictionary<string, Type> fksEsperadas = new Dictionary<string, Type>
+            {
+                ["fk_cliente_locadora_cliente"] = typeof(Cliente),
+                ["fk_cliente_locadora_empresa"] = typeof(Empresa),
+                ["fk_cliente_locadora_funcionario"] = typeof(Funcionario)
+            };
+
+            List<IForeignKey> fks = entity.GetForeignKeys().ToList();
+            Assert.Equal(fksEsperadas.Count, fks.Count);
+
+            foreach (KeyValuePair<string, Type> esperada in fksEsperadas)
+            {
+                IForeignKey fk = fks.Single(x => x.GetConstraintName() == esperada.Key);
+
+                Assert.Equal(esperada.Value, fk.PrincipalEntityType.ClrType);
+                Assert.Equal(DeleteBehavior.NoAction, fk.DeleteBehavior);
+            }
+
+            Assert.Equal("cliente_locadora_pkey", entity.FindPrimaryKey()!.GetName());
+        }
+
+        [Fact]
+        public void ClienteLocadora_TemDoisIndicesComunsENenhumUnico()
+        {
+            IModel model = BuildModel();
+            IEntityType entity = model.GetEntityTypes().Single(x => x.GetTableName() == "cliente_locadora");
+
+            List<string> nomes = entity.GetIndexes().Select(x => x.GetDatabaseName()!).OrderBy(x => x).ToList();
+            List<string> esperados = new List<string> { "idx_cliente_locadora_cliente", "idx_cliente_locadora_empresa_cliente" };
+
+            Assert.Equal(esperados, nomes);
+            Assert.All(entity.GetIndexes(), indice => Assert.False(indice.IsUnique));
         }
 
         [Fact]

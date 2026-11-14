@@ -11,14 +11,15 @@ namespace AutoVia.Infrastructure.Persistence
     /// registrado UMA vez, pelo AutoViaDbContext.OnModelCreating (metodo abaixo). Caminhos: Veiculo e
     /// Funcionario pela propria coluna id_empresa; Reserva, Locacao, Venda, Manutencao, Seguro e
     /// Sinistro pelo Veiculo; Vistoria e CobrancaExtra pela Locacao; Avaria pela Vistoria; Pagamento
-    /// pela Locacao ou pela Venda. Fail-closed: sem contexto de empresa (id 0) nada volta.
+    /// pela Locacao ou pela Venda; ClienteLocadora pelo proprio id_empresa OU pelo id_cliente do contexto.
+    /// Fail-closed: sem contexto de empresa (id 0) nada volta.
     /// Globais sem filtro: Cliente, Categoria, RedefinicaoSenha, Integration*, Empresa.
     /// Bypass declarado so em SemEscopoEmpresa, nas listas fechadas de arquivos da guarda de testes.
     /// </summary>
     public partial class AutoViaDbContext
     {
         /// <summary>
-        /// Registra o filtro "Empresa" nas 12 entidades que pertencem a uma locadora. As expressoes leem
+        /// Registra o filtro "Empresa" nas 13 entidades que pertencem a uma locadora (ClienteLocadora tem a condicao dupla: locadora ou cliente). As expressoes leem
         /// IdEmpresaContexto de ESTA instancia (this): o EF troca o this pelo contexto que executa a consulta,
         /// por isso o filtro nao pode capturar outra instancia nem uma variavel local.
         /// </summary>
@@ -73,6 +74,13 @@ namespace AutoVia.Infrastructure.Persistence
                 x => IdEmpresaContexto > 0
                     && ((x.Locacao != null && x.Locacao.Veiculo.IdEmpresa == IdEmpresaContexto)
                         || (x.Venda != null && x.Venda.Veiculo.IdEmpresa == IdEmpresaContexto)));
+
+            // Vinculo cliente x locadora: a locadora ve o seu par (id_empresa) e o cliente ve o seu (id_cliente).
+            // Cada ramo so vale com o id do seu proprio contexto; sem nenhum dos dois, nada volta (fail-closed).
+            modelBuilder.Entity<ClienteLocadora>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => (IdEmpresaContexto > 0 && x.IdEmpresa == IdEmpresaContexto)
+                    || (IdClienteContexto > 0 && x.IdCliente == IdClienteContexto));
         }
     }
 

@@ -103,6 +103,26 @@ CREATE TABLE funcionario (
 );
 
 
+CREATE TABLE cliente_locadora (
+    id_cliente_locadora serial NOT NULL,
+    id_cliente integer NOT NULL,
+    id_empresa integer NOT NULL,
+    status character varying(15) NOT NULL DEFAULT 'PENDENTE',
+    justificativa_recusa character varying(500),
+    id_funcionario_verificador integer,
+    data_solicitacao timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    data_verificacao timestamp without time zone,
+    created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    disabled_at timestamp without time zone,
+    CONSTRAINT cliente_locadora_pkey PRIMARY KEY (id_cliente_locadora),
+    CONSTRAINT ck_cliente_locadora_status CHECK (status IN ('PENDENTE', 'APROVADO', 'RECUSADO')),
+    CONSTRAINT fk_cliente_locadora_cliente FOREIGN KEY (id_cliente) REFERENCES cliente (id_cliente),
+    CONSTRAINT fk_cliente_locadora_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id_empresa),
+    CONSTRAINT fk_cliente_locadora_funcionario FOREIGN KEY (id_funcionario_verificador) REFERENCES funcionario (id_funcionario)
+);
+
+
 CREATE TABLE veiculo (
     id_veiculo serial NOT NULL,
     id_categoria integer NOT NULL,
@@ -380,6 +400,12 @@ CREATE INDEX idx_cliente_cpf ON cliente (cpf);
 
 
 CREATE INDEX idx_cliente_google_sub ON cliente (google_sub);
+
+
+CREATE INDEX idx_cliente_locadora_cliente ON cliente_locadora (id_cliente);
+
+
+CREATE INDEX idx_cliente_locadora_empresa_cliente ON cliente_locadora (id_empresa, id_cliente);
 
 
 CREATE INDEX idx_empresa_cnpj ON empresa (cnpj);

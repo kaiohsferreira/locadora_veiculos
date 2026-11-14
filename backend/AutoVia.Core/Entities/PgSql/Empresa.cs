@@ -63,5 +63,8 @@ namespace AutoVia.Core.Entities.PgSql
         // --- Navegacao ---
         public virtual List<Funcionario> Funcionarios { get; set; } = new List<Funcionario>();
         public virtual List<Veiculo> Veiculos { get; set; } = new List<Veiculo>();
+
+        /// <summary>Vinculos com os clientes (aprovacao do cadastro por locadora).</summary>
+        public virtual List<ClienteLocadora> Clientes { get; set; } = new List<ClienteLocadora>();
     }
 }

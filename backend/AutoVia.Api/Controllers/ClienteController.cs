@@ -14,20 +14,23 @@ namespace AutoVia.Api.Controllers
 {
     /// <summary>
     /// Endpoints do cadastro do cliente (RF-07): cadastro publico (sem token), listagem
-    /// paginada e consulta por id para funcionario. Nao tem regra de negocio: a entrada
-    /// e validada pelo FluentValidation antes da action, a logica fica no IClienteService
-    /// e a resposta sai somente em VO. Erros viram ProblemDetails no ErrorHandlingMiddleware.
+    /// paginada, consulta por id para funcionario e verificacao do cadastro pela locadora
+    /// (T-BE-06). Nao tem regra de negocio: a entrada e validada pelo FluentValidation antes
+    /// da action, a logica fica nos servicos e a resposta sai somente em VO. Erros viram
+    /// ProblemDetails no ErrorHandlingMiddleware.
     /// </summary>
     [ApiController]
     [Route("api/clientes")]
     public class ClienteController : ControllerBase
     {
         private readonly IClienteService _clienteService;
+        private readonly IClienteLocadoraService _clienteLocadoraService;
         private readonly ILogService _logService;
 
-        public ClienteController(IClienteService clienteService, ILogService logService)
+        public ClienteController(IClienteService clienteService, IClienteLocadoraService clienteLocadoraService, ILogService logService)
         {
             _clienteService = clienteService;
+            _clienteLocadoraService = clienteLocadoraService;
             _logService = logService;
         }
 
@@ -65,7 +68,7 @@ namespace AutoVia.Api.Controllers
         }
 
         /// <summary>
-        /// GetAll - Lista os clientes ativos, paginados, com filtro opcional por status (PENDENTE, APROVADO, RECUSADO). Exige token de funcionario e so devolve clientes com reserva, locacao ou venda em veiculo da locadora do funcionario (total e pagina no mesmo escopo).
+        /// GetAll - Lista os clientes ativos, paginados, com filtro opcional por status (PENDENTE, APROVADO, RECUSADO). Exige token de funcionario e so devolve clientes com reserva, locacao, venda ou vinculo de cadastro com a locadora do funcionario (total e pagina no mesmo escopo). A CNH completa sai so para ATENDENTE e ADMINISTRADOR; outros cargos recebem a CNH mascarada.
         /// </summary>
         [HttpGet]
         [Authorize(Policy = ConstantsValues.PoliticaFuncionario)]
@@ -131,7 +134,7 @@ namespace AutoVia.Api.Controllers
         }
 
         /// <summary>
-        /// GetById - Consulta um cliente ativo pelo id. Exige token de funcionario. Desativado, inexistente ou sem reserva, locacao ou venda na locadora do funcionario conta como inexistente (404).
+        /// GetById - Consulta um cliente ativo pelo id. Exige token de funcionario. Desativado, inexistente ou sem reserva, locacao, venda ou vinculo de cadastro na locadora do funcionario conta como inexistente (404). A CNH completa sai so para ATENDENTE e ADMINISTRADOR; outros cargos recebem a CNH mascarada.
         /// </summary>
         [HttpGet("{id:int}")]
         [Authorize(Policy = ConstantsValues.PoliticaFuncionario)]
@@ -158,6 +161,42 @@ namespace AutoVia.Api.Controllers
             catch (Exception ex)
             {
                 _logService.Write(ex, ConstantsMessage.ErroBuscarCliente, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Verificacao - Registra a decisao da locadora sobre o cadastro do cliente (APROVADO ou RECUSADO). Exige token de
+        /// ATENDENTE ou ADMINISTRADOR da locadora. A justificativa e obrigatoria na recusa e fica interna. Devolve 204 sem
+        /// corpo. Cliente sem vinculo com a locadora do contexto devolve 404; cadastro ja aprovado devolve 409.
+        /// </summary>
+        [HttpPatch("{id:int}/verificacao")]
+        [Authorize(Policy = ConstantsValues.PoliticaVerificadorCadastro)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> Verificacao(int id, [FromBody] VerificacaoCadastroVO verificacaoVO)
+        {
+            try
+            {
+                await _clienteLocadoraService.DecidirAsync(id, verificacaoVO);
+
+                return NoContent();
+            }
+            catch (BusinessException)
+            {
+                throw;
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroDecidirCadastroCliente, GetType().ToString());
                 throw;
             }
         }
