@@ -79,7 +79,7 @@ namespace AutoVia.Infrastructure.Services
         {
             try
             {
-                ReturnLoginVO retorno = EmitirSessao(PerfilUsuario.CLIENTE, cliente.IdCliente, cliente.Nome, null, cliente.SenhaHash, lembrar);
+                ReturnLoginVO retorno = EmitirSessao(PerfilUsuario.CLIENTE, cliente.IdCliente, cliente.Nome, null, cliente.SenhaHash, lembrar, null);
                 retorno.StatusCadastro = cliente.StatusCadastro;
 
                 return retorno;
@@ -120,12 +120,16 @@ namespace AutoVia.Infrastructure.Services
                 throw new UnauthorizedException(ConstantsMessage.ErroCredenciaisInvalidas);
             }
 
-            ReturnLoginVO retorno = EmitirSessao(PerfilUsuario.CLIENTE, cliente.IdCliente, cliente.Nome, null, cliente.SenhaHash, lembrar);
+            ReturnLoginVO retorno = EmitirSessao(PerfilUsuario.CLIENTE, cliente.IdCliente, cliente.Nome, null, cliente.SenhaHash, lembrar, null);
             retorno.StatusCadastro = cliente.StatusCadastro;
 
             return retorno;
         }
 
+        /// <summary>
+        /// Login de funcionario: conta ativa e empresa ativa (v3). A empresa e conferida DEPOIS da senha,
+        /// com a mesma mensagem generica de todos os outros casos.
+        /// </summary>
         private async Task<ReturnLoginVO> LoginFuncionarioAsync(string cpf, string senha, bool lembrar)
         {
             Funcionario? funcionario = await _autenticacaoRepository.FindFuncionarioByCpfAsync(cpf);
@@ -136,22 +140,26 @@ namespace AutoVia.Infrastructure.Services
                 throw new UnauthorizedException(ConstantsMessage.ErroCredenciaisInvalidas);
             }
 
-            // A senha e conferida mesmo com Ativo = false: o tempo gasto nao revela o estado da conta.
+            // A senha e conferida mesmo com Ativo = false ou empresa inativa: o tempo gasto nao revela o estado da conta.
             bool senhaValida = VerificarSenha(senha, funcionario.SenhaHash);
+            Empresa? empresa = funcionario.Empresa;
 
-            if (!senhaValida || !funcionario.Ativo)
+            if (!senhaValida || !funcionario.Ativo || empresa == null || !empresa.Ativo || empresa.DisabledAt != null)
             {
                 throw new UnauthorizedException(ConstantsMessage.ErroCredenciaisInvalidas);
             }
 
-            ReturnLoginVO retorno = EmitirSessao(PerfilUsuario.FUNCIONARIO, funcionario.IdFuncionario, funcionario.Nome, funcionario.Cargo, funcionario.SenhaHash, lembrar);
+            ReturnLoginVO retorno = EmitirSessao(PerfilUsuario.FUNCIONARIO, funcionario.IdFuncionario, funcionario.Nome, funcionario.Cargo, funcionario.SenhaHash, lembrar, funcionario.IdEmpresa);
             retorno.Cargo = funcionario.Cargo;
+            retorno.IdEmpresa = funcionario.IdEmpresa;
+            retorno.EmpresaNomeFantasia = empresa.NomeFantasia;
+            retorno.EmpresaOperadora = empresa.Operadora;
 
             return retorno;
         }
 
-        /// <summary>Emite o token com a versao da sessao (sv) calculada a partir da senha_hash atual. Sem senha_hash, recusa.</summary>
-        private ReturnLoginVO EmitirSessao(PerfilUsuario perfil, int idUsuario, string nome, CargoFuncionario? cargo, string? senhaHash, bool lembrar)
+        /// <summary>Emite o token com a versao da sessao (sv) calculada a partir da senha_hash atual, e a empresa (emp) para funcionario. Sem senha_hash, recusa.</summary>
+        private ReturnLoginVO EmitirSessao(PerfilUsuario perfil, int idUsuario, string nome, CargoFuncionario? cargo, string? senhaHash, bool lembrar, int? idEmpresa)
         {
             if (string.IsNullOrWhiteSpace(senhaHash))
             {
@@ -159,7 +167,7 @@ namespace AutoVia.Infrastructure.Services
             }
 
             string versaoSessao = _tokenService.CalcularVersaoSessao(senhaHash);
-            TokenGeradoVO token = _tokenService.GerarToken(perfil, idUsuario, nome, cargo, versaoSessao, lembrar);
+            TokenGeradoVO token = _tokenService.GerarToken(perfil, idUsuario, nome, cargo, versaoSessao, lembrar, idEmpresa);
 
             return MontarRetorno(token, perfil, idUsuario, nome);
         }

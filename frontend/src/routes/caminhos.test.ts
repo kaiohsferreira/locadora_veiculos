@@ -91,3 +91,29 @@ describe('obterCaminhoRetorno: estado sem retorno', () => {
     expect(obterCaminhoRetorno(undefined)).toBe(CAMINHOS.inicio);
   });
 });
+
+describe('CAMINHOS: telas do cadastro de locadora e do back office', () => {
+  it('monta os caminhos novos e não tem caminho separado para o tipo de conta (ele é /cadastro)', () => {
+    expect(CAMINHOS).not.toHaveProperty('cadastroTipoDeConta');
+    expect(CAMINHOS.cadastroLocadoraEmpresa).toBe('/cadastro/locadora/empresa');
+    expect(CAMINHOS.cadastroLocadoraResponsavel).toBe('/cadastro/locadora/responsavel');
+    expect(CAMINHOS.cadastroLocadoraConfirmacao).toBe('/cadastro/locadora/confirmacao');
+    expect(CAMINHOS.visaoGeral).toBe('/back-office/visao-geral');
+    expect(CAMINHOS.equipe).toBe('/back-office/equipe');
+  });
+
+  it('mantém o cadastro do cliente e o início do back office como estavam', () => {
+    expect(CAMINHOS.cadastro).toBe('/cadastro');
+    expect(CAMINHOS.cadastroDadosPessoais).toBe('/cadastro/dados-pessoais');
+    expect(CAMINHOS.frota).toBe('/back-office/frota');
+  });
+
+  it('nenhum caminho se repete e os do back office ficam sob /back-office', () => {
+    const valores = Object.values(CAMINHOS);
+
+    expect(new Set(valores).size).toBe(valores.length);
+    for (const caminho of [CAMINHOS.visaoGeral, CAMINHOS.equipe]) {
+      expect(caminho.startsWith(`${CAMINHOS.backOffice}/`)).toBe(true);
+    }
+  });
+});

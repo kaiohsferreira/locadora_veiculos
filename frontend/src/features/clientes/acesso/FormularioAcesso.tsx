@@ -215,7 +215,7 @@ export function FormularioAcesso({ perfilInicial, enviando, erroEnvio, aoEnviar 
           <p>
             {ACESSO_PERGUNTA_SEM_CONTA}{' '}
             <Link
-              to={CAMINHOS.cadastroDadosPessoais}
+              to={CAMINHOS.cadastro}
               className="ml-1 rounded font-semibold text-status-pendente decoration-2 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-steel"
             >
               {ACESSO_LINK_CRIAR_CONTA}

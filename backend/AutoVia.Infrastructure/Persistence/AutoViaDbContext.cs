@@ -1,4 +1,5 @@
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.ServicesInterface;
 using AutoVia.Integrations.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
@@ -7,19 +8,35 @@ namespace AutoVia.Infrastructure.Persistence
 {
     /// <summary>
     /// Contexto unico do banco da AutoVia: as 14 tabelas de negocio (Apendice A),
-    /// a tabela redefinicao_senha (desvio de 12/11/2026, RF-49) e as 2 tabelas da
-    /// biblioteca de integracoes (Apendice B).
+    /// a tabela redefinicao_senha (desvio de 12/11/2026, RF-49), a tabela empresa (multi-locadora,
+    /// T-BE-03a) e as 2 tabelas da biblioteca de integracoes (Apendice B).
     ///
     /// O esquema nasce daqui (code-first). Cada entidade tem a sua classe
     /// IEntityTypeConfiguration em Persistence/Configurations, aplicada por
-    /// ApplyConfigurationsFromAssembly.
+    /// ApplyConfigurationsFromAssembly. O isolamento por locadora e o filtro global
+    /// nomeado "Empresa" (EscopoEmpresa.cs), que le IdEmpresaContexto deste contexto.
     /// </summary>
-    public class AutoViaDbContext : DbContext
+    public partial class AutoViaDbContext : DbContext
     {
-        public AutoViaDbContext(DbContextOptions<AutoViaDbContext> options)
+        private readonly IContextoEmpresa _contextoEmpresa;
+
+        public AutoViaDbContext(DbContextOptions<AutoViaDbContext> options, IContextoEmpresa contextoEmpresa)
             : base(options)
         {
+            _contextoEmpresa = contextoEmpresa;
         }
+
+        /// <summary>Id da empresa do contexto da requisicao (0 = sem contexto: o filtro "Empresa" nao devolve nada).</summary>
+        public int IdEmpresaContexto
+        {
+            get
+            {
+                return _contextoEmpresa.IdEmpresa;
+            }
+        }
+
+        // --- Locadora (multi-locadora, T-BE-03a): empresa cadastrada na plataforma ---
+        public DbSet<Empresa> Empresas { get; set; } = null!;
 
         // --- Cadastros basicos ---
         public DbSet<Cliente> Clientes { get; set; } = null!;
@@ -70,6 +87,9 @@ namespace AutoVia.Infrastructure.Persistence
             modelBuilder.UseSerialColumns();
 
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(AutoViaDbContext).Assembly);
+
+            // Isolamento por locadora: filtro global nomeado "Empresa" (ver EscopoEmpresa.cs).
+            AplicarEscopoEmpresa(modelBuilder);
         }
     }
 }

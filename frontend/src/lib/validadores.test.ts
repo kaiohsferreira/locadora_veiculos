@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   calcularIdade,
+  ehCnpjValido,
   ehCpfValido,
   ehDataIsoFutura,
   ehDataIsoPassada,
@@ -89,5 +90,28 @@ describe('ehDataIsoFutura e ehDataIsoPassada', () => {
   it('data inválida não é futura nem passada', () => {
     expect(ehDataIsoFutura('2025-02-29', HOJE)).toBe(false);
     expect(ehDataIsoPassada('2025-02-29', HOJE)).toBe(false);
+  });
+});
+
+describe('ehCnpjValido', () => {
+  it('aceita CNPJ com e sem máscara quando os dois dígitos verificadores conferem', () => {
+    expect(ehCnpjValido('11.222.333/0001-81')).toBe(true);
+    expect(ehCnpjValido('11222333000181')).toBe(true);
+  });
+
+  it('rejeita CNPJ com o dígito verificador errado (o primeiro ou o segundo)', () => {
+    expect(ehCnpjValido('11.222.333/0001-82')).toBe(false);
+    expect(ehCnpjValido('11.222.333/0001-91')).toBe(false);
+  });
+
+  it('rejeita tamanho diferente de 14 dígitos', () => {
+    expect(ehCnpjValido('')).toBe(false);
+    expect(ehCnpjValido('1122233300018')).toBe(false);
+    expect(ehCnpjValido('112223330001811')).toBe(false);
+  });
+
+  it('rejeita sequências repetidas, mesmo que os dígitos batam', () => {
+    expect(ehCnpjValido('00000000000000')).toBe(false);
+    expect(ehCnpjValido('11111111111111')).toBe(false);
   });
 });

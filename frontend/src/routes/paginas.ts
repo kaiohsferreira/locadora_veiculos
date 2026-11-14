@@ -23,7 +23,15 @@ export const MinhasReservasPagina = lazy(() => import('@/features/area-cliente/p
 export const MinhasLocacoesPagina = lazy(() => import('@/features/area-cliente/pages/MinhasLocacoesPagina'));
 export const PagamentosFaturasPagina = lazy(() => import('@/features/financeiro/pages/PagamentosFaturasPagina'));
 
+// Cadastro de locadora (telas 35 a 38: P10-FE-01 e P10-FE-02)
+export const TipoContaPagina = lazy(() => import('@/features/locadoras/pages/TipoContaPagina'));
+export const CadastroLocadoraEmpresaPagina = lazy(() => import('@/features/locadoras/pages/CadastroLocadoraEmpresaPagina'));
+export const CadastroLocadoraResponsavelPagina = lazy(() => import('@/features/locadoras/pages/CadastroLocadoraResponsavelPagina'));
+export const CadastroLocadoraConfirmacaoPagina = lazy(() => import('@/features/locadoras/pages/CadastroLocadoraConfirmacaoPagina'));
+
 // Back office ---------------------------------------------------------------
+export const VisaoGeralPagina = lazy(() => import('@/features/visao-geral/pages/VisaoGeralPagina'));
+export const EquipePagina = lazy(() => import('@/features/equipe/pages/EquipePagina'));
 export const PainelFrotaPagina = lazy(() => import('@/features/frota/pages/PainelFrotaPagina'));
 export const ListagemFrotaPagina = lazy(() => import('@/features/frota/pages/ListagemFrotaPagina'));
 export const CadastroVeiculoPagina = lazy(() => import('@/features/frota/pages/CadastroVeiculoPagina'));

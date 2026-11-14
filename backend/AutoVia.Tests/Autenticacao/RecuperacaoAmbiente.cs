@@ -207,6 +207,11 @@ namespace AutoVia.Tests.Autenticacao
             return Task.FromResult(true);
         }
 
+        public Task<SessaoSituacaoVO> ObterSituacaoAsync(PerfilUsuario perfil, int idUsuario)
+        {
+            return Task.FromResult(new SessaoSituacaoVO { Ativo = true });
+        }
+
         public void Invalidar(PerfilUsuario perfil, int idUsuario)
         {
             Invalidacoes++;

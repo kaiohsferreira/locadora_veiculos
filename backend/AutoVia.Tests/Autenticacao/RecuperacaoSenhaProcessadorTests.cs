@@ -286,6 +286,38 @@ namespace AutoVia.Tests.Autenticacao
             Assert.Equal(funcionario.IdFuncionario, ambiente.Sessao.UltimoIdUsuario);
         }
 
+        /// <summary>Titular de empresa inativa (suspensa): a requisicao responde igual, mas nao gera link nem e-mail (espelha o login).</summary>
+        [Fact]
+        public async Task FuncionarioDeEmpresaInativa_RespostaIgual_NaoGeraLinkNemEnvia()
+        {
+            RecuperacaoAmbiente ambiente = new RecuperacaoAmbiente();
+            Funcionario funcionario = ambiente.AdicionarFuncionario(CpfFuncionario, EmailFuncionario, ambiente.Hasher.Hash(SenhaAntiga), true);
+            Empresa empresa = ambiente.Autenticacao.Empresas.Single(x => x.IdEmpresa == funcionario.IdEmpresa);
+            empresa.Ativo = false;
+
+            ReturnRecuperacaoSolicitadaVO retorno = await ambiente.Servico.SolicitarAsync(Solicitacao(PerfilUsuario.FUNCIONARIO, CpfFuncionario));
+            await ambiente.ProcessarPendentesAsync();
+
+            Assert.Equal(ConstantsMessage.InfoRecuperacaoSolicitada, retorno.Mensagem);
+            Assert.Empty(ambiente.Fila.Mensagens);
+            Assert.Empty(ambiente.Redefinicoes.Redefinicoes);
+        }
+
+        /// <summary>Titular de empresa desativada (disabled_at): mesmo tratamento da suspensa, sem link nem e-mail.</summary>
+        [Fact]
+        public async Task FuncionarioDeEmpresaDesativada_NaoGeraLinkNemEnvia()
+        {
+            RecuperacaoAmbiente ambiente = new RecuperacaoAmbiente();
+            Funcionario funcionario = ambiente.AdicionarFuncionario(CpfFuncionario, EmailFuncionario, ambiente.Hasher.Hash(SenhaAntiga), true);
+            Empresa empresa = ambiente.Autenticacao.Empresas.Single(x => x.IdEmpresa == funcionario.IdEmpresa);
+            empresa.Disable();
+
+            await ProcessarAsync(ambiente, PerfilUsuario.FUNCIONARIO, CpfFuncionario);
+
+            Assert.Empty(ambiente.Fila.Mensagens);
+            Assert.Empty(ambiente.Redefinicoes.Redefinicoes);
+        }
+
         /// <summary>Falha de banco no processamento: o erro sai para quem chama e o log traz so a mensagem generica, sem CPF.</summary>
         [Fact]
         public async Task FalhaDeBanco_RegistraLogSemDadoPessoalERepassaAExcecao()

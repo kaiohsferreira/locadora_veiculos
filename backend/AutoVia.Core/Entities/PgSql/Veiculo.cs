@@ -58,7 +58,12 @@ namespace AutoVia.Core.Entities.PgSql
         [Column("data_aquisicao")]
         public DateOnly? DataAquisicao { get; set; }
 
+        /// <summary>FK obrigatoria para empresa.id_empresa (fk_veiculo_empresa). Isolamento da locadora.</summary>
+        [Column("id_empresa")]
+        public int IdEmpresa { get; set; }
+
         // --- Navegacao ---
+        public virtual Empresa Empresa { get; set; } = null!;
         public virtual Categoria Categoria { get; set; } = null!;
         public virtual List<Reserva> Reservas { get; set; } = new List<Reserva>();
         public virtual List<Locacao> Locacoes { get; set; } = new List<Locacao>();

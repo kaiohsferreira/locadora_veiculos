@@ -1,7 +1,12 @@
+using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Helpers;
 using AutoVia.Infrastructure.Persistence;
+using AutoVia.Integrations.Entities;
+using AutoVia.Tests.Fakes;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 
@@ -20,7 +25,9 @@ namespace AutoVia.Tests.Persistence
             "cliente", "funcionario", "categoria", "veiculo", "reserva", "locacao", "vistoria",
             "avaria", "cobranca_extra", "venda", "pagamento", "manutencao", "seguro", "sinistro",
             // Desvio aprovado em 12/11/2026 (RF-49): link de recuperacao de senha.
-            "redefinicao_senha"
+            "redefinicao_senha",
+            // Desvio aprovado em 13/11/2026 (multi-locadora): tabela empresa.
+            "empresa"
         };
 
         private static readonly string[] TabelasIntegracao = new string[] { "integration", "integration_setting" };
@@ -39,7 +46,18 @@ namespace AutoVia.Tests.Persistence
             "idx_locacao_reserva", "idx_venda_veiculo", "idx_venda_numero_nota_fiscal",
             "idx_seguro_numero_apolice", "idx_integration_codigo",
             // Desvio aprovado em 12/11/2026 (RF-49 e RF-51): indices comuns, sem UNIQUE.
-            "idx_redefinicao_token", "idx_cliente_google_sub"
+            "idx_redefinicao_token", "idx_cliente_google_sub",
+            // Desvio aprovado em 13/11/2026 (multi-locadora): indices comuns, sem UNIQUE.
+            "idx_empresa_cnpj", "idx_empresa_email", "idx_funcionario_empresa", "idx_veiculo_empresa"
+        };
+
+        /// <summary>
+        /// Entidades SEM o filtro "Empresa" (lista fechada, multi-locadora): catalogo e dados globais da plataforma.
+        /// Qualquer entidade nova precisa de filtro "Empresa" ou entrar aqui, em revisao explicita.
+        /// </summary>
+        private static readonly string[] EntidadesGlobais = new string[]
+        {
+            nameof(Cliente), nameof(Categoria), nameof(RedefinicaoSenha), nameof(Empresa), nameof(Integration), nameof(IntegrationSetting)
         };
 
         private static IModel BuildModel()
@@ -48,7 +66,7 @@ namespace AutoVia.Tests.Persistence
                 .UseNpgsql("Host=localhost;Database=autovia_modelo_teste")
                 .Options;
 
-            using (AutoViaDbContext context = new AutoViaDbContext(options))
+            using (AutoViaDbContext context = new AutoViaDbContext(options, ContextoEmpresaDeTeste.Vazio()))
             {
                 // Modelo de design (o mesmo que gera as migrations): traz CHECK e
                 // nomes de indice, que o modelo de execucao nao guarda.
@@ -57,7 +75,7 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
-        public void Modelo_TemExatamenteAs17TabelasDaEspecificacaoMaisODesvio()
+        public void Modelo_TemExatamenteAs18TabelasDaEspecificacaoMaisODesvios()
         {
             IModel model = BuildModel();
 
@@ -142,13 +160,116 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
-        public void Modelo_TemAs33RestricoesCheckDaEspecificacaoMaisODesvio()
+        public void Modelo_TemAs34RestricoesCheckDaEspecificacaoMaisODesvios()
         {
             IModel model = BuildModel();
 
             int totalChecks = model.GetEntityTypes().SelectMany(x => x.GetCheckConstraints()).Count();
 
-            Assert.Equal(33, totalChecks);
+            Assert.Equal(34, totalChecks);
+        }
+
+        [Fact]
+        public void Empresa_TemAsColunasTiposENulabilidadeDoDesvio()
+        {
+            IModel model = BuildModel();
+            StoreObjectIdentifier table = StoreObjectIdentifier.Table("empresa", null);
+            IEntityType entity = model.GetEntityTypes().Single(x => x.GetTableName() == "empresa");
+
+            Dictionary<string, string> tiposEsperados = new Dictionary<string, string>
+            {
+                ["id_empresa"] = "integer",
+                ["razao_social"] = "character varying(150)",
+                ["nome_fantasia"] = "character varying(100)",
+                ["cnpj"] = "character(14)",
+                ["telefone"] = "character varying(20)",
+                ["email"] = "character varying(120)",
+                ["cep"] = "character(8)",
+                ["logradouro"] = "character varying(120)",
+                ["numero"] = "character varying(10)",
+                ["complemento"] = "character varying(60)",
+                ["bairro"] = "character varying(60)",
+                ["cidade"] = "character varying(60)",
+                ["uf"] = "character(2)",
+                ["ativo"] = "boolean",
+                ["operadora"] = "boolean",
+                ["created_at"] = "timestamp without time zone",
+                ["updated_at"] = "timestamp without time zone",
+                ["disabled_at"] = "timestamp without time zone"
+            };
+
+            List<string> colunas = entity.GetProperties().Select(x => x.GetColumnName(table)!).OrderBy(x => x).ToList();
+            Assert.Equal(tiposEsperados.Keys.OrderBy(x => x).ToList(), colunas);
+
+            List<string> anulaveisEsperadas = new List<string> { "complemento", "disabled_at" };
+            foreach (IProperty propriedade in entity.GetProperties())
+            {
+                string coluna = propriedade.GetColumnName(table)!;
+                Assert.Equal(tiposEsperados[coluna], propriedade.GetColumnType(table));
+
+                bool anulavelEsperado = anulaveisEsperadas.Contains(coluna);
+                Assert.Equal(anulavelEsperado, propriedade.IsNullable);
+            }
+        }
+
+        [Fact]
+        public void Empresa_TemOCheckDeCnpjComExatamente14Digitos()
+        {
+            IModel model = BuildModel();
+            IEntityType entity = model.GetEntityTypes().Single(x => x.GetTableName() == "empresa");
+
+            List<ICheckConstraint> checks = entity.GetCheckConstraints().ToList();
+
+            Assert.Single(checks);
+            Assert.Equal("ck_empresa_cnpj", checks[0].Name);
+            Assert.Equal("cnpj ~ '^[0-9]{14}$'", checks[0].Sql);
+        }
+
+        [Fact]
+        public void IdEmpresa_ObrigatorioComFkNoActionEmFuncionarioEVeiculo()
+        {
+            IModel model = BuildModel();
+            Dictionary<string, string> fksEsperadas = new Dictionary<string, string>
+            {
+                ["funcionario"] = "fk_funcionario_empresa",
+                ["veiculo"] = "fk_veiculo_empresa"
+            };
+
+            foreach (KeyValuePair<string, string> esperado in fksEsperadas)
+            {
+                IEntityType entity = model.GetEntityTypes().Single(x => x.GetTableName() == esperado.Key);
+                StoreObjectIdentifier table = StoreObjectIdentifier.Table(esperado.Key, null);
+                IProperty idEmpresa = entity.FindProperty("IdEmpresa")!;
+
+                Assert.Equal("id_empresa", idEmpresa.GetColumnName(table));
+                Assert.False(idEmpresa.IsNullable);
+
+                IForeignKey fk = entity.GetForeignKeys().Single(x => x.PrincipalEntityType.ClrType == typeof(Empresa));
+                Assert.Equal(esperado.Value, fk.GetConstraintName());
+                Assert.Equal(DeleteBehavior.NoAction, fk.DeleteBehavior);
+            }
+        }
+
+        [Fact]
+        public void CheckDeCargoDeFuncionario_AceitaAdministrador()
+        {
+            IModel model = BuildModel();
+            IEntityType funcionario = model.GetEntityTypes().Single(x => x.GetTableName() == "funcionario");
+
+            ICheckConstraint cargo = funcionario.GetCheckConstraints().Single(x => x.Name == "ck_funcionario_cargo");
+
+            Assert.Equal(
+                "cargo IN ('ATENDENTE', 'VENDEDOR', 'GESTOR_FROTA', 'FINANCEIRO', 'ADMINISTRATIVO', 'ADMINISTRADOR')",
+                cargo.Sql);
+        }
+
+        [Fact]
+        public void Administrador_EhOUltimoMembroDoEnumCargoFuncionario()
+        {
+            CargoFuncionario[] valores = Enum.GetValues<CargoFuncionario>();
+
+            Assert.Equal(CargoFuncionario.ADMINISTRADOR, valores[valores.Length - 1]);
+            Assert.Equal(CargoFuncionario.ATENDENTE, valores[0]);
         }
 
         [Fact]
@@ -254,6 +375,50 @@ namespace AutoVia.Tests.Persistence
             Assert.Equal("google_sub", googleSub.GetColumnName(table));
             Assert.Equal(255, googleSub.GetMaxLength());
             Assert.True(googleSub.IsNullable);
+        }
+
+        [Fact]
+        public void TodaEntidade_TemOFiltroEmpresaOuEstaNaListaDeGlobais()
+        {
+            IModel model = BuildModel();
+
+            List<string> semClassificacao = model.GetEntityTypes()
+                .Where(x => x.FindDeclaredQueryFilter(ConstantsValues.NomeFiltroEmpresa) == null)
+                .Select(x => x.ClrType.Name)
+                .Where(nome => !EntidadesGlobais.Contains(nome))
+                .OrderBy(x => x)
+                .ToList();
+
+            Assert.Empty(semClassificacao);
+        }
+
+        [Fact]
+        public void ListaDeGlobais_BateComAsEntidadesSemFiltroDeEmpresa()
+        {
+            IModel model = BuildModel();
+
+            List<string> semFiltro = model.GetEntityTypes()
+                .Where(x => x.FindDeclaredQueryFilter(ConstantsValues.NomeFiltroEmpresa) == null)
+                .Select(x => x.ClrType.Name)
+                .OrderBy(x => x)
+                .ToList();
+
+            Assert.Equal(EntidadesGlobais.OrderBy(x => x).ToList(), semFiltro);
+        }
+
+        [Fact]
+        public void Modelo_NaoGeraAvisoDeNavegacaoObrigatoriaComFiltro()
+        {
+            DbContextOptions<AutoViaDbContext> options = new DbContextOptionsBuilder<AutoViaDbContext>()
+                .UseNpgsql("Host=localhost;Database=autovia_modelo_teste")
+                .ConfigureWarnings(avisos => avisos.Throw(CoreEventId.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning))
+                .Options;
+
+            // O modelo de execucao e validado ao ser montado: um aviso vira excecao neste teste.
+            using AutoViaDbContext context = new AutoViaDbContext(options, ContextoEmpresaDeTeste.Vazio());
+            IModel model = context.Model;
+
+            Assert.NotNull(model);
         }
 
         [Fact]

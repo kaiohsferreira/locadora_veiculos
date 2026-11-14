@@ -383,3 +383,59 @@ describe('sessão vencida', () => {
     expect(ouvinte).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('campos da locadora (login de funcionário)', () => {
+  it('guarda e relê idEmpresa, empresaNomeFantasia e empresaOperadora (inclusive false)', async () => {
+    const usuario: UsuarioSessao = {
+      nome: 'Marina',
+      perfil: 'funcionario',
+      cargo: 'ADMINISTRADOR',
+      idEmpresa: 4,
+      empresaNomeFantasia: 'Rota Sul Locadora',
+      empresaOperadora: false,
+    };
+    sessao.salvarSessao('token-20', usuario);
+
+    const relido = await recarregarSessao();
+
+    expect(relido.obterUsuarioSessao()).toEqual(usuario);
+    expect(relido.obterUsuarioSessao()?.empresaOperadora).toBe(false);
+  });
+
+  it('sessão gravada sem os campos da locadora continua válida e não ganha os campos', async () => {
+    gravarSessaoCrua('token-21', { nome: 'Nico', perfil: 'funcionario', cargo: 'ATENDENTE', idUsuario: 9 });
+
+    const relido = await recarregarSessao();
+
+    expect(relido.obterToken()).toBe('token-21');
+    const usuario = relido.obterUsuarioSessao();
+    expect(usuario).toEqual({ nome: 'Nico', perfil: 'funcionario', cargo: 'ATENDENTE', idUsuario: 9 });
+    expect(usuario).not.toHaveProperty('idEmpresa');
+    expect(usuario).not.toHaveProperty('empresaNomeFantasia');
+    expect(usuario).not.toHaveProperty('empresaOperadora');
+  });
+
+  it('descarta campos da locadora com tipo errado sem invalidar a sessão', async () => {
+    gravarSessaoCrua('token-22', {
+      nome: 'Olga',
+      perfil: 'funcionario',
+      idEmpresa: '4',
+      empresaNomeFantasia: 42,
+      empresaOperadora: 'sim',
+    });
+
+    const relido = await recarregarSessao();
+
+    expect(relido.obterToken()).toBe('token-22');
+    expect(relido.obterUsuarioSessao()).toEqual({ nome: 'Olga', perfil: 'funcionario' });
+  });
+
+  it('descarta idEmpresa que não é inteiro', async () => {
+    gravarSessaoCrua('token-23', { nome: 'Pedro', perfil: 'funcionario', idEmpresa: 2.5 });
+
+    const relido = await recarregarSessao();
+
+    expect(relido.obterUsuarioSessao()).not.toHaveProperty('idEmpresa');
+    expect(relido.obterToken()).toBe('token-23');
+  });
+});

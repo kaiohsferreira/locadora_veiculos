@@ -27,6 +27,38 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Ultima entidade recebida por InsertAsync (a mesma referencia), para conferir a navegacao Categoria.</summary>
         public Veiculo? UltimoVeiculoInserido { get; private set; }
 
+        /// <summary>Locadoras que a consulta por id devolve na navegacao Empresa (como o Include do banco). A gravacao nao as preenche.</summary>
+        private readonly Dictionary<int, Empresa> _empresasDoBanco = new Dictionary<int, Empresa>();
+
+        /// <summary>Categorias que a consulta por id devolve na navegacao Categoria (como o Include do banco). A gravacao nao as preenche.</summary>
+        private readonly Dictionary<int, Categoria> _categoriasDoBanco = new Dictionary<int, Categoria>();
+
+        /// <summary>Cadastra a locadora que a consulta por id passa a devolver na navegacao Empresa.</summary>
+        public void RegistrarEmpresa(Empresa empresa)
+        {
+            _empresasDoBanco[empresa.IdEmpresa] = empresa;
+        }
+
+        /// <summary>Cadastra a categoria que a consulta por id passa a devolver na navegacao Categoria.</summary>
+        public void RegistrarCategoria(Categoria categoria)
+        {
+            _categoriasDoBanco[categoria.IdCategoria] = categoria;
+        }
+
+        /// <summary>Simula o Include da consulta por id: preenche Categoria e Empresa quando a copia ainda nao as tem.</summary>
+        private void CarregarNavegacoes(Veiculo veiculo)
+        {
+            if (veiculo.Categoria == null && _categoriasDoBanco.TryGetValue(veiculo.IdCategoria, out Categoria? categoria))
+            {
+                veiculo.Categoria = categoria;
+            }
+
+            if (veiculo.Empresa == null && _empresasDoBanco.TryGetValue(veiculo.IdEmpresa, out Empresa? empresa))
+            {
+                veiculo.Empresa = empresa;
+            }
+        }
+
         /// <summary>Busca um veiculo ativo pelo id; devolve copia (como AsNoTracking) ou null.</summary>
         public Task<Veiculo?> FindByIdAsync(int idVeiculo)
         {
@@ -41,6 +73,7 @@ namespace AutoVia.Tests.Fakes
             if (encontrado != null)
             {
                 copia = Copiar(encontrado);
+                CarregarNavegacoes(copia);
             }
 
             return Task.FromResult(copia);

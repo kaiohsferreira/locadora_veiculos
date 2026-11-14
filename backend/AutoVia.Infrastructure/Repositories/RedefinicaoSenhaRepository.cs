@@ -89,13 +89,19 @@ namespace AutoVia.Infrastructure.Repositories
         {
             try
             {
+                // Pre-autenticacao (redefinicao de senha sem token de sessao): o titular funcionario
+                // pode ser de qualquer empresa, por isso o escopo de empresa e desligado nesta leitura.
+                // A empresa do funcionario vem junto (Include) para o servico conferir se ela esta ativa (espelha o login).
                 RedefinicaoSenha? redefinicao = await _db.RedefinicaoSenhas
+                    .SemEscopoEmpresa()
                     .Include(x => x.Cliente)
                     .Include(x => x.Funcionario)
+                        .ThenInclude(f => f!.Empresa)
                     .Where(x => x.TokenHash == tokenHash
                         && x.DisabledAt == null
                         && ((x.Cliente != null && x.Cliente.DisabledAt == null)
-                            || (x.Funcionario != null && x.Funcionario.DisabledAt == null)))
+                            || (x.Funcionario != null && x.Funcionario.DisabledAt == null
+                                && x.Funcionario.Empresa.Ativo && x.Funcionario.Empresa.DisabledAt == null)))
                     .FirstOrDefaultAsync();
 
                 return redefinicao;

@@ -55,6 +55,16 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .HasConstraintName("fk_veiculo_categoria")
                 .OnDelete(DeleteBehavior.NoAction);
 
+            // --- Locadora (multi-locadora, T-BE-03a): cada veiculo pertence a uma empresa ---
+            builder.Property(x => x.IdEmpresa).IsRequired(true);
+            builder.HasIndex(x => x.IdEmpresa).HasDatabaseName("idx_veiculo_empresa");
+
+            builder.HasOne(x => x.Empresa)
+                .WithMany(x => x.Veiculos)
+                .HasForeignKey(x => x.IdEmpresa)
+                .HasConstraintName("fk_veiculo_empresa")
+                .OnDelete(DeleteBehavior.NoAction);
+
             // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
             builder.ConfigureBaseEntities();
         }

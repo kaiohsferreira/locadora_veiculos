@@ -28,14 +28,42 @@ namespace AutoVia.Infrastructure.Repositories
             _logService = logService;
         }
 
-        /// <summary>Lista os clientes ativos, com filtro de status opcional, ordenados por DataCadastro e IdCliente, paginados.</summary>
-        public async Task<List<Cliente>> FindAllAsync(StatusCadastroCliente? status, int deslocamento, int quantidade)
+        /// <summary>
+        /// Consulta dos clientes ativos com vinculo com a empresa (RF-59): ao menos uma reserva, locacao OU venda em
+        /// veiculo da empresa. Cliente e global, entao nao ha filtro "Empresa" na propria entidade: o escopo e este
+        /// EXISTS explicito. Reserva, Locacao e Venda ja tem o filtro global "Empresa", que entra em cada subconsulta
+        /// com o mesmo id do contexto; a condicao explicita repete esse valor (sem anular nem somar outra regra).
+        /// Cada subconsulta so conta registro ativo (DisabledAt nulo): reserva, locacao ou venda excluida logicamente
+        /// nao gera vinculo. Status cancelado continua contando (o cliente ja negociou com a locadora).
+        /// Id nao positivo gera a condicao falsa (fail-closed). Sem rastreamento.
+        /// </summary>
+        public IQueryable<Cliente> ConsultaDeClientesDaEmpresa(int idEmpresa)
         {
             try
             {
                 IQueryable<Cliente> consulta = _db.Clientes
                     .AsNoTracking()
-                    .Where(x => x.DisabledAt == null);
+                    .Where(x => x.DisabledAt == null
+                        && idEmpresa > 0
+                        && (_db.Reservas.Any(r => r.DisabledAt == null && r.IdCliente == x.IdCliente && r.Veiculo.IdEmpresa == idEmpresa)
+                            || _db.Locacoes.Any(l => l.DisabledAt == null && l.IdCliente == x.IdCliente && l.Veiculo.IdEmpresa == idEmpresa)
+                            || _db.Vendas.Any(v => v.DisabledAt == null && v.IdCliente == x.IdCliente && v.Veiculo.IdEmpresa == idEmpresa)));
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarCliente, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Lista os clientes ativos com vinculo com a empresa, com filtro de status opcional, ordenados por DataCadastro e IdCliente, paginados.</summary>
+        public async Task<List<Cliente>> FindAllAsync(int idEmpresa, StatusCadastroCliente? status, int deslocamento, int quantidade)
+        {
+            try
+            {
+                IQueryable<Cliente> consulta = ConsultaDeClientesDaEmpresa(idEmpresa);
 
                 if (status.HasValue)
                 {
@@ -58,14 +86,12 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        /// <summary>Conta os clientes ativos, com o mesmo filtro de status da listagem.</summary>
-        public async Task<int> CountAsync(StatusCadastroCliente? status)
+        /// <summary>Conta os clientes ativos com vinculo com a empresa, com o mesmo filtro de status da listagem.</summary>
+        public async Task<int> CountAsync(int idEmpresa, StatusCadastroCliente? status)
         {
             try
             {
-                IQueryable<Cliente> consulta = _db.Clientes
-                    .AsNoTracking()
-                    .Where(x => x.DisabledAt == null);
+                IQueryable<Cliente> consulta = ConsultaDeClientesDaEmpresa(idEmpresa);
 
                 if (status.HasValue)
                 {
@@ -83,14 +109,13 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        /// <summary>Busca um cliente ativo pelo id; null se nao existir ou estiver desativado.</summary>
-        public async Task<Cliente?> FindByIdAsync(int idCliente)
+        /// <summary>Busca um cliente ativo pelo id, somente se tiver vinculo com a empresa; null se nao existir, estiver desativado ou for de outra empresa.</summary>
+        public async Task<Cliente?> FindByIdAsync(int idEmpresa, int idCliente)
         {
             try
             {
-                Cliente? cliente = await _db.Clientes
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(x => x.IdCliente == idCliente && x.DisabledAt == null);
+                Cliente? cliente = await ConsultaDeClientesDaEmpresa(idEmpresa)
+                    .FirstOrDefaultAsync(x => x.IdCliente == idCliente);
 
                 return cliente;
             }

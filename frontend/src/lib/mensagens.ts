@@ -62,3 +62,6 @@ export * from './mensagensAcesso';
 export * from './mensagensCadastro';
 export * from './mensagensRecuperacao';
 export * from './mensagensGoogle';
+export * from './mensagensLocadora';
+export * from './mensagensEquipe';
+export * from './mensagensPainel';

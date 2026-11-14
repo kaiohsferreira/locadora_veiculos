@@ -55,15 +55,25 @@ namespace AutoVia.Infrastructure.Services
                     return false;
                 }
 
+                // O administrador inicial entra na empresa operadora (a empresa criada pela migration).
+                // Sem ela, nao cria funcionario sem empresa: falha com mensagem propria.
+                Empresa? operadora = await _autenticacaoRepository.FindEmpresaOperadoraAsync();
+
+                if (operadora == null)
+                {
+                    throw new InvalidOperationException(ConstantsMessage.ErroAdminInicialSemEmpresaOperadora);
+                }
+
                 Funcionario administrador = new Funcionario
                 {
                     Nome = _options.Nome.Trim(),
                     Cpf = cpf,
                     Matricula = _options.Matricula.Trim(),
-                    Cargo = CargoFuncionario.ADMINISTRATIVO,
+                    Cargo = CargoFuncionario.ADMINISTRADOR,
                     DataAdmissao = DateOnly.FromDateTime(DateTime.Now),
                     Ativo = true,
-                    SenhaHash = _senhaHasher.Hash(_options.Senha)
+                    SenhaHash = _senhaHasher.Hash(_options.Senha),
+                    IdEmpresa = operadora.IdEmpresa
                 };
 
                 await _autenticacaoRepository.InsertFuncionarioAsync(administrador);

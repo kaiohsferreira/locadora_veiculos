@@ -63,6 +63,36 @@ export function ehCpfValido(valor: string): boolean {
   );
 }
 
+const TAMANHO_CNPJ = 14;
+const REGEX_CNPJ_REPETIDO = /^(\d)\1{13}$/;
+const PESOS_CNPJ_PRIMEIRO_VERIFICADOR = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] as const;
+const PESOS_CNPJ_SEGUNDO_VERIFICADOR = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] as const;
+
+/** Dígito verificador do CNPJ pelos pesos informados (o resto menor que 2 vira 0). */
+function calcularDigitoCnpj(digitos: string, pesos: readonly number[]): number {
+  let soma = 0;
+  pesos.forEach((peso, indice) => {
+    soma += Number(digitos[indice]) * peso;
+  });
+  const resto = soma % 11;
+  return resto < 2 ? 0 : 11 - resto;
+}
+
+/**
+ * CNPJ com ou sem máscara. Exige 14 dígitos, rejeita sequências repetidas (11.111.111/1111-11) e confere
+ * os dois dígitos verificadores. Não consulta a Receita Federal: só confere a forma do número.
+ */
+export function ehCnpjValido(valor: string): boolean {
+  const digitos = somenteDigitos(valor);
+  if (digitos.length !== TAMANHO_CNPJ) return false;
+  if (REGEX_CNPJ_REPETIDO.test(digitos)) return false;
+
+  return (
+    calcularDigitoCnpj(digitos, PESOS_CNPJ_PRIMEIRO_VERIFICADOR) === Number(digitos[12]) &&
+    calcularDigitoCnpj(digitos, PESOS_CNPJ_SEGUNDO_VERIFICADOR) === Number(digitos[13])
+  );
+}
+
 /** "AAAA-MM-DD" que existe no calendário (ex.: 2024-02-29 vale; 2025-02-29 não). */
 export function ehDataIsoValida(valor: string): boolean {
   return lerDataIso(valor) !== null;

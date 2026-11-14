@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatarCep, formatarCpf, formatarTelefone, limitarDigitos } from '@/lib/formatters';
+import { formatarCep, formatarCnpj, formatarCpf, formatarTelefone, limitarDigitos } from '@/lib/formatters';
 
 describe('formatarCpf', () => {
   it('formata valor parcial enquanto o usuário digita', () => {
@@ -70,5 +70,30 @@ describe('limitarDigitos', () => {
     expect(limitarDigitos('abc', 5)).toBe('');
     expect(limitarDigitos('12345', 0)).toBe('');
     expect(limitarDigitos('12345', -3)).toBe('');
+  });
+});
+
+describe('formatarCnpj', () => {
+  it('formata valor parcial enquanto o usuário digita', () => {
+    expect(formatarCnpj('')).toBe('');
+    expect(formatarCnpj('11')).toBe('11');
+    expect(formatarCnpj('112')).toBe('11.2');
+    expect(formatarCnpj('11222')).toBe('11.222');
+    expect(formatarCnpj('11222333')).toBe('11.222.333');
+    expect(formatarCnpj('112223330001')).toBe('11.222.333/0001');
+  });
+
+  it('formata os 14 dígitos com pontos, barra e hífen', () => {
+    expect(formatarCnpj('11222333000181')).toBe('11.222.333/0001-81');
+  });
+
+  it('aceita o valor já mascarado (não duplica a máscara) e corta o excedente', () => {
+    expect(formatarCnpj('11.222.333/0001-81')).toBe('11.222.333/0001-81');
+    expect(formatarCnpj('11222333000181999')).toBe('11.222.333/0001-81');
+  });
+
+  it('nulo ou ausente vira o traço de valor ausente', () => {
+    expect(formatarCnpj(null)).toBe('—');
+    expect(formatarCnpj(undefined)).toBe('—');
   });
 });

@@ -11,6 +11,9 @@ namespace AutoVia.Tests.Fakes
     public partial class FakeVeiculoRepository : IVeiculoRepository
     {
         private readonly List<Veiculo> _veiculos = new List<Veiculo>();
+
+        /// <summary>Veiculos gravados (semeados e inseridos pelo servico), para os testes conferirem o que foi gravado.</summary>
+        public IReadOnlyList<Veiculo> Veiculos => _veiculos;
         private int _proximoId = 1;
 
         /// <summary>Semeia um veiculo (ativo ou desativado) sem passar pelo servico. Se o id for 0, gera um.</summary>
@@ -36,6 +39,7 @@ namespace AutoVia.Tests.Fakes
             {
                 IdVeiculo = origem.IdVeiculo,
                 IdCategoria = origem.IdCategoria,
+                IdEmpresa = origem.IdEmpresa,
                 Placa = origem.Placa,
                 Chassi = origem.Chassi,
                 Renavam = origem.Renavam,
@@ -52,7 +56,8 @@ namespace AutoVia.Tests.Fakes
                 CreatedAt = origem.CreatedAt,
                 UpdatedAt = origem.UpdatedAt,
                 DisabledAt = origem.DisabledAt,
-                Categoria = origem.Categoria
+                Categoria = origem.Categoria,
+                Empresa = origem.Empresa
             };
 
             return copia;

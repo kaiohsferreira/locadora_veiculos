@@ -74,6 +74,37 @@ namespace AutoVia.Tests.Frota
             Assert.Null(retorno.DataAquisicao);
         }
 
+        [Fact]
+        public void LocadoraDaNavegacao_VaiParaONomeCidadeEUfDoRetorno()
+        {
+            IMapper mapper = CriarMapper();
+            Veiculo veiculo = new Veiculo
+            {
+                IdVeiculo = 12,
+                Placa = "LOC1A23",
+                Empresa = new Empresa { IdEmpresa = 2, NomeFantasia = "Rota Sul", Cidade = "Campinas", Uf = "SP" }
+            };
+
+            ReturnVeiculoVO retorno = mapper.Map<ReturnVeiculoVO>(veiculo);
+
+            Assert.Equal("Rota Sul", retorno.LocadoraNomeFantasia);
+            Assert.Equal("Campinas", retorno.LocadoraCidade);
+            Assert.Equal("SP", retorno.LocadoraUf);
+        }
+
+        [Fact]
+        public void SemNavegacaoDeEmpresa_CamposDaLocadoraVaoVazios()
+        {
+            IMapper mapper = CriarMapper();
+            Veiculo veiculo = new Veiculo { IdVeiculo = 13, Placa = "SEM1A23" };
+
+            ReturnVeiculoVO retorno = mapper.Map<ReturnVeiculoVO>(veiculo);
+
+            Assert.Equal(string.Empty, retorno.LocadoraNomeFantasia);
+            Assert.Equal(string.Empty, retorno.LocadoraCidade);
+            Assert.Equal(string.Empty, retorno.LocadoraUf);
+        }
+
         private static IMapper CriarMapper()
         {
             MapperConfiguration configuracao = new MapperConfiguration(cfg => cfg.AddProfile<VeiculoProfile>(), NullLoggerFactory.Instance);

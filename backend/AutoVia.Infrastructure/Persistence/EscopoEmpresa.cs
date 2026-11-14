@@ -1,0 +1,100 @@
+using AutoVia.Core.Entities.PgSql;
+using AutoVia.Helpers;
+using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace AutoVia.Infrastructure.Persistence
+{
+    /// <summary>
+    /// Isolamento por locadora (multi-locadora, T-BE-03b): o filtro global nomeado "Empresa" e
+    /// registrado UMA vez, pelo AutoViaDbContext.OnModelCreating (metodo abaixo). Caminhos: Veiculo e
+    /// Funcionario pela propria coluna id_empresa; Reserva, Locacao, Venda, Manutencao, Seguro e
+    /// Sinistro pelo Veiculo; Vistoria e CobrancaExtra pela Locacao; Avaria pela Vistoria; Pagamento
+    /// pela Locacao ou pela Venda. Fail-closed: sem contexto de empresa (id 0) nada volta.
+    /// Globais sem filtro: Cliente, Categoria, RedefinicaoSenha, Integration*, Empresa.
+    /// Bypass declarado so em SemEscopoEmpresa, nas listas fechadas de arquivos da guarda de testes.
+    /// </summary>
+    public partial class AutoViaDbContext
+    {
+        /// <summary>
+        /// Registra o filtro "Empresa" nas 12 entidades que pertencem a uma locadora. As expressoes leem
+        /// IdEmpresaContexto de ESTA instancia (this): o EF troca o this pelo contexto que executa a consulta,
+        /// por isso o filtro nao pode capturar outra instancia nem uma variavel local.
+        /// </summary>
+        private void AplicarEscopoEmpresa(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Veiculo>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0 && x.IdEmpresa == IdEmpresaContexto);
+
+            modelBuilder.Entity<Funcionario>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0 && x.IdEmpresa == IdEmpresaContexto);
+
+            modelBuilder.Entity<Reserva>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0 && x.Veiculo.IdEmpresa == IdEmpresaContexto);
+
+            modelBuilder.Entity<Locacao>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0 && x.Veiculo.IdEmpresa == IdEmpresaContexto);
+
+            modelBuilder.Entity<Venda>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0 && x.Veiculo.IdEmpresa == IdEmpresaContexto);
+
+            modelBuilder.Entity<Manutencao>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0 && x.Veiculo.IdEmpresa == IdEmpresaContexto);
+
+            modelBuilder.Entity<Seguro>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0 && x.Veiculo.IdEmpresa == IdEmpresaContexto);
+
+            modelBuilder.Entity<Sinistro>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0 && x.Veiculo.IdEmpresa == IdEmpresaContexto);
+
+            modelBuilder.Entity<Vistoria>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0 && x.Locacao.Veiculo.IdEmpresa == IdEmpresaContexto);
+
+            modelBuilder.Entity<CobrancaExtra>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0 && x.Locacao.Veiculo.IdEmpresa == IdEmpresaContexto);
+
+            modelBuilder.Entity<Avaria>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0 && x.Vistoria.Locacao.Veiculo.IdEmpresa == IdEmpresaContexto);
+
+            modelBuilder.Entity<Pagamento>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0
+                    && ((x.Locacao != null && x.Locacao.Veiculo.IdEmpresa == IdEmpresaContexto)
+                        || (x.Venda != null && x.Venda.Veiculo.IdEmpresa == IdEmpresaContexto)));
+        }
+    }
+
+    /// <summary>Extensoes do isolamento por locadora: bypass nomeado e restricao de catalogo.</summary>
+    public static class EscopoEmpresa
+    {
+        /// <summary>
+        /// Bypass nomeado: desliga SO o filtro "Empresa" desta consulta. Uso restrito aos arquivos da
+        /// lista fechada da guarda de testes (login, sessao, recuperacao de senha, unicidade de veiculo).
+        /// </summary>
+        public static IQueryable<TEntidade> SemEscopoEmpresa<TEntidade>(this IQueryable<TEntidade> consulta)
+            where TEntidade : class
+        {
+            List<string> filtrosIgnorados = new List<string> { ConstantsValues.NomeFiltroEmpresa };
+
+            return consulta.IgnoreQueryFilters(filtrosIgnorados);
+        }
+
+        /// <summary>Restringe os veiculos as locadoras ativas (empresa ativa e nao desativada). Usado pelo catalogo publico.</summary>
+        public static IQueryable<Veiculo> ApenasEmpresasAtivas(this IQueryable<Veiculo> consulta)
+        {
+            return consulta.Where(x => x.Empresa.Ativo && x.Empresa.DisabledAt == null);
+        }
+    }
+}

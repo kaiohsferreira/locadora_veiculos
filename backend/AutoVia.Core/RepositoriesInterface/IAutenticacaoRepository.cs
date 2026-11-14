@@ -14,14 +14,14 @@ namespace AutoVia.Core.RepositoriesInterface
         /// <summary>Busca o cliente ativo pelo id; nulo se nao existir. Sem rastreamento.</summary>
         Task<Cliente?> FindClienteByIdAsync(int idCliente);
 
-        /// <summary>Busca o funcionario ativo pelo CPF (somente digitos); nulo se nao existir. Sem rastreamento.</summary>
+        /// <summary>Busca o funcionario ativo pelo CPF (somente digitos), com a empresa; nulo se nao existir. Ignora o escopo de empresa (pre-autenticacao). Sem rastreamento.</summary>
         Task<Funcionario?> FindFuncionarioByCpfAsync(string cpf);
 
-        /// <summary>Busca o funcionario ativo pelo id (DisabledAt nulo); nulo se nao existir. A regra de Ativo fica no servico. Sem rastreamento.</summary>
+        /// <summary>Busca o funcionario ativo pelo id, com a empresa; nulo se nao existir. Ignora o escopo de empresa (validacao da sessao). Sem rastreamento.</summary>
         Task<Funcionario?> FindFuncionarioByIdAsync(int idFuncionario);
 
-        /// <summary>Indica se existe funcionario ativo com o CPF informado.</summary>
-        Task<bool> ExistsFuncionarioByCpfAsync(string cpf);
+        /// <summary>Busca a empresa operadora da plataforma (empresa inicial) ativa; nulo se nao existir. Sem rastreamento.</summary>
+        Task<Empresa?> FindEmpresaOperadoraAsync();
 
         /// <summary>Indica se existe funcionario com o CPF informado, ativo ou desativado (busca sem o filtro de DisabledAt). Usada pelo administrador inicial para nao recriar uma conta desativada.</summary>
         Task<bool> ExistsFuncionarioByCpfWithDisabledsAsync(string cpf);

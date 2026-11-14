@@ -279,6 +279,39 @@ namespace AutoVia.Tests.Autenticacao
             Assert.Equal(0, ambiente.Redefinicoes.Concluidas);
         }
 
+        /// <summary>Link ja emitido para titular cuja empresa foi suspensa depois do pedido: recusado com a mesma mensagem, sem trocar a senha.</summary>
+        [Fact]
+        public async Task LinkDeFuncionarioDeEmpresaInativa_EhRecusadoEnaoTrocaASenha()
+        {
+            RecuperacaoAmbiente ambiente = new RecuperacaoAmbiente();
+            Funcionario funcionario = ambiente.AdicionarFuncionario(CpfFuncionario, EmailFuncionario, ambiente.Hasher.Hash(SenhaAntiga), true);
+            string token = await ambiente.SolicitarEObterTokenAsync(PerfilUsuario.FUNCIONARIO, CpfFuncionario);
+            Empresa empresa = ambiente.Autenticacao.Empresas.Single(x => x.IdEmpresa == funcionario.IdEmpresa);
+            empresa.Ativo = false;
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => ambiente.Servico.RedefinirAsync(Redefinicao(token, SenhaNova)));
+
+            Assert.Equal(ConstantsMessage.ErroRedefinicaoLinkInvalido, excecao.Message);
+            Assert.Equal(0, ambiente.Redefinicoes.Concluidas);
+            Assert.Equal(ambiente.Hasher.Hash(SenhaAntiga), funcionario.SenhaHash);
+        }
+
+        /// <summary>Link ja emitido para titular cuja empresa foi desativada (disabled_at) depois do pedido: recusado com a mesma mensagem.</summary>
+        [Fact]
+        public async Task LinkDeFuncionarioDeEmpresaDesativada_EhRecusado()
+        {
+            RecuperacaoAmbiente ambiente = new RecuperacaoAmbiente();
+            Funcionario funcionario = ambiente.AdicionarFuncionario(CpfFuncionario, EmailFuncionario, ambiente.Hasher.Hash(SenhaAntiga), true);
+            string token = await ambiente.SolicitarEObterTokenAsync(PerfilUsuario.FUNCIONARIO, CpfFuncionario);
+            Empresa empresa = ambiente.Autenticacao.Empresas.Single(x => x.IdEmpresa == funcionario.IdEmpresa);
+            empresa.Disable();
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => ambiente.Servico.RedefinirAsync(Redefinicao(token, SenhaNova)));
+
+            Assert.Equal(ConstantsMessage.ErroRedefinicaoLinkInvalido, excecao.Message);
+            Assert.Equal(0, ambiente.Redefinicoes.Concluidas);
+        }
+
         /// <summary>Falha na gravacao da redefinicao: a sessao da conta NAO e derrubada, porque Invalidar so roda depois do commit.</summary>
         [Fact]
         public async Task FalhaNaGravacaoDaRedefinicao_NaoChamaInvalidar()

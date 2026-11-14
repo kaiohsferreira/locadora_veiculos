@@ -74,7 +74,7 @@ namespace AutoVia.Tests.Autenticacao
         {
             TokenService servico = new TokenService(OpcoesPadrao(), new FakeLogService());
 
-            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 42, "Maria Cliente", null, VersaoSessaoDeTeste, false);
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 42, "Maria Cliente", null, VersaoSessaoDeTeste, false, null);
             TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
 
             Assert.True(resultado.IsValid);
@@ -92,7 +92,7 @@ namespace AutoVia.Tests.Autenticacao
         {
             TokenService servico = new TokenService(OpcoesPadrao(), new FakeLogService());
 
-            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.FUNCIONARIO, 7, "Ana Funcionaria", CargoFuncionario.GESTOR_FROTA, VersaoSessaoDeTeste, false);
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.FUNCIONARIO, 7, "Ana Funcionaria", CargoFuncionario.GESTOR_FROTA, VersaoSessaoDeTeste, false, 1);
             TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
 
             Assert.True(resultado.IsValid);
@@ -101,11 +101,48 @@ namespace AutoVia.Tests.Autenticacao
         }
 
         [Fact]
+        public async Task GerarToken_Funcionario_IncluiClaimEmpresaComOIdDaEmpresa()
+        {
+            TokenService servico = new TokenService(OpcoesPadrao(), new FakeLogService());
+
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.FUNCIONARIO, 7, "Ana Funcionaria", CargoFuncionario.ADMINISTRADOR, VersaoSessaoDeTeste, false, 5);
+            TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
+
+            Assert.True(resultado.IsValid);
+            Assert.Equal("5", resultado.ClaimsIdentity.FindFirst(ConstantsValues.ClaimEmpresa)?.Value);
+            Assert.Equal("ADMINISTRADOR", resultado.ClaimsIdentity.FindFirst(ConstantsValues.ClaimCargo)?.Value);
+        }
+
+        [Fact]
+        public async Task GerarToken_Cliente_NaoIncluiClaimEmpresaMesmoComIdInformado()
+        {
+            TokenService servico = new TokenService(OpcoesPadrao(), new FakeLogService());
+
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 42, "Maria Cliente", null, VersaoSessaoDeTeste, false, 5);
+            TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
+
+            Assert.True(resultado.IsValid);
+            Assert.Null(resultado.ClaimsIdentity.FindFirst(ConstantsValues.ClaimEmpresa));
+        }
+
+        [Fact]
+        public async Task GerarToken_FuncionarioSemEmpresaInformada_NaoIncluiClaimEmpresa()
+        {
+            TokenService servico = new TokenService(OpcoesPadrao(), new FakeLogService());
+
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.FUNCIONARIO, 7, "Ana Funcionaria", CargoFuncionario.ATENDENTE, VersaoSessaoDeTeste, false, null);
+            TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
+
+            Assert.True(resultado.IsValid);
+            Assert.Null(resultado.ClaimsIdentity.FindFirst(ConstantsValues.ClaimEmpresa));
+        }
+
+        [Fact]
         public async Task IdaEVolta_NameIdentifierDoTokenEIgualAoIdDoUsuario()
         {
             TokenService servico = new TokenService(OpcoesPadrao(), new FakeLogService());
 
-            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.FUNCIONARIO, 1234, "Carlos", CargoFuncionario.ATENDENTE, VersaoSessaoDeTeste, false);
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.FUNCIONARIO, 1234, "Carlos", CargoFuncionario.ATENDENTE, VersaoSessaoDeTeste, false, 1);
             TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
 
             Assert.True(resultado.IsValid);
@@ -118,7 +155,7 @@ namespace AutoVia.Tests.Autenticacao
             TokenService servico = new TokenService(OpcoesPadrao(120), new FakeLogService());
             DateTime antes = DateTime.Now;
 
-            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null, VersaoSessaoDeTeste, false);
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null, VersaoSessaoDeTeste, false, null);
             DateTime depois = DateTime.Now;
             TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
 
@@ -135,7 +172,7 @@ namespace AutoVia.Tests.Autenticacao
             TokenService servico = new TokenService(OpcoesPadrao(120), new FakeLogService());
             DateTime antes = DateTime.Now;
 
-            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null, VersaoSessaoDeTeste, true);
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null, VersaoSessaoDeTeste, true, null);
             DateTime depois = DateTime.Now;
             TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
 
@@ -151,7 +188,7 @@ namespace AutoVia.Tests.Autenticacao
             TokenService servico = new TokenService(OpcoesPadrao(), new FakeLogService());
             string versao = servico.CalcularVersaoSessao(SenhaHashA);
 
-            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null, versao, false);
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null, versao, false, null);
             TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
 
             Assert.Equal(versao, resultado.ClaimsIdentity.FindFirst(ConstantsValues.ClaimVersaoSessao)?.Value);
@@ -199,7 +236,7 @@ namespace AutoVia.Tests.Autenticacao
             TokenService servico = new TokenService(OpcoesPadrao(), new FakeLogService());
             string outraChave = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
 
-            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null, VersaoSessaoDeTeste, false);
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null, VersaoSessaoDeTeste, false, null);
             TokenValidationResult resultado = await ValidarAsync(gerado.Token, outraChave);
 
             Assert.False(resultado.IsValid);
@@ -210,7 +247,7 @@ namespace AutoVia.Tests.Autenticacao
         {
             TokenService servico = new TokenService(OpcoesPadrao(-10), new FakeLogService());
 
-            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null, VersaoSessaoDeTeste, false);
+            TokenGeradoVO gerado = servico.GerarToken(PerfilUsuario.CLIENTE, 1, "Maria", null, VersaoSessaoDeTeste, false, null);
             TokenValidationResult resultado = await ValidarAsync(gerado.Token, ChaveDeTeste);
 
             Assert.False(resultado.IsValid);

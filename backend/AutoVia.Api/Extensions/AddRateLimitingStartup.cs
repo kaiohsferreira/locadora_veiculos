@@ -12,12 +12,13 @@ using System.Threading.Tasks;
 namespace AutoVia.Api.Extensions
 {
     /// <summary>
-    /// Limite de requisicoes das rotas publicas: janela fixa de um minuto por IP. Duas politicas
-    /// independentes, cada uma com o seu contador: AutoViaPublico (login, cadastro, recuperacao e
-    /// Google; numero em Autenticacao:LimitePublicoPorMinuto) e AutoViaVerificacaoCadastro
-    /// (verificacao de cadastro; numero em Clientes:LimiteVerificacaoCadastroPorMinuto). Um valor
-    /// menor ou igual a zero cai no padrao. Tambem configura os cabecalhos encaminhados pelo proxy
-    /// (Railway), para que o IP usado no limite seja o do cliente.
+    /// Limite de requisicoes das rotas publicas: janela fixa por IP. Tres politicas independentes, cada uma
+    /// com o seu contador: AutoViaPublico (login, cadastro, recuperacao e Google; um minuto; numero em
+    /// Autenticacao:LimitePublicoPorMinuto), AutoViaVerificacaoCadastro (verificacao de cadastro; um minuto;
+    /// numero em Clientes:LimiteVerificacaoCadastroPorMinuto) e AutoViaCadastroEmpresa (cadastro publico de
+    /// locadora; uma hora; numero em Locadoras:LimiteCadastroPorHora, padrao 5). Um valor menor ou igual a
+    /// zero cai no padrao. Tambem configura os cabecalhos encaminhados pelo proxy (Railway), para que o IP
+    /// usado no limite seja o do cliente.
     /// </summary>
     public static class AddRateLimitingStartup
     {
@@ -38,13 +39,15 @@ namespace AutoVia.Api.Extensions
             services.AddRateLimiter(options =>
             {
                 // Lidos quando o pipeline e montado (host ja com toda a configuracao aplicada).
-                int limitePublico = LerLimitePorMinuto(configuration, ConstantsValues.ChaveLimitePublico, ConstantsValues.LimitePublicoPorMinutoPadrao);
-                int limiteVerificacao = LerLimitePorMinuto(configuration, ConstantsValues.ChaveLimiteVerificacaoCadastro, ConstantsValues.LimiteVerificacaoCadastroPorMinutoPadrao);
+                int limitePublico = LerLimite(configuration, ConstantsValues.ChaveLimitePublico, ConstantsValues.LimitePublicoPorMinutoPadrao);
+                int limiteVerificacao = LerLimite(configuration, ConstantsValues.ChaveLimiteVerificacaoCadastro, ConstantsValues.LimiteVerificacaoCadastroPorMinutoPadrao);
+                int limiteCadastroEmpresa = LerLimite(configuration, ConstantsValues.ChaveLimiteCadastroPorHora, ConstantsValues.LimiteCadastroEmpresaPorHoraPadrao);
 
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-                RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimitePublico, limitePublico);
-                RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteVerificacaoCadastro, limiteVerificacao);
+                RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimitePublico, limitePublico, TimeSpan.FromMinutes(1));
+                RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteVerificacaoCadastro, limiteVerificacao, TimeSpan.FromMinutes(1));
+                RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteCadastroEmpresa, limiteCadastroEmpresa, TimeSpan.FromHours(1));
 
                 options.OnRejected = async (context, cancellationToken) =>
                 {
@@ -59,8 +62,8 @@ namespace AutoVia.Api.Extensions
             return services;
         }
 
-        /// <summary>Le o limite por minuto da chave informada; zero ou negativo cai no padrao informado.</summary>
-        private static int LerLimitePorMinuto(IConfiguration configuration, string chave, int padrao)
+        /// <summary>Le o limite da chave informada; zero ou negativo cai no padrao informado.</summary>
+        private static int LerLimite(IConfiguration configuration, string chave, int padrao)
         {
             int limite = configuration.GetValue<int>(chave, padrao);
 
@@ -72,8 +75,8 @@ namespace AutoVia.Api.Extensions
             return limite;
         }
 
-        /// <summary>Registra uma politica de janela fixa de um minuto, com contador separado por IP (desconhecido quando nao ha IP).</summary>
-        private static void RegistrarPoliticaPorIp(RateLimiterOptions options, string nomePolitica, int limite)
+        /// <summary>Registra uma politica de janela fixa (a janela informada), com contador separado por IP (desconhecido quando nao ha IP).</summary>
+        private static void RegistrarPoliticaPorIp(RateLimiterOptions options, string nomePolitica, int limite, TimeSpan janela)
         {
             options.AddPolicy<string>(nomePolitica, httpContext =>
             {
@@ -82,7 +85,7 @@ namespace AutoVia.Api.Extensions
                 return RateLimitPartition.GetFixedWindowLimiter<string>(chaveIp, _ => new FixedWindowRateLimiterOptions
                 {
                     PermitLimit = limite,
-                    Window = TimeSpan.FromMinutes(1),
+                    Window = janela,
                     QueueLimit = 0,
                     AutoReplenishment = true
                 });

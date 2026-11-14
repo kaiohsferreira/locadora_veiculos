@@ -184,6 +184,15 @@ namespace AutoVia.Infrastructure.Services
                     throw new BusinessException(ConstantsMessage.ErroRedefinicaoLinkInvalido);
                 }
 
+                // Espelha o login: link ja emitido nao e aceito quando a empresa do titular esta inativa ou desativada.
+                Empresa? empresa = funcionario.Empresa;
+                bool empresaAtiva = empresa != null && empresa.Ativo && empresa.DisabledAt == null;
+
+                if (!empresaAtiva)
+                {
+                    throw new BusinessException(ConstantsMessage.ErroRedefinicaoLinkInvalido);
+                }
+
                 return TitularRecuperacao.DeFuncionario(funcionario);
             }
 

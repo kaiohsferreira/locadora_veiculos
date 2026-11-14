@@ -88,10 +88,11 @@ namespace AutoVia.Api.Controllers
         }
 
         /// <summary>
-        /// Insert - Cadastra uma nova categoria. Devolve 201 com o header Location apontando para a consulta.
+        /// Insert - Cadastra uma nova categoria. Exige o ADMINISTRADOR da empresa operadora (categoria e global,
+        /// compartilhada por todas as locadoras). Devolve 201 com o header Location apontando para a consulta.
         /// </summary>
         [HttpPost]
-        [Authorize(Policy = ConstantsValues.PoliticaFuncionario)]
+        [Authorize(Policy = ConstantsValues.PoliticaOperadora)]
         [ProducesResponseType(typeof(ReturnCategoriaVO), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
@@ -119,10 +120,11 @@ namespace AutoVia.Api.Controllers
         }
 
         /// <summary>
-        /// Update - Altera os dados de uma categoria ativa. Devolve 204 sem corpo.
+        /// Update - Altera os dados de uma categoria ativa. Exige o ADMINISTRADOR da empresa operadora (categoria e
+        /// global). Devolve 204 sem corpo.
         /// </summary>
         [HttpPut("{id:int}")]
-        [Authorize(Policy = ConstantsValues.PoliticaFuncionario)]
+        [Authorize(Policy = ConstantsValues.PoliticaOperadora)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]

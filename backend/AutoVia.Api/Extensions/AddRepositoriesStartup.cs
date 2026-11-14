@@ -21,8 +21,17 @@ namespace AutoVia.Api.Extensions
             // --- Cliente ---
             services.AddScoped<IClienteRepository, ClienteRepository>();
 
+            // --- Locadora (cadastro publico, P10-BE-01) ---
+            services.AddScoped<IEmpresaRepository, EmpresaRepository>();
+
+            // --- Equipe da locadora (P10-BE-03) ---
+            services.AddScoped<IFuncionarioRepository, FuncionarioRepository>();
+
             // --- Veiculo (SEAM: base comum das tarefas P1-BE-02 e P1-BE-03) ---
             services.AddScoped<IVeiculoRepository, VeiculoRepository>();
+
+            // --- Painel da locadora (visao geral, P11-BE-01 e P11-BE-02) ---
+            services.AddScoped<IPainelRepository, PainelRepository>();
 
             // --- Autenticacao ---
             services.AddScoped<IAutenticacaoRepository, AutenticacaoRepository>();

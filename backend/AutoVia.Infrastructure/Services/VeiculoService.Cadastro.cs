@@ -51,6 +51,12 @@ namespace AutoVia.Infrastructure.Services
         {
             try
             {
+                // Sem empresa no contexto a sessao nao representa uma locadora: recusa antes de qualquer consulta ou gravacao.
+                if (_contextoEmpresa.IdEmpresa <= 0)
+                {
+                    throw new UnauthorizedException(ConstantsMessage.ErroSessaoInvalida);
+                }
+
                 Categoria? categoria = await _categoriaRepository.FindByIdAsync(veiculoVO.IdCategoria);
 
                 if (categoria == null)
@@ -61,12 +67,24 @@ namespace AutoVia.Infrastructure.Services
                 Veiculo veiculo = _mapper.Map<Veiculo>(veiculoVO);
                 AplicarNormalizacao(veiculo, veiculoVO);
 
+                // A locadora do veiculo vem do contexto da requisicao, nunca do corpo.
+                veiculo.IdEmpresa = _contextoEmpresa.IdEmpresa;
+
                 await ValidarUnicidadeAsync(veiculo, null);
 
                 veiculo.Status = StatusVeiculo.DISPONIVEL;
 
                 Veiculo gravado = await _veiculoRepository.InsertAsync(veiculo);
-                ReturnVeiculoVO retorno = _mapper.Map<ReturnVeiculoVO>(gravado);
+
+                // A gravacao nao traz as navegacoes (Empresa e Categoria): a resposta sai da mesma consulta por id do GET.
+                Veiculo? recarregado = await _veiculoRepository.FindByIdAsync(gravado.IdVeiculo);
+
+                if (recarregado == null)
+                {
+                    throw new InvalidOperationException(ConstantsMessage.ErroSalvarVeiculo);
+                }
+
+                ReturnVeiculoVO retorno = _mapper.Map<ReturnVeiculoVO>(recarregado);
                 retorno.CategoriaNome = categoria.Nome;
 
                 return retorno;
@@ -76,6 +94,10 @@ namespace AutoVia.Infrastructure.Services
                 throw;
             }
             catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (UnauthorizedException)
             {
                 throw;
             }

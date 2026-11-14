@@ -1,5 +1,6 @@
 using AutoVia.Api.Authorization;
 using AutoVia.Communication.Enums;
+using AutoVia.Communication.ViewObjects.Autenticacao;
 using AutoVia.Core.Options;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -69,6 +70,22 @@ namespace AutoVia.Api.Extensions
                     policy.RequireRole(nameof(PerfilUsuario.CLIENTE));
                 });
 
+                // Politicas por empresa (v3): a regra le o IContextoEmpresa, preenchido com os dados do banco.
+                // Aplicadas em EquipeController (Administrador) e em CategoriaController (Operadora).
+                options.AddPolicy(ConstantsValues.PoliticaAdministrador, policy =>
+                {
+                    policy.RequireAuthenticatedUser();
+                    policy.RequireRole(nameof(PerfilUsuario.FUNCIONARIO));
+                    policy.AddRequirements(new RequisitoAdministrador());
+                });
+
+                options.AddPolicy(ConstantsValues.PoliticaOperadora, policy =>
+                {
+                    policy.RequireAuthenticatedUser();
+                    policy.RequireRole(nameof(PerfilUsuario.FUNCIONARIO));
+                    policy.AddRequirements(new RequisitoOperadora());
+                });
+
                 // Rota sem nenhuma declaracao exige usuario autenticado (o teste de guarda AutorizacaoRotasTests reprova rota sem declaracao).
                 options.FallbackPolicy = new AuthorizationPolicyBuilder()
                     .RequireAuthenticatedUser()
@@ -76,6 +93,10 @@ namespace AutoVia.Api.Extensions
             });
 
             services.AddSingleton<IAuthorizationMiddlewareResultHandler, ProblemDetailsAuthorizationResultHandler>();
+
+            // Handlers das politicas por empresa: Scoped, porque leem o IContextoEmpresa da requisicao.
+            services.AddScoped<IAuthorizationHandler, AutorizacaoAdministradorHandler>();
+            services.AddScoped<IAuthorizationHandler, AutorizacaoOperadoraHandler>();
 
             return services;
         }
@@ -133,7 +154,9 @@ namespace AutoVia.Api.Extensions
 
         /// <summary>
         /// Conferencia de sessao depois da assinatura: sub numerico, role conhecida e sv presente, e
-        /// ISessaoService confirma conta ativa e versao atual. Qualquer recusa ou excecao vira 401 (fail-closed).
+        /// ISessaoService confirma conta ativa e versao atual. Para FUNCIONARIO (v3), a claim emp e
+        /// obrigatoria e precisa bater com a empresa do banco; o contexto de empresa e preenchido com os
+        /// valores do banco. Qualquer recusa ou excecao vira 401 (fail-closed).
         /// </summary>
         private static async Task ValidarSessaoAsync(TokenValidatedContext contexto)
         {
@@ -153,12 +176,36 @@ namespace AutoVia.Api.Extensions
                     return;
                 }
 
+                int? idEmpresaToken = null;
+
+                if (perfil == PerfilUsuario.FUNCIONARIO)
+                {
+                    idEmpresaToken = LerEmpresaDoToken(principal);
+
+                    if (!idEmpresaToken.HasValue)
+                    {
+                        contexto.Fail(ConstantsMessage.ErroSessaoInvalida);
+                        return;
+                    }
+                }
+
                 ISessaoService sessaoService = contexto.HttpContext.RequestServices.GetRequiredService<ISessaoService>();
                 bool sessaoValida = await sessaoService.SessaoValidaAsync(perfil, idUsuario, versaoSessao);
 
                 if (!sessaoValida)
                 {
                     contexto.Fail(ConstantsMessage.ErroSessaoInvalida);
+                    return;
+                }
+
+                if (perfil == PerfilUsuario.FUNCIONARIO)
+                {
+                    bool contextoDefinido = await DefinirContextoFuncionarioAsync(contexto, sessaoService, idUsuario, idEmpresaToken);
+
+                    if (!contextoDefinido)
+                    {
+                        contexto.Fail(ConstantsMessage.ErroSessaoInvalida);
+                    }
                 }
             }
             catch (Exception ex)
@@ -168,6 +215,39 @@ namespace AutoVia.Api.Extensions
                 ILogService? logService = contexto.HttpContext.RequestServices.GetService<ILogService>();
                 logService?.Write(ex, ConstantsMessage.ErroValidarSessao, nameof(AddAuthenticationStartup));
             }
+        }
+
+        /// <summary>Le a claim emp do token de funcionario. Nulo quando ausente ou quando nao e um id positivo.</summary>
+        private static int? LerEmpresaDoToken(ClaimsPrincipal? principal)
+        {
+            string? empresaTexto = principal?.FindFirst(ConstantsValues.ClaimEmpresa)?.Value;
+            bool empresaValida = int.TryParse(empresaTexto, out int idEmpresa) && idEmpresa > 0;
+
+            return empresaValida ? (int?)idEmpresa : null;
+        }
+
+        /// <summary>
+        /// Confere a conta do funcionario no banco (via cache da sessao): ativa, com cargo, e com a empresa
+        /// igual a da claim emp. Se conferir, preenche o IContextoEmpresa com os valores do banco. Devolve false se recusar.
+        /// </summary>
+        private static async Task<bool> DefinirContextoFuncionarioAsync(TokenValidatedContext contexto, ISessaoService sessaoService, int idUsuario, int? idEmpresaToken)
+        {
+            SessaoSituacaoVO situacao = await sessaoService.ObterSituacaoAsync(PerfilUsuario.FUNCIONARIO, idUsuario);
+
+            bool conferido = situacao.Ativo
+                && situacao.Cargo.HasValue
+                && situacao.IdEmpresa.HasValue
+                && situacao.IdEmpresa == idEmpresaToken;
+
+            if (!conferido)
+            {
+                return false;
+            }
+
+            IContextoEmpresa contextoEmpresa = contexto.HttpContext.RequestServices.GetRequiredService<IContextoEmpresa>();
+            contextoEmpresa.Definir(situacao.IdEmpresa!.Value, idUsuario, situacao.Cargo!.Value, situacao.EmpresaOperadora);
+
+            return true;
         }
     }
 }

@@ -12,9 +12,13 @@ export const CAMINHOS = {
   recuperarSenha: '/recuperar-senha',
   redefinirSenha: '/redefinir-senha',
   vincularGoogle: '/entrar/vincular-google',
+  // /cadastro é a escolha do tipo de conta (tela 35); não há caminho separado para ela.
   cadastro: '/cadastro',
   cadastroDadosPessoais: '/cadastro/dados-pessoais',
   cadastroDocumentos: '/cadastro/documentos',
+  cadastroLocadoraEmpresa: '/cadastro/locadora/empresa',
+  cadastroLocadoraResponsavel: '/cadastro/locadora/responsavel',
+  cadastroLocadoraConfirmacao: '/cadastro/locadora/confirmacao',
   resultadosBusca: '/veiculos',
   detalheVeiculo: '/veiculos/:veiculoId',
   checkoutReserva: '/reservas/checkout/:veiculoId',
@@ -27,6 +31,8 @@ export const CAMINHOS = {
 
   // Back office ----------------------------------------------------------------
   backOffice: '/back-office',
+  visaoGeral: '/back-office/visao-geral',
+  equipe: '/back-office/equipe',
   frota: '/back-office/frota',
   frotaVeiculos: '/back-office/frota/veiculos',
   frotaNovoVeiculo: '/back-office/frota/veiculos/novo',

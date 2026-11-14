@@ -12,14 +12,18 @@ namespace AutoVia.Core.RepositoriesInterface
     /// </summary>
     public interface IClienteRepository
     {
-        /// <summary>Lista os clientes ativos, filtrados pelo status quando informado, ordenados por DataCadastro e IdCliente, na pagina pedida.</summary>
-        Task<List<Cliente>> FindAllAsync(StatusCadastroCliente? status, int deslocamento, int quantidade);
+        /// <summary>
+        /// Lista os clientes ativos com vinculo com a empresa (reserva, locacao ou venda em veiculo dela), filtrados
+        /// pelo status quando informado, ordenados por DataCadastro e IdCliente, na pagina pedida. Id de empresa
+        /// nao positivo devolve lista vazia.
+        /// </summary>
+        Task<List<Cliente>> FindAllAsync(int idEmpresa, StatusCadastroCliente? status, int deslocamento, int quantidade);
 
-        /// <summary>Conta os clientes ativos, com o mesmo filtro de status da listagem.</summary>
-        Task<int> CountAsync(StatusCadastroCliente? status);
+        /// <summary>Conta os clientes ativos com vinculo com a empresa, com o mesmo filtro de status da listagem (total no escopo).</summary>
+        Task<int> CountAsync(int idEmpresa, StatusCadastroCliente? status);
 
-        /// <summary>Busca um cliente ativo pelo id; null se nao existir ou estiver desativado.</summary>
-        Task<Cliente?> FindByIdAsync(int idCliente);
+        /// <summary>Busca um cliente ativo pelo id, somente se tiver vinculo com a empresa; null se nao existir, estiver desativado ou for de outra empresa.</summary>
+        Task<Cliente?> FindByIdAsync(int idEmpresa, int idCliente);
 
         /// <summary>Verifica se existe cliente ativo com o CPF informado (somente digitos).</summary>
         Task<bool> ExistsByCpfAsync(string cpf);

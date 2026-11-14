@@ -270,7 +270,7 @@ namespace AutoVia.Tests.Frota
         {
             MapperConfiguration configuracao = new MapperConfiguration(cfg => cfg.AddProfile<VeiculoProfile>(), NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
-            VeiculoService servico = new VeiculoService(repositorio, new FakeCategoriaRepository(), mapper, log ?? new FakeLogService());
+            VeiculoService servico = new VeiculoService(repositorio, new FakeCategoriaRepository(), mapper, log ?? new FakeLogService(), ContextoEmpresaDeTeste.Criar());
 
             return servico;
         }

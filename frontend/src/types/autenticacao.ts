@@ -28,6 +28,12 @@ export interface UsuarioSessao {
   cargo?: CargoFuncionario;
   /** Status do cadastro do cliente (só para perfil cliente). */
   statusCadastro?: StatusCadastroCliente;
+  /** Id da locadora do funcionário (só para perfil funcionário; ausente em sessões antigas). */
+  idEmpresa?: number;
+  /** Nome fantasia da locadora do funcionário (só para perfil funcionário). */
+  empresaNomeFantasia?: string;
+  /** Verdadeiro quando a locadora do funcionário é a operadora da plataforma. Só para funcionário. */
+  empresaOperadora?: boolean;
 }
 
 // Login por CPF e senha ----------------------------------------------------------
@@ -52,6 +58,12 @@ export interface RespostaLogin {
   nome: string;
   cargo?: CargoFuncionario | null;
   statusCadastro?: StatusCadastroCliente | null;
+  /** Só para funcionário. Ausente nas respostas anteriores ao campo. */
+  idEmpresa?: number | null;
+  /** Só para funcionário. */
+  empresaNomeFantasia?: string | null;
+  /** Só para funcionário: verdadeiro quando a locadora é a operadora da plataforma. */
+  empresaOperadora?: boolean | null;
 }
 
 // Recuperação de senha (N1, RF-49) -----------------------------------------------

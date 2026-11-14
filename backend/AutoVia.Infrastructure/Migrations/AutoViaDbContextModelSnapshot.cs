@@ -346,6 +346,132 @@ namespace AutoVia.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Empresa", b =>
+                {
+                    b.Property<int>("IdEmpresa")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id_empresa");
+
+                    NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdEmpresa"));
+
+                    b.Property<bool>("Ativo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("ativo");
+
+                    b.Property<string>("Bairro")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("bairro");
+
+                    b.Property<string>("Cep")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character(8)")
+                        .HasColumnName("cep")
+                        .IsFixedLength();
+
+                    b.Property<string>("Cidade")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("cidade");
+
+                    b.Property<string>("Cnpj")
+                        .IsRequired()
+                        .HasMaxLength(14)
+                        .HasColumnType("character(14)")
+                        .HasColumnName("cnpj")
+                        .IsFixedLength();
+
+                    b.Property<string>("Complemento")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("complemento");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("email");
+
+                    b.Property<string>("Logradouro")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("logradouro");
+
+                    b.Property<string>("NomeFantasia")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("nome_fantasia");
+
+                    b.Property<string>("Numero")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("numero");
+
+                    b.Property<bool>("Operadora")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("operadora");
+
+                    b.Property<string>("RazaoSocial")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("razao_social");
+
+                    b.Property<string>("Telefone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("telefone");
+
+                    b.Property<string>("Uf")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character(2)")
+                        .HasColumnName("uf")
+                        .IsFixedLength();
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("IdEmpresa")
+                        .HasName("empresa_pkey");
+
+                    b.HasIndex("Cnpj")
+                        .HasDatabaseName("idx_empresa_cnpj");
+
+                    b.HasIndex("Email")
+                        .HasDatabaseName("idx_empresa_email");
+
+                    b.ToTable("empresa", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_empresa_cnpj", "cnpj ~ '^[0-9]{14}$'");
+                        });
+                });
+
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Funcionario", b =>
                 {
                     b.Property<int>("IdFuncionario")
@@ -393,6 +519,10 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("character varying(120)")
                         .HasColumnName("email");
 
+                    b.Property<int>("IdEmpresa")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_empresa");
+
                     b.Property<string>("Matricula")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -422,12 +552,15 @@ namespace AutoVia.Infrastructure.Migrations
                     b.HasIndex("Cpf")
                         .HasDatabaseName("idx_funcionario_cpf");
 
+                    b.HasIndex("IdEmpresa")
+                        .HasDatabaseName("idx_funcionario_empresa");
+
                     b.HasIndex("Matricula")
                         .HasDatabaseName("idx_funcionario_matricula");
 
                     b.ToTable("funcionario", null, t =>
                         {
-                            t.HasCheckConstraint("ck_funcionario_cargo", "cargo IN ('ATENDENTE', 'VENDEDOR', 'GESTOR_FROTA', 'FINANCEIRO', 'ADMINISTRATIVO')");
+                            t.HasCheckConstraint("ck_funcionario_cargo", "cargo IN ('ATENDENTE', 'VENDEDOR', 'GESTOR_FROTA', 'FINANCEIRO', 'ADMINISTRATIVO', 'ADMINISTRADOR')");
                         });
                 });
 
@@ -1029,6 +1162,10 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("id_categoria");
 
+                    b.Property<int>("IdEmpresa")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_empresa");
+
                     b.Property<int>("KmAtual")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -1092,6 +1229,9 @@ namespace AutoVia.Infrastructure.Migrations
 
                     b.HasIndex("IdCategoria")
                         .HasDatabaseName("idx_veiculo_categoria");
+
+                    b.HasIndex("IdEmpresa")
+                        .HasDatabaseName("idx_veiculo_empresa");
 
                     b.HasIndex("Placa")
                         .HasDatabaseName("idx_veiculo_placa");
@@ -1436,6 +1576,18 @@ namespace AutoVia.Infrastructure.Migrations
                     b.Navigation("Locacao");
                 });
 
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Funcionario", b =>
+                {
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Empresa", "Empresa")
+                        .WithMany("Funcionarios")
+                        .HasForeignKey("IdEmpresa")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_funcionario_empresa");
+
+                    b.Navigation("Empresa");
+                });
+
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Locacao", b =>
                 {
                     b.HasOne("AutoVia.Core.Entities.PgSql.Cliente", "Cliente")
@@ -1594,7 +1746,16 @@ namespace AutoVia.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_veiculo_categoria");
 
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Empresa", "Empresa")
+                        .WithMany("Veiculos")
+                        .HasForeignKey("IdEmpresa")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_veiculo_empresa");
+
                     b.Navigation("Categoria");
+
+                    b.Navigation("Empresa");
                 });
 
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Venda", b =>
@@ -1672,6 +1833,13 @@ namespace AutoVia.Infrastructure.Migrations
                     b.Navigation("Reservas");
 
                     b.Navigation("Vendas");
+                });
+
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Empresa", b =>
+                {
+                    b.Navigation("Funcionarios");
+
+                    b.Navigation("Veiculos");
                 });
 
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Funcionario", b =>

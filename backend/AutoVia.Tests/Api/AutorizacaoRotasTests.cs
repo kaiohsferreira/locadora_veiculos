@@ -73,7 +73,7 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
-        public void Categoria_PostEPutExigemFuncionario()
+        public void Categoria_PostEPutExigemOperadora()
         {
             MethodInfo insercao = typeof(CategoriaController).GetMethod(nameof(CategoriaController.Insert))!;
             MethodInfo alteracao = typeof(CategoriaController).GetMethod(nameof(CategoriaController.Update))!;
@@ -82,9 +82,9 @@ namespace AutoVia.Tests.Api
             AuthorizeAttribute? autorizacaoAlteracao = alteracao.GetCustomAttribute<AuthorizeAttribute>();
 
             Assert.NotNull(autorizacaoInsercao);
-            Assert.Equal(ConstantsValues.PoliticaFuncionario, autorizacaoInsercao!.Policy);
+            Assert.Equal(ConstantsValues.PoliticaOperadora, autorizacaoInsercao!.Policy);
             Assert.NotNull(autorizacaoAlteracao);
-            Assert.Equal(ConstantsValues.PoliticaFuncionario, autorizacaoAlteracao!.Policy);
+            Assert.Equal(ConstantsValues.PoliticaOperadora, autorizacaoAlteracao!.Policy);
         }
 
         [Fact]
@@ -100,6 +100,46 @@ namespace AutoVia.Tests.Api
         public void Health_EAnonimo()
         {
             Assert.True(Attribute.IsDefined(typeof(HealthController), typeof(AllowAnonymousAttribute)));
+        }
+
+        [Fact]
+        public void Empresa_CadastroEVerificacaoSaoAnonimasELimitadas()
+        {
+            MethodInfo cadastro = typeof(EmpresaController).GetMethod(nameof(EmpresaController.Insert))!;
+            MethodInfo verificacao = typeof(EmpresaController).GetMethod(nameof(EmpresaController.VerificarCadastro))!;
+
+            Assert.True(Attribute.IsDefined(cadastro, typeof(AllowAnonymousAttribute)));
+            Assert.True(Attribute.IsDefined(verificacao, typeof(AllowAnonymousAttribute)));
+            Assert.True(Attribute.IsDefined(cadastro, typeof(EnableRateLimitingAttribute)));
+            Assert.True(Attribute.IsDefined(verificacao, typeof(EnableRateLimitingAttribute)));
+        }
+
+        [Fact]
+        public void Equipe_TodasAsRotasExigemPoliticaAdministrador()
+        {
+            AuthorizeAttribute? autorizacao = typeof(EquipeController).GetCustomAttribute<AuthorizeAttribute>();
+
+            Assert.NotNull(autorizacao);
+            Assert.Equal(ConstantsValues.PoliticaAdministrador, autorizacao!.Policy);
+
+            foreach (MethodInfo acao in typeof(EquipeController).GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+            {
+                Assert.False(Attribute.IsDefined(acao, typeof(AllowAnonymousAttribute)), acao.Name);
+            }
+        }
+
+        [Fact]
+        public void Painel_TodasAsRotasExigemPoliticaFuncionario()
+        {
+            AuthorizeAttribute? autorizacao = typeof(PainelController).GetCustomAttribute<AuthorizeAttribute>();
+
+            Assert.NotNull(autorizacao);
+            Assert.Equal(ConstantsValues.PoliticaFuncionario, autorizacao!.Policy);
+
+            foreach (MethodInfo acao in typeof(PainelController).GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+            {
+                Assert.False(Attribute.IsDefined(acao, typeof(AllowAnonymousAttribute)), acao.Name);
+            }
         }
     }
 }

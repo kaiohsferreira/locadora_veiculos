@@ -32,8 +32,11 @@ namespace AutoVia.Infrastructure.Services
             _tokenHandler = new JsonWebTokenHandler();
         }
 
-        /// <summary>Gera o token do usuario autenticado. Cargo so para funcionario. lembrar=true usa Jwt:ExpiracaoLembrarDias; false usa Jwt:ExpiracaoMinutos.</summary>
-        public TokenGeradoVO GerarToken(PerfilUsuario perfil, int idUsuario, string nome, CargoFuncionario? cargo, string versaoSessao, bool lembrar)
+        /// <summary>
+        /// Gera o token do usuario autenticado. Cargo e empresa (claim emp) so para funcionario.
+        /// lembrar=true usa Jwt:ExpiracaoLembrarDias; false usa Jwt:ExpiracaoMinutos.
+        /// </summary>
+        public TokenGeradoVO GerarToken(PerfilUsuario perfil, int idUsuario, string nome, CargoFuncionario? cargo, string versaoSessao, bool lembrar, int? idEmpresa)
         {
             try
             {
@@ -54,6 +57,12 @@ namespace AutoVia.Infrastructure.Services
                 if (cargo.HasValue)
                 {
                     claims[ConstantsValues.ClaimCargo] = cargo.Value.ToString();
+                }
+
+                // Empresa do funcionario (v3): conferida contra o banco na validacao do token.
+                if (perfil == PerfilUsuario.FUNCIONARIO && idEmpresa.HasValue)
+                {
+                    claims[ConstantsValues.ClaimEmpresa] = idEmpresa.Value.ToString(CultureInfo.InvariantCulture);
                 }
 
                 SigningCredentials credenciais = new SigningCredentials(

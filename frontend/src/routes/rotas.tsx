@@ -3,6 +3,9 @@ import { LayoutAcesso } from '@/layouts/LayoutAcesso';
 import { LayoutBackOffice } from '@/layouts/LayoutBackOffice';
 import { LayoutPublico } from '@/layouts/LayoutPublico';
 import { ProvedorCadastro } from '@/features/clientes/cadastro/ProvedorCadastro';
+import { ExigirCadastroConcluido } from '@/features/locadoras/cadastro/ExigirCadastroConcluido';
+import { ExigirDadosEmpresa } from '@/features/locadoras/cadastro/ExigirDadosEmpresa';
+import { ProvedorCadastroLocadora } from '@/features/locadoras/cadastro/ProvedorCadastroLocadora';
 import { CAMINHOS } from './caminhos';
 import { ErroInesperado } from './ErroInesperado';
 import { PaginaNaoEncontrada } from './PaginaNaoEncontrada';
@@ -13,12 +16,16 @@ import {
   CadastroVeiculoPagina,
   CatalogoSeminovosPagina,
   CheckoutDevolucaoPagina,
+  CadastroLocadoraConfirmacaoPagina,
+  CadastroLocadoraEmpresaPagina,
+  CadastroLocadoraResponsavelPagina,
   CheckoutReservaPagina,
   ConfirmacaoReservaPagina,
   ContratoDigitalPagina,
   CustoResultadoFrotaPagina,
   DetalheSinistroPagina,
   DetalheVeiculoPagina,
+  EquipePagina,
   GestaoSegurosPagina,
   GestaoVendasPagina,
   InicioPagina,
@@ -35,10 +42,13 @@ import {
   RedefinirSenhaPagina,
   ResultadosBuscaPagina,
   RetiradaVeiculoPagina,
+  TipoContaPagina,
   VerificacaoCadastrosPagina,
   VincularGooglePagina,
+  VisaoGeralPagina,
   VistoriaAvariasPagina,
 } from './paginas';
+import { RotaPorCargo } from './RotaPorCargo';
 import { RotaProtegida } from './RotaProtegida';
 
 /** Todas as rotas da aplicação. Os caminhos vêm de `CAMINHOS` (fonte única). */
@@ -59,13 +69,33 @@ export const rotas: RouteObject[] = [
       { path: CAMINHOS.vincularGoogle, element: <VincularGooglePagina /> },
       { path: CAMINHOS.recuperarSenha, element: <RecuperarSenhaPagina /> },
       { path: CAMINHOS.redefinirSenha, element: <RedefinirSenhaPagina /> },
-      { path: CAMINHOS.cadastro, element: <Navigate to={CAMINHOS.cadastroDadosPessoais} replace /> },
+      // Escolha do tipo de conta (tela 35): cliente segue para o cadastro do cliente; locadora para a etapa 1.
+      { path: CAMINHOS.cadastro, element: <TipoContaPagina /> },
       {
-        // Rota-pai sem caminho: guarda em memória os dados das duas telas do cadastro (sem a senha).
+        // Rota-pai sem caminho: guarda em memória os dados das duas telas do cadastro do cliente (sem a senha).
         element: <ProvedorCadastro />,
         children: [
           { path: CAMINHOS.cadastroDadosPessoais, element: <CadastroDadosPessoaisPagina /> },
           { path: CAMINHOS.cadastroDocumentos, element: <CadastroDocumentosPagina /> },
+        ],
+      },
+      {
+        // Rota-pai sem caminho: guarda em memória os dados da empresa entre as etapas (sem a senha).
+        // As etapas 2 e 3 exigem os dados da etapa 1 (sem eles, voltam para a 1); a 3 exige também a conta criada.
+        element: <ProvedorCadastroLocadora />,
+        children: [
+          { path: CAMINHOS.cadastroLocadoraEmpresa, element: <CadastroLocadoraEmpresaPagina /> },
+          {
+            element: <ExigirDadosEmpresa />,
+            children: [
+              { path: CAMINHOS.cadastroLocadoraResponsavel, element: <CadastroLocadoraResponsavelPagina /> },
+              {
+                // A confirmação só abre com a conta criada no envio da etapa 2 em memória.
+                element: <ExigirCadastroConcluido />,
+                children: [{ path: CAMINHOS.cadastroLocadoraConfirmacao, element: <CadastroLocadoraConfirmacaoPagina /> }],
+              },
+            ],
+          },
         ],
       },
       { path: CAMINHOS.resultadosBusca, element: <ResultadosBuscaPagina /> },
@@ -97,7 +127,11 @@ export const rotas: RouteObject[] = [
       {
         element: <LayoutBackOffice />,
         children: [
-          { index: true, element: <Navigate to={CAMINHOS.frota} replace /> },
+          // Entrada do back office: a visão geral (P11-FE-01).
+          { index: true, element: <Navigate to={CAMINHOS.visaoGeral} replace /> },
+
+          // Visão geral (P11-FE-01: telas 39 e 40)
+          { path: CAMINHOS.visaoGeral, element: <VisaoGeralPagina /> },
 
           // Frota
           { path: CAMINHOS.frota, element: <PainelFrotaPagina /> },
@@ -129,6 +163,12 @@ export const rotas: RouteObject[] = [
           // Seguros
           { path: CAMINHOS.seguros, element: <GestaoSegurosPagina /> },
           { path: CAMINHOS.detalheSinistro, element: <DetalheSinistroPagina /> },
+
+          // Administração: só ADMINISTRADOR. O menu esconde o item, mas o servidor é a autoridade (P10-FE-03).
+          {
+            element: <RotaPorCargo cargosPermitidos={['ADMINISTRADOR']} />,
+            children: [{ path: CAMINHOS.equipe, element: <EquipePagina /> }],
+          },
 
           { path: '*', element: <PaginaNaoEncontrada /> },
         ],

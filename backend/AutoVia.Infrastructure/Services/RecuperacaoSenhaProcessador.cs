@@ -95,6 +95,12 @@ namespace AutoVia.Infrastructure.Services
                     return null;
                 }
 
+                // Espelha o login: a empresa do titular precisa estar ativa e nao desativada (sem link para locadora inativa).
+                if (!EmpresaAtiva(funcionario.Empresa))
+                {
+                    return null;
+                }
+
                 string? emailFuncionario = funcionario.Email;
 
                 if (string.IsNullOrWhiteSpace(emailFuncionario))
@@ -106,6 +112,14 @@ namespace AutoVia.Infrastructure.Services
             }
 
             return null;
+        }
+
+        /// <summary>Indica se a empresa do titular esta ativa e nao desativada. Empresa nao carregada conta como inativa (fail-closed).</summary>
+        private static bool EmpresaAtiva(Empresa? empresa)
+        {
+            bool ativa = empresa != null && empresa.Ativo && empresa.DisabledAt == null;
+
+            return ativa;
         }
 
         /// <summary>Confere o limite por conta, grava o novo link (invalidando os anteriores) e enfileira o e-mail. Fila cheia so vai para o log.</summary>

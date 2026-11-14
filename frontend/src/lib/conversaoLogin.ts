@@ -53,5 +53,11 @@ export function converterRespostaLogin(resposta: RespostaLogin): UsuarioSessao {
   };
   if (resposta.cargo) usuario.cargo = resposta.cargo;
   if (resposta.statusCadastro) usuario.statusCadastro = resposta.statusCadastro;
+  // Campos da locadora: ausentes em respostas antigas. Falso (false/0) é valor válido, então só null/undefined é descartado.
+  if (resposta.idEmpresa !== undefined && resposta.idEmpresa !== null) usuario.idEmpresa = resposta.idEmpresa;
+  if (resposta.empresaNomeFantasia) usuario.empresaNomeFantasia = resposta.empresaNomeFantasia;
+  if (resposta.empresaOperadora !== undefined && resposta.empresaOperadora !== null) {
+    usuario.empresaOperadora = resposta.empresaOperadora;
+  }
   return usuario;
 }

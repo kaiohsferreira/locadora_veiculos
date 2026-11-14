@@ -13,7 +13,7 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
             {
                 table.HasCheckConstraint(
                     "ck_funcionario_cargo",
-                    "cargo IN ('ATENDENTE', 'VENDEDOR', 'GESTOR_FROTA', 'FINANCEIRO', 'ADMINISTRATIVO')");
+                    "cargo IN ('ATENDENTE', 'VENDEDOR', 'GESTOR_FROTA', 'FINANCEIRO', 'ADMINISTRATIVO', 'ADMINISTRADOR')");
             });
 
             builder.HasKey(x => x.IdFuncionario).HasName("funcionario_pkey");
@@ -36,6 +36,16 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
             builder.HasIndex(x => x.Matricula).HasDatabaseName("idx_funcionario_matricula");
 
             builder.Property(x => x.SenhaHash).IsRequired(false).HasMaxLength(ConstantsValues.TamanhoMaximoSenhaHash);
+
+            // --- Locadora (multi-locadora, T-BE-03a): cada funcionario pertence a uma empresa ---
+            builder.Property(x => x.IdEmpresa).IsRequired(true);
+            builder.HasIndex(x => x.IdEmpresa).HasDatabaseName("idx_funcionario_empresa");
+
+            builder.HasOne(x => x.Empresa)
+                .WithMany(x => x.Funcionarios)
+                .HasForeignKey(x => x.IdEmpresa)
+                .HasConstraintName("fk_funcionario_empresa")
+                .OnDelete(DeleteBehavior.NoAction);
 
             // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
             builder.ConfigureBaseEntities();

@@ -14,6 +14,9 @@ namespace AutoVia.Tests.Fakes
     {
         private int _proximoId = 1;
 
+        /// <summary>Clientes com vinculo (reserva, locacao ou venda) por empresa: idCliente -> ids das empresas.</summary>
+        private readonly Dictionary<int, HashSet<int>> _vinculos = new Dictionary<int, HashSet<int>>();
+
         /// <summary>Todos os clientes gravados (ativos e desativados). Os testes leem daqui.</summary>
         public List<Cliente> Armazenados { get; } = new List<Cliente>();
 
@@ -48,10 +51,22 @@ namespace AutoVia.Tests.Fakes
             Armazenados.Add(Copiar(cliente));
         }
 
-        /// <summary>Lista os clientes ativos (com filtro de status opcional), ordenados por DataCadastro e IdCliente, na pagina pedida.</summary>
-        public Task<List<Cliente>> FindAllAsync(StatusCadastroCliente? status, int deslocamento, int quantidade)
+        /// <summary>Registra que o cliente tem reserva, locacao ou venda em veiculo da empresa (efeito do EXISTS do repositorio real).</summary>
+        public void VincularAEmpresa(int idCliente, int idEmpresa)
         {
-            List<Cliente> clientes = FiltrarAtivos(status)
+            if (!_vinculos.TryGetValue(idCliente, out HashSet<int>? empresas))
+            {
+                empresas = new HashSet<int>();
+                _vinculos[idCliente] = empresas;
+            }
+
+            empresas.Add(idEmpresa);
+        }
+
+        /// <summary>Lista os clientes ativos com vinculo com a empresa (com filtro de status opcional), ordenados por DataCadastro e IdCliente, na pagina pedida.</summary>
+        public Task<List<Cliente>> FindAllAsync(int idEmpresa, StatusCadastroCliente? status, int deslocamento, int quantidade)
+        {
+            List<Cliente> clientes = FiltrarDoEscopo(idEmpresa, status)
                 .OrderBy(x => x.DataCadastro)
                 .ThenBy(x => x.IdCliente)
                 .Skip(deslocamento)
@@ -62,23 +77,23 @@ namespace AutoVia.Tests.Fakes
             return Task.FromResult(clientes);
         }
 
-        /// <summary>Conta os clientes ativos com o mesmo filtro de status da listagem.</summary>
-        public Task<int> CountAsync(StatusCadastroCliente? status)
+        /// <summary>Conta os clientes ativos com vinculo com a empresa, com o mesmo filtro de status da listagem.</summary>
+        public Task<int> CountAsync(int idEmpresa, StatusCadastroCliente? status)
         {
-            int total = FiltrarAtivos(status).Count();
+            int total = FiltrarDoEscopo(idEmpresa, status).Count();
 
             return Task.FromResult(total);
         }
 
-        /// <summary>Busca um cliente ativo pelo id; null se nao existir ou estiver desativado.</summary>
-        public Task<Cliente?> FindByIdAsync(int idCliente)
+        /// <summary>Busca um cliente ativo, com vinculo com a empresa, pelo id; null se nao existir, estiver desativado ou for de outra empresa.</summary>
+        public Task<Cliente?> FindByIdAsync(int idEmpresa, int idCliente)
         {
             if (ExcecaoAoBuscarPorId != null)
             {
                 throw ExcecaoAoBuscarPorId;
             }
 
-            Cliente? encontrado = Armazenados.FirstOrDefault(x => x.IdCliente == idCliente && x.DisabledAt == null);
+            Cliente? encontrado = FiltrarDoEscopo(idEmpresa, null).FirstOrDefault(x => x.IdCliente == idCliente);
             Cliente? copia = null;
 
             if (encontrado != null)
@@ -152,6 +167,20 @@ namespace AutoVia.Tests.Fakes
             Armazenados.Add(Copiar(cliente));
 
             return Task.FromResult(cliente);
+        }
+
+        /// <summary>Clientes ativos com vinculo com a empresa. Id nao positivo nao devolve nada (fail-closed, como o repositorio real).</summary>
+        private IEnumerable<Cliente> FiltrarDoEscopo(int idEmpresa, StatusCadastroCliente? status)
+        {
+            if (idEmpresa <= 0)
+            {
+                return Enumerable.Empty<Cliente>();
+            }
+
+            IEnumerable<Cliente> doEscopo = FiltrarAtivos(status)
+                .Where(x => _vinculos.TryGetValue(x.IdCliente, out HashSet<int>? empresas) && empresas.Contains(idEmpresa));
+
+            return doEscopo;
         }
 
         private IEnumerable<Cliente> FiltrarAtivos(StatusCadastroCliente? status)

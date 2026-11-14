@@ -10,8 +10,8 @@ namespace AutoVia.Core.ServicesInterface
     /// </summary>
     public interface ITokenService
     {
-        /// <summary>Gera o token do usuario autenticado. Cargo so para funcionario. lembrar=true usa Jwt:ExpiracaoLembrarDias; false usa Jwt:ExpiracaoMinutos.</summary>
-        TokenGeradoVO GerarToken(PerfilUsuario perfil, int idUsuario, string nome, CargoFuncionario? cargo, string versaoSessao, bool lembrar);
+        /// <summary>Gera o token do usuario autenticado. Cargo e empresa (claim emp) so para funcionario. lembrar=true usa Jwt:ExpiracaoLembrarDias; false usa Jwt:ExpiracaoMinutos.</summary>
+        TokenGeradoVO GerarToken(PerfilUsuario perfil, int idUsuario, string nome, CargoFuncionario? cargo, string versaoSessao, bool lembrar, int? idEmpresa);
 
         /// <summary>Calcula a versao da sessao (claim sv): Base64Url dos 16 primeiros bytes de HMAC-SHA256(Jwt:Chave, senhaHash). Muda quando a senha muda.</summary>
         string CalcularVersaoSessao(string senhaHash);

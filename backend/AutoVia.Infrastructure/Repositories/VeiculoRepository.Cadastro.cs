@@ -1,5 +1,6 @@
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Helpers;
+using AutoVia.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
@@ -22,6 +23,7 @@ namespace AutoVia.Infrastructure.Repositories
                 Veiculo? veiculo = await _db.Veiculos
                     .AsNoTracking()
                     .Include(x => x.Categoria)
+                    .Include(x => x.Empresa)
                     .FirstOrDefaultAsync(x => x.IdVeiculo == idVeiculo && x.DisabledAt == null);
 
                 return veiculo;
@@ -33,12 +35,16 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        /// <summary>Verifica se existe veiculo ativo com a mesma placa, comparando com Trim e sem diferenciar maiusculas.</summary>
+        /// <summary>
+        /// Verifica se existe veiculo ativo com a mesma placa, em qualquer locadora da plataforma
+        /// (unicidade global: ignora o escopo de empresa), comparando com Trim e sem diferenciar maiusculas.
+        /// </summary>
         public async Task<bool> ExistsByPlacaAsync(string placa, int? idVeiculoIgnorado)
         {
             try
             {
                 IQueryable<Veiculo> consulta = _db.Veiculos
+                    .SemEscopoEmpresa()
                     .AsNoTracking()
                     .Where(x => x.DisabledAt == null);
 
@@ -59,12 +65,16 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        /// <summary>Verifica se existe veiculo ativo com o mesmo chassi, comparando com Trim e sem diferenciar maiusculas.</summary>
+        /// <summary>
+        /// Verifica se existe veiculo ativo com o mesmo chassi, em qualquer locadora da plataforma
+        /// (ignora o escopo de empresa), comparando com Trim e sem diferenciar maiusculas.
+        /// </summary>
         public async Task<bool> ExistsByChassiAsync(string chassi, int? idVeiculoIgnorado)
         {
             try
             {
                 IQueryable<Veiculo> consulta = _db.Veiculos
+                    .SemEscopoEmpresa()
                     .AsNoTracking()
                     .Where(x => x.DisabledAt == null);
 
@@ -85,12 +95,16 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        /// <summary>Verifica se existe veiculo ativo com o mesmo renavam, comparando com Trim e sem diferenciar maiusculas.</summary>
+        /// <summary>
+        /// Verifica se existe veiculo ativo com o mesmo renavam, em qualquer locadora da plataforma
+        /// (ignora o escopo de empresa), comparando com Trim e sem diferenciar maiusculas.
+        /// </summary>
         public async Task<bool> ExistsByRenavamAsync(string renavam, int? idVeiculoIgnorado)
         {
             try
             {
                 IQueryable<Veiculo> consulta = _db.Veiculos
+                    .SemEscopoEmpresa()
                     .AsNoTracking()
                     .Where(x => x.DisabledAt == null);
 

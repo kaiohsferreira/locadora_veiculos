@@ -25,6 +25,7 @@ namespace AutoVia.Infrastructure.Repositories
             {
                 List<Veiculo> veiculos = await AplicarFiltros(idCategoria, status, placa)
                     .Include(x => x.Categoria)
+                    .Include(x => x.Empresa)
                     .OrderBy(x => x.Placa)
                     .ThenBy(x => x.IdVeiculo)
                     .Skip(deslocamento)

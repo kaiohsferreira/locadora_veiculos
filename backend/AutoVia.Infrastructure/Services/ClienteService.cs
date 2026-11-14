@@ -26,22 +26,28 @@ namespace AutoVia.Infrastructure.Services
         private readonly ISenhaHasher _senhaHasher;
         private readonly IMapper _mapper;
         private readonly ILogService _logService;
+        private readonly IContextoEmpresa _contextoEmpresa;
 
-        public ClienteService(IClienteRepository clienteRepository, ISenhaHasher senhaHasher, IMapper mapper, ILogService logService)
+        public ClienteService(IClienteRepository clienteRepository, ISenhaHasher senhaHasher, IMapper mapper, ILogService logService, IContextoEmpresa contextoEmpresa)
         {
             _clienteRepository = clienteRepository;
             _senhaHasher = senhaHasher;
             _mapper = mapper;
             _logService = logService;
+            _contextoEmpresa = contextoEmpresa;
         }
 
-        /// <summary>Lista os clientes ativos, paginados, com filtro opcional por status, ordenados por data de cadastro.</summary>
+        /// <summary>
+        /// Lista os clientes ativos com vinculo com a empresa do contexto (reserva, locacao ou venda em veiculo dela),
+        /// paginados, com filtro opcional por status, ordenados por data de cadastro. Total e pagina usam o mesmo escopo.
+        /// </summary>
         public async Task<PaginaVO<ReturnClienteVO>> GetAllAsync(ClienteFiltroVO filtro)
         {
             try
             {
-                int total = await _clienteRepository.CountAsync(filtro.Status);
-                List<Cliente> clientes = await _clienteRepository.FindAllAsync(filtro.Status, filtro.Deslocamento, filtro.TamanhoPagina);
+                int idEmpresa = _contextoEmpresa.IdEmpresa;
+                int total = await _clienteRepository.CountAsync(idEmpresa, filtro.Status);
+                List<Cliente> clientes = await _clienteRepository.FindAllAsync(idEmpresa, filtro.Status, filtro.Deslocamento, filtro.TamanhoPagina);
                 List<ReturnClienteVO> itens = _mapper.Map<List<ReturnClienteVO>>(clientes);
                 PaginaVO<ReturnClienteVO> pagina = new PaginaVO<ReturnClienteVO>(itens, total, filtro.Pagina, filtro.TamanhoPagina);
 
@@ -62,12 +68,15 @@ namespace AutoVia.Infrastructure.Services
             }
         }
 
-        /// <summary>Consulta um cliente ativo pelo id; lanca NotFoundException se nao existir ou estiver desativado.</summary>
+        /// <summary>
+        /// Consulta um cliente ativo, com vinculo com a empresa do contexto, pelo id. Lanca NotFoundException (a mesma
+        /// mensagem de inexistente) se nao existir, estiver desativado ou nao tiver vinculo com a empresa.
+        /// </summary>
         public async Task<ReturnClienteVO> GetByIdAsync(int idCliente)
         {
             try
             {
-                Cliente? cliente = await _clienteRepository.FindByIdAsync(idCliente);
+                Cliente? cliente = await _clienteRepository.FindByIdAsync(_contextoEmpresa.IdEmpresa, idCliente);
 
                 if (cliente == null)
                 {

@@ -34,5 +34,14 @@ namespace AutoVia.Communication.ViewObjects.Autenticacao
 
         /// <summary>Status do cadastro do cliente (PENDENTE, APROVADO, RECUSADO); nulo para funcionario.</summary>
         public StatusCadastroCliente? StatusCadastro { get; set; }
+
+        /// <summary>Empresa (locadora) do funcionario; nulo para cliente.</summary>
+        public int? IdEmpresa { get; set; }
+
+        /// <summary>Nome fantasia da empresa do funcionario, para o cabecalho do back office; nulo para cliente.</summary>
+        public string? EmpresaNomeFantasia { get; set; }
+
+        /// <summary>Verdadeiro quando a empresa do funcionario e a operadora da plataforma; nulo para cliente.</summary>
+        public bool? EmpresaOperadora { get; set; }
     }
 }

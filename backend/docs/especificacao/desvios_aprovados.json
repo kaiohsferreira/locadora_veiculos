@@ -60,5 +60,45 @@
     },
     "dados": "integration GOOGLE (client_id, provedor) e integration_setting EMAIL.provedor = FAKE, por migration de dados",
     "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico (unicidade no servico)"
+  },
+  "empresa_locadora": {
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "data": "2026-11-13",
+    "motivo": "A plataforma passa a atender varias locadoras: cada locadora se cadastra sozinha, tem equipe propria e so ve os seus dados. O responsavel recebe o cargo ADMINISTRADOR. O isolamento e feito por id_empresa em veiculo e funcionario; as demais tabelas herdam pelo veiculo.",
+    "tabelas_novas": {
+      "empresa": {
+        "colunas": {
+          "id_empresa": "SERIAL PK",
+          "razao_social": "VARCHAR(150) NOT NULL",
+          "nome_fantasia": "VARCHAR(100) NOT NULL",
+          "cnpj": "CHAR(14) NOT NULL",
+          "telefone": "VARCHAR(20) NOT NULL",
+          "email": "VARCHAR(120) NOT NULL",
+          "cep": "CHAR(8) NOT NULL",
+          "logradouro": "VARCHAR(120) NOT NULL",
+          "numero": "VARCHAR(10) NOT NULL",
+          "complemento": "VARCHAR(60) NULL",
+          "bairro": "VARCHAR(60) NOT NULL",
+          "cidade": "VARCHAR(60) NOT NULL",
+          "uf": "CHAR(2) NOT NULL",
+          "ativo": "BOOLEAN NOT NULL DEFAULT TRUE",
+          "operadora": "BOOLEAN NOT NULL DEFAULT FALSE"
+        },
+        "check": "ck_empresa_cnpj: cnpj com exatamente 14 digitos",
+        "indices": ["idx_empresa_cnpj (comum)", "idx_empresa_email (comum)"],
+        "auditoria": "created_at, updated_at, disabled_at (BaseEntities)"
+      }
+    },
+    "colunas_novas": {
+      "funcionario": { "id_empresa": "INT NOT NULL, fk_funcionario_empresa (NO ACTION)" },
+      "veiculo": { "id_empresa": "INT NOT NULL, fk_veiculo_empresa (NO ACTION)" },
+      "indices": ["idx_funcionario_empresa (comum)", "idx_veiculo_empresa (comum)"]
+    },
+    "check_alterado": {
+      "ck_funcionario_cargo": "passa a aceitar tambem 'ADMINISTRADOR' (6 valores)"
+    },
+    "unicidade_no_servico": "cnpj e e-mail da empresa; matricula por empresa; cpf de funcionario, placa, chassi e renavam em toda a plataforma",
+    "dados": "empresa inicial criada pela migration (dados provisorios ate o Kaio informar os reais); todo funcionario e veiculo existente (inclusive desativados) passa a ser dela; o administrador inicial vira ADMINISTRADOR",
+    "nao_muda": "demais tabelas e CHECKs; nenhum indice unico; categoria e cliente continuam globais; sem id_empresa nas tabelas operacionais"
   }
 }

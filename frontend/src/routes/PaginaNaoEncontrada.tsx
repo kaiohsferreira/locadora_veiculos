@@ -20,12 +20,12 @@ export function PaginaNaoEncontrada() {
       <h1 className="text-titulo text-navy">Página não encontrada</h1>
       <p className="max-w-md text-corpo text-texto-suave">{MENSAGEM_PAGINA_NAO_ENCONTRADA}</p>
       <BotaoLink
-        to={noBackOffice ? CAMINHOS.frota : CAMINHOS.inicio}
+        to={noBackOffice ? CAMINHOS.visaoGeral : CAMINHOS.inicio}
         variante="secundario"
         icone="arrow_back"
         className="mt-4"
       >
-        {noBackOffice ? 'Voltar ao painel da frota' : 'Voltar para o início'}
+        {noBackOffice ? 'Voltar à visão geral' : 'Voltar para o início'}
       </BotaoLink>
     </div>
   );

@@ -136,6 +136,37 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public async Task GetPorId_VeiculoDeLocadora_DevolveNomeCidadeEUfDaLocadora()
+        {
+            Veiculo veiculo = new Veiculo
+            {
+                IdCategoria = _fabrica.CategoriaSuv.IdCategoria,
+                Categoria = _fabrica.CategoriaSuv,
+                IdEmpresa = 2,
+                Empresa = new Empresa { IdEmpresa = 2, NomeFantasia = "Rota Sul", Cidade = "São Paulo", Uf = "SP" },
+                Placa = "ABC1D23",
+                Chassi = "9BWZZZ377VT004251",
+                Renavam = "12345678901",
+                Marca = "Fiat",
+                Modelo = "Toro",
+                AnoFabricacao = 2022,
+                AnoModelo = 2023,
+                KmAtual = 1000,
+                ValorDiaria = 150m,
+                Status = StatusVeiculo.DISPONIVEL
+            };
+            _fabrica.Veiculos.Adicionar(veiculo);
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, $"{RotaVeiculos}/{veiculo.IdVeiculo}", TokenDeFuncionario()));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal("Rota Sul", corpo.GetProperty("locadoraNomeFantasia").GetString());
+            Assert.Equal("São Paulo", corpo.GetProperty("locadoraCidade").GetString());
+            Assert.Equal("SP", corpo.GetProperty("locadoraUf").GetString());
+        }
+
+        [Fact]
         public async Task GetPorId_VeiculoAtivo_Devolve200()
         {
             Veiculo veiculo = SemearVeiculo("ABC1D23", "9BWZZZ377VT004251", "12345678901", StatusVeiculo.DISPONIVEL);
@@ -228,7 +259,7 @@ namespace AutoVia.Tests.Api
             };
 
             TokenService tokens = new TokenService(opcoes, new FakeLogService());
-            string token = tokens.GerarToken(perfil, 1, "Usuario de teste", cargo, VersaoSessaoDeTeste, false).Token;
+            string token = tokens.GerarToken(perfil, 1, "Usuario de teste", cargo, VersaoSessaoDeTeste, false, 1).Token;
 
             return token;
         }

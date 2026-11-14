@@ -27,6 +27,8 @@ namespace AutoVia.Tests.Clientes
         private const string CnhA = "12345678901";
         private const string CnhB = "98765432100";
         private const string SenhaTeste = "senha1234";
+        private const int EmpresaDoContexto = 1;
+        private const int EmpresaOutra = 2;
 
         [Fact]
         public async Task InsertValido_GravaPendenteEDevolveRetornoSemSenha()
@@ -184,12 +186,12 @@ namespace AutoVia.Tests.Clientes
         public async Task GetAll_FiltraPorStatusContaEOrdenaPorDataCadastro()
         {
             FakeClienteRepository repositorio = new FakeClienteRepository();
-            repositorio.Adicionar(CriarClienteComDataCadastro("Ana", "11111111111", "CNH001", StatusCadastroCliente.APROVADO, new DateTime(2026, 11, 3, 9, 0, 0)));
-            repositorio.Adicionar(CriarClienteComDataCadastro("Bruno", "22222222222", "CNH002", StatusCadastroCliente.PENDENTE, new DateTime(2026, 11, 2, 9, 0, 0)));
-            repositorio.Adicionar(CriarClienteComDataCadastro("Carla", "33333333333", "CNH003", StatusCadastroCliente.PENDENTE, new DateTime(2026, 11, 1, 9, 0, 0)));
+            AdicionarVinculado(repositorio, CriarClienteComDataCadastro("Ana", "11111111111", "CNH001", StatusCadastroCliente.APROVADO, new DateTime(2026, 11, 3, 9, 0, 0)));
+            AdicionarVinculado(repositorio, CriarClienteComDataCadastro("Bruno", "22222222222", "CNH002", StatusCadastroCliente.PENDENTE, new DateTime(2026, 11, 2, 9, 0, 0)));
+            AdicionarVinculado(repositorio, CriarClienteComDataCadastro("Carla", "33333333333", "CNH003", StatusCadastroCliente.PENDENTE, new DateTime(2026, 11, 1, 9, 0, 0)));
             Cliente desativado = CriarClienteComDataCadastro("Diego", "44444444444", "CNH004", StatusCadastroCliente.PENDENTE, new DateTime(2026, 10, 1, 9, 0, 0));
             desativado.Disable();
-            repositorio.Adicionar(desativado);
+            AdicionarVinculado(repositorio, desativado);
             ClienteService servico = CriarServico(repositorio, new FakeLogService());
 
             PaginaVO<ReturnClienteVO> todos = await servico.GetAllAsync(new ClienteFiltroVO { Pagina = 1, TamanhoPagina = 20 });
@@ -206,9 +208,9 @@ namespace AutoVia.Tests.Clientes
         {
             FakeClienteRepository repositorio = new FakeClienteRepository();
             DateTime mesmaData = new DateTime(2026, 11, 4, 8, 0, 0);
-            repositorio.Adicionar(CriarClienteComDataCadastro("Eva", "55555555555", "CNH005", StatusCadastroCliente.PENDENTE, mesmaData));
-            repositorio.Adicionar(CriarClienteComDataCadastro("Fabio", "66666666666", "CNH006", StatusCadastroCliente.PENDENTE, mesmaData));
-            repositorio.Adicionar(CriarClienteComDataCadastro("Gisele", "77777777777", "CNH007", StatusCadastroCliente.PENDENTE, mesmaData));
+            AdicionarVinculado(repositorio, CriarClienteComDataCadastro("Eva", "55555555555", "CNH005", StatusCadastroCliente.PENDENTE, mesmaData));
+            AdicionarVinculado(repositorio, CriarClienteComDataCadastro("Fabio", "66666666666", "CNH006", StatusCadastroCliente.PENDENTE, mesmaData));
+            AdicionarVinculado(repositorio, CriarClienteComDataCadastro("Gisele", "77777777777", "CNH007", StatusCadastroCliente.PENDENTE, mesmaData));
             ClienteService servico = CriarServico(repositorio, new FakeLogService());
 
             PaginaVO<ReturnClienteVO> pagina1 = await servico.GetAllAsync(new ClienteFiltroVO { Pagina = 1, TamanhoPagina = 2 });
@@ -219,6 +221,81 @@ namespace AutoVia.Tests.Clientes
             Assert.Equal(new List<string> { "Eva", "Fabio" }, pagina1.Itens.Select(x => x.Nome).ToList());
             Assert.Equal(2, pagina2.Pagina);
             Assert.Equal(new List<string> { "Gisele" }, pagina2.Itens.Select(x => x.Nome).ToList());
+        }
+
+        [Fact]
+        public async Task GetAll_SoClientesComVinculoNaEmpresaDoContexto_OsDeOutraLocadoraNaoAparecem()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            Cliente daA = CriarClienteAtivo(CpfASemMascara, CnhA, StatusCadastroCliente.APROVADO);
+            Cliente daB = CriarClienteAtivo(CpfBSemMascara, CnhB, StatusCadastroCliente.APROVADO);
+            AdicionarVinculado(repositorio, daA);
+            repositorio.Adicionar(daB);
+            repositorio.VincularAEmpresa(daB.IdCliente, EmpresaOutra);
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            PaginaVO<ReturnClienteVO> pagina = await servico.GetAllAsync(new ClienteFiltroVO { Pagina = 1, TamanhoPagina = 20 });
+
+            Assert.Equal(1, pagina.Total);
+            ReturnClienteVO unico = Assert.Single(pagina.Itens);
+            Assert.Equal(daA.IdCliente, unico.IdCliente);
+        }
+
+        [Fact]
+        public async Task GetAll_TotalEPaginaUsamOMesmoEscopo()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            AdicionarVinculado(repositorio, CriarClienteComDataCadastro("Hugo", "88888888888", "CNH008", StatusCadastroCliente.PENDENTE, new DateTime(2026, 11, 1, 9, 0, 0)));
+            AdicionarVinculado(repositorio, CriarClienteComDataCadastro("Iris", "99999999999", "CNH009", StatusCadastroCliente.PENDENTE, new DateTime(2026, 11, 2, 9, 0, 0)));
+            Cliente deOutra = CriarClienteComDataCadastro("Joao", "10101010101", "CNH010", StatusCadastroCliente.PENDENTE, new DateTime(2026, 11, 3, 9, 0, 0));
+            repositorio.Adicionar(deOutra);
+            repositorio.VincularAEmpresa(deOutra.IdCliente, EmpresaOutra);
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            PaginaVO<ReturnClienteVO> pagina = await servico.GetAllAsync(new ClienteFiltroVO { Pagina = 1, TamanhoPagina = 1 });
+
+            Assert.Equal(2, pagina.Total);
+            Assert.Equal(new List<string> { "Hugo" }, pagina.Itens.Select(x => x.Nome).ToList());
+        }
+
+        [Fact]
+        public async Task GetAll_ContextoVazio_NaoDevolveNada()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            AdicionarVinculado(repositorio, CriarClienteAtivo(CpfASemMascara, CnhA, StatusCadastroCliente.APROVADO));
+            ClienteService servico = CriarServico(repositorio, new FakeLogService(), new FakeSenhaHasher(), ContextoEmpresaDeTeste.Vazio());
+
+            PaginaVO<ReturnClienteVO> pagina = await servico.GetAllAsync(new ClienteFiltroVO { Pagina = 1, TamanhoPagina = 20 });
+
+            Assert.Equal(0, pagina.Total);
+            Assert.Empty(pagina.Itens);
+        }
+
+        [Fact]
+        public async Task GetById_ClienteDeOutraLocadora_LancaNaoEncontradaComAMesmaMensagem()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            Cliente deOutra = CriarClienteAtivo(CpfASemMascara, CnhA, StatusCadastroCliente.APROVADO);
+            repositorio.Adicionar(deOutra);
+            repositorio.VincularAEmpresa(deOutra.IdCliente, EmpresaOutra);
+            ClienteService servico = CriarServico(repositorio, new FakeLogService());
+
+            NotFoundException excecao = await Assert.ThrowsAsync<NotFoundException>(() => servico.GetByIdAsync(deOutra.IdCliente));
+
+            Assert.Equal(ConstantsMessage.ErroClienteNaoEncontrada, excecao.Message);
+        }
+
+        [Fact]
+        public async Task GetById_ContextoVazio_LancaNaoEncontrada()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            Cliente cliente = CriarClienteAtivo(CpfASemMascara, CnhA, StatusCadastroCliente.APROVADO);
+            AdicionarVinculado(repositorio, cliente);
+            ClienteService servico = CriarServico(repositorio, new FakeLogService(), new FakeSenhaHasher(), ContextoEmpresaDeTeste.Vazio());
+
+            NotFoundException excecao = await Assert.ThrowsAsync<NotFoundException>(() => servico.GetByIdAsync(cliente.IdCliente));
+
+            Assert.Equal(ConstantsMessage.ErroClienteNaoEncontrada, excecao.Message);
         }
 
         [Fact]
@@ -251,7 +328,7 @@ namespace AutoVia.Tests.Clientes
         {
             FakeClienteRepository repositorio = new FakeClienteRepository();
             Cliente ativo = CriarClienteAtivo(CpfASemMascara, CnhA, StatusCadastroCliente.PENDENTE);
-            repositorio.Adicionar(ativo);
+            AdicionarVinculado(repositorio, ativo);
             ClienteService servico = CriarServico(repositorio, new FakeLogService());
 
             ReturnClienteVO retorno = await servico.GetByIdAsync(ativo.IdCliente);
@@ -640,11 +717,23 @@ namespace AutoVia.Tests.Clientes
 
         private static ClienteService CriarServico(FakeClienteRepository repositorio, ILogService log, FakeSenhaHasher hasher)
         {
+            return CriarServico(repositorio, log, hasher, ContextoEmpresaDeTeste.Criar(EmpresaDoContexto));
+        }
+
+        private static ClienteService CriarServico(FakeClienteRepository repositorio, ILogService log, FakeSenhaHasher hasher, IContextoEmpresa contexto)
+        {
             MapperConfiguration configuracao = new MapperConfiguration(cfg => cfg.AddProfile<ClienteProfile>(), NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
-            ClienteService servico = new ClienteService(repositorio, hasher, mapper, log);
+            ClienteService servico = new ClienteService(repositorio, hasher, mapper, log, contexto);
 
             return servico;
+        }
+
+        /// <summary>Adiciona o cliente ja vinculado a empresa do contexto padrao do teste (reserva, locacao ou venda nela).</summary>
+        private static void AdicionarVinculado(FakeClienteRepository repositorio, Cliente cliente)
+        {
+            repositorio.Adicionar(cliente);
+            repositorio.VincularAEmpresa(cliente.IdCliente, EmpresaDoContexto);
         }
     }
 }

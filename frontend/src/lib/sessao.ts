@@ -82,10 +82,17 @@ function ehDataValida(valor: unknown): valor is string {
  */
 function lerUsuarioArmazenado(valor: unknown): UsuarioSessao | null {
   if (typeof valor !== 'object' || valor === null) return null;
-  const { nome, perfil, idUsuario, expiraEm, cargo, statusCadastro } = valor as Record<
-    string,
-    unknown
-  >;
+  const {
+    nome,
+    perfil,
+    idUsuario,
+    expiraEm,
+    cargo,
+    statusCadastro,
+    idEmpresa,
+    empresaNomeFantasia,
+    empresaOperadora,
+  } = valor as Record<string, unknown>;
   if (typeof nome !== 'string' || !ehPerfilUsuario(perfil)) return null;
 
   const usuario: UsuarioSessao = { nome, perfil };
@@ -93,6 +100,9 @@ function lerUsuarioArmazenado(valor: unknown): UsuarioSessao | null {
   if (ehDataValida(expiraEm)) usuario.expiraEm = expiraEm;
   if (ehCargoFuncionario(cargo)) usuario.cargo = cargo;
   if (ehStatusCadastroCliente(statusCadastro)) usuario.statusCadastro = statusCadastro;
+  if (typeof idEmpresa === 'number' && Number.isInteger(idEmpresa)) usuario.idEmpresa = idEmpresa;
+  if (typeof empresaNomeFantasia === 'string') usuario.empresaNomeFantasia = empresaNomeFantasia;
+  if (typeof empresaOperadora === 'boolean') usuario.empresaOperadora = empresaOperadora;
   return usuario;
 }
 
@@ -135,6 +145,9 @@ function copiarUsuario(usuario: UsuarioSessao): UsuarioSessao {
   if (usuario.expiraEm !== undefined && ehDataValida(usuario.expiraEm)) copia.expiraEm = usuario.expiraEm;
   if (usuario.cargo !== undefined) copia.cargo = usuario.cargo;
   if (usuario.statusCadastro !== undefined) copia.statusCadastro = usuario.statusCadastro;
+  if (usuario.idEmpresa !== undefined) copia.idEmpresa = usuario.idEmpresa;
+  if (usuario.empresaNomeFantasia !== undefined) copia.empresaNomeFantasia = usuario.empresaNomeFantasia;
+  if (usuario.empresaOperadora !== undefined) copia.empresaOperadora = usuario.empresaOperadora;
   return copia;
 }
 

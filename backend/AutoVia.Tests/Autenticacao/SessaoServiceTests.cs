@@ -1,4 +1,5 @@
 using AutoVia.Communication.Enums;
+using AutoVia.Communication.ViewObjects.Autenticacao;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Options;
 using AutoVia.Core.RepositoriesInterface;
@@ -257,6 +258,136 @@ namespace AutoVia.Tests.Autenticacao
             Assert.DoesNotContain(log.Entries, entrada => entrada.Contains(HashSenhaA));
         }
 
+        [Fact]
+        public async Task FuncionarioComEmpresaInativa_NaoValida()
+        {
+            FakeAutenticacaoRepository interno = new FakeAutenticacaoRepository();
+            Empresa empresa = EmpresaCadastrada(interno, ativa: false, operadora: false);
+            Funcionario funcionario = FuncionarioNaEmpresa(empresa, HashSenhaA);
+            interno.AdicionarFuncionario(funcionario);
+            FakeLogService log = new FakeLogService();
+            SessaoService servico = CriarServico(new RepositorioContado(interno), log);
+
+            bool valida = await servico.SessaoValidaAsync(PerfilUsuario.FUNCIONARIO, funcionario.IdFuncionario, VersaoDe(HashSenhaA));
+
+            Assert.False(valida);
+        }
+
+        [Fact]
+        public async Task FuncionarioComEmpresaDesativada_NaoValida()
+        {
+            FakeAutenticacaoRepository interno = new FakeAutenticacaoRepository();
+            Empresa empresa = EmpresaCadastrada(interno, ativa: true, operadora: false);
+            empresa.Disable();
+            Funcionario funcionario = FuncionarioNaEmpresa(empresa, HashSenhaA);
+            interno.AdicionarFuncionario(funcionario);
+            FakeLogService log = new FakeLogService();
+            SessaoService servico = CriarServico(new RepositorioContado(interno), log);
+
+            bool valida = await servico.SessaoValidaAsync(PerfilUsuario.FUNCIONARIO, funcionario.IdFuncionario, VersaoDe(HashSenhaA));
+
+            Assert.False(valida);
+        }
+
+        [Fact]
+        public async Task ObterSituacao_FuncionarioAtivo_DevolveEmpresaCargoEOperadoraDoBanco()
+        {
+            FakeAutenticacaoRepository interno = new FakeAutenticacaoRepository();
+            Empresa operadora = EmpresaCadastrada(interno, ativa: true, operadora: true);
+            Funcionario funcionario = FuncionarioNaEmpresa(operadora, HashSenhaA);
+            funcionario.Cargo = CargoFuncionario.ADMINISTRADOR;
+            interno.AdicionarFuncionario(funcionario);
+            FakeLogService log = new FakeLogService();
+            SessaoService servico = CriarServico(new RepositorioContado(interno), log);
+
+            SessaoSituacaoVO situacao = await servico.ObterSituacaoAsync(PerfilUsuario.FUNCIONARIO, funcionario.IdFuncionario);
+
+            Assert.True(situacao.Ativo);
+            Assert.Equal(operadora.IdEmpresa, situacao.IdEmpresa);
+            Assert.Equal(CargoFuncionario.ADMINISTRADOR, situacao.Cargo);
+            Assert.True(situacao.EmpresaAtiva);
+            Assert.True(situacao.EmpresaOperadora);
+        }
+
+        [Fact]
+        public async Task ObterSituacao_EmpresaInativa_DevolveContaInativaEEmpresaInativa()
+        {
+            FakeAutenticacaoRepository interno = new FakeAutenticacaoRepository();
+            Empresa empresa = EmpresaCadastrada(interno, ativa: false, operadora: false);
+            Funcionario funcionario = FuncionarioNaEmpresa(empresa, HashSenhaA);
+            interno.AdicionarFuncionario(funcionario);
+            FakeLogService log = new FakeLogService();
+            SessaoService servico = CriarServico(new RepositorioContado(interno), log);
+
+            SessaoSituacaoVO situacao = await servico.ObterSituacaoAsync(PerfilUsuario.FUNCIONARIO, funcionario.IdFuncionario);
+
+            Assert.False(situacao.Ativo);
+            Assert.False(situacao.EmpresaAtiva);
+            Assert.False(situacao.EmpresaOperadora);
+        }
+
+        [Fact]
+        public async Task ObterSituacao_CompartilhaOCacheDaSessao_NaoConsultaDeNovo()
+        {
+            FakeAutenticacaoRepository interno = new FakeAutenticacaoRepository();
+            Empresa empresa = EmpresaCadastrada(interno, ativa: true, operadora: false);
+            Funcionario funcionario = FuncionarioNaEmpresa(empresa, HashSenhaA);
+            interno.AdicionarFuncionario(funcionario);
+            RepositorioContado contado = new RepositorioContado(interno);
+            FakeLogService log = new FakeLogService();
+            SessaoService servico = CriarServico(contado, log);
+
+            await servico.SessaoValidaAsync(PerfilUsuario.FUNCIONARIO, funcionario.IdFuncionario, VersaoDe(HashSenhaA));
+            await servico.ObterSituacaoAsync(PerfilUsuario.FUNCIONARIO, funcionario.IdFuncionario);
+
+            Assert.Equal(1, contado.ConsultasFuncionario);
+        }
+
+        [Fact]
+        public async Task Invalidar_AposMudarCargo_ObterSituacaoLeNovoCargo()
+        {
+            FakeAutenticacaoRepository interno = new FakeAutenticacaoRepository();
+            Empresa empresa = EmpresaCadastrada(interno, ativa: true, operadora: false);
+            Funcionario funcionario = FuncionarioNaEmpresa(empresa, HashSenhaA);
+            interno.AdicionarFuncionario(funcionario);
+            FakeLogService log = new FakeLogService();
+            SessaoService servico = CriarServico(new RepositorioContado(interno), log);
+
+            SessaoSituacaoVO antes = await servico.ObterSituacaoAsync(PerfilUsuario.FUNCIONARIO, funcionario.IdFuncionario);
+            funcionario.Cargo = CargoFuncionario.ADMINISTRADOR;
+            servico.Invalidar(PerfilUsuario.FUNCIONARIO, funcionario.IdFuncionario);
+            SessaoSituacaoVO depois = await servico.ObterSituacaoAsync(PerfilUsuario.FUNCIONARIO, funcionario.IdFuncionario);
+
+            Assert.Equal(CargoFuncionario.ATENDENTE, antes.Cargo);
+            Assert.Equal(CargoFuncionario.ADMINISTRADOR, depois.Cargo);
+        }
+
+        /// <summary>Cadastra uma empresa no fake (ativa ou nao, operadora ou nao) e devolve a entidade com o id gerado.</summary>
+        private static Empresa EmpresaCadastrada(FakeAutenticacaoRepository interno, bool ativa, bool operadora)
+        {
+            Empresa empresa = new Empresa
+            {
+                RazaoSocial = "Rota Sul Locadora Ltda",
+                NomeFantasia = "Rota Sul",
+                Cnpj = "11222333000181",
+                Ativo = ativa,
+                Operadora = operadora
+            };
+
+            interno.AdicionarEmpresa(empresa);
+
+            return empresa;
+        }
+
+        /// <summary>Funcionario ativo, cargo ATENDENTE, vinculado a empresa informada.</summary>
+        private static Funcionario FuncionarioNaEmpresa(Empresa empresa, string senhaHash)
+        {
+            Funcionario funcionario = FuncionarioComHash(senhaHash, ativo: true);
+            funcionario.IdEmpresa = empresa.IdEmpresa;
+
+            return funcionario;
+        }
+
         /// <summary>Repositorio que delega ao fake e conta as consultas por id, para provar o cache.</summary>
         private sealed class RepositorioContado : IAutenticacaoRepository
         {
@@ -295,11 +426,6 @@ namespace AutoVia.Tests.Autenticacao
                 return _interno.FindFuncionarioByIdAsync(idFuncionario);
             }
 
-            public Task<bool> ExistsFuncionarioByCpfAsync(string cpf)
-            {
-                return _interno.ExistsFuncionarioByCpfAsync(cpf);
-            }
-
             public Task<bool> ExistsFuncionarioByCpfWithDisabledsAsync(string cpf)
             {
                 return _interno.ExistsFuncionarioByCpfWithDisabledsAsync(cpf);
@@ -308,6 +434,11 @@ namespace AutoVia.Tests.Autenticacao
             public Task<Funcionario> InsertFuncionarioAsync(Funcionario funcionario)
             {
                 return _interno.InsertFuncionarioAsync(funcionario);
+            }
+
+            public Task<Empresa?> FindEmpresaOperadoraAsync()
+            {
+                return _interno.FindEmpresaOperadoraAsync();
             }
         }
     }

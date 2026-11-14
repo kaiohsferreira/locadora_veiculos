@@ -134,3 +134,46 @@ describe('converterRespostaLogin', () => {
     }
   });
 });
+
+describe('converterRespostaLogin: campos da locadora', () => {
+  it('leva idEmpresa, nome fantasia e operadora do funcionário', () => {
+    const usuario = converterRespostaLogin({
+      ...RESPOSTA_BASE,
+      perfil: 'FUNCIONARIO',
+      cargo: 'ADMINISTRADOR',
+      idEmpresa: 4,
+      empresaNomeFantasia: 'Rota Sul Locadora',
+      empresaOperadora: true,
+    });
+
+    expect(usuario).toMatchObject({
+      cargo: 'ADMINISTRADOR',
+      idEmpresa: 4,
+      empresaNomeFantasia: 'Rota Sul Locadora',
+      empresaOperadora: true,
+    });
+  });
+
+  it('mantém empresaOperadora falso, que é um valor válido', () => {
+    const usuario = converterRespostaLogin({ ...RESPOSTA_BASE, perfil: 'FUNCIONARIO', empresaOperadora: false });
+
+    expect(usuario.empresaOperadora).toBe(false);
+  });
+
+  it('omite os campos da locadora quando vêm null ou ausentes (resposta anterior ao campo)', () => {
+    const comNull = converterRespostaLogin({
+      ...RESPOSTA_BASE,
+      perfil: 'FUNCIONARIO',
+      idEmpresa: null,
+      empresaNomeFantasia: null,
+      empresaOperadora: null,
+    });
+    const semCampos = converterRespostaLogin({ ...RESPOSTA_BASE, perfil: 'FUNCIONARIO' });
+
+    for (const usuario of [comNull, semCampos]) {
+      expect(usuario).not.toHaveProperty('idEmpresa');
+      expect(usuario).not.toHaveProperty('empresaNomeFantasia');
+      expect(usuario).not.toHaveProperty('empresaOperadora');
+    }
+  });
+});

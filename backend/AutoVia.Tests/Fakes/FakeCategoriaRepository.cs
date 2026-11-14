@@ -20,6 +20,9 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Quando nao for null, FindByIdAsync lanca esta excecao (simula falha inesperada do banco).</summary>
         public Exception? ExcecaoAoBuscarPorId { get; set; }
 
+        /// <summary>Categorias gravadas (ativas e desativadas), para os testes conferirem o que foi inserido ou recusado.</summary>
+        public IReadOnlyList<Categoria> Armazenados => _categorias;
+
         /// <summary>Semeia uma categoria (ativa ou desativada) sem passar pelo servico. Se o id for 0, gera um.</summary>
         public void Adicionar(Categoria categoria)
         {

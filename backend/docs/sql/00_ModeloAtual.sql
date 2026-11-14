@@ -31,6 +31,7 @@ CREATE TABLE cliente (
     data_cadastro timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     status_cadastro character varying(15) NOT NULL DEFAULT 'PENDENTE',
     senha_hash character varying(255),
+    google_sub character varying(255),
     created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     disabled_at timestamp without time zone,
@@ -40,21 +41,27 @@ CREATE TABLE cliente (
 );
 
 
-CREATE TABLE funcionario (
-    id_funcionario serial NOT NULL,
-    nome character varying(120) NOT NULL,
-    cpf character(11) NOT NULL,
-    matricula character varying(20) NOT NULL,
-    cargo character varying(40) NOT NULL,
-    email character varying(120),
-    data_admissao date NOT NULL,
+CREATE TABLE empresa (
+    id_empresa serial NOT NULL,
+    razao_social character varying(150) NOT NULL,
+    nome_fantasia character varying(100) NOT NULL,
+    cnpj character(14) NOT NULL,
+    telefone character varying(20) NOT NULL,
+    email character varying(120) NOT NULL,
+    cep character(8) NOT NULL,
+    logradouro character varying(120) NOT NULL,
+    numero character varying(10) NOT NULL,
+    complemento character varying(60),
+    bairro character varying(60) NOT NULL,
+    cidade character varying(60) NOT NULL,
+    uf character(2) NOT NULL,
     ativo boolean NOT NULL DEFAULT TRUE,
-    senha_hash character varying(255),
+    operadora boolean NOT NULL DEFAULT FALSE,
     created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     disabled_at timestamp without time zone,
-    CONSTRAINT funcionario_pkey PRIMARY KEY (id_funcionario),
-    CONSTRAINT ck_funcionario_cargo CHECK (cargo IN ('ATENDENTE', 'VENDEDOR', 'GESTOR_FROTA', 'FINANCEIRO', 'ADMINISTRATIVO'))
+    CONSTRAINT empresa_pkey PRIMARY KEY (id_empresa),
+    CONSTRAINT ck_empresa_cnpj CHECK (cnpj ~ '^[0-9]{14}$')
 );
 
 
@@ -76,6 +83,26 @@ CREATE TABLE integration (
 );
 
 
+CREATE TABLE funcionario (
+    id_funcionario serial NOT NULL,
+    nome character varying(120) NOT NULL,
+    cpf character(11) NOT NULL,
+    matricula character varying(20) NOT NULL,
+    cargo character varying(40) NOT NULL,
+    email character varying(120),
+    data_admissao date NOT NULL,
+    ativo boolean NOT NULL DEFAULT TRUE,
+    senha_hash character varying(255),
+    id_empresa integer NOT NULL,
+    created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    disabled_at timestamp without time zone,
+    CONSTRAINT funcionario_pkey PRIMARY KEY (id_funcionario),
+    CONSTRAINT ck_funcionario_cargo CHECK (cargo IN ('ATENDENTE', 'VENDEDOR', 'GESTOR_FROTA', 'FINANCEIRO', 'ADMINISTRATIVO', 'ADMINISTRADOR')),
+    CONSTRAINT fk_funcionario_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id_empresa)
+);
+
+
 CREATE TABLE veiculo (
     id_veiculo serial NOT NULL,
     id_categoria integer NOT NULL,
@@ -92,6 +119,7 @@ CREATE TABLE veiculo (
     valor_venda numeric(12,2),
     status character varying(20) NOT NULL DEFAULT 'DISPONIVEL',
     data_aquisicao date,
+    id_empresa integer NOT NULL,
     created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     disabled_at timestamp without time zone,
@@ -100,7 +128,8 @@ CREATE TABLE veiculo (
     CONSTRAINT ck_veiculo_diaria CHECK (valor_diaria > 0),
     CONSTRAINT ck_veiculo_km CHECK (km_atual >= 0),
     CONSTRAINT ck_veiculo_status CHECK (status IN ('DISPONIVEL', 'RESERVADO', 'LOCADO', 'MANUTENCAO', 'VENDIDO', 'BAIXADO')),
-    CONSTRAINT fk_veiculo_categoria FOREIGN KEY (id_categoria) REFERENCES categoria (id_categoria)
+    CONSTRAINT fk_veiculo_categoria FOREIGN KEY (id_categoria) REFERENCES categoria (id_categoria),
+    CONSTRAINT fk_veiculo_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id_empresa)
 );
 
 
@@ -115,6 +144,22 @@ CREATE TABLE integration_setting (
     disabled_at timestamp without time zone,
     CONSTRAINT integration_setting_pkey PRIMARY KEY (id_setting),
     CONSTRAINT fk_setting_integration FOREIGN KEY (id_integration) REFERENCES integration (id_integration) ON DELETE CASCADE
+);
+
+
+CREATE TABLE redefinicao_senha (
+    id_redefinicao_senha serial NOT NULL,
+    id_cliente integer,
+    id_funcionario integer,
+    token_hash character(64) NOT NULL,
+    expira_em timestamp without time zone NOT NULL,
+    created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    disabled_at timestamp without time zone,
+    CONSTRAINT redefinicao_senha_pkey PRIMARY KEY (id_redefinicao_senha),
+    CONSTRAINT ck_redefinicao_titular CHECK ((id_cliente IS NOT NULL AND id_funcionario IS NULL) OR (id_cliente IS NULL AND id_funcionario IS NOT NULL)),
+    CONSTRAINT fk_redefinicao_cliente FOREIGN KEY (id_cliente) REFERENCES cliente (id_cliente),
+    CONSTRAINT fk_redefinicao_funcionario FOREIGN KEY (id_funcionario) REFERENCES funcionario (id_funcionario)
 );
 
 
@@ -334,7 +379,19 @@ CREATE INDEX idx_cliente_cnh_numero ON cliente (cnh_numero);
 CREATE INDEX idx_cliente_cpf ON cliente (cpf);
 
 
+CREATE INDEX idx_cliente_google_sub ON cliente (google_sub);
+
+
+CREATE INDEX idx_empresa_cnpj ON empresa (cnpj);
+
+
+CREATE INDEX idx_empresa_email ON empresa (email);
+
+
 CREATE INDEX idx_funcionario_cpf ON funcionario (cpf);
+
+
+CREATE INDEX idx_funcionario_empresa ON funcionario (id_empresa);
 
 
 CREATE INDEX idx_funcionario_matricula ON funcionario (matricula);
@@ -367,6 +424,9 @@ CREATE INDEX idx_manutencao_veiculo ON manutencao (id_veiculo, data_entrada);
 CREATE INDEX idx_pagamento_status ON pagamento (status, data_vencimento);
 
 
+CREATE INDEX idx_redefinicao_token ON redefinicao_senha (token_hash);
+
+
 CREATE INDEX idx_reserva_cliente ON reserva (id_cliente);
 
 
@@ -383,6 +443,9 @@ CREATE INDEX idx_veiculo_categoria ON veiculo (id_categoria);
 
 
 CREATE INDEX idx_veiculo_chassi ON veiculo (chassi);
+
+
+CREATE INDEX idx_veiculo_empresa ON veiculo (id_empresa);
 
 
 CREATE INDEX idx_veiculo_placa ON veiculo (placa);

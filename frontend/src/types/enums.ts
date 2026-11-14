@@ -51,6 +51,8 @@ export const CARGO_FUNCIONARIO = [
   'GESTOR_FROTA',
   'FINANCEIRO',
   'ADMINISTRATIVO',
+  // Último valor de propósito: o backend grava a posição do enum (ver contrato auth-sessao-v3).
+  'ADMINISTRADOR',
 ] as const;
 export type CargoFuncionario = (typeof CARGO_FUNCIONARIO)[number];
 export const ROTULO_CARGO_FUNCIONARIO: Readonly<Record<CargoFuncionario, string>> = {
@@ -59,6 +61,7 @@ export const ROTULO_CARGO_FUNCIONARIO: Readonly<Record<CargoFuncionario, string>
   GESTOR_FROTA: 'Gestor de frota',
   FINANCEIRO: 'Financeiro',
   ADMINISTRATIVO: 'Administrativo',
+  ADMINISTRADOR: 'Administrador',
 };
 
 // Frota ----------------------------------------------------------------------

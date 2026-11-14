@@ -7,6 +7,8 @@ using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
 using AutoVia.Tests.Fakes;
+using Microsoft.IdentityModel.JsonWebTokens;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
 
@@ -119,6 +121,90 @@ namespace AutoVia.Tests.Autenticacao
             Assert.Equal(funcionario.IdFuncionario, retorno.IdUsuario);
             Assert.Equal(CargoFuncionario.VENDEDOR, retorno.Cargo);
             Assert.Null(retorno.StatusCadastro);
+        }
+
+        [Fact]
+        public async Task Funcionario_EmpresaAtiva_DevolveEmpresaNaRespostaETokenComEmp()
+        {
+            FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
+            Empresa operadora = EmpresaSemeada(repositorio, ativa: true, operadora: true, desativada: false);
+            Funcionario funcionario = new Funcionario { Nome = "Ana Funcionaria", Cpf = CpfFuncionario, Matricula = "F-001", Cargo = CargoFuncionario.ADMINISTRADOR, Ativo = true, SenhaHash = GerarHash(SenhaFuncionario), IdEmpresa = operadora.IdEmpresa };
+            repositorio.AdicionarFuncionario(funcionario);
+            FakeLogService log = new FakeLogService();
+            AutenticacaoService servico = CriarServico(repositorio, new SenhaHasher(log), log);
+
+            ReturnLoginVO retorno = await servico.LoginAsync(Login(PerfilUsuario.FUNCIONARIO, CpfFuncionario, SenhaFuncionario));
+
+            Assert.Equal(operadora.IdEmpresa, retorno.IdEmpresa);
+            Assert.Equal("AutoVia", retorno.EmpresaNomeFantasia);
+            Assert.True(retorno.EmpresaOperadora);
+            JsonWebToken jwt = new JsonWebTokenHandler().ReadJsonWebToken(retorno.Token);
+            Assert.Equal(operadora.IdEmpresa.ToString(), jwt.Claims.FirstOrDefault(claim => claim.Type == ConstantsValues.ClaimEmpresa)?.Value);
+        }
+
+        [Fact]
+        public async Task Funcionario_EmpresaInativa_ComSenhaCorreta_RecusaComAMesmaMensagem()
+        {
+            FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
+            Empresa empresa = EmpresaSemeada(repositorio, ativa: false, operadora: false, desativada: false);
+            repositorio.AdicionarFuncionario(new Funcionario { Nome = "Ana", Cpf = CpfFuncionario, Matricula = "F-003", Cargo = CargoFuncionario.ADMINISTRADOR, Ativo = true, SenhaHash = GerarHash(SenhaFuncionario), IdEmpresa = empresa.IdEmpresa });
+            FakeLogService log = new FakeLogService();
+            AutenticacaoService servico = CriarServico(repositorio, new SenhaHasher(log), log);
+
+            UnauthorizedException excecao = await Assert.ThrowsAsync<UnauthorizedException>(() => servico.LoginAsync(Login(PerfilUsuario.FUNCIONARIO, CpfFuncionario, SenhaFuncionario)));
+
+            Assert.Equal(ConstantsMessage.ErroCredenciaisInvalidas, excecao.Message);
+        }
+
+        [Fact]
+        public async Task Funcionario_EmpresaDesativada_ComSenhaCorreta_RecusaComAMesmaMensagem()
+        {
+            FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
+            Empresa empresa = EmpresaSemeada(repositorio, ativa: true, operadora: false, desativada: true);
+            repositorio.AdicionarFuncionario(new Funcionario { Nome = "Ana", Cpf = CpfFuncionario, Matricula = "F-004", Cargo = CargoFuncionario.ADMINISTRADOR, Ativo = true, SenhaHash = GerarHash(SenhaFuncionario), IdEmpresa = empresa.IdEmpresa });
+            FakeLogService log = new FakeLogService();
+            AutenticacaoService servico = CriarServico(repositorio, new SenhaHasher(log), log);
+
+            UnauthorizedException excecao = await Assert.ThrowsAsync<UnauthorizedException>(() => servico.LoginAsync(Login(PerfilUsuario.FUNCIONARIO, CpfFuncionario, SenhaFuncionario)));
+
+            Assert.Equal(ConstantsMessage.ErroCredenciaisInvalidas, excecao.Message);
+        }
+
+        [Fact]
+        public async Task Cliente_NaoDevolveEmpresaNaResposta()
+        {
+            FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
+            repositorio.AdicionarCliente(new Cliente { Nome = "Maria Cliente", Cpf = CpfCliente, StatusCadastro = StatusCadastroCliente.APROVADO, SenhaHash = GerarHash(SenhaCliente) });
+            FakeLogService log = new FakeLogService();
+            AutenticacaoService servico = CriarServico(repositorio, new SenhaHasher(log), log);
+
+            ReturnLoginVO retorno = await servico.LoginAsync(Login(PerfilUsuario.CLIENTE, CpfCliente, SenhaCliente));
+
+            Assert.Null(retorno.IdEmpresa);
+            Assert.Null(retorno.EmpresaNomeFantasia);
+            Assert.Null(retorno.EmpresaOperadora);
+        }
+
+        /// <summary>Cadastra uma empresa no fake com a situacao pedida e devolve a entidade com o id gerado.</summary>
+        private static Empresa EmpresaSemeada(FakeAutenticacaoRepository repositorio, bool ativa, bool operadora, bool desativada)
+        {
+            Empresa empresa = new Empresa
+            {
+                RazaoSocial = "AutoVia (empresa inicial)",
+                NomeFantasia = "AutoVia",
+                Cnpj = "00000000000000",
+                Ativo = ativa,
+                Operadora = operadora
+            };
+
+            if (desativada)
+            {
+                empresa.Disable();
+            }
+
+            repositorio.AdicionarEmpresa(empresa);
+
+            return empresa;
         }
 
         [Fact]

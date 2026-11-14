@@ -36,6 +36,23 @@ namespace AutoVia.Tests.Autenticacao
             return new AdminInicialService(repositorio, new SenhaHasher(log), opcoes, log);
         }
 
+        /// <summary>Cadastra a empresa operadora (empresa inicial da migration) e devolve a entidade com o id gerado.</summary>
+        private static Empresa OperadoraSemeada(FakeAutenticacaoRepository repositorio)
+        {
+            Empresa operadora = new Empresa
+            {
+                RazaoSocial = "AutoVia (empresa inicial)",
+                NomeFantasia = "AutoVia",
+                Cnpj = "00000000000000",
+                Ativo = true,
+                Operadora = true
+            };
+
+            repositorio.AdicionarEmpresa(operadora);
+
+            return operadora;
+        }
+
         [Fact]
         public async Task SemCpfConfigurado_NaoCriaNada()
         {
@@ -53,6 +70,7 @@ namespace AutoVia.Tests.Autenticacao
         public async Task CriaAdministrador_ComHashENaoGravaASenha()
         {
             FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
+            Empresa operadora = OperadoraSemeada(repositorio);
             FakeLogService log = new FakeLogService();
             AdminInicialService servico = CriarServico(repositorio, OpcoesValidas(), log);
 
@@ -61,7 +79,8 @@ namespace AutoVia.Tests.Autenticacao
             Assert.True(criou);
             Funcionario administrador = Assert.Single(repositorio.Funcionarios);
             Assert.Equal(CpfAdminDigitos, administrador.Cpf);
-            Assert.Equal(CargoFuncionario.ADMINISTRATIVO, administrador.Cargo);
+            Assert.Equal(CargoFuncionario.ADMINISTRADOR, administrador.Cargo);
+            Assert.Equal(operadora.IdEmpresa, administrador.IdEmpresa);
             Assert.True(administrador.Ativo);
             Assert.StartsWith("v1.PBKDF2-SHA256.", administrador.SenhaHash);
             Assert.NotEqual(SenhaAdmin, administrador.SenhaHash);
@@ -71,9 +90,37 @@ namespace AutoVia.Tests.Autenticacao
         }
 
         [Fact]
+        public async Task SemEmpresaOperadora_FalhaComLogSemCriarFuncionario()
+        {
+            FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
+            FakeLogService log = new FakeLogService();
+            AdminInicialService servico = CriarServico(repositorio, OpcoesValidas(), log);
+
+            InvalidOperationException excecao = await Assert.ThrowsAsync<InvalidOperationException>(() => servico.GarantirAdminInicialAsync());
+
+            Assert.Equal(ConstantsMessage.ErroAdminInicialSemEmpresaOperadora, excecao.Message);
+            Assert.Empty(repositorio.Funcionarios);
+            Assert.Contains(log.Entries, entrada => entrada.Contains(ConstantsMessage.ErroAdminInicialSemEmpresaOperadora));
+        }
+
+        [Fact]
+        public async Task EmpresaQueNaoEOperadora_NaoServeDeDestino()
+        {
+            FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
+            repositorio.AdicionarEmpresa(new Empresa { RazaoSocial = "Rota Sul", NomeFantasia = "Rota Sul", Cnpj = "11222333000181", Ativo = true, Operadora = false });
+            FakeLogService log = new FakeLogService();
+            AdminInicialService servico = CriarServico(repositorio, OpcoesValidas(), log);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => servico.GarantirAdminInicialAsync());
+
+            Assert.Empty(repositorio.Funcionarios);
+        }
+
+        [Fact]
         public async Task Idempotente_SegundaExecucaoNaoCriaOutro()
         {
             FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
+            OperadoraSemeada(repositorio);
             FakeLogService log = new FakeLogService();
             AdminInicialService servico = CriarServico(repositorio, OpcoesValidas(), log);
 

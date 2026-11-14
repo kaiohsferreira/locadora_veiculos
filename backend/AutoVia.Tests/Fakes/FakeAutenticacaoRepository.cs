@@ -7,14 +7,19 @@ namespace AutoVia.Tests.Fakes
     /// IAutenticacaoRepository em memoria, com as mesmas regras do AutenticacaoRepository real:
     /// ignora registros desativados (DisabledAt) e compara o CPF exatamente (o servico ja
     /// envia so os digitos). Adicionar* semeia dados, inclusive desativados.
+    /// Funcionario sem empresa informada entra na primeira empresa cadastrada (ou numa empresa
+    /// operadora padrao, criada na primeira vez). A busca por CPF e por id devolve o funcionario com
+    /// a empresa associada (como o Include do repositorio real).
     /// ExcecaoAoBuscar simula falha do banco em qualquer consulta.
     /// </summary>
     public class FakeAutenticacaoRepository : IAutenticacaoRepository
     {
         private readonly List<Cliente> _clientes = new List<Cliente>();
         private readonly List<Funcionario> _funcionarios = new List<Funcionario>();
+        private readonly List<Empresa> _empresas = new List<Empresa>();
         private int _proximoIdCliente = 1;
         private int _proximoIdFuncionario = 1;
+        private int _proximoIdEmpresa = 1;
 
         private int _totalBuscas;
         private readonly object _trava = new object();
@@ -56,9 +61,36 @@ namespace AutoVia.Tests.Fakes
             }
         }
 
-        /// <summary>Semeia um funcionario (ativo ou desativado). Se o id for 0, gera um.</summary>
+        /// <summary>Empresas semeadas (ativas, desativadas, operadoras ou nao).</summary>
+        public IReadOnlyList<Empresa> Empresas => _empresas;
+
+        /// <summary>Semeia uma empresa. Se o id for 0, gera um.</summary>
+        public void AdicionarEmpresa(Empresa empresa)
+        {
+            if (empresa.IdEmpresa == 0)
+            {
+                empresa.IdEmpresa = _proximoIdEmpresa;
+            }
+
+            if (empresa.IdEmpresa >= _proximoIdEmpresa)
+            {
+                _proximoIdEmpresa = empresa.IdEmpresa + 1;
+            }
+
+            lock (_trava)
+            {
+                _empresas.Add(empresa);
+            }
+        }
+
+        /// <summary>Semeia um funcionario (ativo ou desativado). Se o id for 0, gera um. Sem empresa informada, usa a empresa padrao.</summary>
         public void AdicionarFuncionario(Funcionario funcionario)
         {
+            if (funcionario.IdEmpresa == 0)
+            {
+                funcionario.IdEmpresa = EmpresaPadrao().IdEmpresa;
+            }
+
             if (funcionario.IdFuncionario == 0)
             {
                 funcionario.IdFuncionario = _proximoIdFuncionario;
@@ -109,7 +141,7 @@ namespace AutoVia.Tests.Fakes
             return Task.FromResult(cliente);
         }
 
-        /// <summary>Busca o funcionario ativo pelo id (DisabledAt nulo); a regra de Ativo fica no servico.</summary>
+        /// <summary>Busca o funcionario ativo pelo id (DisabledAt nulo), com a empresa; a regra de Ativo fica no servico.</summary>
         public Task<Funcionario?> FindFuncionarioByIdAsync(int idFuncionario)
         {
             LancarSeConfigurado();
@@ -118,7 +150,25 @@ namespace AutoVia.Tests.Fakes
                 .Where(x => x.IdFuncionario == idFuncionario && x.DisabledAt == null)
                 .FirstOrDefault();
 
+            if (funcionario != null)
+            {
+                ComEmpresa(funcionario);
+            }
+
             return Task.FromResult(funcionario);
+        }
+
+        /// <summary>Busca a empresa operadora ativa (DisabledAt nulo); nulo se nao houver.</summary>
+        public Task<Empresa?> FindEmpresaOperadoraAsync()
+        {
+            LancarSeConfigurado();
+
+            Empresa? operadora = _empresas
+                .Where(x => x.Operadora && x.DisabledAt == null)
+                .OrderBy(x => x.IdEmpresa)
+                .FirstOrDefault();
+
+            return Task.FromResult(operadora);
         }
 
         /// <summary>Busca o funcionario ativo (DisabledAt nulo) pelo CPF; a regra de Ativo fica no servico. Conta a busca e espera o Portao, se houver.</summary>
@@ -140,17 +190,40 @@ namespace AutoVia.Tests.Fakes
                     .FirstOrDefault();
             }
 
+            if (funcionario != null)
+            {
+                ComEmpresa(funcionario);
+            }
+
             return funcionario;
         }
 
-        /// <summary>Indica se existe funcionario ativo com o CPF informado.</summary>
-        public Task<bool> ExistsFuncionarioByCpfAsync(string cpf)
+        /// <summary>Associa a empresa do funcionario (equivale ao Include(Empresa) do repositorio real).</summary>
+        private void ComEmpresa(Funcionario funcionario)
         {
-            LancarSeConfigurado();
+            funcionario.Empresa = _empresas.FirstOrDefault(x => x.IdEmpresa == funcionario.IdEmpresa)!;
+        }
 
-            bool existe = _funcionarios.Any(x => x.Cpf == cpf && x.DisabledAt == null);
+        /// <summary>Empresa padrao do fake: a primeira cadastrada; se nao houver, cria uma empresa ativa e operadora.</summary>
+        private Empresa EmpresaPadrao()
+        {
+            Empresa? padrao = _empresas.FirstOrDefault();
 
-            return Task.FromResult(existe);
+            if (padrao == null)
+            {
+                padrao = new Empresa
+                {
+                    RazaoSocial = "Locadora de teste Ltda",
+                    NomeFantasia = "Locadora Teste",
+                    Cnpj = "00000000000000",
+                    Ativo = true,
+                    Operadora = true
+                };
+
+                AdicionarEmpresa(padrao);
+            }
+
+            return padrao;
         }
 
         /// <summary>Indica se existe funcionario com o CPF, ativo ou desativado (sem o filtro de DisabledAt).</summary>

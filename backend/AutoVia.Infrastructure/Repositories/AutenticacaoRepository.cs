@@ -63,13 +63,18 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        /// <summary>Busca o funcionario ativo pelo id (DisabledAt nulo); nulo se nao existir. A regra de Ativo fica no servico. Sem rastreamento.</summary>
+        /// <summary>
+        /// Busca o funcionario ativo pelo id, com a empresa (Include). Ignora o escopo de empresa de
+        /// proposito: a validacao da sessao roda antes de existir contexto. A regra de Ativo fica no servico. Sem rastreamento.
+        /// </summary>
         public async Task<Funcionario?> FindFuncionarioByIdAsync(int idFuncionario)
         {
             try
             {
                 Funcionario? funcionario = await _db.Funcionarios
+                    .SemEscopoEmpresa()
                     .AsNoTracking()
+                    .Include(x => x.Empresa)
                     .Where(x => x.IdFuncionario == idFuncionario && x.DisabledAt == null)
                     .FirstOrDefaultAsync();
 
@@ -82,13 +87,18 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        /// <summary>Busca o funcionario ativo pelo CPF (somente digitos); nulo se nao existir. Sem rastreamento.</summary>
+        /// <summary>
+        /// Busca o funcionario ativo pelo CPF (somente digitos), com a empresa (Include). Pre-autenticacao:
+        /// ignora o escopo de empresa, porque o login ainda nao tem contexto. Sem rastreamento.
+        /// </summary>
         public async Task<Funcionario?> FindFuncionarioByCpfAsync(string cpf)
         {
             try
             {
                 Funcionario? funcionario = await _db.Funcionarios
+                    .SemEscopoEmpresa()
                     .AsNoTracking()
+                    .Include(x => x.Empresa)
                     .Where(x => x.Cpf == cpf && x.DisabledAt == null)
                     .OrderBy(x => x.IdFuncionario)
                     .FirstOrDefaultAsync();
@@ -102,13 +112,18 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        /// <summary>Indica se existe funcionario ativo com o CPF informado.</summary>
-        public async Task<bool> ExistsFuncionarioByCpfAsync(string cpf)
+        /// <summary>
+        /// Indica se existe funcionario com o CPF, ativo ou desativado, em qualquer empresa (administrador
+        /// inicial, sem contexto). Sem rastreamento; nao filtra DisabledAt de proposito.
+        /// </summary>
+        public async Task<bool> ExistsFuncionarioByCpfWithDisabledsAsync(string cpf)
         {
             try
             {
                 bool existe = await _db.Funcionarios
-                    .AnyAsync(x => x.Cpf == cpf && x.DisabledAt == null);
+                    .SemEscopoEmpresa()
+                    .AsNoTracking()
+                    .AnyAsync(x => x.Cpf == cpf);
 
                 return existe;
             }
@@ -119,16 +134,18 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        /// <summary>Indica se existe funcionario com o CPF, ativo ou desativado. Sem rastreamento; nao filtra DisabledAt de proposito.</summary>
-        public async Task<bool> ExistsFuncionarioByCpfWithDisabledsAsync(string cpf)
+        /// <summary>Busca a empresa operadora da plataforma (empresa inicial) ativa; nulo se nao existir. Sem rastreamento.</summary>
+        public async Task<Empresa?> FindEmpresaOperadoraAsync()
         {
             try
             {
-                bool existe = await _db.Funcionarios
+                Empresa? empresa = await _db.Empresas
                     .AsNoTracking()
-                    .AnyAsync(x => x.Cpf == cpf);
+                    .Where(x => x.Operadora && x.DisabledAt == null)
+                    .OrderBy(x => x.IdEmpresa)
+                    .FirstOrDefaultAsync();
 
-                return existe;
+                return empresa;
             }
             catch (Exception ex)
             {

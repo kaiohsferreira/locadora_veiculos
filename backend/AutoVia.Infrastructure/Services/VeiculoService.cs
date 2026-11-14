@@ -14,17 +14,20 @@ namespace AutoVia.Infrastructure.Services
         private readonly ICategoriaRepository _categoriaRepository;
         private readonly IMapper _mapper;
         private readonly ILogService _logService;
+        private readonly IContextoEmpresa _contextoEmpresa;
 
         public VeiculoService(
             IVeiculoRepository veiculoRepository,
             ICategoriaRepository categoriaRepository,
             IMapper mapper,
-            ILogService logService)
+            ILogService logService,
+            IContextoEmpresa contextoEmpresa)
         {
             _veiculoRepository = veiculoRepository;
             _categoriaRepository = categoriaRepository;
             _mapper = mapper;
             _logService = logService;
+            _contextoEmpresa = contextoEmpresa;
         }
     }
 }

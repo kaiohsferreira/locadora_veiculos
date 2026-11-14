@@ -16,6 +16,7 @@ namespace AutoVia.Communication.Enums
         VENDEDOR,
         GESTOR_FROTA,
         FINANCEIRO,
-        ADMINISTRATIVO
+        ADMINISTRATIVO,
+        ADMINISTRADOR
     }
 }

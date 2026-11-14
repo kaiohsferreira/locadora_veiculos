@@ -4,6 +4,7 @@ using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Frota;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Profiles;
+using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
 using AutoVia.Tests.Fakes;
@@ -35,6 +36,60 @@ namespace AutoVia.Tests.Frota
             Assert.Equal(StaticMethods.FormateToMonetary(150m), retorno.ValorDiariaStr);
             Assert.Equal("SUV", retorno.CategoriaNome);
             Assert.Equal(suv.IdCategoria, retorno.IdCategoria);
+        }
+
+        [Fact]
+        public async Task InsertDevolveDadosDaLocadoraEDaCategoriaMesmoSemNavegacaoNaGravacao()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
+            FakeCategoriaRepository categorias = new FakeCategoriaRepository();
+            Categoria suv = CriarCategoria(categorias, "SUV");
+            Empresa locadora = new Empresa { IdEmpresa = 7, NomeFantasia = "Locadora Sul", Cidade = "Curitiba", Uf = "PR" };
+            veiculos.RegistrarEmpresa(locadora);
+            veiculos.RegistrarCategoria(suv);
+            VeiculoService servico = CriarServico(veiculos, categorias, new FakeLogService(), ContextoEmpresaDeTeste.Criar(7));
+            VeiculoVO vo = CriarVOValido(suv.IdCategoria);
+
+            ReturnVeiculoVO retorno = await servico.InsertAsync(vo);
+
+            Veiculo? gravado = veiculos.UltimoVeiculoInserido;
+            Assert.NotNull(gravado);
+            Assert.Null(gravado.Empresa);
+            Assert.Equal("SUV", retorno.CategoriaNome);
+            Assert.Equal("Locadora Sul", retorno.LocadoraNomeFantasia);
+            Assert.Equal("Curitiba", retorno.LocadoraCidade);
+            Assert.Equal("PR", retorno.LocadoraUf);
+        }
+
+        [Fact]
+        public async Task Insert_GravaAEmpresaDoContextoNuncaADoCorpo()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
+            FakeCategoriaRepository categorias = new FakeCategoriaRepository();
+            Categoria suv = CriarCategoria(categorias, "SUV");
+            VeiculoService servico = CriarServico(veiculos, categorias, new FakeLogService(), ContextoEmpresaDeTeste.Criar(7));
+            VeiculoVO vo = CriarVOValido(suv.IdCategoria);
+
+            await servico.InsertAsync(vo);
+
+            Veiculo gravado = Assert.Single(veiculos.Veiculos);
+            Assert.Equal(7, gravado.IdEmpresa);
+            Assert.Equal(StatusVeiculo.DISPONIVEL, gravado.Status);
+        }
+
+        [Fact]
+        public async Task Insert_SemContextoDeEmpresa_RecusaAntesDeGravarComSessaoInvalida()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
+            FakeCategoriaRepository categorias = new FakeCategoriaRepository();
+            Categoria suv = CriarCategoria(categorias, "SUV");
+            VeiculoService servico = CriarServico(veiculos, categorias, new FakeLogService(), ContextoEmpresaDeTeste.Vazio());
+            VeiculoVO vo = CriarVOValido(suv.IdCategoria);
+
+            UnauthorizedException excecao = await Assert.ThrowsAsync<UnauthorizedException>(() => servico.InsertAsync(vo));
+
+            Assert.Equal(ConstantsMessage.ErroSessaoInvalida, excecao.Message);
+            Assert.Empty(veiculos.Veiculos);
         }
 
         [Fact]
@@ -587,7 +642,7 @@ namespace AutoVia.Tests.Frota
             Assert.True(registrouBusca);
         }
 
-        private static VeiculoService CriarServico(FakeVeiculoRepository veiculos, FakeCategoriaRepository categorias, FakeLogService log)
+        private static VeiculoService CriarServico(FakeVeiculoRepository veiculos, FakeCategoriaRepository categorias, FakeLogService log, IContextoEmpresa? contexto = null)
         {
             MapperConfiguration configuracao = new MapperConfiguration(cfg =>
             {
@@ -595,7 +650,7 @@ namespace AutoVia.Tests.Frota
                 cfg.AddProfile<VeiculoCadastroProfile>();
             }, NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
-            VeiculoService servico = new VeiculoService(veiculos, categorias, mapper, log);
+            VeiculoService servico = new VeiculoService(veiculos, categorias, mapper, log, contexto ?? ContextoEmpresaDeTeste.Criar());
 
             return servico;
         }

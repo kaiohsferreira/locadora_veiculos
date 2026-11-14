@@ -30,16 +30,20 @@ namespace AutoVia.Tests.Api
         private const string CpfA = "12345678909";
         private const string CnhA = "12345678901";
         private const string SenhaTeste = "senha1234";
+        private const int EmpresaDoContexto = 1;
+        private const int EmpresaOutra = 2;
 
         [Fact]
-        public async Task GetAll_DevolveOkComPaginaSoDeAtivos()
+        public async Task GetAll_DevolveOkComPaginaSoDeAtivosDaEmpresaDoContexto()
         {
             FakeClienteRepository repositorio = new FakeClienteRepository();
-            repositorio.Adicionar(CriarCliente("Ana", "11111111111", "CNH001", StatusCadastroCliente.PENDENTE));
-            repositorio.Adicionar(CriarCliente("Bruno", "22222222222", "CNH002", StatusCadastroCliente.APROVADO));
+            Cliente ana = CriarCliente("Ana", "11111111111", "CNH001", StatusCadastroCliente.PENDENTE);
+            Cliente bruno = CriarCliente("Bruno", "22222222222", "CNH002", StatusCadastroCliente.APROVADO);
             Cliente desativado = CriarCliente("Carla", "33333333333", "CNH003", StatusCadastroCliente.PENDENTE);
             desativado.Disable();
-            repositorio.Adicionar(desativado);
+            AdicionarVinculado(repositorio, ana);
+            AdicionarVinculado(repositorio, bruno);
+            AdicionarVinculado(repositorio, desativado);
             ClienteController controller = CriarController(repositorio);
 
             IActionResult resultado = await controller.GetAll(new ClienteFiltroVO { Pagina = 1, TamanhoPagina = 20 });
@@ -55,7 +59,7 @@ namespace AutoVia.Tests.Api
         {
             FakeClienteRepository repositorio = new FakeClienteRepository();
             Cliente ativo = CriarCliente("Maria", CpfA, CnhA, StatusCadastroCliente.PENDENTE);
-            repositorio.Adicionar(ativo);
+            AdicionarVinculado(repositorio, ativo);
             ClienteController controller = CriarController(repositorio);
 
             IActionResult resultado = await controller.GetById(ativo.IdCliente);
@@ -83,10 +87,24 @@ namespace AutoVia.Tests.Api
             FakeClienteRepository repositorio = new FakeClienteRepository();
             Cliente desativado = CriarCliente("Diego", CpfA, CnhA, StatusCadastroCliente.PENDENTE);
             desativado.Disable();
-            repositorio.Adicionar(desativado);
+            AdicionarVinculado(repositorio, desativado);
             ClienteController controller = CriarController(repositorio);
 
             NotFoundException excecao = await Assert.ThrowsAsync<NotFoundException>(() => controller.GetById(desativado.IdCliente));
+
+            Assert.Equal(ConstantsMessage.ErroClienteNaoEncontrada, excecao.Message);
+        }
+
+        [Fact]
+        public async Task GetById_ClienteDeOutraLocadora_PropagaNaoEncontradaComAMesmaMensagem()
+        {
+            FakeClienteRepository repositorio = new FakeClienteRepository();
+            Cliente deOutra = CriarCliente("Elisa", CpfA, CnhA, StatusCadastroCliente.APROVADO);
+            repositorio.Adicionar(deOutra);
+            repositorio.VincularAEmpresa(deOutra.IdCliente, EmpresaOutra);
+            ClienteController controller = CriarController(repositorio);
+
+            NotFoundException excecao = await Assert.ThrowsAsync<NotFoundException>(() => controller.GetById(deOutra.IdCliente));
 
             Assert.Equal(ConstantsMessage.ErroClienteNaoEncontrada, excecao.Message);
         }
@@ -284,12 +302,19 @@ namespace AutoVia.Tests.Api
             return cliente;
         }
 
+        /// <summary>Adiciona o cliente ao repositorio ja vinculado a empresa do contexto do teste (reserva, locacao ou venda nela).</summary>
+        private static void AdicionarVinculado(FakeClienteRepository repositorio, Cliente cliente)
+        {
+            repositorio.Adicionar(cliente);
+            repositorio.VincularAEmpresa(cliente.IdCliente, EmpresaDoContexto);
+        }
+
         private static ClienteController CriarController(FakeClienteRepository repositorio)
         {
             MapperConfiguration configuracao = new MapperConfiguration(cfg => cfg.AddProfile<ClienteProfile>(), NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
             FakeLogService logService = new FakeLogService();
-            ClienteService servico = new ClienteService(repositorio, new FakeSenhaHasher(), mapper, logService);
+            ClienteService servico = new ClienteService(repositorio, new FakeSenhaHasher(), mapper, logService, ContextoEmpresaDeTeste.Criar(EmpresaDoContexto));
             ClienteController controller = new ClienteController(servico, logService);
 
             return controller;

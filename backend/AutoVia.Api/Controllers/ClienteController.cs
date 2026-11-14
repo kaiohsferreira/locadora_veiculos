@@ -65,7 +65,7 @@ namespace AutoVia.Api.Controllers
         }
 
         /// <summary>
-        /// GetAll - Lista os clientes ativos, paginados, com filtro opcional por status (PENDENTE, APROVADO, RECUSADO). Exige token de funcionario.
+        /// GetAll - Lista os clientes ativos, paginados, com filtro opcional por status (PENDENTE, APROVADO, RECUSADO). Exige token de funcionario e so devolve clientes com reserva, locacao ou venda em veiculo da locadora do funcionario (total e pagina no mesmo escopo).
         /// </summary>
         [HttpGet]
         [Authorize(Policy = ConstantsValues.PoliticaFuncionario)]
@@ -131,7 +131,7 @@ namespace AutoVia.Api.Controllers
         }
 
         /// <summary>
-        /// GetById - Consulta um cliente ativo pelo id. Exige token de funcionario. Desativado conta como inexistente (404).
+        /// GetById - Consulta um cliente ativo pelo id. Exige token de funcionario. Desativado, inexistente ou sem reserva, locacao ou venda na locadora do funcionario conta como inexistente (404).
         /// </summary>
         [HttpGet("{id:int}")]
         [Authorize(Policy = ConstantsValues.PoliticaFuncionario)]

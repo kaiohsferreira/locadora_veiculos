@@ -54,6 +54,7 @@ namespace AutoVia.Tests.Api
         private const string RotaCliente = "/api/teste-autorizacao/cliente";
         private const string RotaSemAtributo = "/api/teste-autorizacao/sem-atributo";
         private const string RotaIdentidade = "/api/teste-autorizacao/identidade";
+        private const int IdEmpresaQueNaoEhADoFuncionario = 999;
         private const string SubNaoNumerico = "sub-nao-numerico";
         private const string VersaoSessaoQualquer = "versao-de-teste";
         private const string NomeDeTeste = "Usuario de teste";
@@ -108,7 +109,7 @@ namespace AutoVia.Tests.Api
             TokenService tokens = new TokenService(opcoes, new FakeLogService());
             string senhaHash = perfil == PerfilUsuario.CLIENTE ? _fabrica.HashSenhaCliente : _fabrica.HashSenhaFuncionario;
             string versaoSessao = tokens.CalcularVersaoSessao(senhaHash);
-            string token = tokens.GerarToken(perfil, 1, "Usuario de teste", cargo, versaoSessao, false).Token;
+            string token = tokens.GerarToken(perfil, 1, "Usuario de teste", cargo, versaoSessao, false, 1).Token;
 
             return token;
         }
@@ -137,7 +138,7 @@ namespace AutoVia.Tests.Api
             TokenService tokens = new TokenService(opcoes, new FakeLogService());
             string versaoSessao = tokens.CalcularVersaoSessao(senhaHash);
 
-            return tokens.GerarToken(perfil, idUsuario, "Usuario de teste", cargo, versaoSessao, false).Token;
+            return tokens.GerarToken(perfil, idUsuario, "Usuario de teste", cargo, versaoSessao, false, 1).Token;
         }
 
         /// <summary>Token assinado com a chave do servidor, mas sem a claim sv (emitido antes da versao da sessao).</summary>
@@ -285,6 +286,43 @@ namespace AutoVia.Tests.Api
             HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaFuncionario, TokenDeFuncionario()));
 
             Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+        }
+
+        [Fact]
+        public async Task TokenDeFuncionarioSemClaimEmp_RotaDeFuncionario_Devolve401()
+        {
+            string token = TokenDeFuncionarioComEmpresa(null);
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaFuncionario, token));
+
+            Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
+        }
+
+        [Fact]
+        public async Task TokenDeFuncionarioComEmpDivergenteDoBanco_RotaDeFuncionario_Devolve401()
+        {
+            string token = TokenDeFuncionarioComEmpresa(IdEmpresaQueNaoEhADoFuncionario);
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaFuncionario, token));
+
+            Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
+        }
+
+        /// <summary>Token de funcionario (id 1, senha de funcionario do fixture) com a claim emp informada; null omite a claim.</summary>
+        private string TokenDeFuncionarioComEmpresa(int? idEmpresa)
+        {
+            JwtOptions opcoes = new JwtOptions
+            {
+                Emissor = AutenticacaoWebFactory.Emissor,
+                Audiencia = AutenticacaoWebFactory.Audiencia,
+                ExpiracaoMinutos = 120,
+                Chave = _fabrica.ChaveJwt
+            };
+
+            TokenService tokens = new TokenService(opcoes, new FakeLogService());
+            string versaoSessao = tokens.CalcularVersaoSessao(_fabrica.HashSenhaFuncionario);
+
+            return tokens.GerarToken(PerfilUsuario.FUNCIONARIO, 1, "Usuario de teste", CargoFuncionario.ATENDENTE, versaoSessao, false, idEmpresa).Token;
         }
 
         [Fact]

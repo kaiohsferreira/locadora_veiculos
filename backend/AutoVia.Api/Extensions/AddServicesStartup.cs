@@ -23,8 +23,23 @@ namespace AutoVia.Api.Extensions
             // --- Cliente ---
             services.AddScoped<IClienteService, ClienteService>();
 
+            // --- Locadora (cadastro publico, P10-BE-01) ---
+            services.AddScoped<IEmpresaService, EmpresaService>();
+
+            // --- Equipe da locadora (P10-BE-03) ---
+            services.AddScoped<IEquipeService, EquipeService>();
+
             // --- Veiculo (SEAM: base comum das tarefas P1-BE-02 e P1-BE-03) ---
             services.AddScoped<IVeiculoService, VeiculoService>();
+
+            // --- Painel da locadora (visao geral, P11-BE-01 e P11-BE-02) ---
+            services.AddScoped<IPainelService, PainelService>();
+            // Singleton: relogio sem estado (DateTime.Now); os testes trocam por um relogio fixo.
+            services.AddSingleton<IRelogio, RelogioSistema>();
+
+            // --- Contexto de empresa (multi-locadora, T-BE-03b) ---
+            // Scoped: uma empresa e um cargo por requisicao, preenchidos na validacao do token com dados do banco.
+            services.AddScoped<IContextoEmpresa, ContextoEmpresa>();
 
             // --- Autenticacao ---
             // Singleton: sem estado (hash, emissao de token); as opcoes sao registradas em AddAuthenticationJwt.

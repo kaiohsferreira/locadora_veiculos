@@ -35,7 +35,12 @@ namespace AutoVia.Core.Entities.PgSql
         [Column("senha_hash")]
         public string? SenhaHash { get; set; }
 
+        /// <summary>FK obrigatoria para empresa.id_empresa (fk_funcionario_empresa). Isolamento da locadora.</summary>
+        [Column("id_empresa")]
+        public int IdEmpresa { get; set; }
+
         // --- Navegacao ---
+        public virtual Empresa Empresa { get; set; } = null!;
         public virtual List<Locacao> Locacoes { get; set; } = new List<Locacao>();
         public virtual List<Vistoria> Vistorias { get; set; } = new List<Vistoria>();
         public virtual List<Venda> Vendas { get; set; } = new List<Venda>();
