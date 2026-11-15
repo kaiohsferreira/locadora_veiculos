@@ -30,8 +30,11 @@ namespace AutoVia.Tests.ClienteLocadora
             Empresas.Add(empresa);
         }
 
-        /// <summary>Semeia um vinculo (ativo, ou desativado quando desativadoEm for informado), com id gerado.</summary>
-        public VinculoClienteLocadora Semear(int idCliente, int idEmpresa, StatusCadastroCliente status, DateTime? desativadoEm = null, string? justificativa = null)
+        /// <summary>Data de solicitacao padrao: fixa e antiga (fora de qualquer janela de 24 horas), para o resultado nao depender do dia da execucao.</summary>
+        public static readonly DateTime DataSolicitacaoPadrao = new DateTime(2020, 1, 1, 10, 0, 0);
+
+        /// <summary>Semeia um vinculo (ativo, ou desativado quando desativadoEm for informado), com id gerado. Sem dataSolicitacao, a data e fixa e antiga (DataSolicitacaoPadrao menos o id, em dias).</summary>
+        public VinculoClienteLocadora Semear(int idCliente, int idEmpresa, StatusCadastroCliente status, DateTime? desativadoEm = null, string? justificativa = null, DateTime? dataSolicitacao = null)
         {
             DateTime agora = DateTime.Now;
 
@@ -42,7 +45,7 @@ namespace AutoVia.Tests.ClienteLocadora
                 IdEmpresa = idEmpresa,
                 Status = status,
                 JustificativaRecusa = justificativa,
-                DataSolicitacao = agora.AddDays(-ProximoId),
+                DataSolicitacao = dataSolicitacao ?? DataSolicitacaoPadrao.AddDays(-ProximoId),
                 CreatedAt = agora,
                 UpdatedAt = agora,
                 DisabledAt = desativadoEm
@@ -77,6 +80,9 @@ namespace AutoVia.Tests.ClienteLocadora
 
         /// <summary>Quantas vezes DesativarAsync foi chamado (conferir a regra da corrida).</summary>
         public int ChamadasDeDesativar { get; private set; }
+
+        /// <summary>Quantas vezes a contagem de pedidos do teto foi consultada (zero prova que o teto nao rodou).</summary>
+        public int ChamadasDeContagem { get; private set; }
 
         /// <summary>Copias de todos os vinculos gravados (ativos e desativados), para conferir o que foi gravado.</summary>
         public IReadOnlyList<VinculoClienteLocadora> Armazenados
@@ -188,6 +194,20 @@ namespace AutoVia.Tests.ClienteLocadora
             return Task.FromResult(total);
         }
 
+        public Task<int> CountEmpresasSolicitadasDesdeAsync(int idCliente, DateTime desde)
+        {
+            ChamadasDeContagem++;
+
+            // Ativas e desativadas contam (como a consulta real, sem filtro de DisabledAt), uma vez por locadora.
+            int total = VisiveisTodos()
+                .Where(x => x.IdCliente == idCliente && x.DataSolicitacao >= desde)
+                .Select(x => x.IdEmpresa)
+                .Distinct()
+                .Count();
+
+            return Task.FromResult(total);
+        }
+
         public Task<List<VinculoClienteLocadora>> FindMinhasAsync(int idCliente, int deslocamento, int quantidade)
         {
             List<VinculoClienteLocadora> pagina = MinhasPorLocadora(idCliente)
@@ -204,11 +224,17 @@ namespace AutoVia.Tests.ClienteLocadora
         /// <summary>Vinculos ativos que o contexto enxerga (o filtro "Empresa"): da locadora do contexto OU do cliente do contexto.</summary>
         private IEnumerable<VinculoClienteLocadora> VisiveisAtivos()
         {
+            return VisiveisTodos().Where(x => x.DisabledAt == null);
+        }
+
+        /// <summary>Vinculos que o contexto enxerga, ativos e desativados (o filtro "Empresa" nao olha DisabledAt).</summary>
+        private IEnumerable<VinculoClienteLocadora> VisiveisTodos()
+        {
             bool temEmpresa = _contexto.IdEmpresa > 0;
             bool temCliente = _contexto.IdCliente > 0;
 
-            return _armazenamento.Vinculos.Where(x => x.DisabledAt == null
-                && ((temEmpresa && x.IdEmpresa == _contexto.IdEmpresa) || (temCliente && x.IdCliente == _contexto.IdCliente)));
+            return _armazenamento.Vinculos.Where(x =>
+                (temEmpresa && x.IdEmpresa == _contexto.IdEmpresa) || (temCliente && x.IdCliente == _contexto.IdCliente));
         }
 
         /// <summary>Uma linha por locadora do cliente: a de menor id ativa do par, como a consulta real.</summary>

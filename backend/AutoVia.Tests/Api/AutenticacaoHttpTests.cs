@@ -85,7 +85,8 @@ namespace AutoVia.Tests.Api
         private const string EmailOcupado = "email.ocupado@exemplo.com";
         private const string CnhEmailOcupado = "40000000002";
         private const string CpfLivreVerificacao = "11144477735";
-        private const string CabecalhoXForwardedFor = "X-Forwarded-For";
+        /// <summary>Cabecalho que traz o IP do cliente nos testes de limite: o configurado explicitamente na fabrica (AutenticacaoWebFactory.CabecalhoIpClienteDeTeste).</summary>
+        private const string CabecalhoIpCliente = AutenticacaoWebFactory.CabecalhoIpClienteDeTeste;
 
         private readonly AutenticacaoWebFactory _fabrica;
         private readonly HttpClient _cliente;
@@ -953,14 +954,14 @@ namespace AutoVia.Tests.Api
             Assert.Equal(HttpStatusCode.OK, b2.StatusCode);
         }
 
-        /// <summary>Verificacao de um CPF; com ip informado, o X-Forwarded-For define o IP que o limitador enxerga (ForwardedHeaders ativo).</summary>
+        /// <summary>Verificacao de um CPF; com ip informado, o X-Real-IP (cabecalho configurado) define o IP que o limitador enxerga (ForwardedHeaders ativo).</summary>
         private static Task<HttpResponseMessage> VerificarCpf(HttpClient cliente, string cpf, string? ip = null)
         {
             HttpRequestMessage requisicao = RequisicaoComCorpo(RotaVerificacao, new { campo = "CPF", valor = cpf });
 
             if (ip != null)
             {
-                requisicao.Headers.Add(CabecalhoXForwardedFor, ip);
+                requisicao.Headers.Add(CabecalhoIpCliente, ip);
             }
 
             return cliente.SendAsync(requisicao);
@@ -1074,6 +1075,9 @@ namespace AutoVia.Tests.Api
         public const string Emissor = "AutoVia.Api";
         public const string Audiencia = "AutoVia.Web";
 
+        /// <summary>Cabecalho de IP configurado explicitamente nos testes desta fabrica (nao depende do padrao da API).</summary>
+        public const string CabecalhoIpClienteDeTeste = "X-Forwarded-For";
+
         private const string CpfClienteDeTeste = "52998224725";
         private const string SenhaClienteDeTeste = "SenhaCliente#2026";
         private const string CpfFuncionarioDeTeste = "11144477735";
@@ -1125,6 +1129,7 @@ namespace AutoVia.Tests.Api
                     { "Jwt:ExpiracaoMinutos", "120" },
                     { "Jwt:Chave", ChaveJwt },
                     { "Autenticacao:LimitePublicoPorMinuto", _limitePublico.ToString(CultureInfo.InvariantCulture) },
+                    { ConstantsValues.ChaveCabecalhoIpCliente, CabecalhoIpClienteDeTeste },
                     // Limite da verificacao de cadastro alto por padrao, para os testes funcionais nao baterem no 429 proprio.
                     { ConstantsValues.ChaveLimiteVerificacaoCadastro, "1000" },
                     // Ambiente Testing nao e Development: a URL publica do front precisa ser https fora de loopback.

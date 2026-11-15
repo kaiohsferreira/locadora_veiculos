@@ -36,5 +36,11 @@ namespace AutoVia.Core.RepositoriesInterface
 
         /// <summary>Lista os vinculos ativos do cliente, um por locadora, ordenados por data de solicitacao, paginados. Traz a locadora.</summary>
         Task<List<ClienteLocadora>> FindMinhasAsync(int idCliente, int deslocamento, int quantidade);
+
+        /// <summary>
+        /// Conta as locadoras distintas em que o cliente pediu aprovacao desde a data informada (linhas ativas ou
+        /// desativadas, contando id_empresa distinto). Base do teto de pedidos de aprovacao por cliente.
+        /// </summary>
+        Task<int> CountEmpresasSolicitadasDesdeAsync(int idCliente, DateTime desde);
     }
 }

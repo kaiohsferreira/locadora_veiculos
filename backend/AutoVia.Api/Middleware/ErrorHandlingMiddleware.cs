@@ -14,7 +14,8 @@ namespace AutoVia.Api.Middleware
     /// (RFC 7807) com mensagem em portugues, e nunca devolve stack trace nem
     /// mensagem tecnica ao cliente. A escrita do corpo fica no ProblemDetailsWriter.
     ///
-    /// NotFoundException -> 404 | BusinessException -> 409 |
+    /// NotFoundException -> 404 | BusinessException -> 409 | LimiteExcedidoException -> 429 (titulo de limite de
+    /// requisicoes, detail = mensagem da excecao, sem log: e teto de negocio, nao erro) |
     /// ValidationException -> 400 | UnauthorizedException -> 401 (com WWW-Authenticate: Bearer) |
     /// violacao de restricao do banco -> 409 | IntegrationException -> 502 | qualquer outra -> 500.
     /// </summary>
@@ -72,6 +73,13 @@ namespace AutoVia.Api.Middleware
                     status = StatusCodes.Status409Conflict;
                     title = ConstantsMessage.TituloConflito;
                     detail = business.Message;
+                    break;
+
+                case LimiteExcedidoException limite:
+                    // Teto de negocio: a mensagem ja e pronta para o usuario e o caso e esperado, por isso nao e registrada como erro.
+                    status = StatusCodes.Status429TooManyRequests;
+                    title = ConstantsMessage.TituloLimiteRequisicoes;
+                    detail = limite.Message;
                     break;
 
                 case UnauthorizedException unauthorized:

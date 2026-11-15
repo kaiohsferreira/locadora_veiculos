@@ -115,5 +115,27 @@ namespace AutoVia.Tests.ClienteLocadora
             Assert.DoesNotContain("LIMIT", sql);
             Assert.Equal(1, CountOcorrencias(sql, "FROM cliente_locadora"));
         }
+
+        /// <summary>
+        /// Teto de pedidos (v2): a contagem de locadoras distintas traduz para DISTINCT id_empresa com a data de solicitacao,
+        /// sem filtro de desativadas (a linha desativada conta) e com o filtro "Empresa" do cliente do contexto.
+        /// </summary>
+        [Fact]
+        public void PedidosNaJanela_ContaLocadorasDistintasComFiltroDoClienteEDataSemDesativados()
+        {
+            using AutoViaDbContext db = CriarDbComContextoDeCliente(IdClienteDoTeste);
+            ClienteLocadoraRepository repositorio = new ClienteLocadoraRepository(db, new FakeLogService());
+            DateTime desde = new DateTime(2026, 11, 13, 10, 0, 0);
+
+            string sql = repositorio.ConsultaEmpresasSolicitadasDesde(IdClienteDoTeste, desde).ToQueryString();
+
+            Assert.Contains("SELECT DISTINCT c.id_empresa", sql);
+            Assert.Contains("c.id_cliente = @idCliente", sql);
+            Assert.Contains("c.data_solicitacao >= @desde", sql);
+            Assert.Contains(ParametroCliente, sql);
+            Assert.DoesNotContain(DisabledAtNulo, sql);
+            Assert.DoesNotContain("disabled_at", sql);
+            Assert.Equal(1, CountOcorrencias(sql, "FROM cliente_locadora"));
+        }
     }
 }

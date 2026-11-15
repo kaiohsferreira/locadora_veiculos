@@ -4,6 +4,7 @@ using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Clientes;
 using AutoVia.Communication.ViewObjects.Utils;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Options;
 using AutoVia.Core.Profiles;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -36,11 +37,12 @@ namespace AutoVia.Tests.ClienteLocadora
         /// <summary>Servico real com o repositorio fake, o contexto informado, o relogio fixo e o log em memoria.</summary>
         private sealed class Cenario
         {
-            public Cenario(ArmazenamentoClienteLocadora armazenamento, FakeClienteLocadoraRepository repositorio, ClienteLocadoraService servico)
+            public Cenario(ArmazenamentoClienteLocadora armazenamento, FakeClienteLocadoraRepository repositorio, ClienteLocadoraService servico, FakeLogService log)
             {
                 Armazenamento = armazenamento;
                 Repositorio = repositorio;
                 Servico = servico;
+                Log = log;
             }
 
             public ArmazenamentoClienteLocadora Armazenamento { get; }
@@ -48,9 +50,13 @@ namespace AutoVia.Tests.ClienteLocadora
             public FakeClienteLocadoraRepository Repositorio { get; }
 
             public ClienteLocadoraService Servico { get; }
+
+            /// <summary>Log em memoria do cenario: o teto de pedidos nao grava log (e um caso esperado, nao erro).</summary>
+            public FakeLogService Log { get; }
         }
 
-        private static Cenario CriarCenario(Action<ContextoEmpresa> definirContexto)
+        /// <summary>Cenario com o teto padrao (5), ou com o valor informado na secao Clientes (zero ou negativo cai no padrao).</summary>
+        private static Cenario CriarCenario(Action<ContextoEmpresa> definirContexto, int? limitePedidos = null)
         {
             FakeLogService log = new FakeLogService();
             ContextoEmpresa contexto = new ContextoEmpresa(log);
@@ -60,11 +66,18 @@ namespace AutoVia.Tests.ClienteLocadora
             armazenamento.AdicionarEmpresa(new Empresa { IdEmpresa = EmpresaUm, NomeFantasia = NomeLocadoraUm, Ativo = true });
             armazenamento.AdicionarEmpresa(new Empresa { IdEmpresa = EmpresaDois, NomeFantasia = NomeLocadoraDois, Ativo = true });
 
+            ClientesOptions clientesOptions = new ClientesOptions();
+
+            if (limitePedidos.HasValue)
+            {
+                clientesOptions.LimitePedidosAprovacaoPorDia = limitePedidos.Value;
+            }
+
             FakeClienteLocadoraRepository repositorio = new FakeClienteLocadoraRepository(contexto, armazenamento);
             IMapper mapper = new MapperConfiguration(cfg => cfg.AddProfile<ClienteLocadoraProfile>(), NullLoggerFactory.Instance).CreateMapper();
-            ClienteLocadoraService servico = new ClienteLocadoraService(repositorio, contexto, new FakeRelogio(AgoraFixo), mapper, log);
+            ClienteLocadoraService servico = new ClienteLocadoraService(repositorio, contexto, new FakeRelogio(AgoraFixo), mapper, log, clientesOptions);
 
-            return new Cenario(armazenamento, repositorio, servico);
+            return new Cenario(armazenamento, repositorio, servico, log);
         }
 
         private static Action<ContextoEmpresa> ContextoCliente(int idCliente)
@@ -453,6 +466,156 @@ namespace AutoVia.Tests.ClienteLocadora
 
             Assert.Equal(0, pagina.Total);
             Assert.Empty(pagina.Itens);
+        }
+
+        // --- Teto de pedidos de aprovacao por cliente (v2): locadoras distintas na janela de 24 horas ---
+
+        /// <summary>Cadastra locadoras de id 3 ate o informado (as de id 1 e 2 ja existem), cada uma com nome proprio.</summary>
+        private static void AdicionarLocadoras(Cenario cenario, int ateIdEmpresa)
+        {
+            for (int id = EmpresaDois + 1; id <= ateIdEmpresa; id++)
+            {
+                cenario.Armazenamento.AdicionarEmpresa(new Empresa { IdEmpresa = id, NomeFantasia = $"Locadora {id}", Ativo = true });
+            }
+        }
+
+        /// <summary>Semeia um pedido PENDENTE do cliente em cada locadora da lista, com a data de solicitacao informada.</summary>
+        private static void SemearPedidos(Cenario cenario, int idCliente, IEnumerable<int> idsEmpresa, DateTime dataSolicitacao)
+        {
+            foreach (int idEmpresa in idsEmpresa)
+            {
+                cenario.Armazenamento.Semear(idCliente, idEmpresa, StatusCadastroCliente.PENDENTE, null, null, dataSolicitacao);
+            }
+        }
+
+        /// <summary>Com o teto em 5 e cinco pedidos recentes a locadoras distintas, o sexto pedido a locadora nova da 429 e nao grava vinculo nem log.</summary>
+        [Fact]
+        public async Task Teto_SextoPedidoALocadoraNova_Devolve429SemGravarVinculo()
+        {
+            Cenario cenario = CriarCenario(ContextoCliente(ClienteCinco));
+            AdicionarLocadoras(cenario, 6);
+            SemearPedidos(cenario, ClienteCinco, new int[] { 1, 2, 3, 4, 5 }, AgoraFixo.AddHours(-1));
+
+            LimiteExcedidoException excecao = await Assert.ThrowsAsync<LimiteExcedidoException>(() => cenario.Servico.ExigirCadastroAprovadoAsync(ClienteCinco, 6));
+
+            Assert.Equal(ConstantsMessage.ErroLimitePedidosAprovacao, excecao.Message);
+            Assert.Equal(5, cenario.Repositorio.Armazenados.Count);
+            Assert.Equal(1, cenario.Repositorio.ChamadasDeContagem);
+            Assert.Empty(cenario.Log.Snapshot());
+        }
+
+        /// <summary>Pedido a locadora em que o cliente ja tem vinculo nao e barrado pelo teto: segue a regra do status (aqui, em analise).</summary>
+        [Fact]
+        public async Task Teto_PedidoALocadoraComVinculoExistenteNaoEBarrado()
+        {
+            Cenario cenario = CriarCenario(ContextoCliente(ClienteCinco));
+            AdicionarLocadoras(cenario, 6);
+            SemearPedidos(cenario, ClienteCinco, new int[] { 1, 2, 3, 4, 5 }, AgoraFixo.AddHours(-1));
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => cenario.Servico.ExigirCadastroAprovadoAsync(ClienteCinco, 1));
+
+            Assert.Equal(string.Format(ConstantsMessage.ErroReservaCadastroEmAnalise, NomeLocadoraUm), excecao.Message);
+            Assert.Equal(5, cenario.Repositorio.Armazenados.Count);
+            Assert.Equal(0, cenario.Repositorio.ChamadasDeContagem);
+        }
+
+        /// <summary>A linha desativada tambem conta no teto: quatro ativas mais uma desativada, todas na janela, chegam ao limite.</summary>
+        [Fact]
+        public async Task Teto_LinhaDesativadaConta()
+        {
+            Cenario cenario = CriarCenario(ContextoCliente(ClienteCinco));
+            AdicionarLocadoras(cenario, 6);
+            SemearPedidos(cenario, ClienteCinco, new int[] { 1, 2, 3, 4 }, AgoraFixo.AddHours(-1));
+            cenario.Armazenamento.Semear(ClienteCinco, 5, StatusCadastroCliente.PENDENTE, AgoraFixo, null, AgoraFixo.AddHours(-1));
+
+            await Assert.ThrowsAsync<LimiteExcedidoException>(() => cenario.Servico.ExigirCadastroAprovadoAsync(ClienteCinco, 6));
+
+            Assert.Equal(5, cenario.Repositorio.Armazenados.Count);
+        }
+
+        /// <summary>Duas linhas da mesma locadora contam uma vez: com quatro locadoras distintas, o quinto pedido ainda passa.</summary>
+        [Fact]
+        public async Task Teto_DuasLinhasDaMesmaLocadoraContamUmaVez()
+        {
+            Cenario cenario = CriarCenario(ContextoCliente(ClienteCinco));
+            AdicionarLocadoras(cenario, 6);
+            SemearPedidos(cenario, ClienteCinco, new int[] { 1, 1, 2, 3, 4 }, AgoraFixo.AddHours(-1));
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => cenario.Servico.ExigirCadastroAprovadoAsync(ClienteCinco, 5));
+
+            Assert.Equal(string.Format(ConstantsMessage.ErroReservaCadastroEmAnalise, "Locadora 5"), excecao.Message);
+            Assert.Equal(6, cenario.Repositorio.Armazenados.Count);
+        }
+
+        /// <summary>Pedidos com mais de 24 horas (pelo IRelogio) nao contam: o sexto pedido passa.</summary>
+        [Fact]
+        public async Task Teto_PedidoComMaisDe24HorasNaoConta()
+        {
+            Cenario cenario = CriarCenario(ContextoCliente(ClienteCinco));
+            AdicionarLocadoras(cenario, 6);
+            SemearPedidos(cenario, ClienteCinco, new int[] { 1, 2, 3, 4, 5 }, AgoraFixo.AddHours(-25));
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => cenario.Servico.ExigirCadastroAprovadoAsync(ClienteCinco, 6));
+
+            Assert.Equal(string.Format(ConstantsMessage.ErroReservaCadastroEmAnalise, "Locadora 6"), excecao.Message);
+            Assert.Equal(6, cenario.Repositorio.Armazenados.Count);
+        }
+
+        /// <summary>A janela e de 24 horas corridas com fronteira fechada: pedido com exatamente 24 horas ainda conta.</summary>
+        [Fact]
+        public async Task Teto_PedidoComExatas24HorasAindaConta()
+        {
+            Cenario cenario = CriarCenario(ContextoCliente(ClienteCinco));
+            AdicionarLocadoras(cenario, 6);
+            SemearPedidos(cenario, ClienteCinco, new int[] { 1, 2, 3, 4, 5 }, AgoraFixo.AddHours(-24));
+
+            await Assert.ThrowsAsync<LimiteExcedidoException>(() => cenario.Servico.ExigirCadastroAprovadoAsync(ClienteCinco, 6));
+
+            Assert.Equal(5, cenario.Repositorio.Armazenados.Count);
+        }
+
+        /// <summary>Funcionario sem vinculo continua com 409 de nao aprovado, sem contar pedidos e sem criar nada.</summary>
+        [Fact]
+        public async Task Teto_FuncionarioSemVinculo_Devolve409SemContarNemDar429()
+        {
+            Cenario cenario = CriarCenario(ContextoFuncionario(EmpresaUm, CargoFuncionario.ATENDENTE));
+            AdicionarLocadoras(cenario, 6);
+            SemearPedidos(cenario, ClienteCinco, new int[] { 1, 2, 3, 4, 5 }, AgoraFixo.AddHours(-1));
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => cenario.Servico.ExigirCadastroAprovadoAsync(ClienteCinco, 6));
+
+            Assert.Equal(ConstantsMessage.ErroReservaCadastroNaoAprovado, excecao.Message);
+            Assert.Equal(5, cenario.Repositorio.Armazenados.Count);
+            Assert.Equal(0, cenario.Repositorio.ChamadasDeContagem);
+        }
+
+        /// <summary>Limite zero ou negativo na secao Clientes cai no padrao de 5: o sexto pedido recebe 429.</summary>
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-3)]
+        public async Task Teto_LimiteZeroOuNegativoCaiNoPadrao(int limiteConfigurado)
+        {
+            Cenario cenario = CriarCenario(ContextoCliente(ClienteCinco), limiteConfigurado);
+            AdicionarLocadoras(cenario, 6);
+            SemearPedidos(cenario, ClienteCinco, new int[] { 1, 2, 3, 4, 5 }, AgoraFixo.AddHours(-1));
+
+            await Assert.ThrowsAsync<LimiteExcedidoException>(() => cenario.Servico.ExigirCadastroAprovadoAsync(ClienteCinco, 6));
+
+            Assert.Equal(5, cenario.Repositorio.Armazenados.Count);
+        }
+
+        /// <summary>Os pedidos de outro cliente nao contam: o cliente do contexto so conta os seus proprios pedidos.</summary>
+        [Fact]
+        public async Task Teto_OutroClienteNaoEAfetado()
+        {
+            Cenario cenario = CriarCenario(ContextoCliente(ClienteSeis));
+            AdicionarLocadoras(cenario, 6);
+            SemearPedidos(cenario, ClienteCinco, new int[] { 1, 2, 3, 4, 5 }, AgoraFixo.AddHours(-1));
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => cenario.Servico.ExigirCadastroAprovadoAsync(ClienteSeis, 6));
+
+            Assert.Equal(string.Format(ConstantsMessage.ErroReservaCadastroEmAnalise, "Locadora 6"), excecao.Message);
+            Assert.Equal(6, cenario.Repositorio.Armazenados.Count);
         }
     }
 }

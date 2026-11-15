@@ -21,6 +21,9 @@ namespace AutoVia.Helpers
         /// <summary>404: a locadora do veiculo nao existe, esta inativa ou foi desativada.</summary>
         public const string ErroClienteLocadoraEmpresaNaoEncontrada = "A locadora informada não foi encontrada.";
 
+        /// <summary>429: o cliente atingiu o teto de locadoras novas com pedido de aprovacao na janela (nada e gravado).</summary>
+        public const string ErroLimitePedidosAprovacao = "Você atingiu o limite de pedidos de aprovação em 24 horas. Tente novamente mais tarde.";
+
         // --- Verificacao do cadastro pela locadora (PATCH /api/clientes/{id}/verificacao) ---
 
         /// <summary>409: o cadastro ja foi aprovado pela locadora (APROVADO e final nesta entrega).</summary>

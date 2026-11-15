@@ -222,6 +222,40 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
+        /// <summary>
+        /// Conta as locadoras distintas com pedido do cliente desde a data (teto de pedidos de aprovacao). Conta linhas
+        /// ativas e desativadas, uma vez por locadora. Consulta pelo DbSet filtrado, sem bypass.
+        /// </summary>
+        public async Task<int> CountEmpresasSolicitadasDesdeAsync(int idCliente, DateTime desde)
+        {
+            try
+            {
+                int total = await ConsultaEmpresasSolicitadasDesde(idCliente, desde).CountAsync();
+
+                return total;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarVinculoClienteLocadora, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Locadoras distintas (id_empresa) com linha do cliente com data de solicitacao igual ou posterior a data. Nao filtra
+        /// desativadas: a linha desativada tambem conta no teto. A consulta e so de forma (teste de SQL), sem avaliar no cliente.
+        /// </summary>
+        public IQueryable<int> ConsultaEmpresasSolicitadasDesde(int idCliente, DateTime desde)
+        {
+            IQueryable<int> consulta = _db.ClientesLocadoras
+                .AsNoTracking()
+                .Where(x => x.IdCliente == idCliente && x.DataSolicitacao >= desde)
+                .Select(x => x.IdEmpresa)
+                .Distinct();
+
+            return consulta;
+        }
+
         /// <summary>Vinculos ativos do par cliente x locadora (todas as linhas ativas, na ordem do banco). Base da decisao e da busca da linha que vale.</summary>
         public IQueryable<ClienteLocadora> ConsultaVinculosAtivosDoPar(int idCliente, int idEmpresa)
         {

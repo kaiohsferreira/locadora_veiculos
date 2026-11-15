@@ -4,6 +4,7 @@ using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Clientes;
 using AutoVia.Communication.ViewObjects.Utils;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Options;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -19,7 +20,8 @@ namespace AutoVia.Infrastructure.Services
     /// Regras da aprovacao do cadastro do cliente por locadora (T-BE-06). Exigir antes da reserva: APROVADO segue; sem
     /// vinculo e chamado pelo proprio cliente, grava PENDENTE e responde 409; PENDENTE e RECUSADO respondem 409. Decidir
     /// (ATENDENTE ou ADMINISTRADOR) grava em todas as linhas ativas do par; APROVADO e final. Corrida sem indice unico:
-    /// vale a linha ativa de menor id do par e quem nao for a menor se desativa logo apos o INSERT.
+    /// vale a linha ativa de menor id do par e quem nao for a menor se desativa logo apos o INSERT. Teto (v2): o cliente
+    /// nao pede aprovacao em mais de N locadoras novas na janela de 24 horas (429, nada gravado).
     /// </summary>
     public class ClienteLocadoraService : IClienteLocadoraService
     {
@@ -28,25 +30,29 @@ namespace AutoVia.Infrastructure.Services
         private readonly IRelogio _relogio;
         private readonly IMapper _mapper;
         private readonly ILogService _logService;
+        private readonly ClientesOptions _clientesOptions;
 
         public ClienteLocadoraService(
             IClienteLocadoraRepository clienteLocadoraRepository,
             IContextoEmpresa contextoEmpresa,
             IRelogio relogio,
             IMapper mapper,
-            ILogService logService)
+            ILogService logService,
+            ClientesOptions clientesOptions)
         {
             _clienteLocadoraRepository = clienteLocadoraRepository;
             _contextoEmpresa = contextoEmpresa;
             _relogio = relogio;
             _mapper = mapper;
             _logService = logService;
+            _clientesOptions = clientesOptions;
         }
 
         /// <summary>
-        /// Exige o cadastro APROVADO do cliente na locadora. Ordem: locadora ativa (404); vinculo ativo do par; sem vinculo,
-        /// so o proprio cliente cria o PENDENTE (gravado antes do 409) e os demais recebem 409 sem criar nada. Status PENDENTE
-        /// ou RECUSADO geram 409 com a mensagem da locadora; APROVADO segue sem excecao.
+        /// Exige o cadastro APROVADO do cliente na locadora. Ordem: locadora ativa (404); vinculo ativo do par (o teto NAO
+        /// vale para quem ja tem vinculo); sem vinculo e nao sendo o proprio cliente, 409 sem contar; sem vinculo e proprio
+        /// cliente, teto de pedidos na janela (429, nada gravado); depois cria o PENDENTE (gravado antes do 409). Status
+        /// PENDENTE ou RECUSADO geram 409 com a mensagem da locadora; APROVADO segue sem excecao.
         /// </summary>
         public async Task ExigirCadastroAprovadoAsync(int idCliente, int idEmpresa)
         {
@@ -70,6 +76,8 @@ namespace AutoVia.Infrastructure.Services
                         throw new BusinessException(ConstantsMessage.ErroReservaCadastroNaoAprovado);
                     }
 
+                    await ValidarTetoPedidosAsync(idCliente);
+
                     vinculo = await CriarPendenteAsync(idCliente, idEmpresa);
                 }
 
@@ -80,6 +88,10 @@ namespace AutoVia.Infrastructure.Services
                 throw;
             }
             catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (LimiteExcedidoException)
             {
                 throw;
             }
@@ -212,6 +224,21 @@ namespace AutoVia.Infrastructure.Services
             {
                 _logService.Write(ex, ConstantsMessage.ErroListarMinhasLocadoras, GetType().ToString());
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Teto de pedidos de aprovacao (v2): conta as locadoras distintas com pedido do cliente na janela de 24 horas (pelo
+        /// IRelogio), ativas ou desativadas. Chegando ao limite, lanca 429 antes de qualquer gravacao.
+        /// </summary>
+        private async Task ValidarTetoPedidosAsync(int idCliente)
+        {
+            DateTime desde = _relogio.Agora.AddHours(-ConstantsValues.JanelaPedidosAprovacaoHoras);
+            int locadorasPedidas = await _clienteLocadoraRepository.CountEmpresasSolicitadasDesdeAsync(idCliente, desde);
+
+            if (locadorasPedidas >= _clientesOptions.LimitePedidosAprovacaoPorDia)
+            {
+                throw new LimiteExcedidoException(ConstantsMessage.ErroLimitePedidosAprovacao);
             }
         }
 

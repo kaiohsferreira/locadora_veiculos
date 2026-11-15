@@ -1,5 +1,7 @@
 using AutoVia.Api.Middleware;
+using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
@@ -17,25 +19,19 @@ namespace AutoVia.Api.Extensions
     /// Autenticacao:LimitePublicoPorMinuto), AutoViaVerificacaoCadastro (verificacao de cadastro; um minuto;
     /// numero em Clientes:LimiteVerificacaoCadastroPorMinuto) e AutoViaCadastroEmpresa (cadastro publico de
     /// locadora; uma hora; numero em Locadoras:LimiteCadastroPorHora, padrao 5). Um valor menor ou igual a
-    /// zero cai no padrao. Tambem configura os cabecalhos encaminhados pelo proxy (Railway), para que o IP
-    /// usado no limite seja o do cliente.
+    /// zero cai no padrao. O IP vem do cabecalho configurado em Rede:CabecalhoIpCliente (padrao X-Forwarded-For,
+    /// um salto), lido pelo UseForwardedHeaders montado no Program; vazio desliga a leitura e vale o IP do socket.
+    /// Um valor que nao e nome de cabecalho HTTP valido impede a subida da API, e com FORWARDEDHEADERS_ENABLED
+    /// verdadeira a API tambem nao sobe (o host anularia o controle).
+    /// Risco residual: sem lista de proxies, quem alcanca a API sem passar pela borda escolhe o proprio
+    /// cabecalho. Por isso existem os tetos sem IP (LimiteExcedidoException). O comportamento real da borda do
+    /// Railway so e confirmado pelo teste no ambiente publicado.
     /// </summary>
     public static class AddRateLimitingStartup
     {
-        /// <summary>Registra as politicas de limite das rotas publicas (429 em problem+json) e o tratamento de cabecalhos encaminhados.</summary>
+        /// <summary>Registra as politicas de limite das rotas publicas (429 em problem+json). Os cabecalhos encaminhados ficam em CriarCabecalhosEncaminhados, chamado pelo Program.</summary>
         public static IServiceCollection AddRateLimitingPublico(this IServiceCollection services, IConfiguration configuration)
         {
-            services.Configure<ForwardedHeadersOptions>(options =>
-            {
-                // O proxy do Railway nao tem IP fixo, por isso a lista de proxies confiaveis fica vazia.
-                // RISCO: sem lista de proxies, um cliente que chega direto na API pode enviar
-                // X-Forwarded-For forjado e trocar o IP usado no limite. Mitigacao: a API deve ficar
-                // acessivel so pelo proxy (rede privada ou firewall), e o proxy precisa acrescentar o IP real.
-                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-                options.KnownIPNetworks.Clear();
-                options.KnownProxies.Clear();
-            });
-
             services.AddRateLimiter(options =>
             {
                 // Lidos quando o pipeline e montado (host ja com toda a configuracao aplicada).
@@ -62,6 +58,113 @@ namespace AutoVia.Api.Extensions
             return services;
         }
 
+        /// <summary>
+        /// Guarda do host (logo apos o Build): com FORWARDEDHEADERS_ENABLED verdadeira (bool.TryParse, sem diferenciar
+        /// maiusculas) a API nao sobe, porque o host inseriria um UseForwardedHeaders proprio, com opcoes padrao, antes do nosso.
+        /// Ausente ou falsa: sobe.
+        /// </summary>
+        public static void ValidarHostSemCabecalhosAutomaticos(IConfiguration configuration)
+        {
+            string? valor = configuration.GetValue<string>(ConstantsValues.ChaveForwardedHeadersHabilitado);
+            bool habilitado = bool.TryParse(valor?.Trim(), out bool resultado) && resultado;
+
+            if (habilitado)
+            {
+                throw new InvalidOperationException(ConstantsMessage.ErroHostComCabecalhosAutomaticos);
+            }
+        }
+
+        /// <summary>
+        /// Aviso na subida (log de informacao pelo ILogService) quando a leitura do cabecalho de IP esta desligada (chave
+        /// vazia ou so com espacos). A mensagem nao leva o valor de configuracao.
+        /// </summary>
+        public static void RegistrarAvisoCabecalhoDesligado(IConfiguration configuration, ILogService logService)
+        {
+            string? valor = configuration.GetValue<string>(ConstantsValues.ChaveCabecalhoIpCliente, ConstantsValues.CabecalhoIpClientePadrao);
+
+            if (string.IsNullOrWhiteSpace(valor))
+            {
+                logService.WriteInfo(ConstantsMessage.AvisoCabecalhoIpDesligado, nameof(AddRateLimitingStartup));
+            }
+        }
+
+        /// <summary>
+        /// Monta as opcoes do UseForwardedHeaders a partir da configuracao final. O Program chama no proprio fluxo de subida,
+        /// logo apos o Build e antes de atender requisicoes: um valor invalido lanca InvalidOperationException e a API nao sobe.
+        /// Nao e feito dentro de lambda de options (que rodaria so na primeira resolucao).
+        /// </summary>
+        public static ForwardedHeadersOptions CriarCabecalhosEncaminhados(IConfiguration configuration)
+        {
+            string? cabecalhoIpCliente = ValidarCabecalhoIpCliente(
+                configuration.GetValue<string>(ConstantsValues.ChaveCabecalhoIpCliente, ConstantsValues.CabecalhoIpClientePadrao));
+
+            ForwardedHeadersOptions opcoes = new ForwardedHeadersOptions();
+            AplicarCabecalhosEncaminhados(opcoes, cabecalhoIpCliente);
+
+            return opcoes;
+        }
+
+        /// <summary>
+        /// Valida o valor de Rede:CabecalhoIpCliente. Vazio ou so com espacos devolve nulo (nenhum cabecalho de IP e lido).
+        /// Valor fora do token do RFC 9110 (espaco, acento, caractere de controle...) lanca InvalidOperationException, com
+        /// a mensagem de configuracao, sem repetir o valor informado.
+        /// </summary>
+        public static string? ValidarCabecalhoIpCliente(string? valor)
+        {
+            string aparado = valor?.Trim() ?? string.Empty;
+
+            if (aparado.Length == 0)
+            {
+                return null;
+            }
+
+            if (!EhNomeDeCabecalhoHttp(aparado))
+            {
+                throw new InvalidOperationException(ConstantsMessage.ErroConfiguracaoCabecalhoIpCliente);
+            }
+
+            return aparado;
+        }
+
+        /// <summary>
+        /// Aplica o cabecalho de IP as opcoes do UseForwardedHeaders: sem cabecalho, so X-Forwarded-Proto e lido; com
+        /// cabecalho, X-Forwarded-For e lido no nome informado. Um salto (ForwardLimit = 1); listas de proxies vazias.
+        /// </summary>
+        public static void AplicarCabecalhosEncaminhados(ForwardedHeadersOptions options, string? cabecalhoIpCliente)
+        {
+            // O proxy do Railway nao tem IP fixo, por isso a lista de proxies confiaveis fica vazia.
+            options.KnownIPNetworks.Clear();
+            options.KnownProxies.Clear();
+            options.ForwardLimit = ConstantsValues.LimiteSaltosEncaminhados;
+
+            if (cabecalhoIpCliente == null)
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedProto;
+                return;
+            }
+
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            options.ForwardedForHeaderName = cabecalhoIpCliente;
+        }
+
+        /// <summary>Indica se o texto e um nome de cabecalho HTTP valido: letras, digitos e os caracteres do token do RFC 9110.</summary>
+        private static bool EhNomeDeCabecalhoHttp(string nome)
+        {
+            foreach (char caractere in nome)
+            {
+                bool letraOuDigito = (caractere >= 'a' && caractere <= 'z')
+                    || (caractere >= 'A' && caractere <= 'Z')
+                    || (caractere >= '0' && caractere <= '9');
+
+                if (!letraOuDigito && ConstantsValues.CaracteresTokenCabecalho.IndexOf(caractere) < 0)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         /// <summary>Le o limite da chave informada; zero ou negativo cai no padrao informado.</summary>
         private static int LerLimite(IConfiguration configuration, string chave, int padrao)
         {
@@ -80,7 +183,8 @@ namespace AutoVia.Api.Extensions
         {
             options.AddPolicy<string>(nomePolitica, httpContext =>
             {
-                string chaveIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? ConstantsValues.ChaveIpDesconhecido;
+                // Unico ponto de particao: a chave passa sempre por ChaveIpLimite (IPv6 por /64, IPv4 mapeado vira IPv4).
+                string chaveIp = ChaveIpLimite.Normalizar(httpContext.Connection.RemoteIpAddress);
 
                 return RateLimitPartition.GetFixedWindowLimiter<string>(chaveIp, _ => new FixedWindowRateLimiterOptions
                 {

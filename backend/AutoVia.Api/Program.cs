@@ -1,7 +1,9 @@
 using AutoVia.Api.Extensions;
 using AutoVia.Api.Middleware;
+using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Integrations.Extensions;
+using Microsoft.Extensions.DependencyInjection;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +24,7 @@ builder.Services.AddIntegrations();
 builder.Services.AddAuthenticationJwt(builder.Configuration);
 builder.Services.AddRecuperacaoSenha(builder.Configuration, builder.Environment);
 builder.Services.AddLocadoras(builder.Configuration);
+builder.Services.AddClientes(builder.Configuration);
 builder.Services.AddLoginGoogle();
 builder.Services.AddRateLimitingPublico(builder.Configuration);
 builder.Services.AddSwaggerDocumentation();
@@ -29,8 +32,15 @@ builder.Services.AddCorsPolicy(builder.Configuration);
 
 WebApplication app = builder.Build();
 
-// Primeiro do pipeline: le o IP real do cliente (X-Forwarded-For do proxy) para o limite de requisicoes.
-app.UseForwardedHeaders();
+// Guarda do host: FORWARDEDHEADERS_ENABLED verdadeira faria o host anular o controle do IP do limite; a API nao sobe.
+AddRateLimitingStartup.ValidarHostSemCabecalhosAutomaticos(app.Configuration);
+
+// Aviso na subida quando a leitura do IP do cliente esta desligada (Rede:CabecalhoIpCliente vazia).
+AddRateLimitingStartup.RegistrarAvisoCabecalhoDesligado(app.Configuration, app.Services.GetRequiredService<ILogService>());
+
+// Primeiro do pipeline: le o IP real do cliente (cabecalho Rede:CabecalhoIpCliente, padrao X-Forwarded-For) para o limite
+// de requisicoes. As opcoes saem da configuracao final: valor invalido impede a subida da API aqui mesmo.
+app.UseForwardedHeaders(AddRateLimitingStartup.CriarCabecalhosEncaminhados(app.Configuration));
 
 // Qualquer excecao abaixo vira ProblemDetails.
 app.UseMiddleware<ErrorHandlingMiddleware>();

@@ -5,6 +5,7 @@ using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Clientes;
 using AutoVia.Communication.ViewObjects.Utils;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Options;
 using AutoVia.Core.Profiles;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -319,7 +320,7 @@ namespace AutoVia.Tests.Api
             IContextoEmpresa contextoEmpresa = ContextoEmpresaDeTeste.Criar(EmpresaDoContexto);
             ClienteService servico = new ClienteService(repositorio, new FakeSenhaHasher(), mapper, logService, contextoEmpresa);
             FakeClienteLocadoraRepository repositorioLocadora = new FakeClienteLocadoraRepository(contextoEmpresa, new ArmazenamentoClienteLocadora());
-            ClienteLocadoraService servicoLocadora = new ClienteLocadoraService(repositorioLocadora, contextoEmpresa, new FakeRelogio(DateTime.Now), mapper, logService);
+            ClienteLocadoraService servicoLocadora = new ClienteLocadoraService(repositorioLocadora, contextoEmpresa, new FakeRelogio(DateTime.Now), mapper, logService, new ClientesOptions());
             ClienteController controller = new ClienteController(servico, servicoLocadora, logService);
 
             return controller;

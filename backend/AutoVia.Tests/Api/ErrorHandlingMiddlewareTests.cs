@@ -89,5 +89,26 @@ namespace AutoVia.Tests.Api
             Assert.DoesNotContain("Npgsql", body.GetRawText());
             Assert.True(body.TryGetProperty("traceId", out JsonElement _));
         }
+
+        /// <summary>Teto de negocio (LimiteExcedidoException): 429 em problem+json com o titulo do limite e o detail da excecao, sem log de erro.</summary>
+        [Fact]
+        public async Task LimiteExcedidoException_Vira429ComTituloDeLimiteESemLog()
+        {
+            FakeLogService log = new FakeLogService();
+            DefaultHttpContext context = new DefaultHttpContext();
+            context.Request.Path = "/api/clientes/minhas-locadoras";
+            context.Response.Body = new MemoryStream();
+            ErrorHandlingMiddleware middleware = new ErrorHandlingMiddleware(_ => throw new LimiteExcedidoException(ConstantsMessage.ErroLimitePedidosAprovacao), log);
+
+            await middleware.InvokeAsync(context);
+
+            Assert.Equal(429, context.Response.StatusCode);
+            Assert.StartsWith("application/problem+json", context.Response.ContentType ?? string.Empty);
+            context.Response.Body.Position = 0;
+            JsonDocument document = await JsonDocument.ParseAsync(context.Response.Body);
+            Assert.Equal(ConstantsMessage.TituloLimiteRequisicoes, document.RootElement.GetProperty("title").GetString());
+            Assert.Equal(ConstantsMessage.ErroLimitePedidosAprovacao, document.RootElement.GetProperty("detail").GetString());
+            Assert.Empty(log.Snapshot());
+        }
     }
 }
