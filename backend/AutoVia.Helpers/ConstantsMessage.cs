@@ -32,6 +32,8 @@ namespace AutoVia.Helpers
         public const string ErroPaginaInvalida = "O número da página deve ser maior ou igual a 1.";
         public const string ErroTamanhoPaginaInvalido = "O tamanho da página deve estar entre 1 e {0}.";
 
+        public const string ErroPaginaDeslocamentoInvalido = "A página informada excede o limite permitido para esta quantidade de itens.";
+
         // --- Saude da aplicacao ---
         public const string SucessoAplicacaoNoAr = "A API da AutoVia está no ar.";
         public const string StatusSaudeOk = "ok";

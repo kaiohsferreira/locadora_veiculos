@@ -1,4 +1,5 @@
 using AutoVia.Communication.ViewObjects.Reservas;
+using AutoVia.Communication.ViewObjects.Utils;
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -15,12 +16,14 @@ namespace AutoVia.Api.Controllers
     [Route("api/reservas")]
     [Authorize(Policy = ConstantsValues.PoliticaCliente)]
     [ProducesResponseType(typeof(ReturnReservaCriadaVO), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(typeof(ReturnReservaVO), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginaVO<ReturnReservaVO>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public class ReservaController : ControllerBase
     {
         private readonly IReservaService _reservaService;
@@ -51,9 +54,130 @@ namespace AutoVia.Api.Controllers
                 Response.Headers.Location = location;
                 return StatusCode(StatusCodes.Status201Created, retorno);
             }
+            catch (UnauthorizedException)
+            {
+                throw;
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (BusinessException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logService.Write(ex, ConstantsMessage.ErroCriarReserva, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Retorna uma reserva pertencente ao cliente autenticado.</summary>
+        [HttpGet("{idReserva:int}")]
+        public async Task<IActionResult> GetByIdAsync(int idReserva)
+        {
+            try
+            {
+                Claim? identificador = User.FindFirst(ClaimTypes.NameIdentifier);
+                int idCliente = 0;
+                bool identificadorValido = identificador != null && int.TryParse(identificador.Value, out idCliente);
+                if (!identificadorValido)
+                {
+                    throw new UnauthorizedException(ConstantsMessage.ErroSessaoInvalida);
+                }
+
+                ReturnReservaVO retorno = await _reservaService.GetByIdAsync(idReserva, idCliente);
+                return Ok(retorno);
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (BusinessException)
+            {
+                throw;
+            }
+            catch (UnauthorizedException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarReserva, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Lista as reservas do cliente autenticado com paginação e filtro opcional de status.</summary>
+        [HttpGet]
+        public async Task<IActionResult> GetAllAsync([FromQuery] FiltroReservaVO filtro)
+        {
+            try
+            {
+                Claim? identificador = User.FindFirst(ClaimTypes.NameIdentifier);
+                int idCliente = 0;
+                bool identificadorValido = identificador != null && int.TryParse(identificador.Value, out idCliente);
+                if (!identificadorValido)
+                {
+                    throw new UnauthorizedException(ConstantsMessage.ErroSessaoInvalida);
+                }
+
+                PaginaVO<ReturnReservaVO> retorno = await _reservaService.GetAllAsync(idCliente, filtro);
+                return Ok(retorno);
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (BusinessException)
+            {
+                throw;
+            }
+            catch (UnauthorizedException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroListarReservas, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Cancela logicamente uma reserva do cliente autenticado.</summary>
+        [HttpDelete("{idReserva:int}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        public async Task<IActionResult> CancelarAsync(int idReserva)
+        {
+            try
+            {
+                Claim? identificador = User.FindFirst(ClaimTypes.NameIdentifier);
+                int idCliente = 0;
+                bool identificadorValido = identificador != null && int.TryParse(identificador.Value, out idCliente);
+                if (!identificadorValido)
+                {
+                    throw new UnauthorizedException(ConstantsMessage.ErroSessaoInvalida);
+                }
+
+                await _reservaService.CancelarAsync(idReserva, idCliente);
+                return NoContent();
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (BusinessException)
+            {
+                throw;
+            }
+            catch (UnauthorizedException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroCancelarReserva, GetType().ToString());
                 throw;
             }
         }

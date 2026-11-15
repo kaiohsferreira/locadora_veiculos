@@ -27,6 +27,9 @@ namespace AutoVia.Api.Extensions
             // --- Reserva ---
             services.AddScoped<IReservaRepository, ReservaRepository>();
 
+            // --- Painel operacional ---
+            services.AddScoped<IPainelOperacionalRepository, PainelOperacionalRepository>();
+
             // --- Autenticacao ---
             services.AddScoped<IAutenticacaoRepository, AutenticacaoRepository>();
 
