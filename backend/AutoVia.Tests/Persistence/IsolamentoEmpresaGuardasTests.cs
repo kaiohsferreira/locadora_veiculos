@@ -1,3 +1,4 @@
+using AutoVia.Api.Requests.Avaria;
 using AutoVia.Communication.ViewObjects.Autenticacao;
 using AutoVia.Communication.ViewObjects.Frota;
 using System.Reflection;
@@ -7,17 +8,21 @@ namespace AutoVia.Tests.Persistence
 {
     /// <summary>
     /// Guardas que impedem o esquecimento do isolamento por locadora (multi-locadora, T-BE-03b):
-    /// (1) nenhum VO de ENTRADA tem IdEmpresa (a empresa vem do contexto, nunca do corpo);
+    /// (1) nenhum VO de ENTRADA (AutoVia.Communication.ViewObjects) e nenhum formulario de ENTRADA (AutoVia.Api.Requests)
+    /// tem IdEmpresa (a empresa vem do contexto, nunca do corpo);
     /// (2) o bypass do filtro e as formas de SQL e de busca que o contornam (IgnoreQueryFilters, SemEscopoEmpresa,
-    /// FromSql, ExecuteSql, SqlQuery, ExecuteUpdate, ExecuteDelete, FindAsync e Find) so aparecem na lista fechada
-    /// abaixo, com a QUANTIDADE de ocorrencias por arquivo. Um segundo bypass no mesmo arquivo reprova o teste ate a
-    /// lista ser atualizada de proposito. Arquivo novo fora da lista tambem reprova.
+    /// FromSql, ExecuteSql, SqlQuery, ExecuteUpdate, ExecuteDelete, GetDbConnection, FindAsync e Find) so aparecem na lista
+    /// fechada abaixo, com a QUANTIDADE de ocorrencias por arquivo. Um segundo bypass no mesmo arquivo reprova o teste ate a
+    /// lista ser atualizada de proposito. Arquivo novo fora da lista tambem reprova. Por METODO, nos quatro repositorios
+    /// desta entrega (ReservaRepository, VeiculoRepository.Disponibilidade, VeiculoRepository.Catalogo e LocacaoRepository),
+    /// a guarda esta em GuardaPorMetodoRepositoriosTests, que usa esta mesma lista de simbolos.
     /// </summary>
     public class IsolamentoEmpresaGuardasTests
     {
         private const string PropriedadeEmpresa = "IdEmpresa";
         private const string PrefixoVOsDeSaida = "Return";
         private const string NamespaceVOs = "AutoVia.Communication.ViewObjects";
+        private const string NamespaceFormularios = "AutoVia.Api.Requests";
         private const string SufixoVO = "VO";
         private const char SeparadorCaminho = '/';
         private const string PastaObj = "obj";
@@ -25,8 +30,8 @@ namespace AutoVia.Tests.Persistence
         private const string ExtensaoCSharp = "*.cs";
         private const string NomeSolucao = "AutoVia.sln";
 
-        /// <summary>Simbolos que desligam o filtro "Empresa" ou contornam o LINQ (SQL bruto, atualizacao e exclusao em massa, busca por chave).</summary>
-        private static readonly string[] SimbolosDeBypass = new string[]
+        /// <summary>Simbolos que desligam o filtro "Empresa" ou contornam o LINQ (SQL bruto, atualizacao e exclusao em massa, busca por chave, conexao crua).</summary>
+        internal static readonly string[] SimbolosDeBypass = new string[]
         {
             "IgnoreQueryFilters(",
             "SemEscopoEmpresa(",
@@ -160,7 +165,31 @@ namespace AutoVia.Tests.Persistence
             Assert.Contains(typeof(VeiculoVO), voDeEntrada);
             Assert.Contains(typeof(LoginVO), voDeEntrada);
 
-            List<string> comEmpresa = voDeEntrada
+            AssertSemPropriedadeEmpresa(voDeEntrada);
+        }
+
+        /// <summary>
+        /// Formularios de entrada (multipart, AutoVia.Api.Requests) tambem nao podem carregar IdEmpresa. A varredura
+        /// precisa achar os dois formularios de avaria; sem eles a lista fica vazia e a guarda nao prova nada.
+        /// </summary>
+        [Fact]
+        public void NenhumFormularioDeEntrada_TemPropriedadeIdEmpresa()
+        {
+            List<Type> formularios = typeof(CriarAvariaRequest).Assembly.GetTypes()
+                .Where(tipo => tipo.IsClass
+                    && tipo.Namespace != null
+                    && tipo.Namespace.StartsWith(NamespaceFormularios, StringComparison.Ordinal))
+                .ToList();
+
+            Assert.Contains(typeof(CriarAvariaRequest), formularios);
+            Assert.Contains(typeof(RetryAvariaFotoRequest), formularios);
+
+            AssertSemPropriedadeEmpresa(formularios);
+        }
+
+        private static void AssertSemPropriedadeEmpresa(List<Type> tipos)
+        {
+            List<string> comEmpresa = tipos
                 .Where(tipo => tipo.GetProperty(PropriedadeEmpresa, BindingFlags.Public | BindingFlags.Instance) != null)
                 .Select(tipo => tipo.FullName!)
                 .ToList();

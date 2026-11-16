@@ -9,16 +9,14 @@ namespace AutoVia.Tests.Reservas
     /// <summary>
     /// Guardas de codigo-fonte do ReservaRepository: (1) todo catch tipado (404 e 409 dentro da transacao) registra no log
     /// antes de relancar (decisao D-9); (2) todo metodo publico termina em catch (Exception ex) com _logService.Write e throw;
-    /// (3) os simbolos de bypass do filtro "Empresa" e o SQL direto so aparecem nos metodos nomeados da lista fechada;
-    /// (4) o insert da reserva zera o id, preenche CreatedAt e UpdatedAt e deixa DisabledAt nulo. A guarda (4) prova so que o
+    /// (3) o insert da reserva zera o id, preenche CreatedAt e UpdatedAt e deixa DisabledAt nulo. A guarda (3) prova so que o
     /// codigo atribui esses campos; o valor gravado no PostgreSQL nao e provado aqui (roteiro manual).
+    /// Os simbolos de bypass do filtro "Empresa" e o SQL direto, por metodo, estao em GuardaPorMetodoRepositoriosTests.
     /// </summary>
     public class GuardasDeCodigoDaReservaTests
     {
         private const string NomeSolucao = "AutoVia.sln";
         private const string CaminhoRepositorio = "AutoVia.Infrastructure/Repositories/ReservaRepository.cs";
-        private const string SimboloBypass = "SemEscopoEmpresa(";
-        private const string SimboloSql = "FromSql";
         private const string PadraoDeclaracaoMetodo = @"^        (public|private)\s[^=]*?\s(\w+)\(";
         private const string PadraoCatchTipadoComLog = @"catch \((BusinessException|NotFoundException) \w+\)\s*\{\s*_logService\.Write\(";
         private const string PadraoCatchTipado = @"catch \((BusinessException|NotFoundException) ";
@@ -30,19 +28,6 @@ namespace AutoVia.Tests.Reservas
         private const string AtribuicaoUpdatedAt = "reserva.UpdatedAt = DateTime.Now;";
         private const string AtribuicaoDisabledAtNulo = "reserva.DisabledAt = null;";
         private const string NomeMetodoInsert = "InsertAtomicallyAsync";
-
-        private static readonly string[] MetodosComBypass = new string[]
-        {
-            "ConsultaVeiculoParaReserva",
-            "ConsultaReservasDoVeiculo",
-            "ConsultaReservasDoClienteLogado",
-            "ConsultaTravaDoVeiculo"
-        };
-
-        private static readonly string[] MetodosComSqlDireto = new string[]
-        {
-            "ConsultaTravaDoVeiculo"
-        };
 
         /// <summary>Le o arquivo do repositorio subindo a partir da pasta do teste ate achar o AutoVia.sln.</summary>
         private static string LerRepositorio()
@@ -57,30 +42,6 @@ namespace AutoVia.Tests.Reservas
             Assert.NotNull(pasta);
 
             return File.ReadAllText(Path.Combine(pasta!.FullName, CaminhoRepositorio.Replace('/', Path.DirectorySeparatorChar)));
-        }
-
-        /// <summary>Nome do metodo que contem cada linha com o simbolo, pela indentacao de metodo do arquivo.</summary>
-        private static HashSet<string> MetodosQueContem(string conteudo, string simbolo)
-        {
-            HashSet<string> metodos = new HashSet<string>(StringComparer.Ordinal);
-            string metodoAtual = string.Empty;
-
-            foreach (string linha in conteudo.Split('\n'))
-            {
-                Match declaracao = Regex.Match(linha, PadraoDeclaracaoMetodo);
-
-                if (declaracao.Success)
-                {
-                    metodoAtual = declaracao.Groups[2].Value;
-                }
-
-                if (linha.Contains(simbolo, StringComparison.Ordinal) && !declaracao.Success)
-                {
-                    metodos.Add(metodoAtual);
-                }
-            }
-
-            return metodos;
         }
 
         /// <summary>Corpo de cada metodo publico (nome, texto), sem as linhas de documentacao, do cabecalho ate o proximo metodo.</summary>
@@ -145,26 +106,6 @@ namespace AutoVia.Tests.Reservas
             {
                 Assert.True(Regex.IsMatch(metodo.Value.TrimEnd(), PadraoCatchGenericoComLogEThrow), $"Metodo publico sem catch (Exception ex) com log e throw: {metodo.Key}");
             }
-        }
-
-        [Fact]
-        public void Repositorio_SimboloDeBypassSoNosMetodosNomeados()
-        {
-            string conteudo = LerRepositorio();
-
-            HashSet<string> encontrados = MetodosQueContem(conteudo, SimboloBypass);
-
-            Assert.Equal(MetodosComBypass.OrderBy(nome => nome, StringComparer.Ordinal), encontrados.OrderBy(nome => nome, StringComparer.Ordinal));
-        }
-
-        [Fact]
-        public void Repositorio_SqlDiretoSoNaTravaDoVeiculo()
-        {
-            string conteudo = LerRepositorio();
-
-            HashSet<string> encontrados = MetodosQueContem(conteudo, SimboloSql);
-
-            Assert.Equal(MetodosComSqlDireto.OrderBy(nome => nome, StringComparer.Ordinal), encontrados.OrderBy(nome => nome, StringComparer.Ordinal));
         }
 
         [Fact]

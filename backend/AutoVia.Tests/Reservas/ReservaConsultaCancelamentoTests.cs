@@ -156,7 +156,9 @@ namespace AutoVia.Tests.Reservas
             FluentValidation.Results.ValidationResult resultado = validador.Validate(filtro);
 
             Assert.False(resultado.IsValid);
-            Assert.Contains(resultado.Errors, erro => erro.ErrorMessage == ConstantsMessage.ErroPaginaDeslocamentoInvalido);
+            // Uma unica mensagem: a regra de estouro vem so do FiltroPaginacaoVOValidator (sem copia no validador da reserva).
+            FluentValidation.Results.ValidationFailure erro = Assert.Single(resultado.Errors);
+            Assert.Equal(ConstantsMessage.ErroPaginaDeslocamentoInvalido, erro.ErrorMessage);
         }
 
         [Fact]

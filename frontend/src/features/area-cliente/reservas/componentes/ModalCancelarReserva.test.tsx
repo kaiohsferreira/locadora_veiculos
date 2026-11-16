@@ -14,6 +14,7 @@ describe('ModalCancelarReserva', () => {
     const html = renderizar(RESERVA_ATIVA, false);
     expect(html).toContain('Cancelar a reserva AV-00042?');
     expect(html).toContain('A reserva deixa de valer e não pode ser reativada.');
+    expect(html).toMatch(/<div class="overflow-y-auto[^"]*">\s*<p[^>]*>A reserva deixa de valer e não pode ser reativada\.<\/p>/);
     expect(html).toContain('Manter reserva');
     expect(html).toContain('Cancelar reserva');
     expect(html).toContain('aria-labelledby');

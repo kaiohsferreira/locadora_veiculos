@@ -13,6 +13,11 @@ namespace AutoVia.Communication.Validators.Frota
     /// </summary>
     public class VeiculoVOValidator : AbstractValidator<VeiculoVO>
     {
+        private const char CaractereNulo = '\0';
+        private const string NomeCampoMarca = "Marca";
+        private const string NomeCampoModelo = "Modelo";
+        private const string NomeCampoCor = "Cor";
+
         public VeiculoVOValidator()
         {
             int anoLimite = DateTime.Now.Year + ConstantsValues.AnosAdiantamentoVeiculo;
@@ -41,6 +46,11 @@ namespace AutoVia.Communication.Validators.Frota
                 .Must(marca => TamanhoSemEspacos(marca) <= ConstantsValues.TamanhoMaximoMarcaVeiculo)
                 .WithMessage(string.Format(ConstantsMessage.ErroVeiculoMarcaTamanho, ConstantsValues.TamanhoMaximoMarcaVeiculo));
 
+            // Caractere NUL: o PostgreSQL recusa o texto e o erro sairia como 500. Recusa aqui, com 400.
+            RuleFor(x => x.Marca)
+                .Must(marca => marca == null || !marca.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoMarca));
+
             RuleFor(x => x.Modelo)
                 .Must(modelo => !string.IsNullOrWhiteSpace(modelo))
                 .WithMessage(ConstantsMessage.ErroVeiculoModeloObrigatorio);
@@ -48,6 +58,10 @@ namespace AutoVia.Communication.Validators.Frota
             RuleFor(x => x.Modelo)
                 .Must(modelo => TamanhoSemEspacos(modelo) <= ConstantsValues.TamanhoMaximoModeloVeiculo)
                 .WithMessage(string.Format(ConstantsMessage.ErroVeiculoModeloTamanho, ConstantsValues.TamanhoMaximoModeloVeiculo));
+
+            RuleFor(x => x.Modelo)
+                .Must(modelo => modelo == null || !modelo.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoModelo));
 
             RuleFor(x => x.AnoFabricacao)
                 .Must(ano => ano >= ConstantsValues.AnoMinimoFabricacaoVeiculo && ano <= anoLimite)
@@ -64,6 +78,10 @@ namespace AutoVia.Communication.Validators.Frota
             RuleFor(x => x.Cor)
                 .Must(cor => cor == null || TamanhoSemEspacos(cor) <= ConstantsValues.TamanhoMaximoCorVeiculo)
                 .WithMessage(string.Format(ConstantsMessage.ErroVeiculoCorTamanho, ConstantsValues.TamanhoMaximoCorVeiculo));
+
+            RuleFor(x => x.Cor)
+                .Must(cor => cor == null || !cor.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoCor));
 
             RuleFor(x => x.KmAtual)
                 .GreaterThanOrEqualTo(0)

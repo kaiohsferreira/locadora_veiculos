@@ -15,11 +15,8 @@ namespace AutoVia.Communication.Validators.Reservas
 
         public FiltroReservaVOValidator()
         {
+            // Pagina e tamanho (inclusive o estouro de deslocamento) vem do FiltroPaginacaoVOValidator; nao repetir aqui.
             Include(new FiltroPaginacaoVOValidator());
-
-            RuleFor(x => x.Pagina)
-                .Must((filtro, pagina) => filtro.TamanhoPagina <= 0 || (long)pagina <= ((long)int.MaxValue / filtro.TamanhoPagina) + 1L)
-                .WithMessage(ConstantsMessage.ErroPaginaDeslocamentoInvalido);
 
             RuleFor(x => x.Status)
                 .Must(status => status == null || Enum.GetNames<StatusReserva>().Contains(status, StringComparer.Ordinal))

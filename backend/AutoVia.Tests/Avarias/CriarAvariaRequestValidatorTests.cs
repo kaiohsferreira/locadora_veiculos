@@ -16,6 +16,22 @@ namespace AutoVia.Tests.Avarias
 {
     public sealed class CriarAvariaRequestValidatorTests
     {
+        /// <summary>Caractere NUL na descricao: o PostgreSQL recusaria o texto (500). A recusa sai com 400, no campo Descricao, com ErroCampoInvalido.</summary>
+        [Fact]
+        public async Task DescricaoComCaractereNulo_EInvalidaNoCampoDescricao()
+        {
+            CriarAvariaRequestValidator validator = new CriarAvariaRequestValidator();
+            FluentValidation.Results.ValidationResult resultado = await validator.ValidateAsync(new CriarAvariaRequest
+            {
+                Descricao = "Arra\0nhao na porta",
+                Gravidade = "LEVE",
+                Foto = CriarFoto("image/jpeg", new byte[] { 1 })
+            });
+
+            Assert.False(resultado.IsValid);
+            Assert.Contains(resultado.Errors, x => x.ErrorMessage == string.Format(ConstantsMessage.ErroCampoInvalido, "Descricao"));
+        }
+
         [Fact]
         public async Task GravidadeForaDaLista_EInvalida()
         {

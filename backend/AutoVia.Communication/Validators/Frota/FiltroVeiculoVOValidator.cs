@@ -15,6 +15,9 @@ namespace AutoVia.Communication.Validators.Frota
     /// </summary>
     public class FiltroVeiculoVOValidator : AbstractValidator<FiltroVeiculoVO>
     {
+        private const char CaractereNulo = '\0';
+        private const string NomeCampoPlaca = "Placa";
+
         public FiltroVeiculoVOValidator()
         {
             Include(new FiltroPaginacaoVOValidator());
@@ -31,6 +34,11 @@ namespace AutoVia.Communication.Validators.Frota
             RuleFor(x => x.Placa)
                 .MaximumLength(ConstantsValues.TamanhoMaximoBuscaPlacaVeiculo)
                 .WithMessage(string.Format(ConstantsMessage.ErroVeiculoFiltroPlacaTamanho, ConstantsValues.TamanhoMaximoBuscaPlacaVeiculo));
+
+            // Caractere NUL: o PostgreSQL recusa o texto e o erro sairia como 500. Recusa aqui, com 400.
+            RuleFor(x => x.Placa)
+                .Must(placa => placa == null || !placa.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoPlaca));
         }
     }
 }

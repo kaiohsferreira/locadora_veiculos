@@ -421,6 +421,42 @@ namespace AutoVia.Tests.Frota
             Assert.True(ContemErro(resultado, nameof(VeiculoVO.Cor), mensagemEsperada));
         }
 
+        [Fact]
+        public void MarcaComCaractereNulo_FalhaComMensagemDeCampoInvalido()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.Marca = "Fi\0at";
+            string mensagemEsperada = string.Format(ConstantsMessage.ErroCampoInvalido, nameof(VeiculoVO.Marca));
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(ContemErro(resultado, nameof(VeiculoVO.Marca), mensagemEsperada));
+        }
+
+        [Fact]
+        public void ModeloComCaractereNulo_FalhaComMensagemDeCampoInvalido()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.Modelo = "To\0ro";
+            string mensagemEsperada = string.Format(ConstantsMessage.ErroCampoInvalido, nameof(VeiculoVO.Modelo));
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(ContemErro(resultado, nameof(VeiculoVO.Modelo), mensagemEsperada));
+        }
+
+        [Fact]
+        public void CorComCaractereNulo_FalhaComMensagemDeCampoInvalido()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.Cor = "Bran\0co";
+            string mensagemEsperada = string.Format(ConstantsMessage.ErroCampoInvalido, nameof(VeiculoVO.Cor));
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(ContemErro(resultado, nameof(VeiculoVO.Cor), mensagemEsperada));
+        }
+
         private static VeiculoVO CriarVOValido()
         {
             VeiculoVO vo = new VeiculoVO

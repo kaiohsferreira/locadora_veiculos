@@ -11,10 +11,16 @@ namespace AutoVia.Api.Validators
     /// <summary>Validacao estrutural dos campos multipart para avaria.</summary>
     public sealed class CriarAvariaRequestValidator : AbstractValidator<CriarAvariaRequest>
     {
+        private const char CaractereNulo = '\0';
+        private const string NomeCampoDescricao = "Descricao";
+
         public CriarAvariaRequestValidator()
         {
             RuleFor(x => x.Descricao).NotEmpty().WithMessage(ConstantsMessage.ErroAvariaDescricaoObrigatoria)
                 .MaximumLength(200).WithMessage(ConstantsMessage.ErroAvariaDescricaoTamanho);
+            // Caractere NUL: o PostgreSQL recusa o texto e o erro sairia como 500. Recusa aqui, com 400.
+            RuleFor(x => x.Descricao).Must(descricao => descricao == null || !descricao.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoDescricao));
             RuleFor(x => x.Gravidade).Must(GravidadePermitida)
                 .WithMessage(ConstantsMessage.ErroAvariaGravidadeInvalida);
             RuleFor(x => x.ValorEstimado).Must(x => !x.HasValue || (x.Value >= 0m && x.Value <= 99999999.99m && decimal.Round(x.Value, 2) == x.Value))

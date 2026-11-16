@@ -1,6 +1,5 @@
 using AutoVia.Communication.Enums;
 using AutoVia.Infrastructure.Persistence;
-using System.IO;
 using AutoVia.Infrastructure.Repositories;
 using AutoVia.Infrastructure.Services;
 using AutoVia.Tests.Fakes;
@@ -39,13 +38,6 @@ namespace AutoVia.Tests.Persistence
         private const string MarcaNormalizadaDoTeste = "FIAT";
         private const string MarcaComEspacosDoTeste = "  fiat  ";
         private const string MarcaCrua = "fiat";
-        private const string NomeSolucao = "AutoVia.sln";
-        private const string ArquivoDisponibilidade = "AutoVia.Infrastructure/Repositories/VeiculoRepository.Disponibilidade.cs";
-        private const string ArquivoCatalogo = "AutoVia.Infrastructure/Repositories/VeiculoRepository.Catalogo.cs";
-        private const string NomeMetodoDisponiveis = "ConsultaDisponiveis";
-        private const string NomeMetodoCatalogo = "ConsultaCatalogo";
-        private const string PrefixoAssinaturaConsulta = "public IQueryable<Veiculo> ";
-        private const string SimboloBypass = "SemEscopoEmpresa(";
 
         private static readonly DateOnly RetiradaDoTeste = new DateOnly(2026, 12, 10);
         private static readonly DateOnly DevolucaoDoTeste = new DateOnly(2026, 12, 12);
@@ -272,43 +264,5 @@ namespace AutoVia.Tests.Persistence
             Assert.DoesNotContain("  FIAT", sql);
         }
 
-        private static string RaizDoBackend()
-        {
-            DirectoryInfo? pasta = new DirectoryInfo(AppContext.BaseDirectory);
-
-            while (pasta != null && !File.Exists(Path.Combine(pasta.FullName, NomeSolucao)))
-            {
-                pasta = pasta.Parent;
-            }
-
-            Assert.NotNull(pasta);
-
-            return pasta!.FullName;
-        }
-
-        /// <summary>
-        /// Guarda por metodo: o bypass das leituras publicas aparece uma vez em cada arquivo, e dentro do metodo nomeado
-        /// (ConsultaDisponiveis na busca e ConsultaCatalogo no catalogo), nunca em outro metodo.
-        /// </summary>
-        [Fact]
-        public void BypassDasLeiturasPublicas_AparecePorUmaSoVezDentroDoMetodoNomeado()
-        {
-            AssertBypassNoMetodo(ArquivoDisponibilidade, NomeMetodoDisponiveis);
-            AssertBypassNoMetodo(ArquivoCatalogo, NomeMetodoCatalogo);
-        }
-
-        private static void AssertBypassNoMetodo(string caminhoRelativo, string nomeMetodo)
-        {
-            string codigo = File.ReadAllText(Path.Combine(RaizDoBackend(), caminhoRelativo));
-
-            Assert.Equal(1, codigo.Split(SimboloBypass).Length - 1);
-
-            int posicaoBypass = codigo.IndexOf(SimboloBypass, StringComparison.Ordinal);
-            int inicioDaAssinatura = codigo.LastIndexOf(PrefixoAssinaturaConsulta, posicaoBypass, StringComparison.Ordinal);
-
-            Assert.True(inicioDaAssinatura >= 0);
-            string assinatura = codigo.Substring(inicioDaAssinatura, PrefixoAssinaturaConsulta.Length + nomeMetodo.Length + 1);
-            Assert.Contains(nomeMetodo + "(", assinatura, StringComparison.Ordinal);
-        }
     }
 }

@@ -14,7 +14,15 @@ namespace AutoVia.Infrastructure.Persistence
     /// pela Locacao ou pela Venda; ClienteLocadora pelo proprio id_empresa OU pelo id_cliente do contexto.
     /// Fail-closed: sem contexto de empresa (id 0) nada volta.
     /// Globais sem filtro: Cliente, Categoria, RedefinicaoSenha, Integration*, Empresa.
-    /// Bypass declarado so em SemEscopoEmpresa, nas listas fechadas de arquivos da guarda de testes.
+    /// Lista fechada de quem pode desligar o filtro "Empresa" (bypass nomeado, por metodo, conferida pela guarda de testes),
+    /// e o motivo de cada um: autenticacao (login, sessao e administrador inicial, antes de haver contexto); redefinicao de
+    /// senha (titular do link, sem contexto); unicidade do veiculo (placa, chassi e renavam na plataforma inteira); CPF na
+    /// plataforma (cadastro publico de locadora e inclusao de funcionario); reservas do proprio cliente (posse pelo cliente do
+    /// contexto); conflito de periodo (reservas do veiculo, para a checagem de sobreposicao); veiculo de locadora ativa para
+    /// reserva; trava do veiculo e da locacao (bloqueio de linha FOR UPDATE, sem leitura de dados fora do filtro); busca publica
+    /// de disponiveis e catalogo publico de seminovos (so locadoras ativas e nao desativadas). Qualquer outro metodo que
+    /// desligue o filtro reprova a guarda. Os metodos e a quantidade de cada simbolo estao em GuardaPorMetodoRepositoriosTests
+    /// e em IsolamentoEmpresaGuardasTests.
     /// </summary>
     public partial class AutoViaDbContext
     {
@@ -92,8 +100,8 @@ namespace AutoVia.Infrastructure.Persistence
     public static class EscopoEmpresa
     {
         /// <summary>
-        /// Bypass nomeado: desliga SO o filtro "Empresa" desta consulta. Uso restrito aos arquivos da
-        /// lista fechada da guarda de testes (login, sessao, recuperacao de senha, unicidade de veiculo).
+        /// Bypass nomeado: desliga SO o filtro "Empresa" desta consulta. Uso restrito aos metodos da lista fechada
+        /// descrita na classe; qualquer outro uso reprova a guarda de testes.
         /// </summary>
         public static IQueryable<TEntidade> SemEscopoEmpresa<TEntidade>(this IQueryable<TEntidade> consulta)
             where TEntidade : class

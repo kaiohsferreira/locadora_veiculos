@@ -12,6 +12,11 @@ namespace AutoVia.Communication.Validators.Seguros
     /// </summary>
     public class SeguroVOValidator : AbstractValidator<SeguroVO>
     {
+        private const char CaractereNulo = '\0';
+        private const string NomeCampoSeguradora = "Seguradora";
+        private const string NomeCampoNumeroApolice = "NumeroApolice";
+        private const string NomeCampoCobertura = "Cobertura";
+
         public SeguroVOValidator()
         {
             RuleFor(x => x.IdVeiculo)
@@ -56,6 +61,19 @@ namespace AutoVia.Communication.Validators.Seguros
             RuleFor(x => x.Cobertura)
                 .MaximumLength(ConstantsValues.TamanhoMaximoCoberturaSeguro)
                 .WithMessage(string.Format(ConstantsMessage.ErroSeguroCoberturaTamanho, ConstantsValues.TamanhoMaximoCoberturaSeguro));
+
+            // Caractere NUL nos textos da apolice: o PostgreSQL recusa o texto e o erro sairia como 500. Recusa aqui, com 400.
+            RuleFor(x => x.Seguradora)
+                .Must(seguradora => seguradora == null || !seguradora.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoSeguradora));
+
+            RuleFor(x => x.NumeroApolice)
+                .Must(numero => numero == null || !numero.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoNumeroApolice));
+
+            RuleFor(x => x.Cobertura)
+                .Must(cobertura => cobertura == null || !cobertura.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoCobertura));
         }
     }
 }

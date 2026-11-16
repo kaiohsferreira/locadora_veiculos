@@ -2,9 +2,15 @@ using AutoVia.Communication.CustomExceptions;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Primitives;
+using Microsoft.Net.Http.Headers;
 using Npgsql;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace AutoVia.Api.Middleware
@@ -17,6 +23,8 @@ namespace AutoVia.Api.Middleware
     /// NotFoundException -> 404 | BusinessException -> 409 | LimiteExcedidoException -> 429 (titulo de limite de
     /// requisicoes, detail = mensagem da excecao, sem log: e teto de negocio, nao erro) |
     /// ValidationException -> 400 | UnauthorizedException -> 401 (com WWW-Authenticate: Bearer) |
+    /// BadHttpRequestException (leitura do corpo recusada pelo framework, sem log: e erro do cliente) -> 400, com
+    /// errors.corpo quando o corpo passou do teto ([RequestSizeLimit], 413) |
     /// violacao de restricao do banco -> 409 | IntegrationException -> 502 | qualquer outra -> 500.
     /// </summary>
     public class ErrorHandlingMiddleware
@@ -26,6 +34,11 @@ namespace AutoVia.Api.Middleware
         private const string ForeignKeyViolation = "23503";
         private const string CheckViolation = "23514";
         private const string NotNullViolation = "23502";
+
+        // Corpo acima do teto: a chave do erro segue o formato de model binding do projeto (AddCustomResponseStartup).
+        private const string CampoCorpo = "corpo";
+        private const string TipoProblema = "application/problem+json";
+        private const string PrefixoUriProblema = "https://httpstatuses.io/";
 
         private readonly RequestDelegate _next;
         private readonly ILogService _logService;
@@ -56,6 +69,12 @@ namespace AutoVia.Api.Middleware
 
         private async Task WriteProblemAsync(HttpContext context, Exception exception)
         {
+            if (exception is BadHttpRequestException requisicaoInvalida)
+            {
+                await EscreverRequisicaoInvalidaAsync(context, requisicaoInvalida);
+                return;
+            }
+
             int status;
             string title;
             string detail;
@@ -122,6 +141,67 @@ namespace AutoVia.Api.Middleware
             }
 
             await ProblemDetailsWriter.WriteAsync(context, status, title, detail, cabecalhoAutenticacao);
+        }
+
+        /// <summary>
+        /// Leitura do corpo recusada pelo framework: 400 no formato do projeto, SEM log (erro do cliente). So o corpo acima
+        /// do teto ([RequestSizeLimit], status 413) leva errors.corpo com ErroCampoInvalido; outra recusa sai so com a
+        /// mensagem generica de requisicao invalida. O texto do framework nunca chega ao cliente.
+        /// </summary>
+        private static async Task EscreverRequisicaoInvalidaAsync(HttpContext context, BadHttpRequestException exception)
+        {
+            if (exception.StatusCode != StatusCodes.Status413PayloadTooLarge)
+            {
+                await ProblemDetailsWriter.WriteAsync(context, StatusCodes.Status400BadRequest, ConstantsMessage.TituloErroValidacao, ConstantsMessage.ErroRequisicaoInvalida);
+                return;
+            }
+
+            Dictionary<string, string[]> erros = new Dictionary<string, string[]>
+            {
+                { CampoCorpo, new string[] { string.Format(ConstantsMessage.ErroCampoInvalido, CampoCorpo) } }
+            };
+
+            ValidationProblemDetails problema = new ValidationProblemDetails(erros)
+            {
+                Type = PrefixoUriProblema + StatusCodes.Status400BadRequest.ToString(),
+                Title = ConstantsMessage.TituloErroValidacao,
+                Status = StatusCodes.Status400BadRequest,
+                Detail = ConstantsMessage.ErroRequisicaoInvalida,
+                Instance = context.Request.Path
+            };
+
+            problema.Extensions["traceId"] = Activity.Current?.Id ?? context.TraceIdentifier;
+
+            List<KeyValuePair<string, StringValues>> cabecalhos = CapturarCabecalhosDeCors(context);
+
+            context.Response.Clear();
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+
+            foreach (KeyValuePair<string, StringValues> cabecalho in cabecalhos)
+            {
+                context.Response.Headers[cabecalho.Key] = cabecalho.Value;
+            }
+
+            await context.Response.WriteAsJsonAsync(problema, (JsonSerializerOptions?)null, TipoProblema);
+        }
+
+        /// <summary>Guarda os cabecalhos de CORS e Vary que a resposta ja tem, para regrava-los depois da limpeza (mesma regra do ProblemDetailsWriter).</summary>
+        private static List<KeyValuePair<string, StringValues>> CapturarCabecalhosDeCors(HttpContext context)
+        {
+            List<KeyValuePair<string, StringValues>> preservados = new List<KeyValuePair<string, StringValues>>();
+
+            foreach (KeyValuePair<string, StringValues> cabecalho in context.Response.Headers)
+            {
+                bool ehCors = cabecalho.Key.StartsWith(ConstantsValues.PrefixoCabecalhoCors, StringComparison.OrdinalIgnoreCase);
+                bool ehVary = string.Equals(cabecalho.Key, HeaderNames.Vary, StringComparison.OrdinalIgnoreCase);
+
+                if (ehCors || ehVary)
+                {
+                    preservados.Add(cabecalho);
+                }
+            }
+
+            return preservados;
         }
 
         private static bool IsConstraintViolation(DbUpdateException exception)

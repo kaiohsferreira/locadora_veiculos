@@ -1,3 +1,4 @@
+import { useEffect, useId, useRef } from 'react';
 import { Botao, Modal } from '@/components/ui';
 import {
   mensagemReservasCancelarTitulo,
@@ -19,16 +20,26 @@ export interface ModalCancelarReservaProps {
 /**
  * Confirmação do cancelamento. O foco entra no primeiro botão do conteúdo e volta ao botão que abriu, pelo Modal.
  * Enquanto o cancelamento roda, não fecha (nem com Esc nem clicando fora).
+ * A frase de descrição vai no corpo do Modal (não no cabeçalho) e fica ligada ao diálogo por aria-describedby.
  */
 export function ModalCancelarReserva({ reserva, pendente, aoConfirmar, aoFechar }: ModalCancelarReservaProps) {
+  const aberto = reserva !== null;
+  const idDescricao = useId();
+  const refDescricao = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    // O Modal só liga aria-describedby quando recebe `descricao`; como a frase está no corpo, liga aqui no <dialog>.
+    const dialogo = refDescricao.current?.closest('dialog');
+    dialogo?.setAttribute('aria-describedby', idDescricao);
+  }, [aberto, idDescricao]);
+
   return (
     <Modal
-      aberto={reserva !== null}
+      aberto={aberto}
       aoFechar={() => {
         if (!pendente) aoFechar();
       }}
       titulo={reserva ? mensagemReservasCancelarTitulo(reserva.codigo) : ''}
-      descricao={MENSAGEM_RESERVAS_CANCELAR_DESCRICAO}
       tamanho="pequeno"
       fecharAoClicarFora={!pendente}
       rodape={
@@ -42,7 +53,9 @@ export function ModalCancelarReserva({ reserva, pendente, aoConfirmar, aoFechar 
         </>
       }
     >
-      {null}
+      <p ref={refDescricao} id={idDescricao} className="text-texto-suave">
+        {MENSAGEM_RESERVAS_CANCELAR_DESCRICAO}
+      </p>
     </Modal>
   );
 }

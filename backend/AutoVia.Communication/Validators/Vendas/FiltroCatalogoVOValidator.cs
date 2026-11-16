@@ -12,6 +12,9 @@ namespace AutoVia.Communication.Validators.Vendas
     /// </summary>
     public class FiltroCatalogoVOValidator : AbstractValidator<FiltroCatalogoVO>
     {
+        private const char CaractereNulo = '\0';
+        private const string NomeCampoMarca = "Marca";
+
         public FiltroCatalogoVOValidator()
         {
             Include(new FiltroPaginacaoVOValidator());
@@ -19,6 +22,11 @@ namespace AutoVia.Communication.Validators.Vendas
             RuleFor(x => x.Marca)
                 .MaximumLength(ConstantsValues.TamanhoMaximoMarcaVeiculo)
                 .WithMessage(string.Format(ConstantsMessage.ErroCatalogoMarcaTamanho, ConstantsValues.TamanhoMaximoMarcaVeiculo));
+
+            // Caractere NUL: o PostgreSQL recusa o texto e o erro sairia como 500. Recusa aqui, com 400.
+            RuleFor(x => x.Marca)
+                .Must(marca => marca == null || !marca.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoMarca));
 
             RuleFor(x => x.PrecoMinimo)
                 .Must(preco => !preco.HasValue || preco.Value >= 0m)

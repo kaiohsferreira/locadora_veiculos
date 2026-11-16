@@ -110,5 +110,74 @@ namespace AutoVia.Tests.Api
             Assert.Equal(ConstantsMessage.ErroLimitePedidosAprovacao, document.RootElement.GetProperty("detail").GetString());
             Assert.Empty(log.Snapshot());
         }
+
+        /// <summary>Corpo acima do teto (413 do framework): 400 no formato do projeto com errors.corpo, sem log e sem texto do framework.</summary>
+        [Fact]
+        public async Task BadHttpRequestException_CorpoAcimaDoTeto_Vira400ComErrorsCorpoESemLog()
+        {
+            FakeLogService log = new FakeLogService();
+            DefaultHttpContext context = new DefaultHttpContext();
+            context.Request.Path = "/api/clientes/verificar-cadastro";
+            context.Response.Body = new MemoryStream();
+            BadHttpRequestException excecao = new BadHttpRequestException("Request body too large.", StatusCodes.Status413PayloadTooLarge);
+            ErrorHandlingMiddleware middleware = new ErrorHandlingMiddleware(_ => throw excecao, log);
+
+            await middleware.InvokeAsync(context);
+
+            Assert.Equal(400, context.Response.StatusCode);
+            Assert.StartsWith("application/problem+json", context.Response.ContentType ?? string.Empty);
+            context.Response.Body.Position = 0;
+            JsonDocument document = await JsonDocument.ParseAsync(context.Response.Body);
+            JsonElement raiz = document.RootElement;
+            Assert.Equal(ConstantsMessage.TituloErroValidacao, raiz.GetProperty("title").GetString());
+            Assert.Equal(ConstantsMessage.ErroRequisicaoInvalida, raiz.GetProperty("detail").GetString());
+            Assert.Equal(string.Format(ConstantsMessage.ErroCampoInvalido, "corpo"), raiz.GetProperty("errors").GetProperty("corpo")[0].GetString());
+            Assert.DoesNotContain("too large", raiz.GetRawText());
+            Assert.Empty(log.Snapshot());
+        }
+
+        /// <summary>Outra recusa de leitura do corpo: 400 com a mensagem generica do projeto, sem errors, sem texto do framework e sem log.</summary>
+        [Fact]
+        public async Task BadHttpRequestException_OutraRecusaDeLeitura_Vira400GenericoSemErrorsESemLog()
+        {
+            FakeLogService log = new FakeLogService();
+            DefaultHttpContext context = new DefaultHttpContext();
+            context.Request.Path = "/api/clientes/verificar-cadastro";
+            context.Response.Body = new MemoryStream();
+            BadHttpRequestException excecao = new BadHttpRequestException("Unexpected end of request content.", StatusCodes.Status400BadRequest);
+            ErrorHandlingMiddleware middleware = new ErrorHandlingMiddleware(_ => throw excecao, log);
+
+            await middleware.InvokeAsync(context);
+
+            Assert.Equal(400, context.Response.StatusCode);
+            context.Response.Body.Position = 0;
+            JsonDocument document = await JsonDocument.ParseAsync(context.Response.Body);
+            JsonElement raiz = document.RootElement;
+            Assert.Equal(ConstantsMessage.ErroRequisicaoInvalida, raiz.GetProperty("detail").GetString());
+            Assert.False(raiz.TryGetProperty("errors", out JsonElement _));
+            Assert.DoesNotContain("Unexpected", raiz.GetRawText());
+            Assert.Empty(log.Snapshot());
+        }
+
+        /// <summary>O 400 de corpo grande mantem os cabecalhos de CORS que a resposta ja tinha (regravados depois da limpeza).</summary>
+        [Fact]
+        public async Task BadHttpRequestException_CorpoAcimaDoTeto_PreservaCabecalhosDeCors()
+        {
+            DefaultHttpContext context = new DefaultHttpContext();
+            context.Request.Path = "/api/vistorias/1/avarias";
+            context.Response.Body = new MemoryStream();
+            BadHttpRequestException excecao = new BadHttpRequestException("Request body too large.", StatusCodes.Status413PayloadTooLarge);
+            RequestDelegate proximo = contextoRecebido =>
+            {
+                contextoRecebido.Response.Headers["Access-Control-Allow-Origin"] = ConstantsValues.OrigemFrontendLocal;
+                throw excecao;
+            };
+            ErrorHandlingMiddleware middleware = new ErrorHandlingMiddleware(proximo, new FakeLogService());
+
+            await middleware.InvokeAsync(context);
+
+            Assert.Equal(400, context.Response.StatusCode);
+            Assert.Equal(ConstantsValues.OrigemFrontendLocal, context.Response.Headers["Access-Control-Allow-Origin"].ToString());
+        }
     }
 }

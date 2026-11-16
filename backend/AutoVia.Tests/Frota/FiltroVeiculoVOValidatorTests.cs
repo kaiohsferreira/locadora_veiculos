@@ -165,6 +165,19 @@ namespace AutoVia.Tests.Frota
         }
 
         [Fact]
+        public void PlacaComCaractereNulo_FalhaComMensagemDeCampoInvalido()
+        {
+            FiltroVeiculoVO filtro = new FiltroVeiculoVO { Placa = "ABC\0" };
+            FiltroVeiculoVOValidator validator = new FiltroVeiculoVOValidator();
+            string mensagemEsperada = string.Format(ConstantsMessage.ErroCampoInvalido, "Placa");
+
+            ValidationResult resultado = validator.Validate(filtro);
+
+            Assert.False(resultado.IsValid);
+            Assert.Contains(mensagemEsperada, ObterMensagens(resultado));
+        }
+
+        [Fact]
         public void AddValidation_ResolveOValidadorDoFiltroEValidaAPaginacao()
         {
             ServiceCollection services = new ServiceCollection();

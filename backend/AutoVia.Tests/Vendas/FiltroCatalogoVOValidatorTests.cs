@@ -103,6 +103,18 @@ namespace AutoVia.Tests.Vendas
             Assert.False(resultado.IsValid);
         }
 
+        /// <summary>Caractere NUL na marca: o PostgreSQL recusaria o texto (500). A recusa sai com 400, no campo Marca, com ErroCampoInvalido.</summary>
+        [Fact]
+        public void MarcaComCaractereNulo_FalhaNoCampoMarca()
+        {
+            ValidationResult resultado = new FiltroCatalogoVOValidator().Validate(new FiltroCatalogoVO { Marca = "Ji\0ep" });
+
+            Assert.False(resultado.IsValid);
+            Assert.Contains(string.Format(ConstantsMessage.ErroCampoInvalido, RotuloCampoMarca), ObterMensagens(resultado));
+        }
+
+        private const string RotuloCampoMarca = "Marca";
+
         private static List<string> ObterMensagens(ValidationResult resultado)
         {
             List<string> mensagens = resultado.Errors.Select(erro => erro.ErrorMessage).ToList();

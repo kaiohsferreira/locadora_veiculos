@@ -160,6 +160,35 @@ namespace AutoVia.Tests.Seguros
             Assert.Contains(string.Format(ConstantsMessage.ErroSeguroCoberturaTamanho, ConstantsValues.TamanhoMaximoCoberturaSeguro), ObterMensagens(resultado));
         }
 
+        /// <summary>Caractere NUL nos textos da apolice: o PostgreSQL recusaria e o erro sairia como 500. Cada campo falha no proprio nome, com ErroCampoInvalido.</summary>
+        [Theory]
+        [InlineData("Seguradora")]
+        [InlineData("NumeroApolice")]
+        [InlineData("Cobertura")]
+        public void TextoDaApoliceComCaractereNulo_FalhaNoProprioCampo(string campo)
+        {
+            SeguroVO vo = CriarVOValido();
+            string textoComNulo = "Por\0to";
+
+            if (campo == "Seguradora")
+            {
+                vo.Seguradora = textoComNulo;
+            }
+            else if (campo == "NumeroApolice")
+            {
+                vo.NumeroApolice = "AP\0-2026";
+            }
+            else
+            {
+                vo.Cobertura = textoComNulo;
+            }
+
+            ValidationResult resultado = new SeguroVOValidator().Validate(vo);
+
+            Assert.False(resultado.IsValid);
+            Assert.Contains(string.Format(ConstantsMessage.ErroCampoInvalido, campo), ObterMensagens(resultado));
+        }
+
         private static SeguroVO CriarVOValido()
         {
             SeguroVO vo = new SeguroVO
