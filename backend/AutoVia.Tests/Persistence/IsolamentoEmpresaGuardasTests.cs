@@ -58,7 +58,10 @@ namespace AutoVia.Tests.Persistence
         /// funcionario novo na equipe, P10-BE-03, que reaproveita o mesmo metodo; a equipe nao cria bypass proprio);
         /// ReservaRepository (trava FOR UPDATE do veiculo por SQL bruto, na reserva, sob o filtro Empresa; sem SemEscopoEmpresa);
         /// LocacaoRepository (trava de linha FOR UPDATE, obtida pela conexao crua do contexto (metodo GetDbConnection, sem
-        /// parenteses) na abertura da locacao; so trava a linha, e as leituras da locacao passam pelo filtro Empresa).
+        /// parenteses) na abertura da locacao; so trava a linha, e as leituras da locacao passam pelo filtro Empresa);
+        /// VeiculoRepository.Disponibilidade e VeiculoRepository.Catalogo (leituras publicas entre locadoras: busca de
+        /// disponiveis e catalogo de seminovos, um bypass nomeado por arquivo, sempre restrito a locadoras ativas, com o SQL
+        /// provado em VeiculoPublicoSqlTests).
         /// </summary>
         private static readonly Dictionary<string, int> OcorrenciasPermitidas = new Dictionary<string, int>
         {
@@ -68,7 +71,9 @@ namespace AutoVia.Tests.Persistence
             ["AutoVia.Infrastructure/Repositories/LocacaoRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/RedefinicaoSenhaRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/ReservaRepository.cs"] = 2,
-            ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Cadastro.cs"] = 3
+            ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Cadastro.cs"] = 3,
+            ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Catalogo.cs"] = 1,
+            ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Disponibilidade.cs"] = 1
         };
 
         /// <summary>Sobe a partir da pasta do teste ate achar o AutoVia.sln (raiz do backend).</summary>

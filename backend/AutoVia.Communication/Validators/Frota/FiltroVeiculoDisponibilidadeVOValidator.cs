@@ -11,9 +11,6 @@ namespace AutoVia.Communication.Validators.Frota
         public FiltroVeiculoDisponibilidadeVOValidator()
         {
             Include(new FiltroPaginacaoVOValidator());
-            RuleFor(x => x.Pagina)
-                .Must((filtro, pagina) => filtro.TamanhoPagina <= 0 || (long)pagina <= ((long)int.MaxValue / filtro.TamanhoPagina) + 1L)
-                .WithMessage(ConstantsMessage.ErroDisponibilidadePaginaInvalida);
             RuleFor(x => x.DataRetirada).NotEqual(default(DateOnly)).WithMessage(ConstantsMessage.ErroDisponibilidadeDataObrigatoria);
             RuleFor(x => x.DataDevolucao).NotEqual(default(DateOnly)).WithMessage(ConstantsMessage.ErroDisponibilidadeDataObrigatoria);
             RuleFor(x => x.DataDevolucao).GreaterThan(x => x.DataRetirada).WithMessage(ConstantsMessage.ErroDisponibilidadePeriodoInvalido);

@@ -185,7 +185,7 @@ namespace AutoVia.Tests.Frota
 
             FluentValidation.Results.ValidationResult resultado = validador.Validate(filtro);
 
-            Assert.Contains(resultado.Errors, erro => erro.ErrorMessage == ConstantsMessage.ErroDisponibilidadePaginaInvalida);
+            Assert.Contains(resultado.Errors, erro => erro.ErrorMessage == ConstantsMessage.ErroPaginaDeslocamentoInvalido);
         }
 
         [Fact]

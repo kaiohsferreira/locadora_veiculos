@@ -15,7 +15,7 @@ namespace AutoVia.Api.Controllers
     [ApiController]
     [Route("api/veiculos/disponiveis")]
     [AllowAnonymous]
-    [EnableRateLimiting(ConstantsValues.PoliticaLimitePublico)]
+    [EnableRateLimiting(ConstantsValues.PoliticaLimiteLeituraPublica)]
     public class VeiculoDisponibilidadeController : ControllerBase
     {
         private readonly IVeiculoService _veiculoService;
@@ -27,6 +27,10 @@ namespace AutoVia.Api.Controllers
             _logService = logService;
         }
 
+        /// <summary>
+        /// GetDisponiveis - Lista os veiculos disponiveis para aluguel no periodo, de todas as locadoras ativas, com filtros
+        /// opcionais por categoria e faixa de diaria. Rota publica, limitada por IP (60 por minuto por padrao).
+        /// </summary>
         [HttpGet]
         [ProducesResponseType(typeof(PaginaVO<ReturnVeiculoDisponivelVO>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]

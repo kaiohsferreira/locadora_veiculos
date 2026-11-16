@@ -23,6 +23,11 @@ namespace AutoVia.Communication.Validators.Utils
             RuleFor(x => x.TamanhoPagina)
                 .InclusiveBetween(1, ConstantsValues.TamanhoPaginaMaximo)
                 .WithMessage(string.Format(ConstantsMessage.ErroTamanhoPaginaInvalido, ConstantsValues.TamanhoPaginaMaximo));
+
+            // Guarda de estouro: (Pagina - 1) * TamanhoPagina nao pode passar de int (veiculo.contract.json v3, R7).
+            RuleFor(x => x.Pagina)
+                .Must((filtro, pagina) => filtro.TamanhoPagina <= 0 || (long)pagina <= ((long)int.MaxValue / filtro.TamanhoPagina) + 1L)
+                .WithMessage(ConstantsMessage.ErroPaginaDeslocamentoInvalido);
         }
     }
 }

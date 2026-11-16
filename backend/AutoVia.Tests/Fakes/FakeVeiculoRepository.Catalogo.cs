@@ -9,14 +9,23 @@ namespace AutoVia.Tests.Fakes
 {
     /// <summary>
     /// Catalogo de seminovos do FakeVeiculoRepository, com as mesmas regras do VeiculoRepository
-    /// real: so ativos, DISPONIVEL e com valor de venda; marca (contem, ja em maiusculas), faixa de
+    /// real: so ativos, DISPONIVEL, com valor de venda e de locadora ativa e nao desativada (RF-72);
+    /// marca (contem, sem diferenciar maiusculas; normalizada aqui como no repositorio real), faixa de
     /// preco, ano do modelo e km maximo com AND; ordena por valor de venda e id e pagina.
     /// </summary>
     public partial class FakeVeiculoRepository
     {
+        /// <summary>Falha simulada do catalogo: quando informada, FindAllAVendaAsync e CountAVendaAsync a relancam (teste de log).</summary>
+        public Exception? ExcecaoAoListarCatalogo { get; set; }
+
         /// <summary>Lista os veiculos a venda que atendem aos filtros, ordenados por valor de venda e id, na pagina pedida.</summary>
         public Task<List<Veiculo>> FindAllAVendaAsync(string? marca, decimal? precoMinimo, decimal? precoMaximo, int? anoMinimo, int? anoMaximo, int? kmMaximo, int deslocamento, int quantidade)
         {
+            if (ExcecaoAoListarCatalogo != null)
+            {
+                throw ExcecaoAoListarCatalogo;
+            }
+
             List<Veiculo> veiculos = FiltrarCatalogo(marca, precoMinimo, precoMaximo, anoMinimo, anoMaximo, kmMaximo)
                 .OrderBy(x => x.ValorVenda)
                 .ThenBy(x => x.IdVeiculo)
@@ -31,6 +40,11 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Conta os veiculos a venda com os mesmos filtros de FindAllAVendaAsync.</summary>
         public Task<int> CountAVendaAsync(string? marca, decimal? precoMinimo, decimal? precoMaximo, int? anoMinimo, int? anoMaximo, int? kmMaximo)
         {
+            if (ExcecaoAoListarCatalogo != null)
+            {
+                throw ExcecaoAoListarCatalogo;
+            }
+
             int total = FiltrarCatalogo(marca, precoMinimo, precoMaximo, anoMinimo, anoMaximo, kmMaximo).Count();
 
             return Task.FromResult(total);
@@ -43,17 +57,20 @@ namespace AutoVia.Tests.Fakes
             veiculo.Status = novoStatus;
         }
 
-        /// <summary>Regra do RF-26 mais os filtros (AND), sem copiar.</summary>
+        /// <summary>Regra do RF-26, de locadora ativa (RF-72) e os filtros (AND), sem copiar.</summary>
         private IEnumerable<Veiculo> FiltrarCatalogo(string? marca, decimal? precoMinimo, decimal? precoMaximo, int? anoMinimo, int? anoMaximo, int? kmMaximo)
         {
             IEnumerable<Veiculo> consulta = _veiculos.Where(x =>
                 x.DisabledAt == null &&
                 x.Status == StatusVeiculo.DISPONIVEL &&
-                x.ValorVenda != null);
+                x.ValorVenda != null &&
+                (x.Empresa == null || (x.Empresa.Ativo && x.Empresa.DisabledAt == null)));
 
-            if (!string.IsNullOrEmpty(marca))
+            string termoMarca = string.IsNullOrWhiteSpace(marca) ? string.Empty : marca.Trim().ToUpper();
+
+            if (termoMarca.Length > 0)
             {
-                consulta = consulta.Where(x => x.Marca.ToUpper().Contains(marca));
+                consulta = consulta.Where(x => x.Marca.ToUpper().Contains(termoMarca));
             }
 
             if (precoMinimo.HasValue)

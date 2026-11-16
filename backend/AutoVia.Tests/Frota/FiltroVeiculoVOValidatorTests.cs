@@ -16,6 +16,9 @@ namespace AutoVia.Tests.Frota
     /// </summary>
     public class FiltroVeiculoVOValidatorTests
     {
+        /// <summary>Ultima pagina aceita com tamanho 100: (int.MaxValue / 100) + 1 = 21474837 (teto do validador base).</summary>
+        private const int LimiteDePaginaComTamanhoCem = 21474837;
+
         [Fact]
         public void FiltroPadrao_PassaNaValidacao()
         {
@@ -63,6 +66,29 @@ namespace AutoVia.Tests.Frota
 
             Assert.False(resultado.IsValid);
             Assert.Contains(mensagemEsperada, ObterMensagens(resultado));
+        }
+
+        [Fact]
+        public void PaginaDoIntAcimaDoTeto_FalhaComMensagemDeDeslocamento()
+        {
+            FiltroVeiculoVO filtro = new FiltroVeiculoVO { Pagina = int.MaxValue, TamanhoPagina = ConstantsValues.TamanhoPaginaMaximo };
+            FiltroVeiculoVOValidator validator = new FiltroVeiculoVOValidator();
+
+            ValidationResult resultado = validator.Validate(filtro);
+
+            Assert.False(resultado.IsValid);
+            Assert.Contains(ConstantsMessage.ErroPaginaDeslocamentoInvalido, ObterMensagens(resultado));
+        }
+
+        [Fact]
+        public void PaginaNoUltimoValorDoTeto_PassaNaValidacao()
+        {
+            FiltroVeiculoVO filtro = new FiltroVeiculoVO { Pagina = LimiteDePaginaComTamanhoCem, TamanhoPagina = ConstantsValues.TamanhoPaginaMaximo };
+            FiltroVeiculoVOValidator validator = new FiltroVeiculoVOValidator();
+
+            ValidationResult resultado = validator.Validate(filtro);
+
+            Assert.True(resultado.IsValid);
         }
 
         [Theory]

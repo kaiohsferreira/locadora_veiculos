@@ -1,6 +1,7 @@
 using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Helpers;
+using AutoVia.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -9,13 +10,20 @@ using System.Threading.Tasks;
 
 namespace AutoVia.Infrastructure.Repositories
 {
+    /// <summary>
+    /// Busca publica de veiculos disponiveis (P3-BE-01, RF-11 e RF-72). Arquivo parcial do VeiculoRepository.
+    /// A busca le os veiculos de TODAS as locadoras ativas: o unico ponto que desliga o filtro de locadora e
+    /// ConsultaDisponiveis, junto com a condicao de locadora ativa e nao desativada. Os quatro metodos do arquivo
+    /// registram log e relancam a excecao.
+    /// </summary>
     public partial class VeiculoRepository
     {
+        /// <summary>Conta os veiculos disponiveis no periodo, de todas as locadoras ativas, com os filtros da busca.</summary>
         public async Task<int> CountDisponiveisAsync(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax)
         {
             try
             {
-                int total = await AplicarFiltroDisponibilidade(retirada, devolucao, idCategoria, valorMin, valorMax).CountAsync();
+                int total = await ConsultaDisponiveis(retirada, devolucao, idCategoria, valorMin, valorMax).CountAsync();
                 return total;
             }
             catch (Exception ex)
@@ -25,15 +33,12 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
+        /// <summary>Lista a pagina dos veiculos disponiveis no periodo, com a categoria e a locadora, ordenada por id.</summary>
         public async Task<List<Veiculo>> FindDisponiveisAsync(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax, int deslocamento, int quantidade)
         {
             try
             {
-                List<Veiculo> veiculos = await AplicarFiltroDisponibilidade(retirada, devolucao, idCategoria, valorMin, valorMax)
-                    .Include(x => x.Categoria)
-                    .OrderBy(x => x.IdVeiculo)
-                    .Skip(deslocamento)
-                    .Take(quantidade)
+                List<Veiculo> veiculos = await ConsultaDisponiveisPaginada(retirada, devolucao, idCategoria, valorMin, valorMax, deslocamento, quantidade)
                     .ToListAsync();
                 return veiculos;
             }
@@ -44,33 +49,66 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        private IQueryable<Veiculo> AplicarFiltroDisponibilidade(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax)
+        /// <summary>
+        /// Monta a consulta da busca publica: veiculos de todas as locadoras ativas (empresa ativa e nao desativada),
+        /// com status DISPONIVEL ou RESERVADO e sem reserva ativa ou confirmada que se sobreponha ao periodo. O bypass
+        /// do filtro de locadora vale para a consulta inteira, inclusive a subconsulta de reservas. Sem rastreamento.
+        /// </summary>
+        public IQueryable<Veiculo> ConsultaDisponiveis(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax)
         {
             try
             {
                 DateTime inicio = retirada.ToDateTime(TimeOnly.MinValue);
                 DateTime fim = devolucao.ToDateTime(TimeOnly.MinValue);
-                IQueryable<Veiculo> consulta = _db.Veiculos.AsNoTracking()
+                IQueryable<Veiculo> consulta = _db.Veiculos.AsNoTracking().SemEscopoEmpresa().ApenasEmpresasAtivas()
                     .Where(x => x.DisabledAt == null && (x.Status == StatusVeiculo.DISPONIVEL || x.Status == StatusVeiculo.RESERVADO))
                     .Where(x => !x.Reservas.Any(r => r.DisabledAt == null
                         && (r.Status == StatusReserva.ATIVA || r.Status == StatusReserva.CONFIRMADA)
                         && r.DataRetiradaPrevista < fim && r.DataDevolucaoPrevista > inicio));
+
                 if (idCategoria.HasValue)
                 {
                     int categoria = idCategoria.Value;
                     consulta = consulta.Where(x => x.IdCategoria == categoria);
                 }
+
                 if (valorMin.HasValue)
                 {
                     decimal minimo = valorMin.Value;
                     consulta = consulta.Where(x => x.ValorDiaria >= minimo);
                 }
+
                 if (valorMax.HasValue)
                 {
                     decimal maximo = valorMax.Value;
                     consulta = consulta.Where(x => x.ValorDiaria <= maximo);
                 }
+
                 return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarDisponibilidade, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Pagina da busca publica: a consulta de ConsultaDisponiveis com Categoria e Empresa carregadas, ordenada por
+        /// id do veiculo, com deslocamento e quantidade.
+        /// </summary>
+        public IQueryable<Veiculo> ConsultaDisponiveisPaginada(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax, int deslocamento, int quantidade)
+        {
+            try
+            {
+                IQueryable<Veiculo> pagina = ConsultaDisponiveis(retirada, devolucao, idCategoria, valorMin, valorMax)
+                    .Include(x => x.Categoria)
+                    .Include(x => x.Empresa)
+                    .OrderBy(x => x.IdVeiculo)
+                    .Skip(deslocamento)
+                    .Take(quantidade);
+
+                return pagina;
             }
             catch (Exception ex)
             {

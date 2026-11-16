@@ -5,6 +5,7 @@ using AutoVia.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System;
 using System.Threading.Tasks;
 
@@ -24,8 +25,10 @@ namespace AutoVia.Api.Controllers
         /// </summary>
         [HttpGet("a-venda")]
         [AllowAnonymous]
+        [EnableRateLimiting(ConstantsValues.PoliticaLimiteLeituraPublica)]
         [ProducesResponseType(typeof(PaginaVO<ReturnVeiculoCatalogoVO>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
         public async Task<IActionResult> GetCatalogo([FromQuery] FiltroCatalogoVO filtro)
         {
             try

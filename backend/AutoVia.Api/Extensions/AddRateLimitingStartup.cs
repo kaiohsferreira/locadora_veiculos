@@ -14,11 +14,12 @@ using System.Threading.Tasks;
 namespace AutoVia.Api.Extensions
 {
     /// <summary>
-    /// Limite de requisicoes das rotas publicas: janela fixa por IP. Tres politicas independentes, cada uma
+    /// Limite de requisicoes das rotas publicas: janela fixa por IP. Quatro politicas independentes, cada uma
     /// com o seu contador: AutoViaPublico (login, cadastro, recuperacao e Google; um minuto; numero em
     /// Autenticacao:LimitePublicoPorMinuto), AutoViaVerificacaoCadastro (verificacao de cadastro; um minuto;
-    /// numero em Clientes:LimiteVerificacaoCadastroPorMinuto) e AutoViaCadastroEmpresa (cadastro publico de
-    /// locadora; uma hora; numero em Locadoras:LimiteCadastroPorHora, padrao 5). Um valor menor ou igual a
+    /// numero em Clientes:LimiteVerificacaoCadastroPorMinuto), AutoViaCadastroEmpresa (cadastro publico de
+    /// locadora; uma hora; numero em Locadoras:LimiteCadastroPorHora, padrao 5) e AutoViaLeituraPublica (busca de
+    /// disponiveis e catalogo de seminovos; um minuto; numero em Veiculos:LimiteLeituraPublicaPorMinuto, padrao 60). Um valor menor ou igual a
     /// zero cai no padrao. O IP vem do cabecalho configurado em Rede:CabecalhoIpCliente (padrao X-Real-IP,
     /// um salto), lido pelo UseForwardedHeaders montado no Program; vazio desliga a leitura e vale o IP do socket.
     /// Um valor que nao e nome de cabecalho HTTP valido impede a subida da API, e com FORWARDEDHEADERS_ENABLED
@@ -38,12 +39,14 @@ namespace AutoVia.Api.Extensions
                 int limitePublico = LerLimite(configuration, ConstantsValues.ChaveLimitePublico, ConstantsValues.LimitePublicoPorMinutoPadrao);
                 int limiteVerificacao = LerLimite(configuration, ConstantsValues.ChaveLimiteVerificacaoCadastro, ConstantsValues.LimiteVerificacaoCadastroPorMinutoPadrao);
                 int limiteCadastroEmpresa = LerLimite(configuration, ConstantsValues.ChaveLimiteCadastroPorHora, ConstantsValues.LimiteCadastroEmpresaPorHoraPadrao);
+                int limiteLeituraPublica = LerLimite(configuration, ConstantsValues.ChaveLimiteLeituraPublica, ConstantsValues.LimiteLeituraPublicaPorMinutoPadrao);
 
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
                 RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimitePublico, limitePublico, TimeSpan.FromMinutes(1));
                 RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteVerificacaoCadastro, limiteVerificacao, TimeSpan.FromMinutes(1));
                 RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteCadastroEmpresa, limiteCadastroEmpresa, TimeSpan.FromHours(1));
+                RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteLeituraPublica, limiteLeituraPublica, TimeSpan.FromMinutes(1));
 
                 options.OnRejected = async (context, cancellationToken) =>
                 {

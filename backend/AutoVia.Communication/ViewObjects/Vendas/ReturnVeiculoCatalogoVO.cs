@@ -2,7 +2,8 @@ namespace AutoVia.Communication.ViewObjects.Vendas
 {
     /// <summary>
     /// VO de saida do catalogo de seminovos (rota publica). Traz so o que o comprador
-    /// precisa ver: nao expoe placa, chassi, renavam, diaria nem status. O preco formatado
+    /// precisa ver: nao expoe placa (nem mascarada), chassi, renavam, idEmpresa, CNPJ nem endereco completo da
+    /// locadora (D-14); da locadora, so nome fantasia, cidade e UF (RF-72). Mantem kmAtual. O preco formatado
     /// e preenchido no VeiculoCatalogoProfile.
     /// </summary>
     public class ReturnVeiculoCatalogoVO
@@ -36,5 +37,14 @@ namespace AutoVia.Communication.ViewObjects.Vendas
 
         /// <summary>Valor de venda formatado em moeda brasileira.</summary>
         public string ValorVendaStr { get; set; } = string.Empty;
+
+        /// <summary>Nome fantasia da locadora dona do veiculo (vazio se a navegacao nao vier carregada).</summary>
+        public string LocadoraNomeFantasia { get; set; } = string.Empty;
+
+        /// <summary>Cidade da locadora dona do veiculo (vazio se a navegacao nao vier carregada).</summary>
+        public string LocadoraCidade { get; set; } = string.Empty;
+
+        /// <summary>UF da locadora dona do veiculo (vazio se a navegacao nao vier carregada).</summary>
+        public string LocadoraUf { get; set; } = string.Empty;
     }
 }
