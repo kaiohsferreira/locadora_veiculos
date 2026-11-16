@@ -15,12 +15,13 @@ namespace AutoVia.Tests.Locacoes
 {
     public class LocacaoServiceTests
     {
+        private static readonly DateTime AgoraDoRelogio = new DateTime(2026, 11, 19, 9, 30, 0);
+
         [Fact]
         public async Task IniciarReservaValida_CriaLocacaoEAtualizaEstados()
         {
             FakeLocacaoRepository repositorio = CriarRepositorioValido();
             LocacaoService servico = CriarServico(repositorio);
-            DateTime antes = DateTime.Now.AddSeconds(-2);
 
             ReturnLocacaoVO retorno = await servico.StartFromReservaAsync(new LocacaoVO { IdReserva = 10 }, 20);
 
@@ -35,10 +36,25 @@ namespace AutoVia.Tests.Locacoes
             Assert.Equal(175m, retorno.ValorDiaria);
             Assert.Equal(0m, retorno.ValorCaucao);
             Assert.Equal(StatusLocacao.EM_ANDAMENTO, retorno.Status);
-            Assert.True(retorno.DataRetirada >= antes);
             Assert.Equal(new DateTime(2026, 11, 20, 10, 0, 0), retorno.DataDevolucaoPrevista);
             Assert.Equal(StatusReserva.CONCLUIDA, reserva.Status);
             Assert.Equal(StatusVeiculo.LOCADO, veiculo.Status);
+        }
+
+        [Fact]
+        public async Task IniciarReserva_DataDeRetiradaVemDoRelogioEIrParaORepositorio()
+        {
+            FakeLocacaoRepository repositorio = CriarRepositorioValido();
+            LocacaoService servico = CriarServico(repositorio);
+
+            ReturnLocacaoVO retorno = await servico.StartFromReservaAsync(new LocacaoVO { IdReserva = 10 }, 20);
+
+            Assert.Equal(AgoraDoRelogio, retorno.DataRetirada);
+            Assert.Equal(AgoraDoRelogio, repositorio.UltimaDataRetirada);
+            Assert.Equal("19/11/2026 09:30", retorno.DataRetiradaStr);
+            Assert.Equal("20/11/2026", retorno.DataDevolucaoPrevistaStr);
+            Assert.Equal(StaticMethods.FormateToMonetary(175m), retorno.ValorDiariaStr);
+            Assert.Equal(StaticMethods.FormateToMonetary(0m), retorno.ValorCaucaoStr);
         }
 
         [Fact]
@@ -50,6 +66,20 @@ namespace AutoVia.Tests.Locacoes
                 () => servico.StartFromReservaAsync(new LocacaoVO { IdReserva = 99 }, 20));
 
             Assert.Equal(ConstantsMessage.ErroReservaNaoEncontrada, excecao.Message);
+        }
+
+        [Fact]
+        public async Task ReservaDeOutraLocadora_DevolveNuloNoRepositorio_LancaNotFoundSemAbrirLocacao()
+        {
+            // O filtro "Empresa" faz a reserva de outra locadora sumir da leitura: o repositorio devolve nulo.
+            FakeLocacaoRepository repositorio = new FakeLocacaoRepository();
+            LocacaoService servico = CriarServico(repositorio);
+
+            NotFoundException excecao = await Assert.ThrowsAsync<NotFoundException>(
+                () => servico.StartFromReservaAsync(new LocacaoVO { IdReserva = 10 }, 20));
+
+            Assert.Equal(ConstantsMessage.ErroReservaNaoEncontrada, excecao.Message);
+            Assert.Equal(0, repositorio.ChamadasStartFromReserva);
         }
 
         [Theory]
@@ -103,6 +133,33 @@ namespace AutoVia.Tests.Locacoes
             Assert.Equal(ConstantsMessage.ErroLocacaoFuncionarioNaoEncontrado, excecao.Message);
         }
 
+        [Fact]
+        public async Task ReservaInexistente_RegistraAoMenosUmLogDeErro()
+        {
+            // Log do Kaio (16/11): o 404 do servico deixa registro. Sem exigir log vazio em 4xx.
+            FakeLogService log = new FakeLogService();
+            LocacaoService servico = CriarServico(new FakeLocacaoRepository(), log);
+
+            await Assert.ThrowsAsync<NotFoundException>(
+                () => servico.StartFromReservaAsync(new LocacaoVO { IdReserva = 99 }, 20));
+
+            Assert.NotEmpty(log.Entries);
+        }
+
+        [Fact]
+        public async Task ReservaConcluida_RegistraAoMenosUmLogDeErro()
+        {
+            // Log do Kaio (16/11): o 409 do servico deixa registro. Sem exigir log vazio em 4xx.
+            FakeLogService log = new FakeLogService();
+            FakeLocacaoRepository repositorio = CriarRepositorioValido(statusReserva: StatusReserva.CONCLUIDA);
+            LocacaoService servico = CriarServico(repositorio, log);
+
+            await Assert.ThrowsAsync<BusinessException>(
+                () => servico.StartFromReservaAsync(new LocacaoVO { IdReserva = 10 }, 20));
+
+            Assert.NotEmpty(log.Entries);
+        }
+
         private static FakeLocacaoRepository CriarRepositorioValido(
             StatusReserva statusReserva = StatusReserva.ATIVA,
             StatusVeiculo statusVeiculo = StatusVeiculo.RESERVADO,
@@ -138,14 +195,15 @@ namespace AutoVia.Tests.Locacoes
             return repositorio;
         }
 
-        private static LocacaoService CriarServico(FakeLocacaoRepository repositorio)
+        private static LocacaoService CriarServico(FakeLocacaoRepository repositorio, FakeLogService? logService = null)
         {
             MapperConfiguration configuracao = new MapperConfiguration(
                 cfg => cfg.AddProfile<LocacaoProfile>(),
                 NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
-            FakeLogService logService = new FakeLogService();
-            LocacaoService servico = new LocacaoService(repositorio, mapper, logService);
+            FakeLogService log = logService ?? new FakeLogService();
+            FakeRelogio relogio = new FakeRelogio(AgoraDoRelogio);
+            LocacaoService servico = new LocacaoService(repositorio, relogio, mapper, log);
 
             return servico;
         }

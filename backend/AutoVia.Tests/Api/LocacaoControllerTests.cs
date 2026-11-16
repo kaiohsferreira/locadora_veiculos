@@ -62,6 +62,8 @@ namespace AutoVia.Tests.Api
             Assert.Equal(1, retorno.IdLocacao);
             Assert.Equal(10, retorno.IdReserva);
             Assert.Equal(StatusLocacao.EM_ANDAMENTO, retorno.Status);
+            Assert.Equal("19/11/2026 10:00", retorno.DataRetiradaStr);
+            Assert.Equal("20/11/2026", retorno.DataDevolucaoPrevistaStr);
         }
 
         [Fact]
@@ -93,7 +95,8 @@ namespace AutoVia.Tests.Api
                 NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
             FakeLogService logService = new FakeLogService();
-            LocacaoService servico = new LocacaoService(repositorio, mapper, logService);
+            FakeRelogio relogio = new FakeRelogio(new DateTime(2026, 11, 19, 9, 30, 0));
+            LocacaoService servico = new LocacaoService(repositorio, relogio, mapper, logService);
             LocacaoController controller = new LocacaoController(servico, logService);
             DefaultHttpContext contexto = new DefaultHttpContext();
 

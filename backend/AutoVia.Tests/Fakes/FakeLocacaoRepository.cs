@@ -86,8 +86,17 @@ namespace AutoVia.Tests.Fakes
             return Task.FromResult(existe);
         }
 
-        public Task<Locacao> StartFromReservaAsync(int idReserva, int idFuncionario)
+        /// <summary>Quantas vezes a abertura chegou ao repositorio (teste: 404 do servico nao chama a abertura).</summary>
+        public int ChamadasStartFromReserva { get; private set; }
+
+        /// <summary>Data de retirada recebida pelo repositorio na ultima abertura (vem do servico, pelo IRelogio).</summary>
+        public DateTime? UltimaDataRetirada { get; private set; }
+
+        public Task<Locacao> StartFromReservaAsync(int idReserva, int idFuncionario, DateTime dataRetirada)
         {
+            ChamadasStartFromReserva++;
+            UltimaDataRetirada = dataRetirada;
+
             Reserva? reserva = _reservas.FirstOrDefault(x => x.IdReserva == idReserva && x.DisabledAt == null);
             if (reserva == null)
             {
@@ -102,7 +111,7 @@ namespace AutoVia.Tests.Fakes
                 IdCliente = reserva.IdCliente,
                 IdVeiculo = reserva.Veiculo.IdVeiculo,
                 IdFuncionario = idFuncionario,
-                DataRetirada = agora,
+                DataRetirada = dataRetirada,
                 DataDevolucaoPrevista = reserva.DataDevolucaoPrevista,
                 KmSaida = reserva.Veiculo.KmAtual,
                 ValorDiaria = reserva.Veiculo.ValorDiaria,

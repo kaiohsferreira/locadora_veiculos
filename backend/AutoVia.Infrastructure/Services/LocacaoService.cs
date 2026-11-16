@@ -1,8 +1,8 @@
 using AutoMapper;
 using AutoVia.Communication.CustomExceptions;
-using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Locacoes;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Regras;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -15,12 +15,14 @@ namespace AutoVia.Infrastructure.Services
     public class LocacaoService : ILocacaoService
     {
         private readonly ILocacaoRepository _locacaoRepository;
+        private readonly IRelogio _relogio;
         private readonly IMapper _mapper;
         private readonly ILogService _logService;
 
-        public LocacaoService(ILocacaoRepository locacaoRepository, IMapper mapper, ILogService logService)
+        public LocacaoService(ILocacaoRepository locacaoRepository, IRelogio relogio, IMapper mapper, ILogService logService)
         {
             _locacaoRepository = locacaoRepository;
+            _relogio = relogio;
             _mapper = mapper;
             _logService = logService;
         }
@@ -37,12 +39,12 @@ namespace AutoVia.Infrastructure.Services
                     throw new NotFoundException(ConstantsMessage.ErroReservaNaoEncontrada);
                 }
 
-                if (reserva.Status != StatusReserva.ATIVA && reserva.Status != StatusReserva.CONFIRMADA)
+                if (!RegrasLocacao.ReservaPermiteAbrirLocacao(reserva.Status))
                 {
                     throw new BusinessException(ConstantsMessage.ErroLocacaoReservaEstadoInvalido);
                 }
 
-                if (reserva.Veiculo == null || reserva.Veiculo.DisabledAt != null || reserva.Veiculo.Status != StatusVeiculo.RESERVADO)
+                if (reserva.Veiculo == null || reserva.Veiculo.DisabledAt != null || !RegrasLocacao.VeiculoPermiteAbrirLocacao(reserva.Veiculo.Status))
                 {
                     throw new BusinessException(ConstantsMessage.ErroLocacaoVeiculoIndisponivel);
                 }
@@ -61,7 +63,9 @@ namespace AutoVia.Infrastructure.Services
                     throw new BusinessException(ConstantsMessage.ErroLocacaoFuncionarioNaoEncontrado);
                 }
 
-                Locacao criada = await _locacaoRepository.StartFromReservaAsync(locacaoVO.IdReserva, idFuncionario);
+                DateTime dataRetirada = _relogio.Agora;
+
+                Locacao criada = await _locacaoRepository.StartFromReservaAsync(locacaoVO.IdReserva, idFuncionario, dataRetirada);
                 ReturnLocacaoVO retorno = _mapper.Map<ReturnLocacaoVO>(criada);
 
                 return retorno;

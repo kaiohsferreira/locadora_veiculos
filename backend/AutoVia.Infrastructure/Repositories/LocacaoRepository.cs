@@ -1,6 +1,6 @@
 using AutoVia.Communication.CustomExceptions;
-using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Regras;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -17,6 +17,12 @@ namespace AutoVia.Infrastructure.Repositories
     /// <summary>Persistencia das locacoes com transacao e bloqueio das linhas envolvidas.</summary>
     public class LocacaoRepository : ILocacaoRepository
     {
+        /// <summary>Trava de linha do veiculo (ordem global de travas: veiculo, depois reserva). Sem filtro "Empresa": a reserva ja foi conferida antes.</summary>
+        private const string SqlBloquearVeiculoAtivo = "SELECT id_veiculo FROM veiculo WHERE id_veiculo = @id AND disabled_at IS NULL FOR UPDATE";
+
+        /// <summary>Trava de linha da reserva, depois da trava do veiculo. Sem filtro "Empresa": a reserva ja foi conferida antes.</summary>
+        private const string SqlBloquearReservaAtiva = "SELECT id_reserva FROM reserva WHERE id_reserva = @id AND disabled_at IS NULL FOR UPDATE";
+
         private readonly AutoViaDbContext _db;
         private readonly ILogService _logService;
 
@@ -31,10 +37,10 @@ namespace AutoVia.Infrastructure.Repositories
         {
             try
             {
-                Reserva? reserva = await _db.Reservas
+                Reserva? reserva = await ConsultaReservaAtiva(idReserva)
                     .AsNoTracking()
                     .Include(x => x.Veiculo)
-                    .FirstOrDefaultAsync(x => x.IdReserva == idReserva && x.DisabledAt == null);
+                    .FirstOrDefaultAsync();
 
                 return reserva;
             }
@@ -50,9 +56,9 @@ namespace AutoVia.Infrastructure.Repositories
         {
             try
             {
-                Funcionario? funcionario = await _db.Funcionarios
+                Funcionario? funcionario = await ConsultaFuncionarioAtivo(idFuncionario)
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(x => x.IdFuncionario == idFuncionario && x.Ativo && x.DisabledAt == null);
+                    .FirstOrDefaultAsync();
 
                 return funcionario;
             }
@@ -68,9 +74,9 @@ namespace AutoVia.Infrastructure.Repositories
         {
             try
             {
-                bool existe = await _db.Locacoes
+                bool existe = await ConsultaLocacoesAtivasDaReserva(idReserva)
                     .AsNoTracking()
-                    .AnyAsync(x => x.IdReserva == idReserva && x.DisabledAt == null);
+                    .AnyAsync();
 
                 return existe;
             }
@@ -82,99 +88,90 @@ namespace AutoVia.Infrastructure.Repositories
         }
 
         /// <summary>
-        /// Cria a locacao e muda reserva/veiculo na mesma transacao. FOR UPDATE serializa
-        /// requisicoes para a mesma reserva e para reservas concorrentes do mesmo veiculo.
+        /// Cria a locacao e muda reserva e veiculo na mesma transacao. Ordem global de travas: veiculo, depois reserva
+        /// (o funcionario nunca e travado). A reserva e lida com o filtro da locadora antes de qualquer SQL de trava; a
+        /// releitura depois das travas reconfere tudo, inclusive o status e a locacao existente.
         /// </summary>
-        public async Task<Locacao> StartFromReservaAsync(int idReserva, int idFuncionario)
+        public async Task<Locacao> StartFromReservaAsync(int idReserva, int idFuncionario, DateTime dataRetirada)
         {
             try
             {
+                Reserva? reservaLida = await ConsultaReservaAtiva(idReserva)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync();
+
+                if (reservaLida == null)
+                {
+                    throw new NotFoundException(ConstantsMessage.ErroReservaNaoEncontrada);
+                }
+
+                int idVeiculo = reservaLida.IdVeiculo;
+
                 await using IDbContextTransaction transacao = await _db.Database.BeginTransactionAsync();
 
-                bool funcionarioBloqueado = await LockActiveRowAsync(
-                    "SELECT id_funcionario FROM funcionario WHERE id_funcionario = @id AND ativo = TRUE AND disabled_at IS NULL FOR UPDATE",
-                    idFuncionario);
-
-                if (!funcionarioBloqueado)
-                {
-                    throw new BusinessException(ConstantsMessage.ErroLocacaoFuncionarioNaoEncontrado);
-                }
-
-                bool reservaBloqueada = await LockActiveRowAsync(
-                    "SELECT id_reserva FROM reserva WHERE id_reserva = @id AND disabled_at IS NULL FOR UPDATE",
-                    idReserva);
-
-                if (!reservaBloqueada)
-                {
-                    throw new NotFoundException(ConstantsMessage.ErroReservaNaoEncontrada);
-                }
-
-                Reserva? reserva = await _db.Reservas
-                    .FirstOrDefaultAsync(x => x.IdReserva == idReserva && x.DisabledAt == null);
-
-                if (reserva == null)
-                {
-                    throw new NotFoundException(ConstantsMessage.ErroReservaNaoEncontrada);
-                }
-
-                if (reserva.Status != StatusReserva.ATIVA && reserva.Status != StatusReserva.CONFIRMADA)
-                {
-                    throw new BusinessException(ConstantsMessage.ErroLocacaoReservaEstadoInvalido);
-                }
-
-                if (await _db.Locacoes.AnyAsync(x => x.IdReserva == idReserva && x.DisabledAt == null))
-                {
-                    throw new BusinessException(ConstantsMessage.ErroLocacaoReservaDuplicada);
-                }
-
-                bool veiculoBloqueado = await LockActiveRowAsync(
-                    "SELECT id_veiculo FROM veiculo WHERE id_veiculo = @id AND disabled_at IS NULL FOR UPDATE",
-                    reserva.IdVeiculo);
+                bool veiculoBloqueado = await LockActiveRowAsync(SqlBloquearVeiculoAtivo, idVeiculo);
 
                 if (!veiculoBloqueado)
                 {
                     throw new BusinessException(ConstantsMessage.ErroLocacaoVeiculoIndisponivel);
                 }
 
-                Veiculo? veiculo = await _db.Veiculos
-                    .FirstOrDefaultAsync(x => x.IdVeiculo == reserva.IdVeiculo && x.DisabledAt == null);
+                bool reservaBloqueada = await LockActiveRowAsync(SqlBloquearReservaAtiva, idReserva);
 
-                if (veiculo == null || veiculo.Status != StatusVeiculo.RESERVADO)
+                if (!reservaBloqueada)
+                {
+                    throw new NotFoundException(ConstantsMessage.ErroReservaNaoEncontrada);
+                }
+
+                Reserva? reserva = await ConsultaReservaAtiva(idReserva)
+                    .FirstOrDefaultAsync();
+
+                if (reserva == null)
+                {
+                    throw new NotFoundException(ConstantsMessage.ErroReservaNaoEncontrada);
+                }
+
+                if (reserva.IdVeiculo != idVeiculo)
                 {
                     throw new BusinessException(ConstantsMessage.ErroLocacaoVeiculoIndisponivel);
                 }
 
-                bool funcionarioAtivo = await _db.Funcionarios
-                    .AsNoTracking()
-                    .AnyAsync(x => x.IdFuncionario == idFuncionario && x.Ativo && x.DisabledAt == null);
+                if (!RegrasLocacao.ReservaPermiteAbrirLocacao(reserva.Status))
+                {
+                    throw new BusinessException(ConstantsMessage.ErroLocacaoReservaEstadoInvalido);
+                }
+
+                bool locacaoExistente = await ConsultaLocacoesAtivasDaReserva(idReserva)
+                    .AnyAsync();
+
+                if (locacaoExistente)
+                {
+                    throw new BusinessException(ConstantsMessage.ErroLocacaoReservaDuplicada);
+                }
+
+                Veiculo? veiculo = await ConsultaVeiculoAtivo(idVeiculo)
+                    .FirstOrDefaultAsync();
+
+                if (veiculo == null || !RegrasLocacao.VeiculoPermiteAbrirLocacao(veiculo.Status))
+                {
+                    throw new BusinessException(ConstantsMessage.ErroLocacaoVeiculoIndisponivel);
+                }
+
+                bool funcionarioAtivo = await ConsultaFuncionarioAtivo(idFuncionario)
+                    .AnyAsync();
 
                 if (!funcionarioAtivo)
                 {
                     throw new BusinessException(ConstantsMessage.ErroLocacaoFuncionarioNaoEncontrado);
                 }
 
-                DateTime agora = DateTime.Now;
-                Locacao locacao = new Locacao
-                {
-                    IdReserva = reserva.IdReserva,
-                    IdCliente = reserva.IdCliente,
-                    IdVeiculo = veiculo.IdVeiculo,
-                    IdFuncionario = idFuncionario,
-                    DataRetirada = agora,
-                    DataDevolucaoPrevista = reserva.DataDevolucaoPrevista,
-                    KmSaida = veiculo.KmAtual,
-                    ValorDiaria = veiculo.ValorDiaria,
-                    ValorCaucao = 0m,
-                    Status = StatusLocacao.EM_ANDAMENTO,
-                    CreatedAt = agora,
-                    UpdatedAt = agora,
-                    DisabledAt = null
-                };
+                DateTime momentoRegistro = DateTime.Now;
+                Locacao locacao = RegrasLocacao.CriarLocacaoDeAbertura(reserva, veiculo, idFuncionario, dataRetirada, momentoRegistro);
 
-                reserva.Status = StatusReserva.CONCLUIDA;
-                reserva.UpdatedAt = agora;
-                veiculo.Status = StatusVeiculo.LOCADO;
-                veiculo.UpdatedAt = agora;
+                reserva.Status = RegrasLocacao.StatusReservaAposAbertura();
+                reserva.UpdatedAt = momentoRegistro;
+                veiculo.Status = RegrasLocacao.StatusVeiculoAposAbertura();
+                veiculo.UpdatedAt = momentoRegistro;
 
                 _db.Locacoes.Add(locacao);
                 await _db.SaveChangesAsync();
@@ -204,9 +201,9 @@ namespace AutoVia.Infrastructure.Repositories
         {
             try
             {
-                Locacao? locacao = await _db.Locacoes
+                Locacao? locacao = await ConsultaLocacaoAtiva(idLocacao)
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(x => x.IdLocacao == idLocacao && x.DisabledAt == null);
+                    .FirstOrDefaultAsync();
 
                 return locacao;
             }
@@ -217,6 +214,95 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
+        /// <summary>Reserva nao desativada, pelo id. Com o filtro "Empresa" da locadora do contexto (outra locadora nao devolve linha).</summary>
+        public IQueryable<Reserva> ConsultaReservaAtiva(int idReserva)
+        {
+            try
+            {
+                IQueryable<Reserva> consulta = _db.Reservas
+                    .Where(x => x.IdReserva == idReserva && x.DisabledAt == null);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Locacoes nao desativadas da reserva. Com o filtro "Empresa" pelo veiculo.</summary>
+        public IQueryable<Locacao> ConsultaLocacoesAtivasDaReserva(int idReserva)
+        {
+            try
+            {
+                IQueryable<Locacao> consulta = _db.Locacoes
+                    .Where(x => x.IdReserva == idReserva && x.DisabledAt == null);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Funcionario ativo e nao desativado, pelo id. Com o filtro "Empresa" pelo id_empresa do funcionario.</summary>
+        public IQueryable<Funcionario> ConsultaFuncionarioAtivo(int idFuncionario)
+        {
+            try
+            {
+                IQueryable<Funcionario> consulta = _db.Funcionarios
+                    .Where(x => x.IdFuncionario == idFuncionario && x.Ativo && x.DisabledAt == null);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Veiculo nao desativado, pelo id. Com o filtro "Empresa" pelo id_empresa do veiculo.</summary>
+        public IQueryable<Veiculo> ConsultaVeiculoAtivo(int idVeiculo)
+        {
+            try
+            {
+                IQueryable<Veiculo> consulta = _db.Veiculos
+                    .Where(x => x.IdVeiculo == idVeiculo && x.DisabledAt == null);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Locacao nao desativada, pelo id. Com o filtro "Empresa" pelo veiculo.</summary>
+        public IQueryable<Locacao> ConsultaLocacaoAtiva(int idLocacao)
+        {
+            try
+            {
+                IQueryable<Locacao> consulta = _db.Locacoes
+                    .Where(x => x.IdLocacao == idLocacao && x.DisabledAt == null);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Executa a trava de linha (SELECT ... FOR UPDATE) na conexao do contexto, dentro da transacao aberta.
+        /// E o unico ponto de SQL bruto do modulo; roda depois da leitura filtrada da reserva no metodo de abertura.
+        /// </summary>
         private async Task<bool> LockActiveRowAsync(string comandoSql, int id)
         {
             try
