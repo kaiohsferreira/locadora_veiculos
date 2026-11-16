@@ -56,7 +56,9 @@ namespace AutoVia.Tests.Persistence
         /// (titular do link, sem contexto); VeiculoRepository.Cadastro (unicidade de placa, chassi e renavam na plataforma);
         /// EmpresaRepository (CPF na plataforma inteira: do responsavel no cadastro publico de locadora, sem contexto, e do
         /// funcionario novo na equipe, P10-BE-03, que reaproveita o mesmo metodo; a equipe nao cria bypass proprio);
-        /// ReservaRepository (trava FOR UPDATE do veiculo por SQL bruto, na reserva, sob o filtro Empresa; sem SemEscopoEmpresa);
+        /// ReservaRepository (quatro consultas nomeadas fora do filtro Empresa: reservas do proprio cliente, com a posse pelo
+        /// cliente do contexto; reservas do veiculo, para o conflito de periodo; veiculo de locadora ativa; e a trava unica
+        /// FOR UPDATE do veiculo, cujo SQL bruto conta mais uma ocorrencia; SQL provado em ReservaConsultasSqlTests);
         /// LocacaoRepository (trava de linha FOR UPDATE, obtida pela conexao crua do contexto (metodo GetDbConnection, sem
         /// parenteses) na abertura da locacao; so trava a linha, e as leituras da locacao passam pelo filtro Empresa);
         /// VeiculoRepository.Disponibilidade e VeiculoRepository.Catalogo (leituras publicas entre locadoras: busca de
@@ -70,7 +72,7 @@ namespace AutoVia.Tests.Persistence
             ["AutoVia.Infrastructure/Repositories/EmpresaRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/LocacaoRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/RedefinicaoSenhaRepository.cs"] = 1,
-            ["AutoVia.Infrastructure/Repositories/ReservaRepository.cs"] = 2,
+            ["AutoVia.Infrastructure/Repositories/ReservaRepository.cs"] = 5,
             ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Cadastro.cs"] = 3,
             ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Catalogo.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Disponibilidade.cs"] = 1

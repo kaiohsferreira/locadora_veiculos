@@ -3,9 +3,12 @@ using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Reservas;
 using AutoVia.Communication.ViewObjects.Utils;
+using AutoVia.Core.Regras;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Tests.Fakes;
+using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
@@ -19,7 +22,7 @@ namespace AutoVia.Tests.Api
     public class ReservaControllerTests
     {
         [Fact]
-        public async Task CriacaoRetorna201LocationEIdDoTitularAutenticado()
+        public async Task CriacaoRetorna201ComCreatedAtParaAConsultaPorIdEIdDoTitularAutenticado()
         {
             FakeReservaService servico = new FakeReservaService();
             ReservaController controller = new ReservaController(servico, new FakeLogService());
@@ -38,9 +41,12 @@ namespace AutoVia.Tests.Api
 
             IActionResult resultado = await controller.CriarAsync(entrada);
 
-            ObjectResult resposta = Assert.IsType<ObjectResult>(resultado);
+            CreatedAtActionResult resposta = Assert.IsType<CreatedAtActionResult>(resultado);
             Assert.Equal(StatusCodes.Status201Created, resposta.StatusCode);
-            Assert.Equal("/api/reservas/91", contexto.Response.Headers.Location);
+            Assert.Equal(nameof(ReservaController.GetByIdAsync), resposta.ActionName);
+            Assert.Equal(91, resposta.RouteValues?["idReserva"]);
+            ReturnReservaCriadaVO corpo = Assert.IsType<ReturnReservaCriadaVO>(resposta.Value);
+            Assert.Equal("AV-00091", corpo.Codigo);
             Assert.Equal(57, servico.IdClienteRecebido);
         }
 
@@ -109,6 +115,38 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public async Task CriarRelancaLimiteExcedidoSemRegistrarLog()
+        {
+            FakeReservaService servico = new FakeReservaService { ExcecaoAoCriar = new LimiteExcedidoException(ConstantsMessage.ErroLimitePedidosAprovacao) };
+            FakeLogService log = new FakeLogService();
+            ReservaController controller = new ReservaController(servico, log);
+            ConfigurarContexto(controller, 57);
+
+            LimiteExcedidoException excecao = await Assert.ThrowsAsync<LimiteExcedidoException>(() => controller.CriarAsync(new CriarReservaVO()));
+
+            Assert.Equal(ConstantsMessage.ErroLimitePedidosAprovacao, excecao.Message);
+            Assert.Empty(log.Entries);
+        }
+
+        [Fact]
+        public async Task CriarRelancaValidationExceptionDoServicoSemRegistrarLog()
+        {
+            ValidationException excecao = new ValidationException(new List<ValidationFailure>
+            {
+                new ValidationFailure(nameof(CriarReservaVO.DataRetirada), ConstantsMessage.ErroReservaRetiradaNoPassado)
+            });
+            FakeReservaService servico = new FakeReservaService { ExcecaoAoCriar = excecao };
+            FakeLogService log = new FakeLogService();
+            ReservaController controller = new ReservaController(servico, log);
+            ConfigurarContexto(controller, 57);
+
+            ValidationException relancada = await Assert.ThrowsAsync<ValidationException>(() => controller.CriarAsync(new CriarReservaVO()));
+
+            Assert.Same(excecao, relancada);
+            Assert.Empty(log.Entries);
+        }
+
+        [Fact]
         public async Task GetAllRelancaBusinessSemRegistrarLogInesperado()
         {
             FakeReservaService servico = new FakeReservaService { ExcecaoAoListar = new BusinessException(ConstantsMessage.ErroReservaConcluidaNaoCancelavel) };
@@ -166,13 +204,19 @@ namespace AutoVia.Tests.Api
             public Exception? ExcecaoAoCancelar { get; set; }
             public Exception? ExcecaoAoBuscar { get; set; }
             public Exception? ExcecaoAoListar { get; set; }
+            public Exception? ExcecaoAoCriar { get; set; }
 
             public Task<ReturnReservaCriadaVO> CriarAsync(int idCliente, CriarReservaVO entrada)
             {
                 IdClienteRecebido = idCliente;
+                if (ExcecaoAoCriar != null)
+                {
+                    return Task.FromException<ReturnReservaCriadaVO>(ExcecaoAoCriar);
+                }
                 ReturnReservaCriadaVO retorno = new ReturnReservaCriadaVO
                 {
                     IdReserva = 91,
+                    Codigo = RegrasReserva.FormateCodigoReserva(91),
                     IdVeiculo = entrada.IdVeiculo,
                     DataRetirada = entrada.DataRetirada,
                     DataDevolucao = entrada.DataDevolucao

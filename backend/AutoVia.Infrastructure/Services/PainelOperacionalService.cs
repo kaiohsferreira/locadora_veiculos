@@ -14,12 +14,14 @@ namespace AutoVia.Infrastructure.Services
     public class PainelOperacionalService : IPainelOperacionalService
     {
         private readonly IPainelOperacionalRepository _painelRepository;
+        private readonly IRelogio _relogio;
         private readonly IMapper _mapper;
         private readonly ILogService _logService;
 
-        public PainelOperacionalService(IPainelOperacionalRepository painelRepository, IMapper mapper, ILogService logService)
+        public PainelOperacionalService(IPainelOperacionalRepository painelRepository, IRelogio relogio, IMapper mapper, ILogService logService)
         {
             _painelRepository = painelRepository;
+            _relogio = relogio;
             _mapper = mapper;
             _logService = logService;
         }
@@ -28,7 +30,7 @@ namespace AutoVia.Infrastructure.Services
         {
             try
             {
-                DateTime inicioDoDia = DateTime.Now.Date;
+                DateTime inicioDoDia = _relogio.Agora.Date;
                 DateTime inicioDoProximoDia = inicioDoDia.AddDays(1);
                 List<Reserva> reservas = await _painelRepository.FindReservasDoDiaAsync(inicioDoDia, inicioDoProximoDia);
                 List<Locacao> locacoes = await _painelRepository.FindLocacoesDoDiaAsync(inicioDoDia, inicioDoProximoDia);
@@ -80,9 +82,11 @@ namespace AutoVia.Infrastructure.Services
                     .Select(item => item.Item)
                     .ToList();
 
+                DateOnly dataDoDia = DateOnly.FromDateTime(inicioDoDia);
                 ReturnPainelDiarioVO retorno = new ReturnPainelDiarioVO
                 {
-                    Data = DateOnly.FromDateTime(inicioDoDia),
+                    Data = dataDoDia,
+                    DataStr = StaticMethods.FormateDateToPTBR(dataDoDia),
                     Retiradas = itensRetirada,
                     Devolucoes = itensDevolucao
                 };

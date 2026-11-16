@@ -7,6 +7,10 @@ namespace AutoVia.Communication.ViewObjects.PainelOperacional
     public class ReturnPainelDiarioVO
     {
         public DateOnly Data { get; set; }
+
+        /// <summary>Dia no formato dd/MM/yyyy (StaticMethods.FormateDateToPTBR), preenchido pelo servico.</summary>
+        public string DataStr { get; set; } = string.Empty;
+
         public List<ItemPainelOperacionalVO> Retiradas { get; set; } = new List<ItemPainelOperacionalVO>();
         public List<ItemPainelOperacionalVO> Devolucoes { get; set; } = new List<ItemPainelOperacionalVO>();
     }

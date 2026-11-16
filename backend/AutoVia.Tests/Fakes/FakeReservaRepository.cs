@@ -64,22 +64,19 @@ namespace AutoVia.Tests.Fakes
             return Task.FromResult(reserva);
         }
 
-        public Task<int> CountAsync(int idCliente, StatusReserva? status)
+        public Task<int> CountAsync(int idCliente, IReadOnlyCollection<StatusReserva>? status, int? idReservaBusca, string? textoBusca)
         {
-            int total = _reservas.Count(x => x.IdCliente == idCliente
-                && x.DisabledAt == null
-                && (!status.HasValue || x.Status == status.Value));
+            int total = FiltrarDoCliente(idCliente, status, idReservaBusca, textoBusca).Count();
             return Task.FromResult(total);
         }
 
-        public Task<List<Reserva>> FindAllAsync(int idCliente, StatusReserva? status, int deslocamento, int quantidade)
+        public Task<List<Reserva>> FindAllAsync(int idCliente, IReadOnlyCollection<StatusReserva>? status, int? idReservaBusca, string? textoBusca, bool ordemCrescente, int deslocamento, int quantidade)
         {
-            List<Reserva> reservas = _reservas
-                .Where(x => x.IdCliente == idCliente
-                    && x.DisabledAt == null
-                    && (!status.HasValue || x.Status == status.Value))
-                .OrderByDescending(x => x.DataRetiradaPrevista)
-                .ThenByDescending(x => x.IdReserva)
+            IEnumerable<Reserva> filtradas = FiltrarDoCliente(idCliente, status, idReservaBusca, textoBusca);
+            IOrderedEnumerable<Reserva> ordenadas = ordemCrescente
+                ? filtradas.OrderBy(x => x.DataRetiradaPrevista).ThenBy(x => x.IdReserva)
+                : filtradas.OrderByDescending(x => x.DataRetiradaPrevista).ThenByDescending(x => x.IdReserva);
+            List<Reserva> reservas = ordenadas
                 .Skip(deslocamento)
                 .Take(quantidade)
                 .ToList();
@@ -106,6 +103,30 @@ namespace AutoVia.Tests.Fakes
             reserva.Status = StatusReserva.CANCELADA;
             RecalcularStatusVeiculo(reserva.IdVeiculo);
             return Task.CompletedTask;
+        }
+
+        /// <summary>Reservas nao desativadas do cliente com o filtro de status (nulo = todos) e a busca (codigo OU modelo).</summary>
+        private IEnumerable<Reserva> FiltrarDoCliente(int idCliente, IReadOnlyCollection<StatusReserva>? status, int? idReservaBusca, string? textoBusca)
+        {
+            return _reservas.Where(x => x.IdCliente == idCliente
+                && x.DisabledAt == null
+                && (status == null || status.Contains(x.Status))
+                && CasaBusca(x, idReservaBusca, textoBusca));
+        }
+
+        private static bool CasaBusca(Reserva reserva, int? idReservaBusca, string? textoBusca)
+        {
+            if (!idReservaBusca.HasValue && textoBusca == null)
+            {
+                return true;
+            }
+
+            if (idReservaBusca.HasValue && reserva.IdReserva == idReservaBusca.Value)
+            {
+                return true;
+            }
+
+            return textoBusca != null && (reserva.Veiculo?.Modelo ?? string.Empty).ToLowerInvariant().Contains(textoBusca);
         }
 
         private void RecalcularStatusVeiculo(int idVeiculo)

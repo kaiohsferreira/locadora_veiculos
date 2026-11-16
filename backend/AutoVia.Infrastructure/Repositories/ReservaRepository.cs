@@ -1,11 +1,13 @@
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Regras;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,6 +15,11 @@ using System.Threading.Tasks;
 
 namespace AutoVia.Infrastructure.Repositories
 {
+    /// <summary>
+    /// Reservas. Ordem global de travas (decisao D-10): veiculo, depois reserva; funcionario nunca e travado. Consultas
+    /// entre locadoras so nos metodos nomeados desta classe (lista fechada da guarda de isolamento). Todo catch registra
+    /// no log e relanca, inclusive 404 e 409 lancados dentro da transacao (decisao D-9).
+    /// </summary>
     public class ReservaRepository : IReservaRepository
     {
         private const string SqlBloquearVeiculoAtivo = "SELECT * FROM veiculo WHERE id_veiculo = {0} AND disabled_at IS NULL FOR UPDATE";
@@ -25,48 +32,61 @@ namespace AutoVia.Infrastructure.Repositories
             _logService = logService;
         }
 
+        /// <summary>Le o veiculo ativo de locadora ativa para a pre-checagem da reserva. Sem trava.</summary>
         public async Task<Veiculo?> FindVeiculoParaReservaAsync(int idVeiculo)
         {
             try
             {
-                Veiculo? veiculo = await _db.Veiculos
+                Veiculo? veiculo = await ConsultaVeiculoParaReserva(idVeiculo)
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(x => x.IdVeiculo == idVeiculo && x.DisabledAt == null);
+                    .FirstOrDefaultAsync();
                 return veiculo;
             }
             catch (Exception ex)
             {
-                _logService.Write(ex, ConstantsMessage.ErroCriarReserva, GetType().ToString());
+                _logService.Write(ex, ConstantsMessage.ErroBuscarVeiculoReserva, GetType().ToString());
                 throw;
             }
         }
 
+        /// <summary>
+        /// Cria a reserva em transacao: trava o veiculo, reconfere a locadora ativa, o status do veiculo e o conflito de
+        /// periodo, insere a reserva e grava o veiculo como RESERVADO.
+        /// </summary>
         public async Task<Reserva> InsertAtomicallyAsync(Reserva reserva)
         {
             try
             {
-                Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transacao = await _db.Database.BeginTransactionAsync();
+                reserva.IdReserva = 0;
+                reserva.CreatedAt = DateTime.Now;
+                reserva.UpdatedAt = DateTime.Now;
+                reserva.DisabledAt = null;
+
+                IDbContextTransaction transacao = await _db.Database.BeginTransactionAsync();
                 try
                 {
-                    Veiculo? veiculo = await _db.Veiculos
-                        .FromSqlRaw(SqlBloquearVeiculoAtivo, reserva.IdVeiculo)
-                        .FirstOrDefaultAsync();
+                    Veiculo? veiculo = await BloquearVeiculoAtivoAsync(reserva.IdVeiculo);
 
                     if (veiculo == null)
                     {
                         throw new NotFoundException(ConstantsMessage.ErroReservaVeiculoNaoEncontrado);
                     }
 
-                    if (veiculo.Status != StatusVeiculo.DISPONIVEL && veiculo.Status != StatusVeiculo.RESERVADO)
+                    bool locadoraAtiva = await ConsultaVeiculoParaReserva(reserva.IdVeiculo).AnyAsync();
+
+                    if (!locadoraAtiva)
+                    {
+                        throw new NotFoundException(ConstantsMessage.ErroReservaVeiculoNaoEncontrado);
+                    }
+
+                    if (!RegrasReserva.VeiculoAceitaReserva(veiculo.Status))
                     {
                         throw new BusinessException(ConstantsMessage.ErroReservaVeiculoIndisponivel);
                     }
 
-                    bool conflito = await _db.Reservas.AsNoTracking().AnyAsync(x => x.IdVeiculo == reserva.IdVeiculo
-                        && x.DisabledAt == null
-                        && (x.Status == StatusReserva.ATIVA || x.Status == StatusReserva.CONFIRMADA)
-                        && x.DataRetiradaPrevista < reserva.DataDevolucaoPrevista
-                        && x.DataDevolucaoPrevista > reserva.DataRetiradaPrevista);
+                    bool conflito = await ConsultaReservasDoVeiculo(reserva.IdVeiculo)
+                        .AnyAsync(x => x.DataRetiradaPrevista < reserva.DataDevolucaoPrevista
+                            && x.DataDevolucaoPrevista > reserva.DataRetiradaPrevista);
 
                     if (conflito)
                     {
@@ -97,13 +117,14 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
+        /// <summary>Reserva do cliente (posse pela consulta nomeada), com veiculo, categoria e locadora. Desativadas ficam fora.</summary>
         public async Task<Reserva?> FindByIdAsync(int idReserva, int idCliente)
         {
             try
             {
-                Reserva? reserva = await _db.Reservas
+                Reserva? reserva = await ConsultaReservasDoClienteLogado(idCliente)
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(x => x.IdReserva == idReserva && x.IdCliente == idCliente && x.DisabledAt == null);
+                    .FirstOrDefaultAsync(x => x.IdReserva == idReserva);
                 return reserva;
             }
             catch (Exception ex)
@@ -113,11 +134,12 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        public async Task<int> CountAsync(int idCliente, StatusReserva? status)
+        /// <summary>Total de reservas do cliente com o mesmo filtro da listagem (situacao, busca). Usado no contador e no teto.</summary>
+        public async Task<int> CountAsync(int idCliente, IReadOnlyCollection<StatusReserva>? status, int? idReservaBusca, string? textoBusca)
         {
             try
             {
-                IQueryable<Reserva> consulta = AplicarFiltrosCliente(idCliente, status);
+                IQueryable<Reserva> consulta = AplicarFiltrosDaListagem(idCliente, status, idReservaBusca, textoBusca);
                 int total = await consulta.CountAsync();
                 return total;
             }
@@ -128,13 +150,17 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        public async Task<List<Reserva>> FindAllAsync(int idCliente, StatusReserva? status, int deslocamento, int quantidade)
+        /// <summary>Pagina de reservas do cliente. Ordem por retirada prevista e id, crescente (ATIVAS) ou decrescente.</summary>
+        public async Task<List<Reserva>> FindAllAsync(int idCliente, IReadOnlyCollection<StatusReserva>? status, int? idReservaBusca, string? textoBusca, bool ordemCrescente, int deslocamento, int quantidade)
         {
             try
             {
-                List<Reserva> reservas = await AplicarFiltrosCliente(idCliente, status)
-                    .OrderByDescending(x => x.DataRetiradaPrevista)
-                    .ThenByDescending(x => x.IdReserva)
+                IQueryable<Reserva> consulta = AplicarFiltrosDaListagem(idCliente, status, idReservaBusca, textoBusca);
+                IQueryable<Reserva> ordenada = ordemCrescente
+                    ? consulta.OrderBy(x => x.DataRetiradaPrevista).ThenBy(x => x.IdReserva)
+                    : consulta.OrderByDescending(x => x.DataRetiradaPrevista).ThenByDescending(x => x.IdReserva);
+
+                List<Reserva> reservas = await ordenada
                     .Skip(deslocamento)
                     .Take(quantidade)
                     .ToListAsync();
@@ -147,27 +173,31 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
+        /// <summary>
+        /// Cancela a reserva do cliente em transacao: le a reserva para descobrir o veiculo, trava o veiculo, rele a reserva
+        /// e grava CANCELADA. O veiculo volta a DISPONIVEL ou fica RESERVADO, conforme outra reserva ativa; sem veiculo
+        /// ativo, nao e tocado. Ja cancelada e idempotente; CONCLUIDA responde 409.
+        /// </summary>
         public async Task CancelAtomicallyAsync(int idReserva, int idCliente)
         {
             try
             {
-                Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transacao = await _db.Database.BeginTransactionAsync();
+                IDbContextTransaction transacao = await _db.Database.BeginTransactionAsync();
                 try
                 {
-                    Reserva? preliminar = await _db.Reservas.AsNoTracking()
-                        .FirstOrDefaultAsync(x => x.IdReserva == idReserva && x.IdCliente == idCliente && x.DisabledAt == null);
+                    Reserva? preliminar = await ConsultaReservasDoClienteLogado(idCliente)
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(x => x.IdReserva == idReserva);
 
                     if (preliminar == null)
                     {
                         throw new NotFoundException(ConstantsMessage.ErroReservaNaoEncontrada);
                     }
 
-                    Veiculo? veiculo = await _db.Veiculos
-                        .FromSqlRaw(SqlBloquearVeiculoAtivo, preliminar.IdVeiculo)
-                        .FirstOrDefaultAsync();
+                    Veiculo? veiculo = await BloquearVeiculoAtivoAsync(preliminar.IdVeiculo);
 
-                    Reserva? reserva = await _db.Reservas
-                        .FirstOrDefaultAsync(x => x.IdReserva == idReserva && x.IdCliente == idCliente && x.DisabledAt == null);
+                    Reserva? reserva = await ConsultaReservasDoClienteLogado(idCliente)
+                        .FirstOrDefaultAsync(x => x.IdReserva == idReserva);
 
                     if (reserva == null)
                     {
@@ -189,13 +219,13 @@ namespace AutoVia.Infrastructure.Repositories
                     reserva.UpdatedAt = DateTime.Now;
                     await _db.SaveChangesAsync();
 
-                    if (veiculo != null && (veiculo.Status == StatusVeiculo.DISPONIVEL || veiculo.Status == StatusVeiculo.RESERVADO))
+                    if (veiculo != null)
                     {
-                        bool outraReservaAtiva = await _db.Reservas.AsNoTracking().AnyAsync(x => x.IdVeiculo == reserva.IdVeiculo
-                            && x.DisabledAt == null
-                            && (x.Status == StatusReserva.ATIVA || x.Status == StatusReserva.CONFIRMADA));
-                        StatusVeiculo statusCalculado = outraReservaAtiva ? StatusVeiculo.RESERVADO : StatusVeiculo.DISPONIVEL;
-                        if (veiculo.Status != statusCalculado)
+                        bool outraReservaAtiva = await ConsultaReservasDoVeiculo(reserva.IdVeiculo).AnyAsync();
+                        StatusVeiculo statusAtual = veiculo.Status;
+                        StatusVeiculo statusCalculado = RegrasReserva.StatusDoVeiculoAposCancelamento(statusAtual, outraReservaAtiva);
+
+                        if (statusCalculado != statusAtual)
                         {
                             veiculo.Status = statusCalculado;
                             veiculo.UpdatedAt = DateTime.Now;
@@ -232,17 +262,137 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        private IQueryable<Reserva> AplicarFiltrosCliente(int idCliente, StatusReserva? status)
+        /// <summary>
+        /// Consulta nomeada: veiculo ativo de locadora ativa, sem trava. Usada na pre-checagem e na reconferencia da locadora
+        /// logo depois da trava. Vale o filtro de empresas ativas; nao ha dado de cliente nesta consulta.
+        /// </summary>
+        public IQueryable<Veiculo> ConsultaVeiculoParaReserva(int idVeiculo)
         {
             try
             {
-                IQueryable<Reserva> consulta = _db.Reservas.AsNoTracking()
-                    .Where(x => x.DisabledAt == null && x.IdCliente == idCliente);
-                if (status.HasValue)
+                IQueryable<Veiculo> consulta = _db.Veiculos
+                    .SemEscopoEmpresa()
+                    .Where(x => x.IdVeiculo == idVeiculo && x.DisabledAt == null)
+                    .ApenasEmpresasAtivas();
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarVeiculoReserva, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta nomeada: reservas nao desativadas ATIVA ou CONFIRMADA do veiculo, de QUALQUER cliente. Usada no conflito
+        /// de periodo e em "outra reserva ativa". Sem posse: o conflito considera todos os clientes.
+        /// </summary>
+        public IQueryable<Reserva> ConsultaReservasDoVeiculo(int idVeiculo)
+        {
+            try
+            {
+                IQueryable<Reserva> consulta = _db.Reservas
+                    .SemEscopoEmpresa()
+                    .Where(x => x.IdVeiculo == idVeiculo
+                        && x.DisabledAt == null
+                        && (x.Status == StatusReserva.ATIVA || x.Status == StatusReserva.CONFIRMADA));
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarReserva, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta nomeada: reservas nao desativadas do cliente pedido, com veiculo, categoria e locadora. A posse e a propria
+        /// consulta: vale so com contexto de cliente positivo, igual ao id pedido e igual ao dono. Sem essa igualdade, nada volta.
+        /// </summary>
+        public IQueryable<Reserva> ConsultaReservasDoClienteLogado(int idCliente)
+        {
+            try
+            {
+                int idClienteContexto = _db.IdClienteContexto;
+                bool posseDoCliente = idClienteContexto > 0 && idClienteContexto == idCliente;
+
+                IQueryable<Reserva> consulta = _db.Reservas
+                    .SemEscopoEmpresa()
+                    .Where(x => posseDoCliente && x.IdCliente == idCliente && x.DisabledAt == null)
+                    .Include(x => x.Veiculo).ThenInclude(x => x.Categoria)
+                    .Include(x => x.Veiculo).ThenInclude(x => x.Empresa);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarReserva, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta nomeada: trava do veiculo (FOR UPDATE), sem filtro de empresa, para criar e cancelar. Unica consulta
+        /// com SQL bruto deste repositorio. Nao confere a locadora: quem cria reconfere a locadora ativa logo depois da trava.
+        /// </summary>
+        public IQueryable<Veiculo> ConsultaTravaDoVeiculo(int idVeiculo)
+        {
+            try
+            {
+                IQueryable<Veiculo> consulta = _db.Veiculos
+                    .FromSqlRaw(SqlBloquearVeiculoAtivo, idVeiculo)
+                    .SemEscopoEmpresa();
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarVeiculoReserva, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Trava o veiculo pela consulta nomeada da trava (ordem global de travas: veiculo primeiro).</summary>
+        private async Task<Veiculo?> BloquearVeiculoAtivoAsync(int idVeiculo)
+        {
+            try
+            {
+                Veiculo? veiculo = await ConsultaTravaDoVeiculo(idVeiculo).FirstOrDefaultAsync();
+                return veiculo;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarVeiculoReserva, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Aplica situacao (status) e busca (codigo OU modelo) sobre a consulta do cliente, sem paginacao.</summary>
+        private IQueryable<Reserva> AplicarFiltrosDaListagem(int idCliente, IReadOnlyCollection<StatusReserva>? status, int? idReservaBusca, string? textoBusca)
+        {
+            try
+            {
+                IQueryable<Reserva> consulta = ConsultaReservasDoClienteLogado(idCliente).AsNoTracking();
+
+                if (status != null)
                 {
-                    StatusReserva statusFiltro = status.Value;
-                    consulta = consulta.Where(x => x.Status == statusFiltro);
+                    StatusReserva[] statusFiltro = status.ToArray();
+                    consulta = consulta.Where(x => statusFiltro.Contains(x.Status));
                 }
+
+                bool temCodigo = idReservaBusca.HasValue;
+                bool temTexto = textoBusca != null;
+
+                if (temCodigo || temTexto)
+                {
+                    int codigoBusca = idReservaBusca ?? 0;
+                    string termoBusca = textoBusca ?? string.Empty;
+                    consulta = consulta.Where(x => (temCodigo && x.IdReserva == codigoBusca)
+                        || (temTexto && x.Veiculo.Modelo.ToLower().Contains(termoBusca)));
+                }
+
                 return consulta;
             }
             catch (Exception ex)

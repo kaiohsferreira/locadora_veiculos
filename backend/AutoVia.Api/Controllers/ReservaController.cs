@@ -3,6 +3,7 @@ using AutoVia.Communication.ViewObjects.Utils;
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -37,6 +38,7 @@ namespace AutoVia.Api.Controllers
 
         /// <summary>Cria uma reserva para o cliente autenticado.</summary>
         [HttpPost]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
         public async Task<IActionResult> CriarAsync([FromBody] CriarReservaVO entrada)
         {
             try
@@ -50,9 +52,7 @@ namespace AutoVia.Api.Controllers
                 }
 
                 ReturnReservaCriadaVO retorno = await _reservaService.CriarAsync(idCliente, entrada);
-                string location = $"/api/reservas/{retorno.IdReserva}";
-                Response.Headers.Location = location;
-                return StatusCode(StatusCodes.Status201Created, retorno);
+                return CreatedAtAction(nameof(GetByIdAsync), new { idReserva = retorno.IdReserva }, retorno);
             }
             catch (UnauthorizedException)
             {
@@ -70,6 +70,10 @@ namespace AutoVia.Api.Controllers
             {
                 throw;
             }
+            catch (ValidationException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logService.Write(ex, ConstantsMessage.ErroCriarReserva, GetType().ToString());
@@ -79,6 +83,7 @@ namespace AutoVia.Api.Controllers
 
         /// <summary>Retorna uma reserva pertencente ao cliente autenticado.</summary>
         [HttpGet("{idReserva:int}")]
+        [ActionName(nameof(GetByIdAsync))]
         public async Task<IActionResult> GetByIdAsync(int idReserva)
         {
             try
@@ -113,7 +118,7 @@ namespace AutoVia.Api.Controllers
             }
         }
 
-        /// <summary>Lista as reservas do cliente autenticado com paginação e filtro opcional de status.</summary>
+        /// <summary>Lista as reservas do cliente autenticado com paginação e filtros opcionais de situação, status e busca.</summary>
         [HttpGet]
         public async Task<IActionResult> GetAllAsync([FromQuery] FiltroReservaVO filtro)
         {
@@ -139,6 +144,10 @@ namespace AutoVia.Api.Controllers
                 throw;
             }
             catch (UnauthorizedException)
+            {
+                throw;
+            }
+            catch (ValidationException)
             {
                 throw;
             }

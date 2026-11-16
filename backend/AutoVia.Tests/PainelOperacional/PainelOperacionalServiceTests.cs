@@ -19,7 +19,7 @@ namespace AutoVia.Tests.PainelOperacional
         [Fact]
         public async Task GetPainelDiario_AgrupaReservasELocacoesPorRetiradaEDevolucao()
         {
-            DateTime hoje = DateTime.Now.Date;
+            DateTime hoje = AgoraFixa.Date;
             FakePainelOperacionalRepository repositorio = new FakePainelOperacionalRepository();
             repositorio.Reservas.Add(CriarReserva(31, StatusReserva.ATIVA, hoje.AddHours(8), hoje.AddDays(1)));
             repositorio.Reservas.Add(CriarReserva(32, StatusReserva.CONFIRMADA, hoje.AddDays(-2), hoje.AddHours(17)));
@@ -47,7 +47,7 @@ namespace AutoVia.Tests.PainelOperacional
         [Fact]
         public async Task GetPainelDiario_ExcluiStatusCanceladosFinalizadosERegistrosDesativados()
         {
-            DateTime hoje = DateTime.Now.Date;
+            DateTime hoje = AgoraFixa.Date;
             FakePainelOperacionalRepository repositorio = new FakePainelOperacionalRepository();
             repositorio.Reservas.Add(CriarReserva(51, StatusReserva.CANCELADA, hoje.AddHours(8), hoje.AddHours(10)));
             repositorio.Reservas.Add(CriarReserva(52, StatusReserva.CONCLUIDA, hoje.AddHours(8), hoje.AddHours(10)));
@@ -70,7 +70,7 @@ namespace AutoVia.Tests.PainelOperacional
         [Fact]
         public async Task GetPainelDiario_UsaInicioInclusivoEFimExclusivoDoDiaLocal()
         {
-            DateTime hoje = DateTime.Now.Date;
+            DateTime hoje = AgoraFixa.Date;
             FakePainelOperacionalRepository repositorio = new FakePainelOperacionalRepository();
             repositorio.Reservas.Add(CriarReserva(71, StatusReserva.ATIVA, hoje, hoje.AddHours(17)));
             repositorio.Reservas.Add(CriarReserva(72, StatusReserva.ATIVA, hoje.AddDays(1), hoje.AddDays(2)));
@@ -111,6 +111,46 @@ namespace AutoVia.Tests.PainelOperacional
             await Assert.ThrowsAsync<InvalidOperationException>(() => servico.GetPainelDiarioAsync());
 
             Assert.Contains(log.Snapshot(), entrada => entrada.Contains(ConstantsMessage.ErroConsultarPainelOperacional, StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task RelogioAs2359_ItemDasZeroHoraDoDiaSeguinteFicaFora()
+        {
+            FakePainelOperacionalRepository repositorio = new FakePainelOperacionalRepository();
+            DateTime diaSeguinte = new DateTime(2026, 11, 17);
+            repositorio.Reservas.Add(CriarReserva(81, StatusReserva.ATIVA, diaSeguinte, diaSeguinte.AddDays(2)));
+            PainelOperacionalService servico = CriarServico(repositorio, new FakeLogService(), new DateTime(2026, 11, 16, 23, 59, 0));
+
+            ReturnPainelDiarioVO retorno = await servico.GetPainelDiarioAsync();
+
+            Assert.Empty(retorno.Retiradas);
+            Assert.Equal(new DateOnly(2026, 11, 16), retorno.Data);
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task RelogioAs0000_ItemDasZeroHoraDoDiaEntra()
+        {
+            FakePainelOperacionalRepository repositorio = new FakePainelOperacionalRepository();
+            DateTime diaSeguinte = new DateTime(2026, 11, 17);
+            repositorio.Reservas.Add(CriarReserva(82, StatusReserva.ATIVA, diaSeguinte, diaSeguinte.AddDays(2)));
+            PainelOperacionalService servico = CriarServico(repositorio, new FakeLogService(), new DateTime(2026, 11, 17, 0, 0, 0));
+
+            ReturnPainelDiarioVO retorno = await servico.GetPainelDiarioAsync();
+
+            Assert.Single(retorno.Retiradas);
+            Assert.Equal(new DateOnly(2026, 11, 17), retorno.Data);
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task ReturnPainelDiario_TrazDataEDataStrDoMesmoDia()
+        {
+            FakePainelOperacionalRepository repositorio = new FakePainelOperacionalRepository();
+            PainelOperacionalService servico = CriarServico(repositorio, new FakeLogService(), new DateTime(2026, 11, 16, 10, 0, 0));
+
+            ReturnPainelDiarioVO retorno = await servico.GetPainelDiarioAsync();
+
+            Assert.Equal(new DateOnly(2026, 11, 16), retorno.Data);
+            Assert.Equal("16/11/2026", retorno.DataStr);
         }
 
         private static Reserva CriarReserva(int idReserva, StatusReserva status, DateTime dataRetirada, DateTime dataDevolucao)
@@ -167,11 +207,19 @@ namespace AutoVia.Tests.PainelOperacional
             };
         }
 
+        /// <summary>Data e hora fixas do relogio dos testes do painel: o dia da consulta nao depende do dia da execucao.</summary>
+        private static readonly DateTime AgoraFixa = new DateTime(2026, 11, 16, 10, 0, 0);
+
         private static PainelOperacionalService CriarServico(FakePainelOperacionalRepository repositorio, FakeLogService log)
+        {
+            return CriarServico(repositorio, log, AgoraFixa);
+        }
+
+        private static PainelOperacionalService CriarServico(FakePainelOperacionalRepository repositorio, FakeLogService log, DateTime agora)
         {
             MapperConfiguration configuracao = new MapperConfiguration(opcoes => opcoes.AddProfile<PainelOperacionalProfile>(), NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
-            return new PainelOperacionalService(repositorio, mapper, log);
+            return new PainelOperacionalService(repositorio, new FakeRelogio(agora), mapper, log);
         }
     }
 }
