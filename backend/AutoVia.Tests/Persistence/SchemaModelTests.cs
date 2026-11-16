@@ -29,7 +29,9 @@ namespace AutoVia.Tests.Persistence
             // Desvio aprovado em 13/11/2026 (multi-locadora): tabela empresa.
             "empresa",
             // Desvio aprovado em 14/11/2026 (aprovacao do cadastro por locadora): vinculo cliente x locadora.
-            "cliente_locadora"
+            "cliente_locadora",
+            // Desvio aprovado por Kaio em 16/11/2026 (P9-INT-01; registro original de 13/11/2026): linha do tempo do sinistro.
+            "sinistro_historico"
         };
 
         private static readonly string[] TabelasIntegracao = new string[] { "integration", "integration_setting" };
@@ -52,7 +54,9 @@ namespace AutoVia.Tests.Persistence
             // Desvio aprovado em 13/11/2026 (multi-locadora): indices comuns, sem UNIQUE.
             "idx_empresa_cnpj", "idx_empresa_email", "idx_funcionario_empresa", "idx_veiculo_empresa",
             // Desvio aprovado em 14/11/2026 (aprovacao por locadora): indices comuns, sem UNIQUE.
-            "idx_cliente_locadora_empresa_cliente", "idx_cliente_locadora_cliente"
+            "idx_cliente_locadora_empresa_cliente", "idx_cliente_locadora_cliente",
+            // Desvio aprovado por Kaio em 16/11/2026 (P9-INT-01): indice comum, sem UNIQUE.
+            "idx_sinistro_historico_sinistro"
         };
 
         /// <summary>
@@ -79,7 +83,7 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
-        public void Modelo_TemExatamenteAs19TabelasDaEspecificacaoMaisODesvios()
+        public void Modelo_TemExatamenteAs20TabelasDaEspecificacaoMaisODesvios()
         {
             IModel model = BuildModel();
 
@@ -164,13 +168,50 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
-        public void Modelo_TemAs35RestricoesCheckDaEspecificacaoMaisODesvios()
+        public void Modelo_TemAs39RestricoesCheckDaEspecificacaoMaisODesvios()
         {
             IModel model = BuildModel();
 
             int totalChecks = model.GetEntityTypes().SelectMany(x => x.GetCheckConstraints()).Count();
 
-            Assert.Equal(35, totalChecks);
+            // 35 anteriores + 4 da sinistro_historico (desvio aprovado por Kaio em 16/11/2026).
+            Assert.Equal(39, totalChecks);
+        }
+
+        [Fact]
+        public void SinistroHistorico_TemOsChecksDeStatusOrigemEFuncionario()
+        {
+            IModel model = BuildModel();
+
+            IEntityType historico = model.GetEntityTypes().Single(x => x.GetTableName() == "sinistro_historico");
+            Dictionary<string, string> checks = historico.GetCheckConstraints().ToDictionary(x => x.Name!, x => x.Sql);
+            string statusValidos = "('ABERTO', 'EM_ANALISE', 'APROVADO', 'NEGADO', 'ENCERRADO')";
+
+            Assert.Equal("status_anterior IS NULL OR status_anterior IN " + statusValidos, checks["ck_sinistro_historico_status_anterior"]);
+            Assert.Equal("status_novo IN " + statusValidos, checks["ck_sinistro_historico_status_novo"]);
+            Assert.Equal("origem IN ('FUNCIONARIO', 'SEGURADORA')", checks["ck_sinistro_historico_origem"]);
+            Assert.Equal("origem <> 'FUNCIONARIO' OR id_funcionario IS NOT NULL", checks["ck_sinistro_historico_funcionario"]);
+        }
+
+        [Fact]
+        public void SinistroHistorico_ChavesEstrangeirasSemCascataEColunasNulaveisCertas()
+        {
+            IModel model = BuildModel();
+
+            IEntityType historico = model.GetEntityTypes().Single(x => x.GetTableName() == "sinistro_historico");
+            List<string> fks = historico.GetForeignKeys().Select(x => x.GetConstraintName()!).OrderBy(x => x).ToList();
+
+            Assert.Equal(new List<string> { "fk_sinistro_historico_funcionario", "fk_sinistro_historico_sinistro" }, fks);
+            Assert.All(historico.GetForeignKeys(), fk => Assert.Equal(DeleteBehavior.NoAction, fk.DeleteBehavior));
+            Assert.True(historico.FindProperty(nameof(SinistroHistorico.StatusAnterior))!.IsNullable);
+            Assert.False(historico.FindProperty(nameof(SinistroHistorico.StatusNovo))!.IsNullable);
+            Assert.True(historico.FindProperty(nameof(SinistroHistorico.IdFuncionario))!.IsNullable);
+            Assert.Equal(typeof(string), historico.FindProperty(nameof(SinistroHistorico.Origem))!.GetProviderClrType());
+
+            IEntityType sinistro = model.GetEntityTypes().Single(x => x.GetTableName() == "sinistro");
+            IProperty protocolo = sinistro.FindProperty(nameof(Sinistro.ProtocoloSeguradora))!;
+            Assert.True(protocolo.IsNullable);
+            Assert.Equal(40, protocolo.GetMaxLength());
         }
 
         [Fact]

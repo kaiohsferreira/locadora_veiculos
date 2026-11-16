@@ -35,6 +35,9 @@ namespace AutoVia.Integrations.Extensions
             services.AddEmailIntegration();
             services.AddGoogleIntegration();
 
+            // --- Seguradora (P9-INT-01) ---
+            services.AddSeguradoraIntegration();
+
             return services;
         }
     }

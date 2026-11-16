@@ -34,9 +34,14 @@ namespace AutoVia.Core.Entities.PgSql
         [Column("status")]
         public StatusSinistro Status { get; set; } = StatusSinistro.ABERTO;
 
+        /// <summary>Protocolo devolvido pela seguradora na abertura (desvio aprovado por Kaio em 16/11/2026, registro original de 13/11/2026).</summary>
+        [Column("protocolo_seguradora")]
+        public string? ProtocoloSeguradora { get; set; }
+
         // --- Navegacao ---
         public virtual Veiculo Veiculo { get; set; } = null!;
         public virtual Seguro? Seguro { get; set; }
         public virtual Locacao? Locacao { get; set; }
+        public virtual List<SinistroHistorico> Historicos { get; set; } = new List<SinistroHistorico>();
     }
 }

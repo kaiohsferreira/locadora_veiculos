@@ -9,7 +9,8 @@ namespace AutoVia.Infrastructure.Persistence
     /// <summary>
     /// Contexto unico do banco da AutoVia: as 14 tabelas de negocio (Apendice A),
     /// a tabela redefinicao_senha (desvio de 12/11/2026, RF-49), a tabela empresa (multi-locadora,
-    /// T-BE-03a) e as 2 tabelas da biblioteca de integracoes (Apendice B).
+    /// T-BE-03a), a tabela sinistro_historico (desvio aprovado por Kaio em 16/11/2026, P9-INT-01)
+    /// e as 2 tabelas da biblioteca de integracoes (Apendice B).
     ///
     /// O esquema nasce daqui (code-first). Cada entidade tem a sua classe
     /// IEntityTypeConfiguration em Persistence/Configurations, aplicada por
@@ -76,6 +77,9 @@ namespace AutoVia.Infrastructure.Persistence
         public DbSet<Manutencao> Manutencoes { get; set; } = null!;
         public DbSet<Seguro> Seguros { get; set; } = null!;
         public DbSet<Sinistro> Sinistros { get; set; } = null!;
+
+        /// <summary>Linha do tempo do sinistro (RF-43). Desvio aprovado por Kaio em 16/11/2026 (registro original de 13/11/2026).</summary>
+        public DbSet<SinistroHistorico> SinistroHistoricos { get; set; } = null!;
 
         // --- Biblioteca de integracoes ---
         public DbSet<Integration> Integrations { get; set; } = null!;

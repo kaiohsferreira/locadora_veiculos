@@ -52,6 +52,7 @@ namespace AutoVia.Tests.Persistence
                 ["Manutencao"] = db => db.Manutencoes.ToQueryString(),
                 ["Seguro"] = db => db.Seguros.ToQueryString(),
                 ["Sinistro"] = db => db.Sinistros.ToQueryString(),
+                ["SinistroHistorico"] = db => db.SinistroHistoricos.ToQueryString(),
                 ["Vistoria"] = db => db.Vistorias.ToQueryString(),
                 ["CobrancaExtra"] = db => db.CobrancasExtras.ToQueryString(),
                 ["Avaria"] = db => db.Avarias.ToQueryString(),
