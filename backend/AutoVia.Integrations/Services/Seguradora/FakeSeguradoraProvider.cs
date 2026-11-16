@@ -1,10 +1,12 @@
 using AutoVia.Communication.CustomExceptions;
+using AutoVia.Communication.Enums;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Integrations.Communication.Base;
 using AutoVia.Integrations.Communication.Seguradora;
 using AutoVia.Integrations.Helpers.Seguradora;
 using AutoVia.Integrations.Interfaces;
+using Microsoft.Extensions.Hosting;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -15,15 +17,20 @@ namespace AutoVia.Integrations.Services.Seguradora
     /// FAKE-SIN- + 12 primeiros hex do SHA-256 da ReferenciaExterna, entao a mesma referencia
     /// devolve o mesmo sinistro. Vigencia: vigente, salvo se o numero da apolice contiver
     /// VENCIDA. O gateway so libera este provedor em SANDBOX.
+    ///
+    /// TRAVA DUPLA (D-13): so responde com o ambiente de hospedagem Development E a integracao em SANDBOX.
+    /// Fora disso recusa com IntegrationException antes de ler ou gravar no armazenamento.
     /// </summary>
     public class FakeSeguradoraProvider : ISeguradoraProvider
     {
         private readonly SeguradoraFakeStore _store;
+        private readonly IHostEnvironment _hostEnvironment;
         private readonly ILogService _logService;
 
-        public FakeSeguradoraProvider(SeguradoraFakeStore store, ILogService logService)
+        public FakeSeguradoraProvider(SeguradoraFakeStore store, IHostEnvironment hostEnvironment, ILogService logService)
         {
             _store = store;
+            _hostEnvironment = hostEnvironment;
             _logService = logService;
         }
 
@@ -35,6 +42,7 @@ namespace AutoVia.Integrations.Services.Seguradora
         {
             try
             {
+                ValidarTrava(configuracao);
                 cancellationToken.ThrowIfCancellationRequested();
 
                 bool vencida = numeroApolice.Contains(ConstantsSeguradora.FakeMarcadorApoliceVencida, StringComparison.OrdinalIgnoreCase);
@@ -48,6 +56,10 @@ namespace AutoVia.Integrations.Services.Seguradora
                 };
 
                 return Task.FromResult(resultado);
+            }
+            catch (IntegrationException)
+            {
+                throw;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -65,12 +77,17 @@ namespace AutoVia.Integrations.Services.Seguradora
         {
             try
             {
+                ValidarTrava(configuracao);
                 cancellationToken.ThrowIfCancellationRequested();
 
                 string protocolo = GerarProtocolo(solicitacao.ReferenciaExterna);
                 SinistroSeguradoraResultado resultado = _store.ObterOuCriar(protocolo, solicitacao.ReferenciaExterna, Nome);
 
                 return Task.FromResult(resultado);
+            }
+            catch (IntegrationException)
+            {
+                throw;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -88,6 +105,7 @@ namespace AutoVia.Integrations.Services.Seguradora
         {
             try
             {
+                ValidarTrava(configuracao);
                 cancellationToken.ThrowIfCancellationRequested();
 
                 SinistroSeguradoraResultado? resultado = _store.Obter(protocolo);
@@ -103,6 +121,10 @@ namespace AutoVia.Integrations.Services.Seguradora
             {
                 throw;
             }
+            catch (IntegrationException)
+            {
+                throw;
+            }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
@@ -111,6 +133,15 @@ namespace AutoVia.Integrations.Services.Seguradora
             {
                 _logService.Write(ex, ConstantsMessage.ErroSeguradoraConsultarSinistro, GetType().ToString());
                 throw new IntegrationException(configuracao.Codigo, ConstantsMessage.ErroSeguradoraConsultarSinistro, ex);
+            }
+        }
+
+        /// <summary>Trava dupla: Development (hospedagem) e SANDBOX (integracao), senao recusa com IntegrationException (502).</summary>
+        private void ValidarTrava(ConfiguracaoIntegracao configuracao)
+        {
+            if (!_hostEnvironment.IsDevelopment() || configuracao.Ambiente != AmbienteIntegracao.SANDBOX)
+            {
+                throw new IntegrationException(configuracao.Codigo, ConstantsSeguradora.ChaveProvedor, ConstantsMessage.ErroSeguradoraFakeForaDoDesenvolvimento);
             }
         }
 

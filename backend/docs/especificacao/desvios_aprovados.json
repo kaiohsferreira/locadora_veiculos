@@ -160,5 +160,13 @@
     "dados": {
       "integration_setting": { "SEGURADORA.provedor": "FAKE (migration de dados SeguradoraProvedor; mesmo padrao de AjustarIntegracoesProvedores)" }
     }
+  },
+  "seguro_apolice_por_locadora": {
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "data": "2026-11-16",
+    "tarefa": "P9-BE-01",
+    "motivo": "Com o isolamento por locadora, a consulta de duplicidade so enxerga a locadora do contexto; unicidade na plataforma exigiria bypass do filtro e revelaria a existencia de apolice de outra locadora.",
+    "unicidade_no_servico": "numero da apolice unico por locadora, entre as apolices ativas dos veiculos dela; validada no servico, sem indice unico; divergencia da especificacao aprovada em 16/11/2026",
+    "nao_muda": "tabela seguro, colunas, CHECK ck_seguro_vigencia e indice comum idx_seguro_numero_apolice; nenhum indice unico"
   }
 }

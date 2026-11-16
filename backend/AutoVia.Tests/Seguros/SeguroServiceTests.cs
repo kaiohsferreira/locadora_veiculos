@@ -15,11 +15,13 @@ namespace AutoVia.Tests.Seguros
     /// Testes do SeguroService (P9-BE-01): veiculo inexistente (404), numero da apolice unico
     /// entre as ativas (409), normalizacao, destaque de vencimento em 60 dias (RF-41),
     /// filtro apenasAVencer e paginacao. Usa repositorios e log em memoria e o mapper real.
-    /// As datas sao relativas a hoje, para o teste valer em qualquer dia.
+    /// As datas sao relativas ao relogio fixo AgoraFixa (16/11/2026 10:00), para o teste valer em qualquer dia.
     /// </summary>
     public class SeguroServiceTests
     {
-        private static readonly DateOnly Hoje = DateOnly.FromDateTime(DateTime.Now);
+        /// <summary>Relogio fixo dos testes: a data de "hoje" nao depende do dia em que a suite roda.</summary>
+        private static readonly DateTime AgoraFixa = new DateTime(2026, 11, 16, 10, 0, 0);
+        private static readonly DateOnly Hoje = DateOnly.FromDateTime(AgoraFixa);
 
         [Fact]
         public async Task InsertValido_DevolveIdPlacaEValoresFormatados()
@@ -33,6 +35,19 @@ namespace AutoVia.Tests.Seguros
             Assert.Equal("ABC1D23", retorno.PlacaVeiculo);
             Assert.Equal(StaticMethods.FormateToMonetary(1200m), retorno.ValorPremioStr);
             Assert.Equal(StaticMethods.FormateDateToPTBR(vo.DataFim), retorno.DataFimStr);
+            Assert.False(retorno.VenceEm60Dias);
+        }
+
+        [Fact]
+        public async Task InsertValido_DestaqueDoRetornoUsaADataDoRelogio()
+        {
+            Cenario cenario = new Cenario();
+            cenario.Relogio.Agora = AgoraFixa.AddDays(-40);
+            SeguroVO vo = CriarVO(cenario.Veiculo.IdVeiculo, "AP-RELOGIO-2", Hoje.AddDays(100));
+
+            ReturnSeguroVO retorno = await cenario.Servico.InsertAsync(vo);
+
+            Assert.Equal(140, retorno.DiasParaVencer);
             Assert.False(retorno.VenceEm60Dias);
         }
 
@@ -117,6 +132,19 @@ namespace AutoVia.Tests.Seguros
         }
 
         [Fact]
+        public async Task GetById_DestaqueUsaADataDoRelogioNaoODiaDoSistema()
+        {
+            Cenario cenario = new Cenario();
+            Seguro seguro = cenario.SemearSeguro("AP-RELOGIO", Hoje.AddDays(100), false);
+            cenario.Relogio.Agora = AgoraFixa.AddDays(-40);
+
+            ReturnSeguroVO retorno = await cenario.Servico.GetByIdAsync(seguro.IdSeguro);
+
+            Assert.Equal(140, retorno.DiasParaVencer);
+            Assert.False(retorno.VenceEm60Dias);
+        }
+
+        [Fact]
         public async Task GetById_ApoliceDesativada_LancaNaoEncontrada()
         {
             Cenario cenario = new Cenario();
@@ -172,6 +200,22 @@ namespace AutoVia.Tests.Seguros
             List<string> numeros = pagina.Itens.Select(item => item.NumeroApolice).ToList();
             Assert.Equal(2, pagina.Total);
             Assert.Equal(new List<string> { "AP-HOJE", "AP-60" }, numeros);
+        }
+
+        [Fact]
+        public async Task GetAll_ApenasAVencer_UsaADataDoRelogioNaoODiaDoSistema()
+        {
+            Cenario cenario = new Cenario();
+            cenario.Relogio.Agora = AgoraFixa.AddDays(-40);
+            cenario.SemearSeguro("AP-JANELA-DO-RELOGIO", Hoje.AddDays(-10), false);
+            cenario.SemearSeguro("AP-FORA-DO-RELOGIO", Hoje.AddDays(21), false);
+            FiltroSeguroVO filtro = new FiltroSeguroVO { ApenasAVencer = true };
+
+            PaginaVO<ReturnSeguroVO> pagina = await cenario.Servico.GetAllAsync(filtro);
+
+            List<string> numeros = pagina.Itens.Select(item => item.NumeroApolice).ToList();
+            Assert.Equal(1, pagina.Total);
+            Assert.Equal(new List<string> { "AP-JANELA-DO-RELOGIO" }, numeros);
         }
 
         [Fact]
@@ -279,11 +323,12 @@ namespace AutoVia.Tests.Seguros
                 Seguros = new FakeSeguroRepository();
                 Veiculos = new FakeVeiculoRepository();
                 Log = new FakeLogService();
+                Relogio = new FakeRelogio(AgoraFixa);
                 Veiculo = SemearVeiculo("ABC1D23", false);
 
                 MapperConfiguration configuracao = new MapperConfiguration(cfg => cfg.AddProfile<SeguroProfile>(), NullLoggerFactory.Instance);
                 IMapper mapper = configuracao.CreateMapper();
-                Servico = new SeguroService(Seguros, Veiculos, mapper, Log);
+                Servico = new SeguroService(Seguros, Veiculos, mapper, Relogio, Log);
             }
 
             public FakeSeguroRepository Seguros { get; }
@@ -291,6 +336,8 @@ namespace AutoVia.Tests.Seguros
             public FakeVeiculoRepository Veiculos { get; }
 
             public FakeLogService Log { get; }
+
+            public FakeRelogio Relogio { get; }
 
             public Veiculo Veiculo { get; }
 

@@ -22,13 +22,15 @@ namespace AutoVia.Infrastructure.Services
         private readonly ISeguroRepository _seguroRepository;
         private readonly IVeiculoRepository _veiculoRepository;
         private readonly IMapper _mapper;
+        private readonly IRelogio _relogio;
         private readonly ILogService _logService;
 
-        public SeguroService(ISeguroRepository seguroRepository, IVeiculoRepository veiculoRepository, IMapper mapper, ILogService logService)
+        public SeguroService(ISeguroRepository seguroRepository, IVeiculoRepository veiculoRepository, IMapper mapper, IRelogio relogio, ILogService logService)
         {
             _seguroRepository = seguroRepository;
             _veiculoRepository = veiculoRepository;
             _mapper = mapper;
+            _relogio = relogio;
             _logService = logService;
         }
 
@@ -40,7 +42,7 @@ namespace AutoVia.Infrastructure.Services
         {
             try
             {
-                DateOnly hoje = DateOnly.FromDateTime(DateTime.Now);
+                DateOnly hoje = DateOnly.FromDateTime(_relogio.Agora);
                 DateOnly? fimVigenciaDe = null;
                 DateOnly? fimVigenciaAte = null;
 
@@ -91,7 +93,7 @@ namespace AutoVia.Infrastructure.Services
                 }
 
                 ReturnSeguroVO retorno = _mapper.Map<ReturnSeguroVO>(seguro);
-                PreencherDestaqueVencimento(retorno, DateOnly.FromDateTime(DateTime.Now));
+                PreencherDestaqueVencimento(retorno, DateOnly.FromDateTime(_relogio.Agora));
 
                 return retorno;
             }
@@ -136,7 +138,7 @@ namespace AutoVia.Infrastructure.Services
                 Seguro gravado = await _seguroRepository.InsertAsync(seguro);
                 ReturnSeguroVO retorno = _mapper.Map<ReturnSeguroVO>(gravado);
                 retorno.PlacaVeiculo = veiculo.Placa;
-                PreencherDestaqueVencimento(retorno, DateOnly.FromDateTime(DateTime.Now));
+                PreencherDestaqueVencimento(retorno, DateOnly.FromDateTime(_relogio.Agora));
 
                 return retorno;
             }

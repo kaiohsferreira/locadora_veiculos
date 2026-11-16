@@ -21,7 +21,9 @@ namespace AutoVia.Tests.Api
     /// </summary>
     public class SeguroControllerTests
     {
-        private static readonly DateOnly Hoje = DateOnly.FromDateTime(DateTime.Now);
+        /// <summary>Relogio fixo dos testes: a data de "hoje" nao depende do dia em que a suite roda.</summary>
+        private static readonly DateTime AgoraFixa = new DateTime(2026, 11, 16, 10, 0, 0);
+        private static readonly DateOnly Hoje = DateOnly.FromDateTime(AgoraFixa);
 
         [Fact]
         public async Task GetAll_DevolveOkComAPagina()
@@ -136,7 +138,7 @@ namespace AutoVia.Tests.Api
             MapperConfiguration configuracao = new MapperConfiguration(cfg => cfg.AddProfile<SeguroProfile>(), NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
             FakeLogService log = new FakeLogService();
-            SeguroService servico = new SeguroService(seguros, veiculos, mapper, log);
+            SeguroService servico = new SeguroService(seguros, veiculos, mapper, new FakeRelogio(AgoraFixa), log);
             SeguroController controller = new SeguroController(servico, log);
 
             return controller;

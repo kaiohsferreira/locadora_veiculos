@@ -20,12 +20,14 @@ namespace AutoVia.Integrations.Services.Seguradora
     {
         private readonly IIntegrationResolver _integrationResolver;
         private readonly IEnumerable<ISeguradoraProvider> _providers;
+        private readonly IRelogio _relogio;
         private readonly ILogService _logService;
 
-        public SeguradoraGateway(IIntegrationResolver integrationResolver, IEnumerable<ISeguradoraProvider> providers, ILogService logService)
+        public SeguradoraGateway(IIntegrationResolver integrationResolver, IEnumerable<ISeguradoraProvider> providers, IRelogio relogio, ILogService logService)
         {
             _integrationResolver = integrationResolver;
             _providers = providers;
+            _relogio = relogio;
             _logService = logService;
         }
 
@@ -76,7 +78,7 @@ namespace AutoVia.Integrations.Services.Seguradora
 
             try
             {
-                ValidarSolicitacao(solicitacao);
+                ValidarSolicitacao(solicitacao, DateOnly.FromDateTime(_relogio.Agora));
 
                 ConfiguracaoIntegracao configuracao = await _integrationResolver.ResolveAsync(ConstantsIntegration.Seguradora, cancellationToken);
                 ISeguradoraProvider provider = SelecionarProvedor(configuracao);
@@ -148,7 +150,8 @@ namespace AutoVia.Integrations.Services.Seguradora
         // Validacao dos pedidos (funcoes puras; BusinessException -> 409)
         // ------------------------------------------------------------------
 
-        private static void ValidarSolicitacao(SinistroAberturaSolicitacao solicitacao)
+        /// <summary>Valida o pedido de abertura; 'hoje' chega do IRelogio (a data da ocorrencia nao pode passar dela).</summary>
+        private static void ValidarSolicitacao(SinistroAberturaSolicitacao solicitacao, DateOnly hoje)
         {
             string referencia = solicitacao.ReferenciaExterna;
 
@@ -165,8 +168,6 @@ namespace AutoVia.Integrations.Services.Seguradora
             {
                 throw new BusinessException(string.Format(ConstantsMessage.ErroSeguradoraPlacaObrigatoria, ConstantsSeguradora.PlacaTamanhoMaximo));
             }
-
-            DateOnly hoje = DateOnly.FromDateTime(DateTime.Now);
 
             if (solicitacao.DataOcorrencia == default(DateOnly) || solicitacao.DataOcorrencia > hoje)
             {

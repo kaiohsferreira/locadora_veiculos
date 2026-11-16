@@ -24,6 +24,7 @@ namespace AutoVia.Helpers
         // --- Seguradora: configuracao (502) ---
         public const string ErroSeguradoraProvedorNaoSuportado = "O provedor configurado para a seguradora não é suportado.";
         public const string ErroSeguradoraFakeForaDoSandbox = "O provedor de teste da seguradora só pode ser usado no ambiente SANDBOX.";
+        public const string ErroSeguradoraFakeForaDoDesenvolvimento = "O provedor de teste da seguradora só pode ser usado em desenvolvimento.";
 
         // --- Seguradora: falhas inesperadas (502) ---
         public const string ErroSeguradoraConsultarVigencia = "Não foi possível consultar a vigência da apólice na seguradora.";

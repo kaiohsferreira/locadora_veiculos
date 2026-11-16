@@ -13,7 +13,7 @@ namespace AutoVia.Infrastructure.Repositories
 {
     /// <summary>
     /// Acesso a dados das apolices (P9-BE-01). Leituras sem rastreamento e so ativas;
-    /// a contagem e a pagina usam o mesmo AplicarFiltros, para o total bater com a pagina.
+    /// a contagem e a pagina usam o mesmo ConsultaSeguros, para o total bater com a pagina.
     /// Exclusao so logica (nao ha Remove). Todo metodo loga e relanca a excecao.
     /// </summary>
     public class SeguroRepository : ISeguroRepository
@@ -32,7 +32,7 @@ namespace AutoVia.Infrastructure.Repositories
         {
             try
             {
-                List<Seguro> seguros = await AplicarFiltros(idVeiculo, fimVigenciaDe, fimVigenciaAte)
+                List<Seguro> seguros = await ConsultaSeguros(idVeiculo, fimVigenciaDe, fimVigenciaAte)
                     .Include(x => x.Veiculo)
                     .OrderBy(x => x.DataFim)
                     .ThenBy(x => x.IdSeguro)
@@ -54,7 +54,7 @@ namespace AutoVia.Infrastructure.Repositories
         {
             try
             {
-                int total = await AplicarFiltros(idVeiculo, fimVigenciaDe, fimVigenciaAte).CountAsync();
+                int total = await ConsultaSeguros(idVeiculo, fimVigenciaDe, fimVigenciaAte).CountAsync();
 
                 return total;
             }
@@ -70,10 +70,7 @@ namespace AutoVia.Infrastructure.Repositories
         {
             try
             {
-                Seguro? seguro = await _db.Seguros
-                    .AsNoTracking()
-                    .Include(x => x.Veiculo)
-                    .FirstOrDefaultAsync(x => x.IdSeguro == idSeguro && x.DisabledAt == null);
+                Seguro? seguro = await ConsultaSeguroPorId(idSeguro).FirstOrDefaultAsync();
 
                 return seguro;
             }
@@ -89,20 +86,8 @@ namespace AutoVia.Infrastructure.Repositories
         {
             try
             {
-                IQueryable<Seguro> consulta = _db.Seguros
-                    .AsNoTracking()
-                    .Where(x => x.DisabledAt == null);
-
-                if (idSeguroIgnorado.HasValue)
-                {
-                    int idIgnorado = idSeguroIgnorado.Value;
-                    consulta = consulta.Where(x => x.IdSeguro != idIgnorado);
-                }
-
-                string numeroComparacao = numeroApolice.Trim().ToUpper();
-
-                bool existe = await consulta
-                    .AnyAsync(x => x.NumeroApolice.Trim().ToUpper() == numeroComparacao);
+                bool existe = await ConsultaSegurosComNumero(numeroApolice, idSeguroIgnorado)
+                    .AnyAsync();
 
                 return existe;
             }
@@ -174,10 +159,62 @@ namespace AutoVia.Infrastructure.Repositories
         }
 
         /// <summary>
-        /// Monta a consulta das apolices ativas, sem rastreamento, com os filtros informados
-        /// combinados por AND. A janela de fim da vigencia chega pronta do servico.
+        /// Consulta da apolice ativa pelo id, sem rastreamento, com o veiculo. Passa pelo filtro "Empresa"
+        /// (apolice de veiculo de outra locadora nao aparece). Usada por FindByIdAsync; publica para o teste de SQL.
         /// </summary>
-        private IQueryable<Seguro> AplicarFiltros(int? idVeiculo, DateOnly? fimVigenciaDe, DateOnly? fimVigenciaAte)
+        public IQueryable<Seguro> ConsultaSeguroPorId(int idSeguro)
+        {
+            try
+            {
+                IQueryable<Seguro> consulta = _db.Seguros
+                    .AsNoTracking()
+                    .Include(x => x.Veiculo)
+                    .Where(x => x.IdSeguro == idSeguro && x.DisabledAt == null);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarSeguro, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta de duplicidade do numero da apolice: ativas da locadora do contexto (filtro "Empresa"), sem o id
+        /// ignorado, com Trim e sem diferenciar maiusculas (D-4: unicidade por locadora). Usada por ExistsByNumeroApoliceAsync.
+        /// </summary>
+        public IQueryable<Seguro> ConsultaSegurosComNumero(string numeroApolice, int? idSeguroIgnorado)
+        {
+            try
+            {
+                IQueryable<Seguro> consulta = _db.Seguros
+                    .AsNoTracking()
+                    .Where(x => x.DisabledAt == null);
+
+                if (idSeguroIgnorado.HasValue)
+                {
+                    int idIgnorado = idSeguroIgnorado.Value;
+                    consulta = consulta.Where(x => x.IdSeguro != idIgnorado);
+                }
+
+                string numeroComparacao = numeroApolice.Trim().ToUpper();
+                consulta = consulta.Where(x => x.NumeroApolice.Trim().ToUpper() == numeroComparacao);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarSeguro, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Monta a consulta das apolices ativas, sem rastreamento, com os filtros informados
+        /// combinados por AND. A janela de fim da vigencia chega pronta do servico. Usada por FindAllAsync e CountAsync.
+        /// </summary>
+        public IQueryable<Seguro> ConsultaSeguros(int? idVeiculo, DateOnly? fimVigenciaDe, DateOnly? fimVigenciaAte)
         {
             try
             {

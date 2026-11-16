@@ -1,5 +1,6 @@
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.Enums;
+using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Integrations.Communication.Seguradora;
 using AutoVia.Integrations.Helpers.Seguradora;
@@ -10,6 +11,7 @@ namespace AutoVia.Integrations.Services.Seguradora
     /// <summary>
     /// Estado em memoria dos sinistros da seguradora FAKE (singleton). Usado so em SANDBOX e
     /// nos testes. AvancarStatus simula a seguradora mudando o andamento do sinistro.
+    /// As datas dos eventos vem do IRelogio (data do servidor em producao; fixa nos testes).
     ///
     /// Imutabilidade: guarda registros imutaveis e cada leitura devolve uma copia nova de
     /// SinistroSeguradoraResultado; quem recebe a copia pode altera-la sem mexer no que esta guardado.
@@ -19,6 +21,13 @@ namespace AutoVia.Integrations.Services.Seguradora
     {
         private readonly ConcurrentDictionary<string, SinistroArmazenado> _sinistros = new ConcurrentDictionary<string, SinistroArmazenado>(StringComparer.Ordinal);
         private readonly object _transicoes = new object();
+        private readonly IRelogio _relogio;
+
+        /// <summary>Recebe o relogio do servidor (IRelogio), usado para a data de cada evento.</summary>
+        public SeguradoraFakeStore(IRelogio relogio)
+        {
+            _relogio = relogio;
+        }
 
         /// <summary>Devolve o sinistro do protocolo ou cria um novo, ABERTO, com o evento de abertura (idempotente).</summary>
         public SinistroSeguradoraResultado ObterOuCriar(string protocolo, string referenciaExterna, string provedor)
@@ -67,7 +76,7 @@ namespace AutoVia.Integrations.Services.Seguradora
                     throw new BusinessException(string.Format(ConstantsMessage.ErroSeguradoraTransicaoInvalida, armazenado.Status, novoStatus));
                 }
 
-                EventoArmazenado evento = new EventoArmazenado(armazenado.Status, novoStatus, DateTime.Now, observacao);
+                EventoArmazenado evento = new EventoArmazenado(armazenado.Status, novoStatus, _relogio.Agora, observacao);
                 List<EventoArmazenado> eventos = new List<EventoArmazenado>(armazenado.Eventos) { evento };
                 SinistroArmazenado atualizado = armazenado with { Status = novoStatus, Eventos = eventos };
                 _sinistros[protocolo] = atualizado;
@@ -76,9 +85,10 @@ namespace AutoVia.Integrations.Services.Seguradora
             }
         }
 
-        private static SinistroArmazenado CriarAberto(string protocolo, string referenciaExterna, string provedor)
+        /// <summary>Sinistro novo, ABERTO, com o evento de abertura datado pelo relogio no momento da chamada.</summary>
+        private SinistroArmazenado CriarAberto(string protocolo, string referenciaExterna, string provedor)
         {
-            EventoArmazenado abertura = new EventoArmazenado(null, StatusSinistro.ABERTO, DateTime.Now, null);
+            EventoArmazenado abertura = new EventoArmazenado(null, StatusSinistro.ABERTO, _relogio.Agora, null);
             List<EventoArmazenado> eventos = new List<EventoArmazenado> { abertura };
 
             return new SinistroArmazenado(protocolo, referenciaExterna, StatusSinistro.ABERTO, eventos, provedor);

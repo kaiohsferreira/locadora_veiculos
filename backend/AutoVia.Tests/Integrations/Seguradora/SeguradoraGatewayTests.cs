@@ -10,17 +10,24 @@ using AutoVia.Integrations.Services;
 using AutoVia.Integrations.Services.Seguradora;
 using AutoVia.Tests.Fakes;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace AutoVia.Tests.Integrations.Seguradora
 {
     /// <summary>
     /// Testes do SeguradoraGateway com o provedor FAKE real e a configuracao em memoria:
     /// vigencia (vigente e marcador VENCIDA), abertura idempotente, acompanhamento com a
-    /// linha do tempo, validacoes (409) e erros de configuracao (502).
+    /// linha do tempo, validacoes (409), erros de configuracao (502) e a trava dupla do FAKE
+    /// (ambiente de hospedagem Development E integracao SANDBOX). A data de hoje vem do relogio fixo.
     /// </summary>
     public class SeguradoraGatewayTests
     {
-        private static readonly DateOnly Hoje = DateOnly.FromDateTime(DateTime.Now);
+        /// <summary>Relogio fixo dos testes: a data de "hoje" nao depende do dia em que a suite roda.</summary>
+        private static readonly DateTime AgoraFixa = new DateTime(2026, 11, 16, 10, 0, 0);
+        private static readonly DateOnly Hoje = DateOnly.FromDateTime(AgoraFixa);
 
         [Fact]
         public async Task ConsultarVigencia_ApoliceNormal_DevolveVigente()
@@ -189,6 +196,98 @@ namespace AutoVia.Tests.Integrations.Seguradora
             await Assert.ThrowsAsync<IntegrationException>(() => cenario.Gateway.ConsultarSinistroAsync("FAKE-SIN-1"));
         }
 
+        [Fact]
+        public async Task AbrirSinistro_DataDeOcorrenciaSegueORelogio_AceitaHojeERecusaAmanha()
+        {
+            Cenario cenario = new Cenario();
+            DateOnly hojeDoRelogio = DateOnly.FromDateTime(cenario.Relogio.Agora);
+
+            SinistroAberturaSolicitacao naData = CriarSolicitacao("SIN-REL-1");
+            naData.DataOcorrencia = hojeDoRelogio;
+            SinistroSeguradoraResultado aberto = await cenario.Gateway.AbrirSinistroAsync(naData);
+            Assert.Equal(StatusSinistro.ABERTO, aberto.Status);
+
+            SinistroAberturaSolicitacao amanha = CriarSolicitacao("SIN-REL-2");
+            amanha.DataOcorrencia = hojeDoRelogio.AddDays(1);
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => cenario.Gateway.AbrirSinistroAsync(amanha));
+            Assert.Equal(ConstantsMessage.ErroSeguradoraDataOcorrenciaInvalida, excecao.Message);
+        }
+
+        [Fact]
+        public async Task AbrirSinistro_HojeDoSistemaComRelogioDezDiasAntes_ReprovaDataOcorrencia()
+        {
+            Cenario cenario = new Cenario();
+            cenario.Relogio.Agora = AgoraFixa.AddDays(-10);
+
+            SinistroAberturaSolicitacao solicitacao = CriarSolicitacao("SIN-REL-3");
+            solicitacao.DataOcorrencia = Hoje;
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => cenario.Gateway.AbrirSinistroAsync(solicitacao));
+            Assert.Equal(ConstantsMessage.ErroSeguradoraDataOcorrenciaInvalida, excecao.Message);
+        }
+
+        /// <summary>D-13: FAKE fora de Development recusa nas 3 operacoes, sem criar nada no armazenamento.</summary>
+        [Fact]
+        public async Task Seguradora_FakeFora_DeDesenvolvimento_Bloqueia()
+        {
+            Cenario cenario = new Cenario(AmbienteIntegracao.SANDBOX, ConstantsSeguradora.ProvedorFake, true, Environments.Production);
+            string referencia = "SIN-TRAVA";
+
+            IntegrationException consulta = await Assert.ThrowsAsync<IntegrationException>(() => cenario.Gateway.ConsultarVigenciaAsync("AP-1", Hoje));
+            IntegrationException abertura = await Assert.ThrowsAsync<IntegrationException>(() => cenario.Gateway.AbrirSinistroAsync(CriarSolicitacao(referencia)));
+            IntegrationException acompanhamento = await Assert.ThrowsAsync<IntegrationException>(() => cenario.Gateway.ConsultarSinistroAsync(ProtocoloDaReferencia(referencia)));
+
+            foreach (IntegrationException excecao in new List<IntegrationException> { consulta, abertura, acompanhamento })
+            {
+                Assert.Equal(ConstantsMessage.ErroSeguradoraFakeForaDoDesenvolvimento, excecao.Message);
+                Assert.Equal(ConstantsSeguradora.ChaveProvedor, excecao.Chave);
+                Assert.Equal(ConstantsIntegration.Seguradora, excecao.CodigoIntegracao);
+            }
+
+            Assert.Null(cenario.Store.Obter(ProtocoloDaReferencia(referencia)));
+            Assert.Empty(cenario.Log.Entries);
+        }
+
+        /// <summary>Prova o helper ProtocoloDaReferencia contra o protocolo que o FAKE realmente gera na abertura.</summary>
+        [Fact]
+        public async Task Protocolo_DaAbertura_BateComOCalculoDoTeste()
+        {
+            Cenario cenario = new Cenario(AmbienteIntegracao.SANDBOX, ConstantsSeguradora.ProvedorFake, true, Environments.Development);
+            string referencia = "SIN-PROTOCOLO";
+
+            SinistroSeguradoraResultado resultado = await cenario.Gateway.AbrirSinistroAsync(CriarSolicitacao(referencia));
+
+            Assert.Equal(ProtocoloDaReferencia(referencia), resultado.Protocolo);
+        }
+
+        [Fact]
+        public async Task FakeForaDoSandboxEForaDeDesenvolvimento_GatewayBarraAntesDoProvedor()
+        {
+            Cenario cenario = new Cenario(AmbienteIntegracao.PRODUCAO, ConstantsSeguradora.ProvedorFake, true, Environments.Production);
+
+            IntegrationException excecao = await Assert.ThrowsAsync<IntegrationException>(() => cenario.Gateway.ConsultarVigenciaAsync("AP-1", Hoje));
+
+            Assert.Equal(ConstantsMessage.ErroSeguradoraFakeForaDoSandbox, excecao.Message);
+        }
+
+        [Fact]
+        public async Task FakeEmDevelopmentESandbox_Responde()
+        {
+            Cenario cenario = new Cenario(AmbienteIntegracao.SANDBOX, ConstantsSeguradora.ProvedorFake, true, Environments.Development);
+
+            VigenciaApoliceResultado resultado = await cenario.Gateway.ConsultarVigenciaAsync("AP-1", Hoje);
+
+            Assert.True(resultado.Vigente);
+        }
+
+        /// <summary>Mesmo calculo do FAKE: FAKE-SIN- + 12 hex do SHA-256 da referencia em UTF-8 (conferido por teste de abertura).</summary>
+        private static string ProtocoloDaReferencia(string referencia)
+        {
+            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(referencia));
+
+            return ConstantsSeguradora.PrefixoProtocoloFake + Convert.ToHexString(hash).Substring(0, ConstantsSeguradora.TamanhoHashProtocoloFake);
+        }
+
         private static SinistroAberturaSolicitacao CriarSolicitacao(string referencia)
         {
             SinistroAberturaSolicitacao solicitacao = new SinistroAberturaSolicitacao
@@ -205,11 +304,32 @@ namespace AutoVia.Tests.Integrations.Seguradora
             return solicitacao;
         }
 
-        /// <summary>Configuracao SEGURADORA em memoria, store e provedor FAKE reais e o gateway.</summary>
+        /// <summary>IHostEnvironment de teste: so o nome do ambiente de hospedagem importa para a trava do FAKE.</summary>
+        private sealed class AmbienteFalso : IHostEnvironment
+        {
+            public AmbienteFalso(string nomeAmbiente)
+            {
+                EnvironmentName = nomeAmbiente;
+                ContentRootPath = Path.GetTempPath();
+                ContentRootFileProvider = new NullFileProvider();
+            }
+
+            public string EnvironmentName { get; set; }
+
+            public string ApplicationName { get; set; } = "AutoVia.Tests";
+
+            public string ContentRootPath { get; set; }
+
+            public IFileProvider ContentRootFileProvider { get; set; }
+        }
+
+        /// <summary>Configuracao SEGURADORA em memoria, relogio fixo, store e provedor FAKE reais e o gateway.</summary>
         private sealed class Cenario
         {
-            public Cenario(AmbienteIntegracao ambiente = AmbienteIntegracao.SANDBOX, string provedor = ConstantsSeguradora.ProvedorFake, bool ativo = true)
+            public Cenario(AmbienteIntegracao ambiente = AmbienteIntegracao.SANDBOX, string provedor = ConstantsSeguradora.ProvedorFake, bool ativo = true, string? ambienteHospedagem = null)
             {
+                string nomeAmbienteHospedagem = ambienteHospedagem ?? Environments.Development;
+
                 Integration integration = new Integration
                 {
                     IdIntegration = 1,
@@ -226,12 +346,17 @@ namespace AutoVia.Tests.Integrations.Seguradora
                 FakeIntegrationRepository repositorio = new FakeIntegrationRepository();
                 repositorio.Add(integration);
 
-                FakeLogService log = new FakeLogService();
-                IntegrationResolver resolver = new IntegrationResolver(repositorio, new MemoryCache(new MemoryCacheOptions()), log);
-                Store = new SeguradoraFakeStore();
-                ISeguradoraProvider[] providers = new ISeguradoraProvider[] { new FakeSeguradoraProvider(Store, log) };
-                Gateway = new SeguradoraGateway(resolver, providers, log);
+                Log = new FakeLogService();
+                IntegrationResolver resolver = new IntegrationResolver(repositorio, new MemoryCache(new MemoryCacheOptions()), Log);
+                Relogio = new FakeRelogio(AgoraFixa);
+                Store = new SeguradoraFakeStore(Relogio);
+                ISeguradoraProvider[] providers = new ISeguradoraProvider[] { new FakeSeguradoraProvider(Store, new AmbienteFalso(nomeAmbienteHospedagem), Log) };
+                Gateway = new SeguradoraGateway(resolver, providers, Relogio, Log);
             }
+
+            public FakeLogService Log { get; }
+
+            public FakeRelogio Relogio { get; }
 
             public SeguradoraFakeStore Store { get; }
 
