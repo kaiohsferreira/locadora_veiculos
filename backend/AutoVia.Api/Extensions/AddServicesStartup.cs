@@ -48,6 +48,10 @@ namespace AutoVia.Api.Extensions
             // --- Painel operacional ---
             services.AddScoped<IPainelOperacionalService, PainelOperacionalService>();
 
+            // --- Locacao ---
+            services.AddScoped<ILocacaoService, LocacaoService>();
+            services.AddScoped<IAvariaService, AvariaService>();
+
             // --- Autenticacao ---
             // Singleton: sem estado (hash, emissao de token); as opcoes sao registradas em AddAuthenticationJwt.
             services.AddSingleton<ISenhaHasher, SenhaHasher>();

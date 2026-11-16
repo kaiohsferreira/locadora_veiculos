@@ -40,6 +40,10 @@ namespace AutoVia.Api.Extensions
             // --- Painel operacional ---
             services.AddScoped<IPainelOperacionalRepository, PainelOperacionalRepository>();
 
+            // --- Locacao ---
+            services.AddScoped<ILocacaoRepository, LocacaoRepository>();
+            services.AddScoped<IAvariaRepository, AvariaRepository>();
+
             // --- Autenticacao ---
             services.AddScoped<IAutenticacaoRepository, AutenticacaoRepository>();
 

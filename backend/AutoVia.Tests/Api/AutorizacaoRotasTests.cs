@@ -97,6 +97,15 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public void Avaria_ExigeFuncionarioNaClasse()
+        {
+            AuthorizeAttribute? autorizacao = typeof(AvariaController).GetCustomAttribute<AuthorizeAttribute>();
+
+            Assert.NotNull(autorizacao);
+            Assert.Equal(ConstantsValues.PoliticaFuncionario, autorizacao!.Policy);
+        }
+
+        [Fact]
         public void Health_EAnonimo()
         {
             Assert.True(Attribute.IsDefined(typeof(HealthController), typeof(AllowAnonymousAttribute)));

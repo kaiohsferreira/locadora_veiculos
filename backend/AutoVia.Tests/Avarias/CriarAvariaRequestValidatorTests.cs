@@ -1,0 +1,107 @@
+using AutoVia.Api.Requests.Avaria;
+using AutoVia.Api.Validators;
+using AutoVia.Helpers;
+using AutoVia.Integrations.Helpers.Armazenamento;
+using AutoVia.Api.Filters;
+using FluentValidation;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Abstractions;
+using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace AutoVia.Tests.Avarias
+{
+    public sealed class CriarAvariaRequestValidatorTests
+    {
+        [Fact]
+        public async Task GravidadeForaDaLista_EInvalida()
+        {
+            CriarAvariaRequestValidator validator = new CriarAvariaRequestValidator();
+            FluentValidation.Results.ValidationResult resultado = await validator.ValidateAsync(new CriarAvariaRequest
+            {
+                Descricao = "Dano",
+                Gravidade = "CRITICA",
+                Foto = CriarFoto("image/jpeg", new byte[] { 1 })
+            });
+
+            Assert.Contains(resultado.Errors, x => x.ErrorMessage == ConstantsMessage.ErroAvariaGravidadeInvalida);
+        }
+
+        [Fact]
+        public async Task UploadComMimeInvalido_EInterceptadoComo400()
+        {
+            CriarAvariaRequest request = CriarRequest("text/plain", new byte[] { 1, 2, 3 });
+            BadRequestObjectResult resultado = await ExecutarFiltroAsync(request, new CriarAvariaRequestValidator());
+
+            Assert.IsType<ValidationProblemDetails>(resultado.Value);
+            Assert.Equal(StatusCodes.Status400BadRequest, resultado.StatusCode);
+        }
+
+        [Fact]
+        public async Task RetryComAssinaturaInvalida_EInterceptadoComo400()
+        {
+            RetryAvariaFotoRequest request = new RetryAvariaFotoRequest { Foto = CriarFoto("image/jpeg", new byte[] { 1, 2, 3 }) };
+            BadRequestObjectResult resultado = await ExecutarFiltroAsync(request, new RetryAvariaFotoRequestValidator());
+
+            Assert.IsType<ValidationProblemDetails>(resultado.Value);
+            Assert.Equal(StatusCodes.Status400BadRequest, resultado.StatusCode);
+        }
+
+        [Fact]
+        public async Task PostSemArquivo_EInterceptadoComo400()
+        {
+            CriarAvariaRequest request = new CriarAvariaRequest { Descricao = "Dano", Gravidade = "LEVE" };
+            BadRequestObjectResult resultado = await ExecutarFiltroAsync(request, new CriarAvariaRequestValidator());
+
+            Assert.Equal(StatusCodes.Status400BadRequest, resultado.StatusCode);
+        }
+
+        [Fact]
+        public async Task RetryAcimaDoLimite_EInterceptadoComo400()
+        {
+            byte[] bytes = new byte[ConstantsArmazenamento.TamanhoMaximoFotoBytes + 1];
+            RetryAvariaFotoRequest request = new RetryAvariaFotoRequest { Foto = CriarFoto("image/jpeg", bytes) };
+            BadRequestObjectResult resultado = await ExecutarFiltroAsync(request, new RetryAvariaFotoRequestValidator());
+
+            Assert.Equal(StatusCodes.Status400BadRequest, resultado.StatusCode);
+        }
+
+        private static CriarAvariaRequest CriarRequest(string contentType, byte[] bytes)
+        {
+            return new CriarAvariaRequest
+            {
+                Descricao = "Dano",
+                Gravidade = "LEVE",
+                Foto = CriarFoto(contentType, bytes)
+            };
+        }
+
+        private static FormFile CriarFoto(string contentType, byte[] bytes)
+        {
+            return new FormFile(new MemoryStream(bytes), 0, bytes.Length, "foto", "foto.jpg")
+            {
+                Headers = new HeaderDictionary(),
+                ContentType = contentType
+            };
+        }
+
+        private static async Task<BadRequestObjectResult> ExecutarFiltroAsync<TRequest>(TRequest request, IValidator<TRequest> validator) where TRequest : class
+        {
+            ServiceCollection services = new ServiceCollection();
+            services.AddSingleton(typeof(IValidator<TRequest>), validator);
+            ServiceProvider provider = services.BuildServiceProvider();
+            DefaultHttpContext httpContext = new DefaultHttpContext { RequestServices = provider };
+            ActionContext actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor(), new ModelStateDictionary());
+            Dictionary<string, object?> arguments = new Dictionary<string, object?> { ["request"] = request };
+            ActionExecutingContext context = new ActionExecutingContext(actionContext, new List<IFilterMetadata>(), arguments, new object());
+            FluentValidationActionFilter filter = new FluentValidationActionFilter(provider);
+
+            await filter.OnActionExecutionAsync(context, () => throw new InvalidOperationException());
+
+            return Assert.IsType<BadRequestObjectResult>(context.Result);
+        }
+    }
+}

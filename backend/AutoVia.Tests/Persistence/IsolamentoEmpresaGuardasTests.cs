@@ -35,6 +35,7 @@ namespace AutoVia.Tests.Persistence
             "SqlQuery",
             "ExecuteUpdate",
             "ExecuteDelete",
+            "GetDbConnection(",
             ".FindAsync(",
             ".Find("
         };
@@ -55,13 +56,16 @@ namespace AutoVia.Tests.Persistence
         /// (titular do link, sem contexto); VeiculoRepository.Cadastro (unicidade de placa, chassi e renavam na plataforma);
         /// EmpresaRepository (CPF na plataforma inteira: do responsavel no cadastro publico de locadora, sem contexto, e do
         /// funcionario novo na equipe, P10-BE-03, que reaproveita o mesmo metodo; a equipe nao cria bypass proprio);
-        /// ReservaRepository (trava FOR UPDATE do veiculo por SQL bruto, na reserva, sob o filtro Empresa; sem SemEscopoEmpresa).
+        /// ReservaRepository (trava FOR UPDATE do veiculo por SQL bruto, na reserva, sob o filtro Empresa; sem SemEscopoEmpresa);
+        /// LocacaoRepository (trava de linha FOR UPDATE, obtida pela conexao crua do contexto (metodo GetDbConnection, sem
+        /// parenteses) na abertura da locacao; so trava a linha, e as leituras da locacao passam pelo filtro Empresa).
         /// </summary>
         private static readonly Dictionary<string, int> OcorrenciasPermitidas = new Dictionary<string, int>
         {
             ["AutoVia.Infrastructure/Persistence/EscopoEmpresa.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/AutenticacaoRepository.cs"] = 3,
             ["AutoVia.Infrastructure/Repositories/EmpresaRepository.cs"] = 1,
+            ["AutoVia.Infrastructure/Repositories/LocacaoRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/RedefinicaoSenhaRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/ReservaRepository.cs"] = 2,
             ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Cadastro.cs"] = 3

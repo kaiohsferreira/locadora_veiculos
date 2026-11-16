@@ -1,4 +1,5 @@
 using AutoVia.Api.Filters;
+using AutoVia.Api.Validators;
 using AutoVia.Communication.Validators.Utils;
 using AutoVia.Helpers;
 using FluentValidation;
@@ -18,6 +19,7 @@ namespace AutoVia.Api.Extensions
             ValidatorOptions.Global.LanguageManager.Culture = new CultureInfo(ConstantsValues.CulturaPadrao);
 
             services.AddValidatorsFromAssemblyContaining<FiltroPaginacaoVOValidator>();
+            services.AddValidatorsFromAssemblyContaining<CriarAvariaRequestValidator>();
             services.AddScoped<FluentValidationActionFilter>();
 
             return services;
