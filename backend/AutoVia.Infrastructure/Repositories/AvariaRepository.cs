@@ -23,7 +23,8 @@ namespace AutoVia.Infrastructure.Repositories
         {
             try
             {
-                return await _db.Vistorias.AsNoTracking().AnyAsync(x => x.IdVistoria == idVistoria && x.DisabledAt == null, cancellationToken);
+                bool existe = await ConsultaVistoriaAtiva(idVistoria).AsNoTracking().AnyAsync(cancellationToken);
+                return existe;
             }
             catch (Exception ex)
             {
@@ -36,7 +37,8 @@ namespace AutoVia.Infrastructure.Repositories
         {
             try
             {
-                return await _db.Avarias.AsNoTracking().FirstOrDefaultAsync(x => x.IdVistoria == idVistoria && x.IdAvaria == idAvaria && x.DisabledAt == null, cancellationToken);
+                Avaria? avaria = await ConsultaAvariaAtiva(idVistoria, idAvaria).AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+                return avaria;
             }
             catch (Exception ex)
             {
@@ -60,6 +62,46 @@ namespace AutoVia.Infrastructure.Repositories
             catch (Exception ex)
             {
                 _logService.Write(ex, ConstantsMessage.ErroCriarAvaria, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta da vistoria ativa (nao desativada) com o filtro "Empresa" da locadora do contexto. So monta a consulta, sem executar:
+        /// a leitura fica em VistoriaAtivaExisteAsync. Publica para o teste de SQL por ToQueryString.
+        /// </summary>
+        public IQueryable<Vistoria> ConsultaVistoriaAtiva(int idVistoria)
+        {
+            try
+            {
+                IQueryable<Vistoria> consulta = _db.Vistorias
+                    .Where(x => x.IdVistoria == idVistoria && x.DisabledAt == null);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarAvaria, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta da avaria ativa (nao desativada) da vistoria informada, com o filtro "Empresa" pela vistoria. So monta a consulta, sem executar:
+        /// a leitura fica em FindAtivaAsync. Publica para o teste de SQL por ToQueryString.
+        /// </summary>
+        public IQueryable<Avaria> ConsultaAvariaAtiva(int idVistoria, int idAvaria)
+        {
+            try
+            {
+                IQueryable<Avaria> consulta = _db.Avarias
+                    .Where(x => x.IdVistoria == idVistoria && x.IdAvaria == idAvaria && x.DisabledAt == null);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarAvaria, GetType().ToString());
                 throw;
             }
         }

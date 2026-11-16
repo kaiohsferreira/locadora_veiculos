@@ -48,14 +48,4 @@ namespace AutoVia.Api.Validators
             return (mimeJpeg && assinaturaJpeg) || (mimePng && assinaturaPng);
         }
     }
-
-    /// <summary>Validador reutiliza as mesmas regras de arquivo para PUT de retry.</summary>
-    public sealed class RetryAvariaFotoRequestValidator : AbstractValidator<RetryAvariaFotoRequest>
-    {
-        public RetryAvariaFotoRequestValidator()
-        {
-            RuleFor(x => x.Foto).NotNull().WithMessage(ConstantsMessage.ErroAvariaFotoObrigatoria)
-                .MustAsync(CriarAvariaRequestValidator.ValidarFotoAsync).WithMessage(ConstantsMessage.ErroAvariaFotoFormatoInvalido);
-        }
-    }
 }

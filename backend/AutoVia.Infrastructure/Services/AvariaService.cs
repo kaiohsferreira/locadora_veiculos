@@ -9,6 +9,7 @@ using AutoVia.Integrations.Communication.Armazenamento;
 using AutoVia.Integrations.Helpers.Armazenamento;
 using AutoVia.Integrations.Interfaces;
 using FluentValidation;
+using FluentValidation.Results;
 using System.Globalization;
 using SkiaSharp;
 
@@ -32,10 +33,12 @@ namespace AutoVia.Infrastructure.Services
         {
             try
             {
-                ValidarCampos(idVistoria, descricao, gravidade, valorEstimado);
-                foto = ValidarFoto(foto, contentType);
+                // Ordem: id da vistoria, campos, vistoria no banco e so depois a foto (a decodificacao fica por ultimo).
+                if (idVistoria <= 0) throw new NotFoundException(ConstantsMessage.ErroAvariaVistoriaNaoEncontrada);
+                ValidarCampos(descricao, gravidade, valorEstimado);
                 bool vistoriaExiste = await _avariaRepository.VistoriaAtivaExisteAsync(idVistoria, cancellationToken);
                 if (!vistoriaExiste) throw new NotFoundException(ConstantsMessage.ErroAvariaVistoriaNaoEncontrada);
+                foto = ValidarFoto(foto, contentType);
 
                 Avaria avaria = new Avaria
                 {
@@ -45,7 +48,7 @@ namespace AutoVia.Infrastructure.Services
                     ValorEstimado = valorEstimado
                 };
                 Avaria criada = await _avariaRepository.CriarAsync(avaria, cancellationToken);
-            return await EnviarFotoAsync(criada, foto!, contentType!, cancellationToken);
+                return await EnviarFotoAsync(criada, foto!, contentType!, cancellationToken);
             }
             catch (ValidationException ex)
             {
@@ -218,14 +221,13 @@ namespace AutoVia.Infrastructure.Services
             };
         }
 
-        private static void ValidarCampos(int idVistoria, string descricao, string gravidade, decimal? valorEstimado)
+        private static void ValidarCampos(string descricao, string gravidade, decimal? valorEstimado)
         {
-            if (idVistoria <= 0) throw new ValidationException(ConstantsMessage.ErroAvariaVistoriaNaoEncontrada);
-            if (string.IsNullOrWhiteSpace(descricao)) throw new ValidationException(ConstantsMessage.ErroAvariaDescricaoObrigatoria);
-            if (descricao.Length > 200) throw new ValidationException(ConstantsMessage.ErroAvariaDescricaoTamanho);
+            if (string.IsNullOrWhiteSpace(descricao)) throw CriarValidacao(ConstantsMessage.ErroAvariaDescricaoObrigatoria, nameof(descricao));
+            if (descricao.Length > 200) throw CriarValidacao(ConstantsMessage.ErroAvariaDescricaoTamanho, nameof(descricao));
             ParseGravidade(gravidade);
             if (valorEstimado.HasValue && (valorEstimado.Value < 0m || valorEstimado.Value > 99999999.99m || decimal.Round(valorEstimado.Value, 2) != valorEstimado.Value))
-                throw new ValidationException(ConstantsMessage.ErroAvariaValorEstimadoInvalido);
+                throw CriarValidacao(ConstantsMessage.ErroAvariaValorEstimadoInvalido, nameof(valorEstimado));
         }
 
         private static GravidadeAvaria ParseGravidade(string gravidade)
@@ -233,43 +235,45 @@ namespace AutoVia.Infrastructure.Services
             if (string.Equals(gravidade, GravidadeAvaria.LEVE.ToString(), StringComparison.Ordinal)) return GravidadeAvaria.LEVE;
             if (string.Equals(gravidade, GravidadeAvaria.MEDIA.ToString(), StringComparison.Ordinal)) return GravidadeAvaria.MEDIA;
             if (string.Equals(gravidade, GravidadeAvaria.GRAVE.ToString(), StringComparison.Ordinal)) return GravidadeAvaria.GRAVE;
-            throw new ValidationException(ConstantsMessage.ErroAvariaGravidadeInvalida);
+            throw CriarValidacao(ConstantsMessage.ErroAvariaGravidadeInvalida, nameof(gravidade));
         }
 
         private static byte[] ValidarFoto(byte[]? foto, string? contentType)
         {
             if (foto == null || foto.Length == 0 || foto.Length > ConstantsArmazenamento.TamanhoMaximoFotoBytes)
-                throw new ValidationException(ConstantsMessage.ErroAvariaFotoObrigatoria);
+                throw CriarValidacao(ConstantsMessage.ErroAvariaFotoObrigatoria, nameof(foto));
             bool mimeJpeg = string.Equals(contentType, ConstantsArmazenamento.MimeJpeg, StringComparison.OrdinalIgnoreCase);
             bool mimePng = string.Equals(contentType, ConstantsArmazenamento.MimePng, StringComparison.OrdinalIgnoreCase);
             bool assinaturaJpeg = foto.Length >= 3 && foto[0] == 0xFF && foto[1] == 0xD8 && foto[2] == 0xFF;
             bool assinaturaPng = foto.Length >= 8 && foto[0] == 0x89 && foto[1] == 0x50 && foto[2] == 0x4E && foto[3] == 0x47 && foto[4] == 0x0D && foto[5] == 0x0A && foto[6] == 0x1A && foto[7] == 0x0A;
             if ((!mimeJpeg || !assinaturaJpeg) && (!mimePng || !assinaturaPng))
-                throw new ValidationException(ConstantsMessage.ErroAvariaFotoFormatoInvalido);
+                throw CriarValidacao(ConstantsMessage.ErroAvariaFotoFormatoInvalido, nameof(foto));
 
             try
             {
                 using SKData dadosOriginais = SKData.CreateCopy(foto);
                 using SKCodec? codec = SKCodec.Create(dadosOriginais);
                 if (codec == null)
-                    throw new ValidationException(ConstantsMessage.ErroAvariaFotoFormatoInvalido);
+                    throw CriarValidacao(ConstantsMessage.ErroAvariaFotoFormatoInvalido, nameof(foto));
 
                 SKImageInfo informacao = codec.Info;
                 if (informacao.Width <= 0 || informacao.Height <= 0
                     || informacao.Width > ConstantsArmazenamento.DimensaoMaximaFotoPixels
                     || informacao.Height > ConstantsArmazenamento.DimensaoMaximaFotoPixels
                     || (long)informacao.Width * informacao.Height > ConstantsArmazenamento.TotalMaximoPixelsFoto)
-                    throw new ValidationException(ConstantsMessage.ErroAvariaFotoFormatoInvalido);
+                    throw CriarValidacao(ConstantsMessage.ErroAvariaFotoFormatoInvalido, nameof(foto));
 
-                using SKBitmap? bitmap = SKBitmap.Decode(codec);
-                if (bitmap == null)
-                    throw new ValidationException(ConstantsMessage.ErroAvariaFotoFormatoInvalido);
+                // Decodifica e confere o resultado: JPEG cortado devolve bitmap parcial sem erro, entao o resultado do codec decide.
+                using SKBitmap bitmap = new SKBitmap(codec.Info);
+                SKCodecResult resultadoDecodificacao = codec.GetPixels(bitmap.Info, bitmap.GetPixels());
+                if (resultadoDecodificacao != SKCodecResult.Success)
+                    throw CriarValidacao(ConstantsMessage.ErroAvariaFotoFormatoInvalido, nameof(foto));
 
                 using SKImage imagem = SKImage.FromBitmap(bitmap);
                 SKEncodedImageFormat formato = mimeJpeg ? SKEncodedImageFormat.Jpeg : SKEncodedImageFormat.Png;
                 using SKData? imagemNormalizada = imagem.Encode(formato, 90);
                 if (imagemNormalizada == null)
-                    throw new ValidationException(ConstantsMessage.ErroAvariaFotoFormatoInvalido);
+                    throw CriarValidacao(ConstantsMessage.ErroAvariaFotoFormatoInvalido, nameof(foto));
                 return imagemNormalizada.ToArray();
             }
             catch (ValidationException)
@@ -278,8 +282,16 @@ namespace AutoVia.Infrastructure.Services
             }
             catch (Exception)
             {
-                throw new ValidationException(ConstantsMessage.ErroAvariaFotoFormatoInvalido);
+                throw CriarValidacao(ConstantsMessage.ErroAvariaFotoFormatoInvalido, nameof(foto));
             }
+        }
+
+        /// <summary>Monta a excecao de validacao com a mensagem tambem no errors (o middleware responde 400 com a mensagem especifica).</summary>
+        private static ValidationException CriarValidacao(string mensagem, string campo)
+        {
+            List<ValidationFailure> falhas = new List<ValidationFailure> { new ValidationFailure(campo, mensagem) };
+
+            return new ValidationException(mensagem, falhas);
         }
 
         private static Exception CriarErroSanitizado(Exception exception)

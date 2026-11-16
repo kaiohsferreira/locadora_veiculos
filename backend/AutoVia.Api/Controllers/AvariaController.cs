@@ -1,5 +1,4 @@
 using AutoVia.Api.Requests.Avaria;
-using AutoVia.Api.Helpers;
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.ViewObjects.Avarias;
 using AutoVia.Core.ServicesInterface;
@@ -10,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -33,6 +33,7 @@ namespace AutoVia.Api.Controllers
         /// <summary>Cria a avaria, armazena a foto e devolve uma URL temporaria.</summary>
         [HttpPost]
         [Consumes("multipart/form-data")]
+        [RequestSizeLimit(ConstantsValues.TamanhoMaximoCorpoFotoAvaria)]
         [ProducesResponseType(typeof(ReturnAvariaVO), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -56,8 +57,8 @@ namespace AutoVia.Api.Controllers
                     Title = ConstantsMessage.TituloErroIntegracao,
                     Detail = ConstantsMessage.ErroUploadAvariaPendente
                 };
-                detalhe.Extensions[ConstantsAvariaApi.IdAvaria] = ex.IdAvaria;
-                detalhe.Extensions[ConstantsAvariaApi.RetryUploadUrl] = string.Format(System.Globalization.CultureInfo.InvariantCulture, ConstantsAvariaApi.RetryUploadPath, ex.IdVistoria, ex.IdAvaria);
+                detalhe.Extensions[ConstantsValues.ExtensaoProblemaIdAvaria] = ex.IdAvaria;
+                detalhe.Extensions[ConstantsValues.ExtensaoProblemaRetryUploadUrl] = string.Format(CultureInfo.InvariantCulture, ConstantsValues.FormatoRotaRetryFotoAvaria, ex.IdVistoria, ex.IdAvaria);
                 return StatusCode(StatusCodes.Status502BadGateway, detalhe);
             }
             catch (Exception ex)
@@ -88,6 +89,7 @@ namespace AutoVia.Api.Controllers
         /// <summary>Repete o upload de foto usando a chave deterministica da avaria existente.</summary>
         [HttpPut("{idAvaria:int}/foto")]
         [Consumes("multipart/form-data")]
+        [RequestSizeLimit(ConstantsValues.TamanhoMaximoCorpoFotoAvaria)]
         [ProducesResponseType(typeof(ReturnAvariaVO), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
@@ -169,8 +171,8 @@ namespace AutoVia.Api.Controllers
                 Title = ConstantsMessage.TituloErroIntegracao,
                 Detail = ConstantsMessage.ErroUploadAvariaPendente
             };
-            detalhe.Extensions[ConstantsAvariaApi.IdAvaria] = excecao.IdAvaria;
-            detalhe.Extensions[ConstantsAvariaApi.RetryUploadUrl] = string.Format(System.Globalization.CultureInfo.InvariantCulture, ConstantsAvariaApi.RetryUploadPath, excecao.IdVistoria, excecao.IdAvaria);
+            detalhe.Extensions[ConstantsValues.ExtensaoProblemaIdAvaria] = excecao.IdAvaria;
+            detalhe.Extensions[ConstantsValues.ExtensaoProblemaRetryUploadUrl] = string.Format(CultureInfo.InvariantCulture, ConstantsValues.FormatoRotaRetryFotoAvaria, excecao.IdVistoria, excecao.IdAvaria);
             return StatusCode(StatusCodes.Status502BadGateway, detalhe);
         }
 

@@ -69,6 +69,34 @@ namespace AutoVia.Tests.Avarias
             Assert.Equal(StatusCodes.Status400BadRequest, resultado.StatusCode);
         }
 
+        [Fact]
+        public async Task PostAcimaDoLimite_EInterceptadoComo400()
+        {
+            byte[] bytes = new byte[ConstantsArmazenamento.TamanhoMaximoFotoBytes + 1];
+            bytes[0] = 0xFF;
+            bytes[1] = 0xD8;
+            bytes[2] = 0xFF;
+            CriarAvariaRequest request = CriarRequest("image/jpeg", bytes);
+            BadRequestObjectResult resultado = await ExecutarFiltroAsync(request, new CriarAvariaRequestValidator());
+
+            Assert.Equal(StatusCodes.Status400BadRequest, resultado.StatusCode);
+        }
+
+        [Fact]
+        public async Task JpegComBytesDePng_EReprovadoComAMensagemDeFormato()
+        {
+            CriarAvariaRequestValidator validator = new CriarAvariaRequestValidator();
+            byte[] assinaturaPng = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+            FluentValidation.Results.ValidationResult resultado = await validator.ValidateAsync(new CriarAvariaRequest
+            {
+                Descricao = "Dano",
+                Gravidade = "LEVE",
+                Foto = CriarFoto("image/jpeg", assinaturaPng)
+            });
+
+            Assert.Contains(resultado.Errors, x => x.ErrorMessage == ConstantsMessage.ErroAvariaFotoFormatoInvalido);
+        }
+
         private static CriarAvariaRequest CriarRequest(string contentType, byte[] bytes)
         {
             return new CriarAvariaRequest
