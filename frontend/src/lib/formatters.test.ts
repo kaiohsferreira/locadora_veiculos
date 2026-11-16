@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { formatarCep, formatarCnpj, formatarCpf, formatarTelefone, limitarDigitos } from '@/lib/formatters';
+import { formatarCep, formatarCnpj, formatarCpf, formatarHora, formatarTelefone, limitarDigitos } from '@/lib/formatters';
+
+describe('formatarHora', () => {
+  it('formata a hora local em 24 horas, com zero à esquerda', () => {
+    expect(formatarHora(new Date(2026, 10, 16, 14, 22))).toBe('14:22');
+    expect(formatarHora(new Date(2026, 10, 16, 8, 5).getTime())).toBe('08:05');
+  });
+
+  it('nulo, ausente ou data inválida vira o traço de valor ausente', () => {
+    expect(formatarHora(null)).toBe('—');
+    expect(formatarHora(undefined)).toBe('—');
+    expect(formatarHora(new Date('nao é data'))).toBe('—');
+  });
+});
 
 describe('formatarCpf', () => {
   it('formata valor parcial enquanto o usuário digita', () => {

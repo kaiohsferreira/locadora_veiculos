@@ -89,6 +89,13 @@ export function formatarData(valor: string | Date | null | undefined): string {
   return data ? formatadorData.format(data) : VALOR_AUSENTE;
 }
 
+/** Date ou instante em ms → "14:22" (hora local, 24 h). */
+export function formatarHora(valor: Date | number | null | undefined): string {
+  if (semValor(valor)) return VALOR_AUSENTE;
+  const data = valor instanceof Date ? valor : new Date(valor);
+  return Number.isNaN(data.getTime()) ? VALOR_AUSENTE : formatadorHora.format(data);
+}
+
 /** "2026-11-04T14:30:00" ou Date → "04/11/2026 14:30" */
 export function formatarDataHora(valor: string | Date | null | undefined): string {
   if (semValor(valor) || valor === '') return VALOR_AUSENTE;

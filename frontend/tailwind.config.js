@@ -112,6 +112,8 @@ export default {
         micro: ['0.6875rem', { lineHeight: '0.875rem', fontWeight: '500', letterSpacing: '0.03em' }],
         /** Tela de acesso: rótulo curto e link de apoio (12/16, semibold). */
         rotulo: ['0.75rem', { lineHeight: '1rem', fontWeight: '600', letterSpacing: '0.02em' }],
+        /** Minhas reservas (design 29): nome do veículo no cartão (18/24, negrito). Autorizado pelo Kaio em 16/11/2026. */
+        'nome-veiculo': ['1.125rem', { lineHeight: '1.5rem', fontWeight: '700' }],
       },
       borderRadius: {
         cartao: '8px',
