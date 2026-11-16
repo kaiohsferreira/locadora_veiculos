@@ -1,4 +1,4 @@
-﻿START TRANSACTION;
+START TRANSACTION;
 
 INSERT INTO integration (codigo, nome, descricao, ambiente, base_url, timeout_ms, ativo) VALUES
     ('PAGAMENTO',     'Gateway de pagamento',                 'Cobrança por PIX, cartão de crédito (com pré-autorização) e boleto', 'SANDBOX', 'https://sandbox.pagamento.exemplo.com.br',  30000, TRUE),
@@ -41,6 +41,7 @@ JOIN (VALUES
     ('SEGURADORA',    'codigo_corretora',             'DEFINIR_NO_BANCO',            FALSE),
     ('SEGURADORA',    'apolice_master',               'DEFINIR_NO_BANCO',            FALSE),
 
+    ('MULTAS',        'provedor',                     'FAKE',                         FALSE),
     ('MULTAS',        'token',                        'DEFINIR_NO_BANCO',            TRUE),
     ('MULTAS',        'orgao',                        'DETRAN-MG',                   FALSE),
     ('MULTAS',        'uf_padrao',                    'MG',                          FALSE)

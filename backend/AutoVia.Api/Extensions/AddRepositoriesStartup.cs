@@ -24,6 +24,10 @@ namespace AutoVia.Api.Extensions
             // --- Veiculo (SEAM: base comum das tarefas P1-BE-02 e P1-BE-03) ---
             services.AddScoped<IVeiculoRepository, VeiculoRepository>();
 
+            // --- Locacao ---
+            services.AddScoped<ILocacaoRepository, LocacaoRepository>();
+            services.AddScoped<IAvariaRepository, AvariaRepository>();
+
             // --- Autenticacao ---
             services.AddScoped<IAutenticacaoRepository, AutenticacaoRepository>();
 

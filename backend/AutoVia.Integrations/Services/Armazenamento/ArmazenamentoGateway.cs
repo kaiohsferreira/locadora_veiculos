@@ -1,0 +1,122 @@
+using AutoVia.Communication.CustomExceptions;
+using AutoVia.Core.ServicesInterface;
+using AutoVia.Helpers;
+using AutoVia.Integrations.Communication.Armazenamento;
+using AutoVia.Integrations.Communication.Base;
+using AutoVia.Integrations.Helpers.Armazenamento;
+using AutoVia.Integrations.Interfaces;
+using System.Globalization;
+
+namespace AutoVia.Integrations.Services.Armazenamento
+{
+    /// <summary>Resolve ARMAZENAMENTO e delega ao provider suportado.</summary>
+    public sealed class ArmazenamentoGateway : IArmazenamentoGateway
+    {
+        private readonly IIntegrationResolver _integrationResolver;
+        private readonly IEnumerable<IArmazenamentoProvider> _providers;
+        private readonly ILogService _logService;
+
+        public ArmazenamentoGateway(IIntegrationResolver integrationResolver, IEnumerable<IArmazenamentoProvider> providers, ILogService logService)
+        {
+            _integrationResolver = integrationResolver;
+            _providers = providers;
+            _logService = logService;
+        }
+
+        public async Task<ArquivoArmazenado> EnviarAsync(string chave, byte[] conteudo, string contentType, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                ConfiguracaoIntegracao configuracao = await ResolverAsync(cancellationToken);
+                return await Selecionar(configuracao).EnviarAsync(configuracao, ObterBucket(configuracao), chave, conteudo, contentType, ObterExpiracao(configuracao), cancellationToken);
+            }
+            catch (IntegrationException ex)
+            {
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroIntegracaoExterna, GetType().ToString());
+                throw;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroIntegracaoExterna, GetType().ToString());
+                throw new IntegrationException(ConstantsArmazenamento.Codigo, ConstantsMessage.ErroIntegracaoExterna);
+            }
+        }
+
+        public async Task<ArquivoArmazenado?> ObterUrlAsync(string chave, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                ConfiguracaoIntegracao configuracao = await ResolverAsync(cancellationToken);
+                return await Selecionar(configuracao).ObterUrlAsync(configuracao, ObterBucket(configuracao), chave, ObterExpiracao(configuracao), cancellationToken);
+            }
+            catch (IntegrationException ex)
+            {
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroIntegracaoExterna, GetType().ToString());
+                throw;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroIntegracaoExterna, GetType().ToString());
+                throw new IntegrationException(ConstantsArmazenamento.Codigo, ConstantsMessage.ErroIntegracaoExterna);
+            }
+        }
+
+        public async Task RemoverAsync(string chave, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                ConfiguracaoIntegracao configuracao = await ResolverAsync(cancellationToken);
+                await Selecionar(configuracao).RemoverAsync(configuracao, ObterBucket(configuracao), chave, cancellationToken);
+            }
+            catch (IntegrationException ex)
+            {
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroIntegracaoExterna, GetType().ToString());
+                throw;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroIntegracaoExterna, GetType().ToString());
+                throw new IntegrationException(ConstantsArmazenamento.Codigo, ConstantsMessage.ErroIntegracaoExterna);
+            }
+        }
+
+        private async Task<ConfiguracaoIntegracao> ResolverAsync(CancellationToken cancellationToken)
+        {
+            ConfiguracaoIntegracao configuracao = await _integrationResolver.ResolveAsync(ConstantsArmazenamento.Codigo, cancellationToken);
+            string nome = configuracao.GetOptional(ConstantsArmazenamento.ChaveProvedor) ?? ConstantsArmazenamento.ProvedorS3Compativel;
+            if (!string.Equals(nome.Trim(), ConstantsArmazenamento.ProvedorS3Compativel, StringComparison.OrdinalIgnoreCase))
+                throw new IntegrationException(configuracao.Codigo, ConstantsArmazenamento.ChaveProvedor, ConstantsMessage.ErroIntegracaoExterna);
+            return configuracao;
+        }
+
+        private IArmazenamentoProvider Selecionar(ConfiguracaoIntegracao configuracao)
+        {
+            IArmazenamentoProvider? provider = _providers.FirstOrDefault(x => string.Equals(x.Nome, ConstantsArmazenamento.ProvedorS3Compativel, StringComparison.OrdinalIgnoreCase));
+            if (provider == null) throw new IntegrationException(configuracao.Codigo, ConstantsArmazenamento.ChaveProvedor, ConstantsMessage.ErroIntegracaoExterna);
+            return provider;
+        }
+
+        private static string ObterBucket(ConfiguracaoIntegracao configuracao)
+        {
+            return configuracao.GetOptional(ConstantsArmazenamento.ChaveBucket) ?? ConstantsArmazenamento.BucketPadrao;
+        }
+
+        private static int ObterExpiracao(ConfiguracaoIntegracao configuracao)
+        {
+            string? valor = configuracao.GetOptional(ConstantsArmazenamento.ChaveExpiracao);
+            if (string.IsNullOrWhiteSpace(valor)) return ConstantsArmazenamento.ExpiracaoPadraoSegundos;
+            int expiracao;
+            if (!int.TryParse(valor, NumberStyles.Integer, CultureInfo.InvariantCulture, out expiracao) || expiracao <= 0 || expiracao > ConstantsArmazenamento.ExpiracaoMaximaSegundos)
+                throw new IntegrationException(configuracao.Codigo, ConstantsArmazenamento.ChaveExpiracao, ConstantsMessage.ErroIntegracaoExterna);
+            return expiracao;
+        }
+
+        private static Exception CriarErroSanitizado(Exception exception)
+        {
+            return new Exception(exception.GetType().Name);
+        }
+    }
+}

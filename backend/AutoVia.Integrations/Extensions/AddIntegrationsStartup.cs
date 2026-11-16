@@ -24,6 +24,8 @@ namespace AutoVia.Integrations.Extensions
             services.AddScoped<IIntegrationResolver, IntegrationResolver>();
 
             services.AddDocumentoIntegration();
+            services.AddArmazenamentoIntegration();
+            services.AddMultasIntegration();
 
             // --- Provedores (Prompt 2) ---
             // services.AddScoped<IPagamentoRequest, PagamentoRequest>();

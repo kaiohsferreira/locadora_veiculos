@@ -26,6 +26,10 @@ namespace AutoVia.Api.Extensions
             // --- Veiculo (SEAM: base comum das tarefas P1-BE-02 e P1-BE-03) ---
             services.AddScoped<IVeiculoService, VeiculoService>();
 
+            // --- Locacao ---
+            services.AddScoped<ILocacaoService, LocacaoService>();
+            services.AddScoped<IAvariaService, AvariaService>();
+
             // --- Autenticacao ---
             // Singleton: sem estado (hash, emissao de token); as opcoes sao registradas em AddAuthenticationJwt.
             services.AddSingleton<ISenhaHasher, SenhaHasher>();
