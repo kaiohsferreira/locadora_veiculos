@@ -3,7 +3,6 @@ namespace AutoVia.Integrations.Helpers.Armazenamento
     /// <summary>Chaves e valores padrao da integracao ARMAZENAMENTO.</summary>
     public static class ConstantsArmazenamento
     {
-        public const string Codigo = "ARMAZENAMENTO";
         public const string ChaveAccessKey = "access_key";
         public const string ChaveSecretKey = "secret_key";
         public const string ChaveBucket = "bucket";

@@ -3,6 +3,7 @@ using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Integrations.Communication.Armazenamento;
 using AutoVia.Integrations.Communication.Base;
+using AutoVia.Integrations.Helpers;
 using AutoVia.Integrations.Helpers.Armazenamento;
 using AutoVia.Integrations.Interfaces;
 using System.Globalization;
@@ -32,14 +33,14 @@ namespace AutoVia.Integrations.Services.Armazenamento
             }
             catch (IntegrationException ex)
             {
-                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroIntegracaoExterna, GetType().ToString());
+                _logService.Write(CriarErroSanitizado(ex), ex.Message, GetType().ToString());
                 throw;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
-                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroIntegracaoExterna, GetType().ToString());
-                throw new IntegrationException(ConstantsArmazenamento.Codigo, ConstantsMessage.ErroIntegracaoExterna);
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroArmazenamentoEnviar, GetType().ToString());
+                throw new IntegrationException(ConstantsIntegration.Armazenamento, ConstantsMessage.ErroArmazenamentoEnviar);
             }
         }
 
@@ -52,14 +53,14 @@ namespace AutoVia.Integrations.Services.Armazenamento
             }
             catch (IntegrationException ex)
             {
-                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroIntegracaoExterna, GetType().ToString());
+                _logService.Write(CriarErroSanitizado(ex), ex.Message, GetType().ToString());
                 throw;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
-                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroIntegracaoExterna, GetType().ToString());
-                throw new IntegrationException(ConstantsArmazenamento.Codigo, ConstantsMessage.ErroIntegracaoExterna);
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroArmazenamentoObterUrl, GetType().ToString());
+                throw new IntegrationException(ConstantsIntegration.Armazenamento, ConstantsMessage.ErroArmazenamentoObterUrl);
             }
         }
 
@@ -72,30 +73,30 @@ namespace AutoVia.Integrations.Services.Armazenamento
             }
             catch (IntegrationException ex)
             {
-                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroIntegracaoExterna, GetType().ToString());
+                _logService.Write(CriarErroSanitizado(ex), ex.Message, GetType().ToString());
                 throw;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
-                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroIntegracaoExterna, GetType().ToString());
-                throw new IntegrationException(ConstantsArmazenamento.Codigo, ConstantsMessage.ErroIntegracaoExterna);
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroArmazenamentoRemover, GetType().ToString());
+                throw new IntegrationException(ConstantsIntegration.Armazenamento, ConstantsMessage.ErroArmazenamentoRemover);
             }
         }
 
         private async Task<ConfiguracaoIntegracao> ResolverAsync(CancellationToken cancellationToken)
         {
-            ConfiguracaoIntegracao configuracao = await _integrationResolver.ResolveAsync(ConstantsArmazenamento.Codigo, cancellationToken);
+            ConfiguracaoIntegracao configuracao = await _integrationResolver.ResolveAsync(ConstantsIntegration.Armazenamento, cancellationToken);
             string nome = configuracao.GetOptional(ConstantsArmazenamento.ChaveProvedor) ?? ConstantsArmazenamento.ProvedorS3Compativel;
             if (!string.Equals(nome.Trim(), ConstantsArmazenamento.ProvedorS3Compativel, StringComparison.OrdinalIgnoreCase))
-                throw new IntegrationException(configuracao.Codigo, ConstantsArmazenamento.ChaveProvedor, ConstantsMessage.ErroIntegracaoExterna);
+                throw new IntegrationException(ConstantsIntegration.Armazenamento, ConstantsArmazenamento.ChaveProvedor, ConstantsMessage.ErroArmazenamentoProvedorNaoSuportado);
             return configuracao;
         }
 
         private IArmazenamentoProvider Selecionar(ConfiguracaoIntegracao configuracao)
         {
             IArmazenamentoProvider? provider = _providers.FirstOrDefault(x => string.Equals(x.Nome, ConstantsArmazenamento.ProvedorS3Compativel, StringComparison.OrdinalIgnoreCase));
-            if (provider == null) throw new IntegrationException(configuracao.Codigo, ConstantsArmazenamento.ChaveProvedor, ConstantsMessage.ErroIntegracaoExterna);
+            if (provider == null) throw new IntegrationException(ConstantsIntegration.Armazenamento, ConstantsArmazenamento.ChaveProvedor, ConstantsMessage.ErroArmazenamentoProvedorNaoSuportado);
             return provider;
         }
 
@@ -110,7 +111,7 @@ namespace AutoVia.Integrations.Services.Armazenamento
             if (string.IsNullOrWhiteSpace(valor)) return ConstantsArmazenamento.ExpiracaoPadraoSegundos;
             int expiracao;
             if (!int.TryParse(valor, NumberStyles.Integer, CultureInfo.InvariantCulture, out expiracao) || expiracao <= 0 || expiracao > ConstantsArmazenamento.ExpiracaoMaximaSegundos)
-                throw new IntegrationException(configuracao.Codigo, ConstantsArmazenamento.ChaveExpiracao, ConstantsMessage.ErroIntegracaoExterna);
+                throw new IntegrationException(ConstantsIntegration.Armazenamento, ConstantsArmazenamento.ChaveExpiracao, ConstantsMessage.ErroArmazenamentoExpiracaoInvalida);
             return expiracao;
         }
 
