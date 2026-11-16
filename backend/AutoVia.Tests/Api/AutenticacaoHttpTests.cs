@@ -954,7 +954,7 @@ namespace AutoVia.Tests.Api
             Assert.Equal(HttpStatusCode.OK, b2.StatusCode);
         }
 
-        /// <summary>Verificacao de um CPF; com ip informado, o X-Real-IP (cabecalho configurado) define o IP que o limitador enxerga (ForwardedHeaders ativo).</summary>
+        /// <summary>Verificacao de um CPF; com ip informado, o cabecalho configurado na fabrica (CabecalhoIpClienteDeTeste) define o IP que o limitador enxerga (ForwardedHeaders ativo).</summary>
         private static Task<HttpResponseMessage> VerificarCpf(HttpClient cliente, string cpf, string? ip = null)
         {
             HttpRequestMessage requisicao = RequisicaoComCorpo(RotaVerificacao, new { campo = "CPF", valor = cpf });

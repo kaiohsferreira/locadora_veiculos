@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -211,6 +212,18 @@ namespace AutoVia.Tests.Api
             Assert.Equal("https", context.Request.Scheme);
             Assert.Equal(IPAddress.Parse("203.0.113.7"), context.Connection.RemoteIpAddress);
         }
+
+        /// <summary>Sem Rede:CabecalhoIpCliente na configuracao: o padrao e X-Real-IP (constante e cabecalho lido pelas opcoes da API).</summary>
+        [Fact]
+        public void SemChaveNaConfiguracao_PadraoELerXRealIp()
+        {
+            IConfiguration configuracaoVazia = new ConfigurationBuilder().Build();
+
+            ForwardedHeadersOptions opcoes = AddRateLimitingStartup.CriarCabecalhosEncaminhados(configuracaoVazia);
+
+            Assert.Equal(CabecalhoRealIp, ConstantsValues.CabecalhoIpClientePadrao);
+            Assert.Equal(CabecalhoRealIp, opcoes.ForwardedForHeaderName);
+        }
     }
 
     /// <summary>
@@ -324,7 +337,7 @@ namespace AutoVia.Tests.Api
             Assert.Equal(HttpStatusCode.TooManyRequests, terceira.StatusCode);
         }
 
-        // --- Direcao (b): configurado X-Forwarded-For (o padrao) ---
+        // --- Direcao (b): configurado X-Forwarded-For (configuracao explicita, nao o padrao) ---
 
         /// <summary>Configurado X-Forwarded-For: um X-Real-IP forjado com valores diferentes nao cria particao nova.</summary>
         [Fact]

@@ -19,7 +19,7 @@ namespace AutoVia.Api.Extensions
     /// Autenticacao:LimitePublicoPorMinuto), AutoViaVerificacaoCadastro (verificacao de cadastro; um minuto;
     /// numero em Clientes:LimiteVerificacaoCadastroPorMinuto) e AutoViaCadastroEmpresa (cadastro publico de
     /// locadora; uma hora; numero em Locadoras:LimiteCadastroPorHora, padrao 5). Um valor menor ou igual a
-    /// zero cai no padrao. O IP vem do cabecalho configurado em Rede:CabecalhoIpCliente (padrao X-Forwarded-For,
+    /// zero cai no padrao. O IP vem do cabecalho configurado em Rede:CabecalhoIpCliente (padrao X-Real-IP,
     /// um salto), lido pelo UseForwardedHeaders montado no Program; vazio desliga a leitura e vale o IP do socket.
     /// Um valor que nao e nome de cabecalho HTTP valido impede a subida da API, e com FORWARDEDHEADERS_ENABLED
     /// verdadeira a API tambem nao sobe (o host anularia o controle).

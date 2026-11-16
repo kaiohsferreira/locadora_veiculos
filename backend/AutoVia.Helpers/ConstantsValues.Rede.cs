@@ -11,11 +11,12 @@ namespace AutoVia.Helpers
         public const string ChaveCabecalhoIpCliente = "Rede:CabecalhoIpCliente";
 
         /// <summary>
-        /// Cabecalho padrao do IP real: X-Forwarded-For, que o codigo ja lia e que o teste no Railway mostrou nao ser
-        /// forjavel pela borda publica (publicar nao muda o comportamento). X-Real-IP entra so por variavel de ambiente,
-        /// depois do teste publicado.
+        /// Cabecalho padrao do IP real: X-Real-IP. Com ele o limite fica exato no teste publicado no Railway (10 de 10) e o
+        /// cabecalho forjado pelo cliente nao burla, porque a borda sobrescreve o valor. Com X-Forwarded-For passavam 20
+        /// com limite 10. Em hospedagem cuja borda repasse o X-Real-IP do cliente sem sobrescrever, o cabecalho e forjavel:
+        /// ajustar a variavel Rede__CabecalhoIpCliente.
         /// </summary>
-        public const string CabecalhoIpClientePadrao = "X-Forwarded-For";
+        public const string CabecalhoIpClientePadrao = "X-Real-IP";
 
         /// <summary>
         /// Chave que o host do ASP.NET le (variavel ASPNETCORE_FORWARDEDHEADERS_ENABLED). Verdadeira significa que o host

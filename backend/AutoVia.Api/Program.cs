@@ -38,7 +38,7 @@ AddRateLimitingStartup.ValidarHostSemCabecalhosAutomaticos(app.Configuration);
 // Aviso na subida quando a leitura do IP do cliente esta desligada (Rede:CabecalhoIpCliente vazia).
 AddRateLimitingStartup.RegistrarAvisoCabecalhoDesligado(app.Configuration, app.Services.GetRequiredService<ILogService>());
 
-// Primeiro do pipeline: le o IP real do cliente (cabecalho Rede:CabecalhoIpCliente, padrao X-Forwarded-For) para o limite
+// Primeiro do pipeline: le o IP real do cliente (cabecalho Rede:CabecalhoIpCliente, padrao X-Real-IP) para o limite
 // de requisicoes. As opcoes saem da configuracao final: valor invalido impede a subida da API aqui mesmo.
 app.UseForwardedHeaders(AddRateLimitingStartup.CriarCabecalhosEncaminhados(app.Configuration));
 
