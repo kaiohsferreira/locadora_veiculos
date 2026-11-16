@@ -34,6 +34,12 @@ namespace AutoVia.Api.Extensions
             // --- Painel da locadora (visao geral, P11-BE-01 e P11-BE-02) ---
             services.AddScoped<IPainelRepository, PainelRepository>();
 
+            // --- Reserva ---
+            services.AddScoped<IReservaRepository, ReservaRepository>();
+
+            // --- Painel operacional ---
+            services.AddScoped<IPainelOperacionalRepository, PainelOperacionalRepository>();
+
             // --- Autenticacao ---
             services.AddScoped<IAutenticacaoRepository, AutenticacaoRepository>();
 

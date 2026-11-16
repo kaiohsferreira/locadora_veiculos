@@ -54,7 +54,8 @@ namespace AutoVia.Tests.Persistence
         /// AutenticacaoRepository (login, sessao e administrador inicial, antes de haver contexto); RedefinicaoSenhaRepository
         /// (titular do link, sem contexto); VeiculoRepository.Cadastro (unicidade de placa, chassi e renavam na plataforma);
         /// EmpresaRepository (CPF na plataforma inteira: do responsavel no cadastro publico de locadora, sem contexto, e do
-        /// funcionario novo na equipe, P10-BE-03, que reaproveita o mesmo metodo; a equipe nao cria bypass proprio).
+        /// funcionario novo na equipe, P10-BE-03, que reaproveita o mesmo metodo; a equipe nao cria bypass proprio);
+        /// ReservaRepository (trava FOR UPDATE do veiculo por SQL bruto, na reserva, sob o filtro Empresa; sem SemEscopoEmpresa).
         /// </summary>
         private static readonly Dictionary<string, int> OcorrenciasPermitidas = new Dictionary<string, int>
         {
@@ -62,6 +63,7 @@ namespace AutoVia.Tests.Persistence
             ["AutoVia.Infrastructure/Repositories/AutenticacaoRepository.cs"] = 3,
             ["AutoVia.Infrastructure/Repositories/EmpresaRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/RedefinicaoSenhaRepository.cs"] = 1,
+            ["AutoVia.Infrastructure/Repositories/ReservaRepository.cs"] = 2,
             ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Cadastro.cs"] = 3
         };
 

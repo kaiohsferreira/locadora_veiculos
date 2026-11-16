@@ -42,6 +42,12 @@ namespace AutoVia.Api.Extensions
             // Scoped: uma empresa e um cargo por requisicao, preenchidos na validacao do token com dados do banco.
             services.AddScoped<IContextoEmpresa, ContextoEmpresa>();
 
+            // --- Reserva ---
+            services.AddScoped<IReservaService, ReservaService>();
+
+            // --- Painel operacional ---
+            services.AddScoped<IPainelOperacionalService, PainelOperacionalService>();
+
             // --- Autenticacao ---
             // Singleton: sem estado (hash, emissao de token); as opcoes sao registradas em AddAuthenticationJwt.
             services.AddSingleton<ISenhaHasher, SenhaHasher>();

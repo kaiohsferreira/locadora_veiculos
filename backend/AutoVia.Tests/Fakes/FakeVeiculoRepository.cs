@@ -32,7 +32,7 @@ namespace AutoVia.Tests.Fakes
             _veiculos.Add(Copiar(veiculo));
         }
 
-        /// <summary>Copia os campos do veiculo, inclusive auditoria e a referencia de Categoria (simula o Include).</summary>
+        /// <summary>Copia os campos do veiculo, inclusive auditoria e navegacoes usadas pelos testes (simula o Include).</summary>
         private static Veiculo Copiar(Veiculo origem)
         {
             Veiculo copia = new Veiculo
@@ -57,7 +57,8 @@ namespace AutoVia.Tests.Fakes
                 UpdatedAt = origem.UpdatedAt,
                 DisabledAt = origem.DisabledAt,
                 Categoria = origem.Categoria,
-                Empresa = origem.Empresa
+                Empresa = origem.Empresa,
+                Reservas = origem.Reservas
             };
 
             return copia;
