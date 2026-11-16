@@ -18,8 +18,8 @@ Na pasta `backend/`:
 
 ```bash
 dotnet tool restore
-dotnet dotnet-ef migrations script 0 Inicial --project AutoVia.Infrastructure --startup-project AutoVia.Api -o docs/sql/01_Inicial.sql
-dotnet dotnet-ef migrations script Inicial SeedIntegracoes --project AutoVia.Infrastructure --startup-project AutoVia.Api -o docs/sql/02_SeedIntegracoes.sql
+dotnet ef migrations script 0 Inicial --project AutoVia.Infrastructure --startup-project AutoVia.Api -o docs/sql/01_Inicial.sql
+dotnet ef migrations script Inicial SeedIntegracoes --project AutoVia.Infrastructure --startup-project AutoVia.Api -o docs/sql/02_SeedIntegracoes.sql
 python tools/compare_schema.py docs/especificacao/apendice_A_tabelas_negocio.sql docs/especificacao/apendice_B_tabelas_integracoes.sql docs/sql/01_Inicial.sql
 ```
 
@@ -50,8 +50,8 @@ Decisão do Kaio, depois da conferência acima:
 Os apêndices A e B **não foram alterados**. Os desvios ficam descritos em `especificacao/desvios_aprovados.json`, e o script aplica esses desvios antes de comparar:
 
 ```bash
-dotnet dotnet-ef migrations script SeedIntegracoes AuditoriaSoftDelete --project AutoVia.Infrastructure --startup-project AutoVia.Api -o docs/sql/03_AuditoriaSoftDelete.sql
-dotnet dotnet-ef dbcontext script --project AutoVia.Infrastructure --startup-project AutoVia.Api -o docs/sql/00_ModeloAtual.sql
+dotnet ef migrations script SeedIntegracoes AuditoriaSoftDelete --project AutoVia.Infrastructure --startup-project AutoVia.Api -o docs/sql/03_AuditoriaSoftDelete.sql
+dotnet ef dbcontext script --project AutoVia.Infrastructure --startup-project AutoVia.Api -o docs/sql/00_ModeloAtual.sql
 python tools/compare_schema.py docs/especificacao/apendice_A_tabelas_negocio.sql docs/especificacao/apendice_B_tabelas_integracoes.sql docs/sql/00_ModeloAtual.sql docs/especificacao/desvios_aprovados.json
 ```
 
@@ -141,3 +141,35 @@ Aprovado pelo Kaio em 14/11/2026 (bloco `cliente_locadora` em `especificacao/des
 - Migration `20261114202316_AdicionarClienteLocadora`: gerada, não aplicada. Depois da `AdicionarEmpresaLocadora` (11). Preenche um vínculo por par (cliente ativo com status APROVADO ou RECUSADO, locadora) com reserva, locação ou venda ativa em veículo dela, com o mesmo status global do cliente. Cliente PENDENTE não ganha vínculo (RF-83, decisão do QA de 14/11); verificador e justificativa ficam nulos. Script `sql/12_AdicionarClienteLocadora.sql`.
 
 Contagens que o `SchemaModelTests` passa a conferir: tabelas 18 -> 19, CHECK 34 -> 35, +3 FKs, +2 índices comuns, +11 colunas (8 de negócio e 3 de auditoria), UNIQUE 0 (inalterado).
+
+## Desvio de 16/11/2026: sinistro_acompanhamento (P9-INT-01, RF-43)
+
+Aprovado pelo Kaio em 16/11/2026. O registro original foi escrito pela Maria em 13/11/2026, na branch dela, e a redação abaixo segue esse registro. O desvio entra no merge S1 de 16/11/2026.
+
+- Coluna nova `sinistro.protocolo_seguradora VARCHAR(40) NULL`: protocolo devolvido pela seguradora na abertura do sinistro.
+- Tabela nova `sinistro_historico` (11 colunas: 8 de negócio e 3 de auditoria do `BaseEntities`): linha do tempo do sinistro, com status anterior e novo, origem (FUNCIONARIO ou SEGURADORA), funcionário (obrigatório quando a origem é FUNCIONARIO), observação e data da alteração.
+- CHECK: `ck_sinistro_historico_status_anterior` (anulável), `ck_sinistro_historico_status_novo`, `ck_sinistro_historico_origem` e `ck_sinistro_historico_funcionario`.
+- FKs NO ACTION: `fk_sinistro_historico_sinistro` e `fk_sinistro_historico_funcionario`.
+- Índice comum `idx_sinistro_historico_sinistro (id_sinistro, data_alteracao)`. Nenhum índice único.
+- Migration `20261116204240_SinistroHistorico`: gerada, não aplicada. Só muda o esquema. Script `sql/13_SinistroHistorico.sql`.
+- Migrations de dados que vêm depois, sem DDL e sem mudança de esquema:
+  - `20261116204317_SeguradoraProvedor` (script `sql/14_SeguradoraProvedor.sql`): `SEGURADORA.provedor = FAKE`;
+  - `20261116204428_MultasProvedor` (script `sql/15_MultasProvedor.sql`): `MULTAS.provedor = FAKE` e `ARMAZENAMENTO.provedor = S3_COMPATIVEL`.
+  - Ambas inserem com `WHERE NOT EXISTS` (idempotentes). O `Down` faz exclusão lógica (`disabled_at`), nunca DELETE. Ressalva: a chave desativada continua sendo lida pelo repositório de integrações, que não filtra `disabled_at` (pendência conhecida, item L13 da síntese do Eduardo).
+- Os números 09 e 10 ficaram sem uso: eram as migrations de 13/11 da Maria, removidas no merge. A numeração segue 13, 14 e 15.
+
+Contagens depois do desvio (`sql/00_ModeloAtual.sql` regenerado em 16/11/2026):
+
+```text
+Tabelas:  19 -> 20 (+ sinistro_historico)
+Colunas:  +12 (sinistro.protocolo_seguradora: 1; sinistro_historico: 11)
+CHECK:    35 -> 39 (+4, todos em sinistro_historico)
+FK:       29 -> 31 (+2)
+UNIQUE:   0 (inalterado)
+Indices:  34 -> 35 (+1: idx_sinistro_historico_sinistro)
+```
+
+Notas sobre a conferência:
+- `tools/compare_schema.py` não lê as entradas `tabelas_novas` nem `colunas_novas` dos blocos de desvio. Por isso "Diferencas: 0" não é critério para este desvio. A conferência é feita pelas contagens acima e pelo diff do `00_ModeloAtual.sql`.
+- O diff do `00_ModeloAtual.sql` traz só as adições de sinistro. O EF também reordena as tabelas do arquivo por dependência: nesta regeneração, o bloco `cliente_locadora` mudou de posição, sem mudança de conteúdo.
+- O bloco do desvio (`sinistro_acompanhamento`) está em `especificacao/desvios_aprovados.json` desde o merge da branch da Maria: aprovado por Kaio em 16/11/2026, com o registro original de 13/11/2026.

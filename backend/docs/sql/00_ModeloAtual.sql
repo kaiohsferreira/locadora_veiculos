@@ -103,26 +103,6 @@ CREATE TABLE funcionario (
 );
 
 
-CREATE TABLE cliente_locadora (
-    id_cliente_locadora serial NOT NULL,
-    id_cliente integer NOT NULL,
-    id_empresa integer NOT NULL,
-    status character varying(15) NOT NULL DEFAULT 'PENDENTE',
-    justificativa_recusa character varying(500),
-    id_funcionario_verificador integer,
-    data_solicitacao timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
-    data_verificacao timestamp without time zone,
-    created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
-    updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
-    disabled_at timestamp without time zone,
-    CONSTRAINT cliente_locadora_pkey PRIMARY KEY (id_cliente_locadora),
-    CONSTRAINT ck_cliente_locadora_status CHECK (status IN ('PENDENTE', 'APROVADO', 'RECUSADO')),
-    CONSTRAINT fk_cliente_locadora_cliente FOREIGN KEY (id_cliente) REFERENCES cliente (id_cliente),
-    CONSTRAINT fk_cliente_locadora_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id_empresa),
-    CONSTRAINT fk_cliente_locadora_funcionario FOREIGN KEY (id_funcionario_verificador) REFERENCES funcionario (id_funcionario)
-);
-
-
 CREATE TABLE veiculo (
     id_veiculo serial NOT NULL,
     id_categoria integer NOT NULL,
@@ -164,6 +144,26 @@ CREATE TABLE integration_setting (
     disabled_at timestamp without time zone,
     CONSTRAINT integration_setting_pkey PRIMARY KEY (id_setting),
     CONSTRAINT fk_setting_integration FOREIGN KEY (id_integration) REFERENCES integration (id_integration) ON DELETE CASCADE
+);
+
+
+CREATE TABLE cliente_locadora (
+    id_cliente_locadora serial NOT NULL,
+    id_cliente integer NOT NULL,
+    id_empresa integer NOT NULL,
+    status character varying(15) NOT NULL DEFAULT 'PENDENTE',
+    justificativa_recusa character varying(500),
+    id_funcionario_verificador integer,
+    data_solicitacao timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    data_verificacao timestamp without time zone,
+    created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    disabled_at timestamp without time zone,
+    CONSTRAINT cliente_locadora_pkey PRIMARY KEY (id_cliente_locadora),
+    CONSTRAINT ck_cliente_locadora_status CHECK (status IN ('PENDENTE', 'APROVADO', 'RECUSADO')),
+    CONSTRAINT fk_cliente_locadora_cliente FOREIGN KEY (id_cliente) REFERENCES cliente (id_cliente),
+    CONSTRAINT fk_cliente_locadora_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id_empresa),
+    CONSTRAINT fk_cliente_locadora_funcionario FOREIGN KEY (id_funcionario_verificador) REFERENCES funcionario (id_funcionario)
 );
 
 
@@ -343,6 +343,7 @@ CREATE TABLE sinistro (
     descricao text,
     valor_prejuizo numeric(12,2),
     status character varying(20) NOT NULL DEFAULT 'ABERTO',
+    protocolo_seguradora character varying(40),
     created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     disabled_at timestamp without time zone,
@@ -372,6 +373,28 @@ CREATE TABLE vistoria (
     CONSTRAINT ck_vistoria_tipo CHECK (tipo IN ('ENTRADA', 'SAIDA')),
     CONSTRAINT fk_vistoria_funcionario FOREIGN KEY (id_funcionario) REFERENCES funcionario (id_funcionario),
     CONSTRAINT fk_vistoria_locacao FOREIGN KEY (id_locacao) REFERENCES locacao (id_locacao) ON DELETE CASCADE
+);
+
+
+CREATE TABLE sinistro_historico (
+    id_sinistro_historico serial NOT NULL,
+    id_sinistro integer NOT NULL,
+    status_anterior character varying(20),
+    status_novo character varying(20) NOT NULL,
+    origem character varying(20) NOT NULL,
+    id_funcionario integer,
+    observacao character varying(500),
+    data_alteracao timestamp without time zone NOT NULL,
+    created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    disabled_at timestamp without time zone,
+    CONSTRAINT sinistro_historico_pkey PRIMARY KEY (id_sinistro_historico),
+    CONSTRAINT ck_sinistro_historico_funcionario CHECK (origem <> 'FUNCIONARIO' OR id_funcionario IS NOT NULL),
+    CONSTRAINT ck_sinistro_historico_origem CHECK (origem IN ('FUNCIONARIO', 'SEGURADORA')),
+    CONSTRAINT ck_sinistro_historico_status_anterior CHECK (status_anterior IS NULL OR status_anterior IN ('ABERTO', 'EM_ANALISE', 'APROVADO', 'NEGADO', 'ENCERRADO')),
+    CONSTRAINT ck_sinistro_historico_status_novo CHECK (status_novo IN ('ABERTO', 'EM_ANALISE', 'APROVADO', 'NEGADO', 'ENCERRADO')),
+    CONSTRAINT fk_sinistro_historico_funcionario FOREIGN KEY (id_funcionario) REFERENCES funcionario (id_funcionario),
+    CONSTRAINT fk_sinistro_historico_sinistro FOREIGN KEY (id_sinistro) REFERENCES sinistro (id_sinistro)
 );
 
 
@@ -463,6 +486,9 @@ CREATE INDEX idx_seguro_numero_apolice ON seguro (numero_apolice);
 
 
 CREATE INDEX idx_sinistro_veiculo ON sinistro (id_veiculo, data_ocorrencia);
+
+
+CREATE INDEX idx_sinistro_historico_sinistro ON sinistro_historico (id_sinistro, data_alteracao);
 
 
 CREATE INDEX idx_veiculo_categoria ON veiculo (id_categoria);
