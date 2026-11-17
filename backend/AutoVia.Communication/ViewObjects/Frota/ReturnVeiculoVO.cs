@@ -65,6 +65,12 @@ namespace AutoVia.Communication.ViewObjects.Frota
         /// <summary>Data de aquisicao no formato dd/MM/yyyy; vazio quando nula.</summary>
         public string DataAquisicaoStr { get; set; } = string.Empty;
 
+        /// <summary>Fornecedor de compra, quando informado. Dado interno: nunca aparece em retorno publico nem de reserva.</summary>
+        public string? Fornecedor { get; set; }
+
+        /// <summary>Numero da nota fiscal de compra, quando informado. Dado interno: nunca aparece em retorno publico nem de reserva.</summary>
+        public string? NumeroNotaFiscalCompra { get; set; }
+
         /// <summary>Nome fantasia da locadora dona do veiculo (Empresa.NomeFantasia). Vazio sem a navegacao carregada.</summary>
         public string LocadoraNomeFantasia { get; set; } = string.Empty;
 

@@ -73,6 +73,25 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public async Task Insert_ComFornecedorENotaFiscal_DevolveOsDoisCamposNo201()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
+            FakeCategoriaRepository categorias = new FakeCategoriaRepository();
+            Categoria suv = CriarCategoria(categorias, "SUV");
+            VeiculoController controller = CriarController(veiculos, categorias);
+            VeiculoVO vo = CriarVOValido(suv.IdCategoria);
+            vo.Fornecedor = "Locadora Atlas Motors";
+            vo.NumeroNotaFiscalCompra = "000.123-4";
+
+            IActionResult resultado = await controller.Insert(vo);
+
+            CreatedAtActionResult criado = Assert.IsType<CreatedAtActionResult>(resultado);
+            ReturnVeiculoVO valor = Assert.IsType<ReturnVeiculoVO>(criado.Value);
+            Assert.Equal("Locadora Atlas Motors", valor.Fornecedor);
+            Assert.Equal("000.123-4", valor.NumeroNotaFiscalCompra);
+        }
+
+        [Fact]
         public async Task Insert_CategoriaInexistente_PropagaNaoEncontrada()
         {
             FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
@@ -114,6 +133,31 @@ namespace AutoVia.Tests.Api
             IActionResult resultado = await controller.Update(veiculo.IdVeiculo, vo);
 
             Assert.IsType<NoContentResult>(resultado);
+        }
+
+        [Fact]
+        public async Task Update_SobrescreveFornecedorENotaFiscalECamposVoltamNoGet()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
+            FakeCategoriaRepository categorias = new FakeCategoriaRepository();
+            Categoria suv = CriarCategoria(categorias, "SUV");
+            VeiculoController controller = CriarController(veiculos, categorias);
+            VeiculoVO criacao = CriarVOValido(suv.IdCategoria);
+            criacao.Fornecedor = "Fornecedor antigo";
+            criacao.NumeroNotaFiscalCompra = "NF-1";
+            CreatedAtActionResult criado = Assert.IsType<CreatedAtActionResult>(await controller.Insert(criacao));
+            int idVeiculo = Assert.IsType<ReturnVeiculoVO>(criado.Value).IdVeiculo;
+
+            VeiculoVO troca = CriarVOValido(suv.IdCategoria);
+            troca.Fornecedor = "Fornecedor novo";
+            troca.NumeroNotaFiscalCompra = null;
+            IActionResult atualizado = await controller.Update(idVeiculo, troca);
+            OkObjectResult consulta = Assert.IsType<OkObjectResult>(await controller.GetById(idVeiculo));
+
+            Assert.IsType<NoContentResult>(atualizado);
+            ReturnVeiculoVO valor = Assert.IsType<ReturnVeiculoVO>(consulta.Value);
+            Assert.Equal("Fornecedor novo", valor.Fornecedor);
+            Assert.Null(valor.NumeroNotaFiscalCompra);
         }
 
         [Fact]

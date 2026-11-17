@@ -1,5 +1,6 @@
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Communication.Enums;
+using AutoVia.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -27,7 +28,7 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
             builder.Property(x => x.Chassi).IsRequired(true).HasMaxLength(17);
             builder.Property(x => x.Renavam).IsRequired(true).HasMaxLength(11);
             builder.Property(x => x.Marca).IsRequired(true).HasMaxLength(40);
-            builder.Property(x => x.Modelo).IsRequired(true).HasMaxLength(40);
+            builder.Property(x => x.Modelo).IsRequired(true).HasMaxLength(ConstantsValues.TamanhoMaximoModeloVeiculo);
             builder.Property(x => x.AnoFabricacao).IsRequired(true);
             builder.Property(x => x.AnoModelo).IsRequired(true);
             builder.Property(x => x.Cor).IsRequired(false).HasMaxLength(30);
@@ -42,6 +43,9 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .HasDefaultValue(StatusVeiculo.DISPONIVEL);
 
             builder.Property(x => x.DataAquisicao).IsRequired(false).HasColumnType("date");
+
+            builder.Property(x => x.Fornecedor).IsRequired(false).HasMaxLength(ConstantsValues.TamanhoMaximoFornecedorVeiculo);
+            builder.Property(x => x.NumeroNotaFiscalCompra).IsRequired(false).HasMaxLength(ConstantsValues.TamanhoMaximoNotaFiscalCompraVeiculo);
 
             builder.HasIndex(x => x.Placa).HasDatabaseName("idx_veiculo_placa");
             builder.HasIndex(x => x.Chassi).HasDatabaseName("idx_veiculo_chassi");

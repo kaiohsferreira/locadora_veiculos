@@ -17,6 +17,7 @@ namespace AutoVia.Communication.Validators.Frota
         private const string NomeCampoMarca = "Marca";
         private const string NomeCampoModelo = "Modelo";
         private const string NomeCampoCor = "Cor";
+        private const string NomeCampoFornecedor = "Fornecedor";
 
         public VeiculoVOValidator()
         {
@@ -82,6 +83,22 @@ namespace AutoVia.Communication.Validators.Frota
             RuleFor(x => x.Cor)
                 .Must(cor => cor == null || !cor.Contains(CaractereNulo))
                 .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoCor));
+
+            RuleFor(x => x.Fornecedor)
+                .Must(fornecedor => fornecedor == null || TamanhoSemEspacos(fornecedor) <= ConstantsValues.TamanhoMaximoFornecedorVeiculo)
+                .WithMessage(string.Format(ConstantsMessage.ErroVeiculoFornecedorTamanho, ConstantsValues.TamanhoMaximoFornecedorVeiculo));
+
+            RuleFor(x => x.Fornecedor)
+                .Must(fornecedor => fornecedor == null || !fornecedor.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoFornecedor));
+
+            RuleFor(x => x.NumeroNotaFiscalCompra)
+                .Must(nota => nota == null || TamanhoSemEspacos(nota) <= ConstantsValues.TamanhoMaximoNotaFiscalCompraVeiculo)
+                .WithMessage(string.Format(ConstantsMessage.ErroVeiculoNotaFiscalCompraTamanho, ConstantsValues.TamanhoMaximoNotaFiscalCompraVeiculo));
+
+            RuleFor(x => x.NumeroNotaFiscalCompra)
+                .Must(nota => nota == null || !nota.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, ConstantsMessage.NomeCampoNotaFiscalCompraVeiculo));
 
             RuleFor(x => x.KmAtual)
                 .GreaterThanOrEqualTo(0)

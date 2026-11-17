@@ -1315,6 +1315,11 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("disabled_at");
 
+                    b.Property<string>("Fornecedor")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("fornecedor");
+
                     b.Property<int>("IdCategoria")
                         .HasColumnType("integer")
                         .HasColumnName("id_categoria");
@@ -1337,9 +1342,14 @@ namespace AutoVia.Infrastructure.Migrations
 
                     b.Property<string>("Modelo")
                         .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
                         .HasColumnName("modelo");
+
+                    b.Property<string>("NumeroNotaFiscalCompra")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("numero_nota_fiscal_compra");
 
                     b.Property<string>("Placa")
                         .IsRequired()

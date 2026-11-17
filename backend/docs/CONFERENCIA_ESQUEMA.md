@@ -195,3 +195,25 @@ Indices:  35 -> 36 (+1: idx_veiculo_foto_veiculo)
 ```
 
 Como o `compare_schema.py` não lê as entradas `tabelas_novas`, a conferência é feita pelas contagens acima e pelo diff do `00_ModeloAtual.sql`, que traz só a tabela e o índice novos.
+
+
+## Desvio de 16/11/2026: fornecedor e nota fiscal de compra do veículo (BE-05)
+
+Aprovado pelo Kaio em 16/11/2026 (bloco `veiculo_fornecedor_nota_fiscal_compra` em `especificacao/desvios_aprovados.json`). O cadastro do veículo passa a guardar o fornecedor e o número da nota fiscal de compra (dados internos da locadora, nunca em retorno público nem de reserva), e o modelo passa a aceitar 60 caracteres.
+- Coluna nova `veiculo.fornecedor` VARCHAR(100) anulável, sem índice.
+- Coluna nova `veiculo.numero_nota_fiscal_compra` VARCHAR(20) anulável, sem índice. O nome diferencia da `venda.numero_nota_fiscal`, que já existe.
+- Alargamento de `veiculo.modelo` de VARCHAR(40) para VARCHAR(60). Os dados existentes continuam válidos.
+- Migration `20261117025802_AdicionarFornecedorNotaFiscalCompraVeiculo`: gerada, não aplicada. Script `sql/17_AdicionarFornecedorNotaFiscalCompraVeiculo.sql`.
+
+Contagens depois do desvio (`sql/00_ModeloAtual.sql` ajustado à mão em 16/11/2026, conferido contra o modelo do EF):
+
+```text
+Tabelas:  21 (inalterado)
+Colunas:  +2 (veiculo.fornecedor e veiculo.numero_nota_fiscal_compra); veiculo.modelo VARCHAR(40) -> VARCHAR(60)
+CHECK:    40 (inalterado)
+FK:       34 (inalterado)
+UNIQUE:   0 (inalterado)
+Indices:  36 (inalterado)
+```
+
+Como o `compare_schema.py` não lê as entradas `colunas_novas` nem `alteracao_de_tamanho` dos blocos de desvio, ele lista as duas colunas e o tamanho do modelo como diferença. A conferência é feita pelo diff do `00_ModeloAtual.sql` e por `dotnet ef migrations has-pending-model-changes`, que responde "No changes have been made to the model since the last migration".

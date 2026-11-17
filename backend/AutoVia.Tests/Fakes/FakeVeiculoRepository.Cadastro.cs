@@ -159,6 +159,8 @@ namespace AutoVia.Tests.Fakes
             salvo.ValorDiaria = veiculo.ValorDiaria;
             salvo.ValorVenda = veiculo.ValorVenda;
             salvo.DataAquisicao = veiculo.DataAquisicao;
+            salvo.Fornecedor = veiculo.Fornecedor;
+            salvo.NumeroNotaFiscalCompra = veiculo.NumeroNotaFiscalCompra;
             salvo.UpdatedAt = DateTime.Now;
 
             return Task.FromResult(true);

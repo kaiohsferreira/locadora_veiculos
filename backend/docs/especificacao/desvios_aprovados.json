@@ -196,5 +196,20 @@
     },
     "regra_no_servico": "no maximo 15 fotos ativas por veiculo, conferido no servico, sem trava, sem CHECK e sem indice unico",
     "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico; nenhuma migracao de dados"
+  },
+  "veiculo_fornecedor_nota_fiscal_compra": {
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "data": "2026-11-16",
+    "tarefa": "BE-05 (cadastro de veiculo, tela 05 do P1-FE-03: perguntas 1 e 3, respondidas com \"Sim, as recomendadas\")",
+    "motivo": "O cadastro do veiculo passa a guardar o fornecedor e o numero da nota fiscal de compra (dados internos da locadora, nunca em retorno publico nem de reserva), e o modelo passa a aceitar 60 caracteres. A especificacao traz modelo VARCHAR(40) e nao tem essas colunas.",
+    "colunas_novas": {
+      "veiculo.fornecedor": "VARCHAR(100) NULL, sem indice; validado no validador do veiculo (tamanho, caractere nulo, vazio e espacos como o campo cor)",
+      "veiculo.numero_nota_fiscal_compra": "VARCHAR(20) NULL, sem indice; texto livre (pontos, tracos e serie); nome diferente da nota fiscal da venda (venda.numero_nota_fiscal)"
+    },
+    "alteracao_de_tamanho": {
+      "veiculo.modelo": "VARCHAR(40) -> VARCHAR(60) (alargamento; dados existentes continuam validos)"
+    },
+    "regra_no_servico": "os dois campos sao gravados e sobrescritos pelo PUT (vazio limpa); nenhuma unicidade; nenhuma conferencia de formato de NF-e",
+    "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico; nenhum status inicial novo; nenhuma migracao de dados"
   }
 }

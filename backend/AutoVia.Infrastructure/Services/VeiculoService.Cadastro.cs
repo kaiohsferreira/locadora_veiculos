@@ -204,8 +204,8 @@ namespace AutoVia.Infrastructure.Services
 
         /// <summary>
         /// Grava na entidade os textos normalizados: placa sem hifen e em maiusculas, chassi
-        /// em maiusculas, renavam, marca e modelo sem espacos das pontas e cor vazia vira nula.
-        /// Funcao pura, sem acesso a dados.
+        /// em maiusculas, renavam, marca e modelo sem espacos das pontas; cor, fornecedor e
+        /// nota fiscal de compra vazios viram nulos. Funcao pura, sem acesso a dados.
         /// </summary>
         private static void AplicarNormalizacao(Veiculo veiculo, VeiculoVO veiculoVO)
         {
@@ -214,25 +214,27 @@ namespace AutoVia.Infrastructure.Services
             veiculo.Renavam = veiculoVO.Renavam.Trim();
             veiculo.Marca = veiculoVO.Marca.Trim();
             veiculo.Modelo = veiculoVO.Modelo.Trim();
-            veiculo.Cor = NormalizarCor(veiculoVO.Cor);
+            veiculo.Cor = NormalizarTextoOpcional(veiculoVO.Cor);
+            veiculo.Fornecedor = NormalizarTextoOpcional(veiculoVO.Fornecedor);
+            veiculo.NumeroNotaFiscalCompra = NormalizarTextoOpcional(veiculoVO.NumeroNotaFiscalCompra);
         }
 
-        /// <summary>Cor sem espacos das pontas; se vazia ou so espacos, vira null.</summary>
-        private static string? NormalizarCor(string? cor)
+        /// <summary>Texto opcional sem espacos das pontas; se vazio ou so espacos (ou nulo), vira null.</summary>
+        private static string? NormalizarTextoOpcional(string? texto)
         {
-            if (cor == null)
+            if (texto == null)
             {
                 return null;
             }
 
-            string corSemEspacos = cor.Trim();
+            string textoSemEspacos = texto.Trim();
 
-            if (corSemEspacos.Length == 0)
+            if (textoSemEspacos.Length == 0)
             {
                 return null;
             }
 
-            return corSemEspacos;
+            return textoSemEspacos;
         }
     }
 }

@@ -1,4 +1,5 @@
 using AutoVia.Communication.ViewObjects.Frota;
+using AutoVia.Communication.ViewObjects.Reservas;
 using AutoVia.Communication.ViewObjects.Vendas;
 using System.Reflection;
 
@@ -67,6 +68,26 @@ namespace AutoVia.Tests.Frota
             List<string> nomes = NomesPublicos(typeof(ReturnVeiculoCatalogoVO));
 
             Assert.Contains("KmAtual", nomes);
+        }
+
+        [Fact]
+        public void VOsPublicosEDeReserva_NaoExpoemFornecedorNemNotaFiscalDeCompra()
+        {
+            Type[] tipos = new Type[]
+            {
+                typeof(ReturnVeiculoDisponivelVO),
+                typeof(ReturnVeiculoCatalogoVO),
+                typeof(ReturnReservaVO),
+                typeof(ReturnReservaCriadaVO)
+            };
+
+            foreach (Type tipo in tipos)
+            {
+                List<string> nomes = NomesPublicos(tipo);
+
+                Assert.DoesNotContain(nameof(ReturnVeiculoVO.Fornecedor), nomes);
+                Assert.DoesNotContain(nameof(ReturnVeiculoVO.NumeroNotaFiscalCompra), nomes);
+            }
         }
     }
 }

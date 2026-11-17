@@ -192,6 +192,29 @@ namespace AutoVia.Tests.Frota
         }
 
         [Fact]
+        public async Task Listagem_DevolveFornecedorENotaFiscalDeCompraDeCadaVeiculo()
+        {
+            FakeVeiculoRepository repositorio = new FakeVeiculoRepository();
+            Categoria suv = new Categoria { IdCategoria = 1, Nome = "SUV", ValorDiariaBase = 200m };
+            Veiculo comDados = CriarVeiculo(suv, "AAA1A11", StatusVeiculo.DISPONIVEL);
+            comDados.Fornecedor = "Locadora Atlas Motors";
+            comDados.NumeroNotaFiscalCompra = "000.123-4";
+            Veiculo semDados = CriarVeiculo(suv, "BBB2B22", StatusVeiculo.DISPONIVEL);
+            repositorio.Adicionar(comDados);
+            repositorio.Adicionar(semDados);
+            VeiculoService servico = CriarServico(repositorio);
+
+            PaginaVO<ReturnVeiculoVO> pagina = await servico.GetAllAsync(new FiltroVeiculoVO());
+
+            ReturnVeiculoVO retornoComDados = pagina.Itens.Single(x => x.Placa == "AAA1A11");
+            ReturnVeiculoVO retornoSemDados = pagina.Itens.Single(x => x.Placa == "BBB2B22");
+            Assert.Equal("Locadora Atlas Motors", retornoComDados.Fornecedor);
+            Assert.Equal("000.123-4", retornoComDados.NumeroNotaFiscalCompra);
+            Assert.Null(retornoSemDados.Fornecedor);
+            Assert.Null(retornoSemDados.NumeroNotaFiscalCompra);
+        }
+
+        [Fact]
         public async Task PlacaSoComEspacos_EIgnorada()
         {
             FakeVeiculoRepository repositorio = new FakeVeiculoRepository();

@@ -51,6 +51,37 @@ namespace AutoVia.Tests.Frota
         }
 
         [Fact]
+        public void FornecedorENotaFiscalDeCompra_VaoParaORetornoEFicamNulosQuandoVazios()
+        {
+            IMapper mapper = CriarMapper();
+            Categoria categoria = new Categoria { IdCategoria = 3, Nome = "SUV", ValorDiariaBase = 200m };
+            Veiculo comDados = new Veiculo
+            {
+                IdVeiculo = 12,
+                IdCategoria = 3,
+                Categoria = categoria,
+                Modelo = "Toro",
+                Fornecedor = "Locadora Atlas Motors",
+                NumeroNotaFiscalCompra = "000.123-4"
+            };
+            Veiculo semDados = new Veiculo
+            {
+                IdVeiculo = 13,
+                IdCategoria = 3,
+                Categoria = categoria,
+                Modelo = "Toro"
+            };
+
+            ReturnVeiculoVO retornoComDados = mapper.Map<ReturnVeiculoVO>(comDados);
+            ReturnVeiculoVO retornoSemDados = mapper.Map<ReturnVeiculoVO>(semDados);
+
+            Assert.Equal("Locadora Atlas Motors", retornoComDados.Fornecedor);
+            Assert.Equal("000.123-4", retornoComDados.NumeroNotaFiscalCompra);
+            Assert.Null(retornoSemDados.Fornecedor);
+            Assert.Null(retornoSemDados.NumeroNotaFiscalCompra);
+        }
+
+        [Fact]
         public void ValorVendaEDataAquisicaoNulos_ViramStringVazia()
         {
             IMapper mapper = CriarMapper();

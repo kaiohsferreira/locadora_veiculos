@@ -8,8 +8,14 @@ namespace AutoVia.Helpers
     {
         // --- Veiculo (P1-BE-02) ---
         public const int TamanhoMaximoMarcaVeiculo = 40;
-        public const int TamanhoMaximoModeloVeiculo = 40;
+        public const int TamanhoMaximoModeloVeiculo = 60;
         public const int TamanhoMaximoCorVeiculo = 30;
+
+        /// <summary>Fornecedor de compra do veiculo (VARCHAR(100)), opcional. Dado interno da locadora.</summary>
+        public const int TamanhoMaximoFornecedorVeiculo = 100;
+
+        /// <summary>Numero da nota fiscal de compra do veiculo (VARCHAR(20)), opcional. Dado interno da locadora.</summary>
+        public const int TamanhoMaximoNotaFiscalCompraVeiculo = 20;
         public const int AnoMinimoFabricacaoVeiculo = 1980;
 
         /// <summary>Quantos anos alem do ano atual o veiculo pode ter (ano de fabricacao e ano do modelo).</summary>

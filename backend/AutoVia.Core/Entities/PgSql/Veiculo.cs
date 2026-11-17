@@ -58,6 +58,14 @@ namespace AutoVia.Core.Entities.PgSql
         [Column("data_aquisicao")]
         public DateOnly? DataAquisicao { get; set; }
 
+        /// <summary>VARCHAR(100), opcional: fornecedor de compra do veiculo. Dado interno da locadora (nunca em retorno publico).</summary>
+        [Column("fornecedor")]
+        public string? Fornecedor { get; set; }
+
+        /// <summary>VARCHAR(20), opcional: numero da nota fiscal de compra. Dado interno da locadora (nunca em retorno publico).</summary>
+        [Column("numero_nota_fiscal_compra")]
+        public string? NumeroNotaFiscalCompra { get; set; }
+
         /// <summary>FK obrigatoria para empresa.id_empresa (fk_veiculo_empresa). Isolamento da locadora.</summary>
         [Column("id_empresa")]
         public int IdEmpresa { get; set; }

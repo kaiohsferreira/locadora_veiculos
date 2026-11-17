@@ -387,7 +387,18 @@ namespace AutoVia.Tests.Frota
         }
 
         [Fact]
-        public void ModeloComQuarentaEUmCaracteres_FalhaComMensagemTamanho()
+        public void ModeloComSessentaCaracteres_PassaNaValidacao()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.Modelo = new string('o', ConstantsValues.TamanhoMaximoModeloVeiculo);
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(resultado.IsValid);
+        }
+
+        [Fact]
+        public void ModeloComSessentaEUmCaracteres_FalhaComMensagemTamanho()
         {
             VeiculoVO vo = CriarVOValido();
             vo.Modelo = new string('o', ConstantsValues.TamanhoMaximoModeloVeiculo + 1);
@@ -396,6 +407,164 @@ namespace AutoVia.Tests.Frota
             ValidationResult resultado = Validar(vo);
 
             Assert.True(ContemErro(resultado, nameof(VeiculoVO.Modelo), mensagemEsperada));
+        }
+
+        [Fact]
+        public void ModeloComQuarentaCaracteres_PassaNaValidacaoComOLimiteNovo()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.Modelo = new string('o', 40);
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(resultado.IsValid);
+        }
+
+        [Fact]
+        public void FornecedorNulo_PassaNaValidacao()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.Fornecedor = null;
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(resultado.IsValid);
+        }
+
+        [Fact]
+        public void FornecedorVazio_PassaNaValidacao()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.Fornecedor = string.Empty;
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(resultado.IsValid);
+        }
+
+        [Fact]
+        public void FornecedorComCemCaracteres_PassaNaValidacao()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.Fornecedor = new string('f', ConstantsValues.TamanhoMaximoFornecedorVeiculo);
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(resultado.IsValid);
+        }
+
+        [Fact]
+        public void FornecedorComCentoEUmCaracteres_FalhaComMensagemTamanho()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.Fornecedor = new string('f', ConstantsValues.TamanhoMaximoFornecedorVeiculo + 1);
+            string mensagemEsperada = string.Format(ConstantsMessage.ErroVeiculoFornecedorTamanho, ConstantsValues.TamanhoMaximoFornecedorVeiculo);
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(ContemErro(resultado, nameof(VeiculoVO.Fornecedor), mensagemEsperada));
+        }
+
+        [Fact]
+        public void FornecedorComEspacosNasPontas_EMedidoSemEles()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.Fornecedor = "  " + new string('f', ConstantsValues.TamanhoMaximoFornecedorVeiculo) + "  ";
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(resultado.IsValid);
+        }
+
+        [Fact]
+        public void FornecedorComCaractereNulo_FalhaComMensagemDeCampoInvalido()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.Fornecedor = "For\0necedor";
+            string mensagemEsperada = string.Format(ConstantsMessage.ErroCampoInvalido, nameof(VeiculoVO.Fornecedor));
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(ContemErro(resultado, nameof(VeiculoVO.Fornecedor), mensagemEsperada));
+        }
+
+        [Fact]
+        public void NotaFiscalNula_PassaNaValidacao()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.NumeroNotaFiscalCompra = null;
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(resultado.IsValid);
+        }
+
+        [Fact]
+        public void NotaFiscalVazia_PassaNaValidacao()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.NumeroNotaFiscalCompra = string.Empty;
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(resultado.IsValid);
+        }
+
+        [Fact]
+        public void NotaFiscalComVinteCaracteres_PassaNaValidacao()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.NumeroNotaFiscalCompra = new string('n', ConstantsValues.TamanhoMaximoNotaFiscalCompraVeiculo);
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(resultado.IsValid);
+        }
+
+        [Fact]
+        public void NotaFiscalComVinteEUmCaracteres_FalhaComMensagemTamanho()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.NumeroNotaFiscalCompra = new string('n', ConstantsValues.TamanhoMaximoNotaFiscalCompraVeiculo + 1);
+            string mensagemEsperada = string.Format(ConstantsMessage.ErroVeiculoNotaFiscalCompraTamanho, ConstantsValues.TamanhoMaximoNotaFiscalCompraVeiculo);
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(ContemErro(resultado, nameof(VeiculoVO.NumeroNotaFiscalCompra), mensagemEsperada));
+        }
+
+        [Fact]
+        public void NotaFiscalComPontosTracosESerie_PassaNaValidacao()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.NumeroNotaFiscalCompra = "000.123-4 SÉRIE 2";
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(resultado.IsValid);
+        }
+
+        [Fact]
+        public void NotaFiscalComEspacosNasPontas_EMedidaSemEles()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.NumeroNotaFiscalCompra = "   " + new string('n', ConstantsValues.TamanhoMaximoNotaFiscalCompraVeiculo) + "   ";
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(resultado.IsValid);
+        }
+
+        [Fact]
+        public void NotaFiscalComCaractereNulo_FalhaComMensagemDeCampoInvalido()
+        {
+            VeiculoVO vo = CriarVOValido();
+            vo.NumeroNotaFiscalCompra = "12\03";
+            string mensagemEsperada = string.Format(ConstantsMessage.ErroCampoInvalido, ConstantsMessage.NomeCampoNotaFiscalCompraVeiculo);
+
+            ValidationResult resultado = Validar(vo);
+
+            Assert.True(ContemErro(resultado, nameof(VeiculoVO.NumeroNotaFiscalCompra), mensagemEsperada));
         }
 
         [Fact]

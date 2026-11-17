@@ -22,6 +22,9 @@ namespace AutoVia.Helpers
         public const string ErroVeiculoModeloObrigatorio = "Informe o modelo do veículo.";
         public const string ErroVeiculoModeloTamanho = "O modelo deve ter no máximo {0} caracteres.";
         public const string ErroVeiculoCorTamanho = "A cor deve ter no máximo {0} caracteres.";
+        public const string ErroVeiculoFornecedorTamanho = "O fornecedor deve ter no máximo {0} caracteres.";
+        public const string ErroVeiculoNotaFiscalCompraTamanho = "O número da nota fiscal de compra deve ter no máximo {0} caracteres.";
+        public const string NomeCampoNotaFiscalCompraVeiculo = "Nota fiscal de compra";
         public const string ErroVeiculoAnoFabricacaoIntervalo = "O ano de fabricação deve estar entre {0} e {1}.";
         public const string ErroVeiculoAnoModeloAnterior = "O ano do modelo não pode ser anterior ao ano de fabricação.";
         public const string ErroVeiculoAnoModeloMaximo = "O ano do modelo não pode ser posterior a {0}.";

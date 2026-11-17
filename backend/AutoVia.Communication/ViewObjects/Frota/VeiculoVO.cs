@@ -22,7 +22,7 @@ namespace AutoVia.Communication.ViewObjects.Frota
         /// <summary>Marca do veiculo (obrigatoria, ate 40 caracteres).</summary>
         public string Marca { get; set; } = string.Empty;
 
-        /// <summary>Modelo do veiculo (obrigatorio, ate 40 caracteres).</summary>
+        /// <summary>Modelo do veiculo (obrigatorio, ate 60 caracteres).</summary>
         public string Modelo { get; set; } = string.Empty;
 
         /// <summary>Ano de fabricacao: entre 1980 e o ano seguinte ao atual.</summary>
@@ -45,5 +45,11 @@ namespace AutoVia.Communication.ViewObjects.Frota
 
         /// <summary>Data de aquisicao (opcional). Nao pode ser posterior a hoje.</summary>
         public DateOnly? DataAquisicao { get; set; }
+
+        /// <summary>Fornecedor de compra (opcional, ate 100 caracteres). Vazio vira nulo; o PUT sobrescreve (vazio limpa).</summary>
+        public string? Fornecedor { get; set; }
+
+        /// <summary>Numero da nota fiscal de compra (opcional, ate 20 caracteres, texto livre). Vazio vira nulo; o PUT sobrescreve (vazio limpa).</summary>
+        public string? NumeroNotaFiscalCompra { get; set; }
     }
 }

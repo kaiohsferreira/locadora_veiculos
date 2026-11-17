@@ -39,6 +39,26 @@ namespace AutoVia.Tests.Api
             Assert.Equal("SUV", pagina.Itens[0].CategoriaNome);
         }
 
+        [Fact]
+        public async Task GetAll_DevolveFornecedorENotaFiscalDeCompraNoItem()
+        {
+            FakeVeiculoRepository repositorio = new FakeVeiculoRepository();
+            Categoria suv = new Categoria { IdCategoria = 1, Nome = "SUV", ValorDiariaBase = 200m };
+            Veiculo veiculo = CriarVeiculo(suv, "AAA1A11");
+            veiculo.Fornecedor = "Locadora Atlas Motors";
+            veiculo.NumeroNotaFiscalCompra = "000.123-4";
+            repositorio.Adicionar(veiculo);
+            VeiculoController controller = CriarController(repositorio);
+
+            IActionResult resultado = await controller.GetAll(new FiltroVeiculoVO { Pagina = 1, TamanhoPagina = 20 });
+
+            OkObjectResult ok = Assert.IsType<OkObjectResult>(resultado);
+            PaginaVO<ReturnVeiculoVO> pagina = Assert.IsType<PaginaVO<ReturnVeiculoVO>>(ok.Value);
+            ReturnVeiculoVO item = pagina.Itens.Single();
+            Assert.Equal("Locadora Atlas Motors", item.Fornecedor);
+            Assert.Equal("000.123-4", item.NumeroNotaFiscalCompra);
+        }
+
         private static Veiculo CriarVeiculo(Categoria categoria, string placa)
         {
             Veiculo veiculo = new Veiculo

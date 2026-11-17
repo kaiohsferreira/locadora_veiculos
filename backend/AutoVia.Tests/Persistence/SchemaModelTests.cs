@@ -423,6 +423,42 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
+        public void Veiculo_ModeloTem60Caracteres_FornecedorETemNotaFiscalSaoAnulaveisComOTamanhoDoDesvio()
+        {
+            IModel model = BuildModel();
+            StoreObjectIdentifier table = StoreObjectIdentifier.Table("veiculo", null);
+            IEntityType veiculo = model.GetEntityTypes().Single(x => x.GetTableName() == "veiculo");
+
+            IProperty modelo = veiculo.FindProperty(nameof(Veiculo.Modelo))!;
+            IProperty fornecedor = veiculo.FindProperty(nameof(Veiculo.Fornecedor))!;
+            IProperty notaFiscal = veiculo.FindProperty(nameof(Veiculo.NumeroNotaFiscalCompra))!;
+
+            Assert.Equal("modelo", modelo.GetColumnName(table));
+            Assert.Equal(60, modelo.GetMaxLength());
+            Assert.Equal("fornecedor", fornecedor.GetColumnName(table));
+            Assert.Equal(100, fornecedor.GetMaxLength());
+            Assert.True(fornecedor.IsNullable);
+            Assert.Equal("numero_nota_fiscal_compra", notaFiscal.GetColumnName(table));
+            Assert.Equal(20, notaFiscal.GetMaxLength());
+            Assert.True(notaFiscal.IsNullable);
+        }
+
+        [Fact]
+        public void Veiculo_FornecedorENotaFiscalNaoTemIndice()
+        {
+            IModel model = BuildModel();
+            IEntityType veiculo = model.GetEntityTypes().Single(x => x.GetTableName() == "veiculo");
+
+            List<string> colunasIndexadas = veiculo.GetIndexes()
+                .SelectMany(x => x.Properties)
+                .Select(x => x.Name)
+                .ToList();
+
+            Assert.DoesNotContain(nameof(Veiculo.Fornecedor), colunasIndexadas);
+            Assert.DoesNotContain(nameof(Veiculo.NumeroNotaFiscalCompra), colunasIndexadas);
+        }
+
+        [Fact]
         public void ChavesPrimarias_UsamSerialComONomePadraoDoPostgres()
         {
             IModel model = BuildModel();

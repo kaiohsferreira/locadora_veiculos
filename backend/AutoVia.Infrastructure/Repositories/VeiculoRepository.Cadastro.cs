@@ -178,6 +178,8 @@ namespace AutoVia.Infrastructure.Repositories
                 veiculoSalvo.ValorDiaria = veiculo.ValorDiaria;
                 veiculoSalvo.ValorVenda = veiculo.ValorVenda;
                 veiculoSalvo.DataAquisicao = veiculo.DataAquisicao;
+                veiculoSalvo.Fornecedor = veiculo.Fornecedor;
+                veiculoSalvo.NumeroNotaFiscalCompra = veiculo.NumeroNotaFiscalCompra;
                 veiculoSalvo.UpdatedAt = DateTime.Now;
 
                 await _db.SaveChangesAsync();

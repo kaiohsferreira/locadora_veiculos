@@ -133,6 +133,43 @@ namespace AutoVia.Tests.Frota
         }
 
         [Fact]
+        public async Task InsertGravaFornecedorENotaFiscalECamposVoltamNoRetornoEnaConsulta()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
+            FakeCategoriaRepository categorias = new FakeCategoriaRepository();
+            Categoria suv = CriarCategoria(categorias, "SUV");
+            VeiculoService servico = CriarServico(veiculos, categorias, new FakeLogService());
+            VeiculoVO vo = CriarVOValido(suv.IdCategoria);
+            vo.Fornecedor = "  Locadora Atlas Motors ";
+            vo.NumeroNotaFiscalCompra = " 000.123-4 ";
+
+            ReturnVeiculoVO retorno = await servico.InsertAsync(vo);
+            ReturnVeiculoVO consultado = await servico.GetByIdAsync(retorno.IdVeiculo);
+
+            Assert.Equal("Locadora Atlas Motors", retorno.Fornecedor);
+            Assert.Equal("000.123-4", retorno.NumeroNotaFiscalCompra);
+            Assert.Equal("Locadora Atlas Motors", consultado.Fornecedor);
+            Assert.Equal("000.123-4", consultado.NumeroNotaFiscalCompra);
+        }
+
+        [Fact]
+        public async Task InsertComFornecedorENotaSoComEspacos_GravaNulos()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
+            FakeCategoriaRepository categorias = new FakeCategoriaRepository();
+            Categoria suv = CriarCategoria(categorias, "SUV");
+            VeiculoService servico = CriarServico(veiculos, categorias, new FakeLogService());
+            VeiculoVO vo = CriarVOValido(suv.IdCategoria);
+            vo.Fornecedor = "   ";
+            vo.NumeroNotaFiscalCompra = string.Empty;
+
+            ReturnVeiculoVO retorno = await servico.InsertAsync(vo);
+
+            Assert.Null(retorno.Fornecedor);
+            Assert.Null(retorno.NumeroNotaFiscalCompra);
+        }
+
+        [Fact]
         public async Task InsertComCategoriaInexistente_LancaNaoEncontradaDaCategoria()
         {
             FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
@@ -338,6 +375,36 @@ namespace AutoVia.Tests.Frota
             Assert.Equal(StatusVeiculo.LOCADO, atualizado.Status);
             Assert.Equal("Ford", atualizado.Marca);
             Assert.Equal(5000, atualizado.KmAtual);
+        }
+
+        [Fact]
+        public async Task UpdateSobrescreveFornecedorENotaFiscalEVazioLimpa()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
+            FakeCategoriaRepository categorias = new FakeCategoriaRepository();
+            Categoria suv = CriarCategoria(categorias, "SUV");
+            VeiculoService servico = CriarServico(veiculos, categorias, new FakeLogService());
+            VeiculoVO criacao = CriarVOValido(suv.IdCategoria);
+            criacao.Fornecedor = "Fornecedor antigo";
+            criacao.NumeroNotaFiscalCompra = "NF-1";
+            ReturnVeiculoVO criado = await servico.InsertAsync(criacao);
+
+            VeiculoVO troca = CriarVOValido(suv.IdCategoria);
+            troca.Fornecedor = "Fornecedor novo";
+            troca.NumeroNotaFiscalCompra = "NF-2";
+            await servico.UpdateAsync(criado.IdVeiculo, troca);
+            ReturnVeiculoVO trocado = await servico.GetByIdAsync(criado.IdVeiculo);
+
+            VeiculoVO limpeza = CriarVOValido(suv.IdCategoria);
+            limpeza.Fornecedor = "  ";
+            limpeza.NumeroNotaFiscalCompra = null;
+            await servico.UpdateAsync(criado.IdVeiculo, limpeza);
+            ReturnVeiculoVO limpo = await servico.GetByIdAsync(criado.IdVeiculo);
+
+            Assert.Equal("Fornecedor novo", trocado.Fornecedor);
+            Assert.Equal("NF-2", trocado.NumeroNotaFiscalCompra);
+            Assert.Null(limpo.Fornecedor);
+            Assert.Null(limpo.NumeroNotaFiscalCompra);
         }
 
         [Fact]

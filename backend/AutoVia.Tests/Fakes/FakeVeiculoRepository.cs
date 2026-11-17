@@ -53,6 +53,8 @@ namespace AutoVia.Tests.Fakes
                 ValorVenda = origem.ValorVenda,
                 Status = origem.Status,
                 DataAquisicao = origem.DataAquisicao,
+                Fornecedor = origem.Fornecedor,
+                NumeroNotaFiscalCompra = origem.NumeroNotaFiscalCompra,
                 CreatedAt = origem.CreatedAt,
                 UpdatedAt = origem.UpdatedAt,
                 DisabledAt = origem.DisabledAt,
