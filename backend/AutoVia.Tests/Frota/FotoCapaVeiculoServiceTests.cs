@@ -16,6 +16,8 @@ namespace AutoVia.Tests.Frota
     {
         private const int IdEmpresaDoTeste = 4242;
         private const string PrefixoUrlDoFake = "https://storage.example/foto/";
+        private const int QuantidadeDeVeiculosDaPagina = 20;
+        private static readonly DateTime DataDeDesativacaoDoTeste = new DateTime(2026, 11, 16, 9, 0, 0);
 
         private static string ChaveDaFoto(int idVeiculoFoto)
         {
@@ -35,7 +37,7 @@ namespace AutoVia.Tests.Frota
 
             if (desativada)
             {
-                foto.DisabledAt = DateTime.Now;
+                foto.DisabledAt = DataDeDesativacaoDoTeste;
             }
 
             return foto;
@@ -86,6 +88,33 @@ namespace AutoVia.Tests.Frota
         }
 
         [Fact]
+        public async Task PaginaComVinteVeiculosComFoto_UmaAssinaturaEmLoteESemConsultaPorItem()
+        {
+            FakeArmazenamentoGateway gateway = new FakeArmazenamentoGateway();
+            FakeLogService log = new FakeLogService();
+            FotoCapaVeiculoService servico = new FotoCapaVeiculoService(gateway, log);
+            List<Veiculo?> veiculos = new List<Veiculo?>();
+            List<ReturnVeiculoVO> itens = new List<ReturnVeiculoVO>();
+            for (int idVeiculo = 1; idVeiculo <= QuantidadeDeVeiculosDaPagina; idVeiculo++)
+            {
+                veiculos.Add(CriarVeiculo(idVeiculo, CriarFoto(idVeiculo * 10, idVeiculo, 1)));
+                itens.Add(CriarItem(idVeiculo));
+            }
+
+            await servico.PreencherAsync(veiculos, itens);
+
+            Assert.Equal(1, gateway.AssinaturaLoteCount);
+            Assert.Equal(QuantidadeDeVeiculosDaPagina, gateway.ChavesAssinadas.Count);
+            Assert.Equal(0, gateway.HeadCount);
+            Assert.All(itens, item =>
+            {
+                Assert.NotNull(item.FotoCapa);
+                Assert.Null(item.ErroFotoCapa);
+            });
+            Assert.Empty(log.Entries);
+        }
+
+        [Fact]
         public async Task SemFotoCadastradaNenhuma_NaoChamaOGatewayNemRegistra()
         {
             FakeArmazenamentoGateway gateway = new FakeArmazenamentoGateway();
@@ -112,7 +141,7 @@ namespace AutoVia.Tests.Frota
             FakeLogService log = new FakeLogService();
             FotoCapaVeiculoService servico = new FotoCapaVeiculoService(gateway, log);
             Veiculo desativado = CriarVeiculo(1, CriarFoto(10, 1, 1));
-            desativado.DisabledAt = DateTime.Now;
+            desativado.DisabledAt = DataDeDesativacaoDoTeste;
             Veiculo deLocadoraDesativada = CriarVeiculo(2, CriarFoto(20, 2, 1));
             deLocadoraDesativada.Empresa = new Empresa { Ativo = false };
             List<Veiculo?> veiculos = new List<Veiculo?> { desativado, deLocadoraDesativada };

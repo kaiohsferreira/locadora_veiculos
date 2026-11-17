@@ -709,7 +709,30 @@ namespace AutoVia.Tests.Frota
             Assert.True(registrouBusca);
         }
 
-        private static VeiculoService CriarServico(FakeVeiculoRepository veiculos, FakeCategoriaRepository categorias, FakeLogService log, IContextoEmpresa? contexto = null)
+        /// <summary>POST de veiculo: a resposta traz fotoCapa e erroFotoCapa nulos e o armazenamento nunca e chamado (o veiculo novo nao tem foto).</summary>
+        [Fact]
+        public async Task InsertValido_NaoPreencheACapaNemChamaOArmazenamento()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository();
+            FakeCategoriaRepository categorias = new FakeCategoriaRepository();
+            Categoria suv = CriarCategoria(categorias, "SUV");
+            veiculos.FotosAoGravar = new List<VeiculoFoto>
+            {
+                new VeiculoFoto { IdVeiculoFoto = 1, Ordem = 1, ChaveObjeto = "veiculos/1/fotos/1.jpg", IdFuncionarioEnvio = 1 }
+            };
+            FakeArmazenamentoGateway gateway = new FakeArmazenamentoGateway();
+            VeiculoService servico = CriarServico(veiculos, categorias, new FakeLogService(), null, gateway);
+
+            ReturnVeiculoVO retorno = await servico.InsertAsync(CriarVOValido(suv.IdCategoria));
+
+            Assert.Single(veiculos.Veiculos.Single(x => x.IdVeiculo == retorno.IdVeiculo).Fotos);
+            Assert.Null(retorno.FotoCapa);
+            Assert.Null(retorno.ErroFotoCapa);
+            Assert.Equal(0, gateway.AssinaturaLoteCount);
+            Assert.Equal(0, gateway.HeadCount);
+        }
+
+        private static VeiculoService CriarServico(FakeVeiculoRepository veiculos, FakeCategoriaRepository categorias, FakeLogService log, IContextoEmpresa? contexto = null, FakeArmazenamentoGateway? gateway = null)
         {
             MapperConfiguration configuracao = new MapperConfiguration(cfg =>
             {
@@ -717,7 +740,7 @@ namespace AutoVia.Tests.Frota
                 cfg.AddProfile<VeiculoCadastroProfile>();
             }, NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
-            VeiculoService servico = new VeiculoService(veiculos, categorias, mapper, log, contexto ?? ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), log));
+            VeiculoService servico = new VeiculoService(veiculos, categorias, mapper, log, contexto ?? ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(gateway ?? new FakeArmazenamentoGateway(), log));
 
             return servico;
         }

@@ -25,6 +25,8 @@ namespace AutoVia.Tests.Reservas
         private const int IdVeiculoSemFoto = 6;
         private const int IdReservaComFoto = 51;
         private const int IdReservaSemFoto = 52;
+        private const int IdEmpresaDaLocadora = 4242;
+        private static readonly DateTime DataDeDesativacaoDoTeste = new DateTime(2026, 11, 16, 9, 0, 0);
 
         private static Reserva CriarReserva(int idReserva, Veiculo veiculo)
         {
@@ -49,7 +51,7 @@ namespace AutoVia.Tests.Reservas
             Veiculo veiculo = new Veiculo
             {
                 IdVeiculo = idVeiculo,
-                IdEmpresa = 4242,
+                IdEmpresa = IdEmpresaDaLocadora,
                 Categoria = new Categoria { IdCategoria = 1, Nome = "SUV", ValorDiariaBase = 200m },
                 Empresa = new Empresa { NomeFantasia = "Locadora Teste", Cidade = "Sao Paulo", Uf = "SP", Ativo = true },
                 Placa = "PLC" + idVeiculo,
@@ -74,6 +76,23 @@ namespace AutoVia.Tests.Reservas
             }
 
             return veiculo;
+        }
+
+        /// <summary>Servico com o cliente do contexto e o vinculo aprovado na locadora do veiculo (o POST exige cadastro aprovado).</summary>
+        private static ReservaService CriarServicoComCadastroAprovado(FakeReservaRepository repositorio, FakeArmazenamentoGateway gateway, FakeLogService log)
+        {
+            MapperConfiguration configuracao = new MapperConfiguration(opcoes => opcoes.AddProfile<ReservaProfile>(), NullLoggerFactory.Instance);
+            IMapper mapper = configuracao.CreateMapper();
+            ContextoEmpresa contexto = new ContextoEmpresa(log);
+            contexto.DefinirCliente(IdClienteDoTeste);
+            ArmazenamentoClienteLocadora armazenamento = new ArmazenamentoClienteLocadora();
+            armazenamento.AdicionarEmpresa(new Empresa { IdEmpresa = IdEmpresaDaLocadora, NomeFantasia = "Locadora Teste", Cidade = "Sao Paulo", Uf = "SP", Ativo = true });
+            armazenamento.Semear(IdClienteDoTeste, IdEmpresaDaLocadora, StatusCadastroCliente.APROVADO);
+            FakeClienteLocadoraRepository repositorioLocadora = new FakeClienteLocadoraRepository(contexto, armazenamento);
+            FakeRelogio relogio = new FakeRelogio(new DateTime(2026, 11, 16, 10, 0, 0));
+            ClienteLocadoraService clienteLocadora = new ClienteLocadoraService(repositorioLocadora, contexto, relogio, mapper, log, new ClientesOptions());
+
+            return new ReservaService(repositorio, clienteLocadora, relogio, mapper, log, new FotoCapaVeiculoService(gateway, log));
         }
 
         private static FakeReservaRepository CriarRepositorioComDuasReservas()
@@ -114,6 +133,7 @@ namespace AutoVia.Tests.Reservas
             Assert.Null(semFoto.ErroFotoCapa);
             Assert.Equal(2, pagina.Total);
             Assert.Equal(1, gateway.AssinaturaLoteCount);
+            Assert.Equal(0, gateway.HeadCount);
             Assert.Empty(log.Entries);
         }
 
@@ -148,6 +168,7 @@ namespace AutoVia.Tests.Reservas
             Assert.NotNull(retorno.FotoCapa);
             Assert.Null(retorno.ErroFotoCapa);
             Assert.Equal(1, gateway.AssinaturaLoteCount);
+            Assert.Equal(0, gateway.HeadCount);
         }
 
         [Fact]
@@ -161,6 +182,47 @@ namespace AutoVia.Tests.Reservas
             Assert.Equal(IdReservaComFoto, retorno.IdReserva);
             Assert.Null(retorno.FotoCapa);
             Assert.Equal(ConstantsMessage.ErroFotoCapaIndisponivel, retorno.ErroFotoCapa);
+        }
+
+        [Fact]
+        public async Task GetPorId_ReservaDeVeiculoVendido_TrazACapaSemErro()
+        {
+            FakeReservaRepository repositorio = new FakeReservaRepository();
+            Veiculo vendido = CriarVeiculo(IdVeiculoComFoto, true);
+            vendido.Status = StatusVeiculo.VENDIDO;
+            repositorio.Adicionar(CriarReserva(IdReservaComFoto, vendido));
+            FakeArmazenamentoGateway gateway = new FakeArmazenamentoGateway();
+            ReservaService servico = CriarServico(repositorio, gateway, new FakeLogService());
+
+            ReturnReservaVO retorno = await servico.GetByIdAsync(IdReservaComFoto, IdClienteDoTeste);
+
+            Assert.NotNull(retorno.FotoCapa);
+            Assert.Null(retorno.ErroFotoCapa);
+            Assert.Equal(1, gateway.AssinaturaLoteCount);
+        }
+
+        /// <summary>Criar e cancelar a reserva nao leem a capa: o armazenamento fica sem nenhuma chamada (assinatura e existencia).</summary>
+        [Fact]
+        public async Task CriarECancelarReserva_NaoChamamOArmazenamento()
+        {
+            FakeReservaRepository repositorio = new FakeReservaRepository();
+            Veiculo veiculo = CriarVeiculo(IdVeiculoComFoto, true);
+            veiculo.Status = StatusVeiculo.DISPONIVEL;
+            repositorio.VincularVeiculo(veiculo);
+            FakeArmazenamentoGateway gateway = new FakeArmazenamentoGateway();
+            ReservaService servico = CriarServicoComCadastroAprovado(repositorio, gateway, new FakeLogService());
+            CriarReservaVO entrada = new CriarReservaVO
+            {
+                IdVeiculo = IdVeiculoComFoto,
+                DataRetirada = new DateOnly(2026, 12, 10),
+                DataDevolucao = new DateOnly(2026, 12, 15)
+            };
+
+            ReturnReservaCriadaVO criada = await servico.CriarAsync(IdClienteDoTeste, entrada);
+            await servico.CancelarAsync(criada.IdReserva, IdClienteDoTeste);
+
+            Assert.Equal(0, gateway.AssinaturaLoteCount);
+            Assert.Equal(0, gateway.HeadCount);
         }
 
         [Fact]
@@ -181,7 +243,7 @@ namespace AutoVia.Tests.Reservas
         {
             FakeReservaRepository repositorio = new FakeReservaRepository();
             Veiculo desativado = CriarVeiculo(IdVeiculoComFoto, true);
-            desativado.DisabledAt = DateTime.Now;
+            desativado.DisabledAt = DataDeDesativacaoDoTeste;
             repositorio.Adicionar(CriarReserva(IdReservaComFoto, desativado));
             FakeArmazenamentoGateway gateway = new FakeArmazenamentoGateway();
             ReservaService servico = CriarServico(repositorio, gateway, new FakeLogService());

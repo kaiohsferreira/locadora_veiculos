@@ -21,6 +21,7 @@ namespace AutoVia.Tests.Frota
         private const int IdEmpresaDoTeste = 4242;
         private const int IdVeiculoComFoto = 1;
         private const int IdVeiculoSemFoto = 2;
+        private const int QuantidadeDeVeiculosNaPagina = 20;
 
         private static VeiculoFoto CriarFotoAtiva(int idVeiculo)
         {
@@ -120,6 +121,32 @@ namespace AutoVia.Tests.Frota
             Assert.Null(semFoto.FotoCapa);
             Assert.Null(semFoto.ErroFotoCapa);
             Assert.Single(log.Entries);
+        }
+
+        [Fact]
+        public async Task PaginaDeVinteVeiculosComFoto_UmaAssinaturaEZeroConsultasPorItem()
+        {
+            FakeVeiculoRepository repositorio = new FakeVeiculoRepository();
+            Categoria suv = new Categoria { IdCategoria = 1, Nome = "SUV", ValorDiariaBase = 200m };
+            for (int idVeiculo = 1; idVeiculo <= QuantidadeDeVeiculosNaPagina; idVeiculo++)
+            {
+                repositorio.Adicionar(CriarVeiculo(idVeiculo, suv, true));
+            }
+            FakeArmazenamentoGateway gateway = new FakeArmazenamentoGateway();
+            FakeLogService log = new FakeLogService();
+            VeiculoService servico = CriarServico(repositorio, gateway, log);
+
+            PaginaVO<ReturnVeiculoVO> pagina = await servico.GetAllAsync(new FiltroVeiculoVO { Pagina = 1, TamanhoPagina = QuantidadeDeVeiculosNaPagina });
+
+            Assert.Equal(QuantidadeDeVeiculosNaPagina, pagina.Itens.Count);
+            Assert.Equal(1, gateway.AssinaturaLoteCount);
+            Assert.Equal(0, gateway.HeadCount);
+            Assert.All(pagina.Itens, item =>
+            {
+                Assert.NotNull(item.FotoCapa);
+                Assert.Null(item.ErroFotoCapa);
+            });
+            Assert.Empty(log.Entries);
         }
 
         [Fact]

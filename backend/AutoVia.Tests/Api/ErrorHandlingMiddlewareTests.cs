@@ -1,7 +1,9 @@
 using AutoVia.Api.Middleware;
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Helpers;
+using AutoVia.Infrastructure.Services;
 using AutoVia.Integrations.Helpers;
+using AutoVia.Integrations.Helpers.Armazenamento;
 using AutoVia.Tests.Fakes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Net.Http.Headers;
@@ -15,6 +17,8 @@ namespace AutoVia.Tests.Api
     /// </summary>
     public class ErrorHandlingMiddlewareTests
     {
+        private const int IdVeiculoDaFila = 7;
+
         private static async Task<(int Status, string ContentType, JsonElement Body)> ExecutarAsync(Exception exception)
         {
             DefaultHttpContext context = new DefaultHttpContext();
@@ -108,6 +112,43 @@ namespace AutoVia.Tests.Api
             JsonDocument document = await JsonDocument.ParseAsync(context.Response.Body);
             Assert.Equal(ConstantsMessage.TituloLimiteRequisicoes, document.RootElement.GetProperty("title").GetString());
             Assert.Equal(ConstantsMessage.ErroLimitePedidosAprovacao, document.RootElement.GetProperty("detail").GetString());
+            Assert.Empty(log.Snapshot());
+        }
+
+        /// <summary>
+        /// Fila do processador de foto cheia, pelo servico real de fotos: o envio relanca a LimiteExcedidoException sem enviar nem gravar
+        /// e sem log, e o middleware responde 429 com o titulo de limite e a mensagem da fila.
+        /// </summary>
+        [Fact]
+        public async Task LimiteExcedidoException_DaFilaDoProcessadorDeFoto_Vira429ComTituloDeLimiteESemLog()
+        {
+            FakeLogService log = new FakeLogService();
+            FakeVeiculoFotoRepository repositorio = new FakeVeiculoFotoRepository();
+            repositorio.VeiculosAtivos.Add(IdVeiculoDaFila);
+            FakeProcessadorFotoService processador = new FakeProcessadorFotoService { Falha = new LimiteExcedidoException(ConstantsMessage.ErroVeiculoFotoProcessamentoOcupado) };
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
+            VeiculoFotoService servico = new VeiculoFotoService(repositorio, processador, armazenamento, ContextoEmpresaDeTeste.Criar(), log);
+            byte[] jpeg = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 };
+
+            LimiteExcedidoException excecao = await Assert.ThrowsAsync<LimiteExcedidoException>(() => servico.EnviarAsync(IdVeiculoDaFila, jpeg, ConstantsArmazenamento.MimeJpeg));
+
+            Assert.Equal(0, armazenamento.UploadCount);
+            Assert.Equal(0, repositorio.InsertCount);
+            Assert.Empty(log.Snapshot());
+
+            DefaultHttpContext context = new DefaultHttpContext();
+            context.Request.Path = "/api/veiculos/7/fotos";
+            context.Response.Body = new MemoryStream();
+            ErrorHandlingMiddleware middleware = new ErrorHandlingMiddleware(_ => throw excecao, log);
+
+            await middleware.InvokeAsync(context);
+
+            Assert.Equal(429, context.Response.StatusCode);
+            Assert.StartsWith("application/problem+json", context.Response.ContentType ?? string.Empty);
+            context.Response.Body.Position = 0;
+            JsonDocument document = await JsonDocument.ParseAsync(context.Response.Body);
+            Assert.Equal(ConstantsMessage.TituloLimiteRequisicoes, document.RootElement.GetProperty("title").GetString());
+            Assert.Equal(ConstantsMessage.ErroVeiculoFotoProcessamentoOcupado, document.RootElement.GetProperty("detail").GetString());
             Assert.Empty(log.Snapshot());
         }
 

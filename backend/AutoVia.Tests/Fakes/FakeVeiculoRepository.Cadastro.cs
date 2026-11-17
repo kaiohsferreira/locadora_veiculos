@@ -24,6 +24,9 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Quando nao for null, InsertAsync e UpdateAsync lancam esta excecao (falha na gravacao).</summary>
         public Exception? ExcecaoNaGravacao { get; set; }
 
+        /// <summary>Fotos que o insert anexa ao veiculo gravado: simula a foto ativa que o banco devolve na consulta por id logo depois do insert.</summary>
+        public List<VeiculoFoto>? FotosAoGravar { get; set; }
+
         /// <summary>Ultima entidade recebida por InsertAsync (a mesma referencia), para conferir a navegacao Categoria.</summary>
         public Veiculo? UltimoVeiculoInserido { get; private set; }
 
@@ -120,6 +123,11 @@ namespace AutoVia.Tests.Fakes
             veiculo.CreatedAt = agora;
             veiculo.UpdatedAt = agora;
             veiculo.DisabledAt = null;
+
+            if (FotosAoGravar != null)
+            {
+                veiculo.Fotos = FotosAoGravar;
+            }
 
             _veiculos.Add(Copiar(veiculo));
 

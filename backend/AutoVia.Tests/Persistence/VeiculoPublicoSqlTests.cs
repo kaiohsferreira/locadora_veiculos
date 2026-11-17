@@ -56,6 +56,9 @@ namespace AutoVia.Tests.Persistence
         /// <summary>Alias da tabela veiculo_foto na subconsulta da capa (ex.: "FROM veiculo_foto AS v0").</summary>
         private static readonly Regex AliasDaTabelaDeFotos = new Regex(@"FROM veiculo_foto AS (\w+)", RegexOptions.CultureInvariant);
 
+        /// <summary>Alias da tabela veiculo na consulta principal (ex.: "FROM veiculo AS v"), sem casar com veiculo_foto.</summary>
+        private static readonly Regex AliasDaTabelaDeVeiculo = new Regex(@"FROM veiculo AS (\w+)", RegexOptions.CultureInvariant);
+
         private static readonly DbContextOptions<AutoViaDbContext> Opcoes = new DbContextOptionsBuilder<AutoViaDbContext>()
             .UseNpgsql("Host=localhost;Database=autovia_modelo_teste")
             .Options;
@@ -120,6 +123,24 @@ namespace AutoVia.Tests.Persistence
             bool naoDesativada = Regex.IsMatch(aposWhere, @"\b" + aliasEscapado + @"\." + Regex.Escape(ColunaDisabledAt) + @" IS NULL\b");
 
             return ativa && naoDesativada;
+        }
+
+        /// <summary>
+        /// Prova o veiculo ativo (nao desativado): o WHERE da consulta principal filtra disabled_at IS NULL do alias da
+        /// tabela veiculo. O alias da subconsulta de fotos (v0) nao conta: o predicado tem de estar no alias do veiculo.
+        /// </summary>
+        private static void AssertVeiculoAtivoNoWhere(string sql)
+        {
+            Match tabela = AliasDaTabelaDeVeiculo.Match(sql);
+
+            Assert.True(tabela.Success, $"A consulta deveria ler a tabela veiculo com alias. SQL: {sql}");
+
+            string aposWhere = TrechoAPartirDe(sql, PalavraWhere);
+            string alias = Regex.Escape(tabela.Groups[1].Value);
+
+            Assert.True(
+                Regex.IsMatch(aposWhere, @"\b" + alias + @"\." + Regex.Escape(ColunaDisabledAt) + @" IS NULL\b"),
+                $"O WHERE deveria filtrar o veiculo nao desativado (disabled_at IS NULL). SQL: {sql}");
         }
 
         /// <summary>
@@ -259,6 +280,7 @@ namespace AutoVia.Tests.Persistence
 
             string sql = repositorio.ConsultaDisponiveis(RetiradaDoTeste, DevolucaoDoTeste, null, null, null).ToQueryString();
 
+            AssertVeiculoAtivoNoWhere(sql);
             AssertLocadoraAtivaNoWhere(sql);
             AssertSemColunasDaLocadoraNoSelect(sql);
         }
@@ -272,6 +294,7 @@ namespace AutoVia.Tests.Persistence
             string sql = repositorio.ConsultaDisponiveisPaginada(RetiradaDoTeste, DevolucaoDoTeste, null, null, null, 20, 10).ToQueryString();
 
             Assert.Contains(JoinCategoria, sql);
+            AssertVeiculoAtivoNoWhere(sql);
             AssertLocadoraAtivaNoWhere(sql);
             AssertColunasDaLocadoraNoSelect(sql);
             Assert.Contains(OrderBy, sql);
@@ -301,6 +324,7 @@ namespace AutoVia.Tests.Persistence
 
             string sql = repositorio.ConsultaCatalogo(null, null, null, null, null, null).ToQueryString();
 
+            AssertVeiculoAtivoNoWhere(sql);
             AssertLocadoraAtivaNoWhere(sql);
             AssertSemColunasDaLocadoraNoSelect(sql);
         }
@@ -314,6 +338,7 @@ namespace AutoVia.Tests.Persistence
             string sql = repositorio.ConsultaCatalogoPaginada(null, null, null, null, null, null, 0, 20).ToQueryString();
 
             Assert.Contains(JoinCategoria, sql);
+            AssertVeiculoAtivoNoWhere(sql);
             AssertLocadoraAtivaNoWhere(sql);
             AssertColunasDaLocadoraNoSelect(sql);
             Assert.Contains(OrderBy, sql);
@@ -412,6 +437,8 @@ namespace AutoVia.Tests.Persistence
             string sqlDisponiveis = repositorioDisponiveis.ConsultaDisponiveisPaginada(RetiradaDoTeste, DevolucaoDoTeste, null, null, null, 0, 20).ToQueryString();
             string sqlCatalogo = repositorioCatalogo.ConsultaCatalogoPaginada(null, null, null, null, null, null, 0, 20).ToQueryString();
 
+            AssertVeiculoAtivoNoWhere(sqlDisponiveis);
+            AssertVeiculoAtivoNoWhere(sqlCatalogo);
             AssertLocadoraAtivaNoWhere(sqlDisponiveis);
             AssertLocadoraAtivaNoWhere(sqlCatalogo);
         }
