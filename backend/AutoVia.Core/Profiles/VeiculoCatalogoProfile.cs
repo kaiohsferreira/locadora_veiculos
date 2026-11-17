@@ -23,7 +23,9 @@ namespace AutoVia.Core.Profiles
                 .ForMember(dest => dest.ValorVendaStr, opt => opt.MapFrom(src => StaticMethods.FormateToMonetary(src.ValorVenda)))
                 .ForMember(dest => dest.LocadoraNomeFantasia, opt => opt.MapFrom(src => src.Empresa != null ? src.Empresa.NomeFantasia : string.Empty))
                 .ForMember(dest => dest.LocadoraCidade, opt => opt.MapFrom(src => src.Empresa != null ? src.Empresa.Cidade : string.Empty))
-                .ForMember(dest => dest.LocadoraUf, opt => opt.MapFrom(src => src.Empresa != null ? src.Empresa.Uf : string.Empty));
+                .ForMember(dest => dest.LocadoraUf, opt => opt.MapFrom(src => src.Empresa != null ? src.Empresa.Uf : string.Empty))
+                .ForMember(dest => dest.FotoCapa, opt => opt.Ignore())
+                .ForMember(dest => dest.ErroFotoCapa, opt => opt.Ignore());
         }
     }
 }

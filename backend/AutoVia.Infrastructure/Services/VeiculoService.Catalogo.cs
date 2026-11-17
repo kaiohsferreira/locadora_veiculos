@@ -30,6 +30,7 @@ namespace AutoVia.Infrastructure.Services
                 int total = await _veiculoRepository.CountAVendaAsync(marcaBusca, filtro.PrecoMinimo, filtro.PrecoMaximo, filtro.AnoMinimo, filtro.AnoMaximo, filtro.KmMaximo);
                 List<Veiculo> veiculos = await _veiculoRepository.FindAllAVendaAsync(marcaBusca, filtro.PrecoMinimo, filtro.PrecoMaximo, filtro.AnoMinimo, filtro.AnoMaximo, filtro.KmMaximo, filtro.Deslocamento, filtro.TamanhoPagina);
                 List<ReturnVeiculoCatalogoVO> itens = _mapper.Map<List<ReturnVeiculoCatalogoVO>>(veiculos);
+                await _fotoCapaVeiculoService.PreencherAsync(veiculos, itens);
                 PaginaVO<ReturnVeiculoCatalogoVO> pagina = new PaginaVO<ReturnVeiculoCatalogoVO>(itens, total, filtro.Pagina, filtro.TamanhoPagina);
 
                 return pagina;

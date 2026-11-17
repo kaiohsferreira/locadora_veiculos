@@ -32,6 +32,7 @@ namespace AutoVia.Api.Controllers
         /// opcionais por categoria e faixa de diaria. Rota publica, limitada por IP (60 por minuto por padrao).
         /// </summary>
         [HttpGet]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
         [ProducesResponseType(typeof(PaginaVO<ReturnVeiculoDisponivelVO>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]

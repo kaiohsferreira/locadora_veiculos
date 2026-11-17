@@ -47,7 +47,7 @@ namespace AutoVia.Infrastructure.Repositories
                 IQueryable<Veiculo> consulta = AplicarFiltros(idCategoria, status, placa)
                     .Include(x => x.Categoria)
                     .Include(x => x.Empresa)
-                    .Include(x => x.Fotos.Where(foto => foto.DisabledAt == null).OrderBy(foto => foto.Ordem).ThenBy(foto => foto.IdVeiculoFoto).Take(1))
+                    .Include(x => x.Fotos.Where(foto => foto.DisabledAt == null).OrderBy(foto => foto.Ordem).ThenBy(foto => foto.IdVeiculoFoto).Take(ConstantsValues.QuantidadeFotoCapaPorVeiculo))
                     .OrderBy(x => x.Placa)
                     .ThenBy(x => x.IdVeiculo)
                     .Skip(deslocamento)

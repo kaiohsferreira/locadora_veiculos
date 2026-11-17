@@ -119,8 +119,9 @@ namespace AutoVia.Infrastructure.Repositories
         }
 
         /// <summary>
-        /// Pagina do catalogo: a consulta de ConsultaCatalogo com Categoria e Empresa carregadas, ordenada por valor
-        /// de venda e id (menor preco primeiro), com deslocamento e quantidade.
+        /// Pagina do catalogo: a consulta de ConsultaCatalogo com Categoria, Empresa e a capa (fotos ativas, primeira por
+        /// ordem) carregadas, ordenada por valor de venda e id (menor preco primeiro), com deslocamento e quantidade. A capa
+        /// vem no mesmo filtro publico da consulta, sem parametro de empresa.
         /// </summary>
         public IQueryable<Veiculo> ConsultaCatalogoPaginada(string? marca, decimal? precoMinimo, decimal? precoMaximo, int? anoMinimo, int? anoMaximo, int? kmMaximo, int deslocamento, int quantidade)
         {
@@ -129,6 +130,7 @@ namespace AutoVia.Infrastructure.Repositories
                 IQueryable<Veiculo> pagina = ConsultaCatalogo(marca, precoMinimo, precoMaximo, anoMinimo, anoMaximo, kmMaximo)
                     .Include(x => x.Categoria)
                     .Include(x => x.Empresa)
+                    .Include(x => x.Fotos.Where(foto => foto.DisabledAt == null).OrderBy(foto => foto.Ordem).ThenBy(foto => foto.IdVeiculoFoto).Take(ConstantsValues.QuantidadeFotoCapaPorVeiculo))
                     .OrderBy(x => x.ValorVenda)
                     .ThenBy(x => x.IdVeiculo)
                     .Skip(deslocamento)

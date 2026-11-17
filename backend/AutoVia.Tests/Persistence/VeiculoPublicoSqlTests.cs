@@ -14,7 +14,9 @@ namespace AutoVia.Tests.Persistence
     /// "Empresa", em contexto vazio, de cliente e de funcionario, inclusive dentro da subconsulta de reservas (EXISTS);
     /// (2) a locadora so entra quando ativa e nao desativada: um JOIN empresa cujo alias tem ativo e disabled_at IS NULL
     /// no WHERE; (3) a paginacao traz as colunas da locadora (Include(Empresa)) e a categoria, e as consultas sem
-    /// paginacao nao as trazem; (4) a marca do catalogo chega normalizada ao SQL, mesmo sem vir normalizada do chamador.
+    /// paginacao nao as trazem; (4) a marca do catalogo chega normalizada ao SQL, mesmo sem vir normalizada do chamador;
+    /// (5) a foto de capa e lida so na subconsulta de veiculo_foto: ativa (disabled_at IS NULL), ordenada por ordem e
+    /// id da foto, e uma por veiculo (row &lt;= 1).
     /// NAO prova o resultado no PostgreSQL: so a forma do SQL.
     /// </summary>
     public class VeiculoPublicoSqlTests
@@ -38,12 +40,21 @@ namespace AutoVia.Tests.Persistence
         private const string MarcaNormalizadaDoTeste = "FIAT";
         private const string MarcaComEspacosDoTeste = "  fiat  ";
         private const string MarcaCrua = "fiat";
+        private const string TabelaDeFotos = "veiculo_foto";
+        private const string FromDaTabelaDeFotos = "FROM veiculo_foto";
+        private const string ParticaoDaPrimeiraFoto = "ROW_NUMBER() OVER(PARTITION BY";
+        private const string OrdemDaPrimeiraFotoNaJanela = @"ROW_NUMBER\(\) OVER\(PARTITION BY \w+\.id_veiculo ORDER BY \w+\.ordem, \w+\.id_veiculo_foto\)";
+        private const string LimiteDaPrimeiraFoto = "row <= 1";
+        private const string JuncaoEsquerdaDasFotos = "LEFT JOIN";
 
         private static readonly DateOnly RetiradaDoTeste = new DateOnly(2026, 12, 10);
         private static readonly DateOnly DevolucaoDoTeste = new DateOnly(2026, 12, 12);
 
         /// <summary>Alias da tabela empresa no JOIN gerado pelo EF (ex.: "JOIN empresa AS e ON").</summary>
         private static readonly Regex JoinDaEmpresa = new Regex(@"JOIN empresa AS (\w+) ON", RegexOptions.CultureInvariant);
+
+        /// <summary>Alias da tabela veiculo_foto na subconsulta da capa (ex.: "FROM veiculo_foto AS v0").</summary>
+        private static readonly Regex AliasDaTabelaDeFotos = new Regex(@"FROM veiculo_foto AS (\w+)", RegexOptions.CultureInvariant);
 
         private static readonly DbContextOptions<AutoViaDbContext> Opcoes = new DbContextOptionsBuilder<AutoViaDbContext>()
             .UseNpgsql("Host=localhost;Database=autovia_modelo_teste")
@@ -139,6 +150,65 @@ namespace AutoVia.Tests.Persistence
             Assert.True(Regex.IsMatch(select, @"\." + Regex.Escape(ColunaNomeFantasia) + @"\b"), $"O SELECT deveria trazer nome_fantasia da empresa. SQL: {sql}");
             Assert.True(Regex.IsMatch(select, @"\." + Regex.Escape(ColunaCidade) + @"\b"), $"O SELECT deveria trazer cidade da empresa. SQL: {sql}");
             Assert.True(Regex.IsMatch(select, @"\." + Regex.Escape(ColunaUf) + @"\b"), $"O SELECT deveria trazer uf da empresa. SQL: {sql}");
+        }
+
+        /// <summary>
+        /// Subconsulta da capa: do parentese que abre a subconsulta do LEFT JOIN (o SELECT das fotos, com a janela
+        /// ROW_NUMBER, e o FROM veiculo_foto) ate o parentese que a fecha. Fica de fora o WHERE do veiculo e da locadora
+        /// (antes do LEFT JOIN) e o WHERE final da consulta, se houver (depois dele).
+        /// </summary>
+        private static string TrechoDaSubconsultaDeFotos(string sql)
+        {
+            int inicioDaJuncao = sql.IndexOf(JuncaoEsquerdaDasFotos, StringComparison.Ordinal);
+
+            Assert.True(inicioDaJuncao >= 0, $"A consulta deveria ter o LEFT JOIN das fotos. SQL: {sql}");
+
+            int aberturaDaSubconsulta = sql.IndexOf('(', inicioDaJuncao);
+            int fechamentoDaSubconsulta = PosicaoDoParentesePorFechar(sql, aberturaDaSubconsulta);
+            string subconsulta = sql.Substring(aberturaDaSubconsulta, fechamentoDaSubconsulta - aberturaDaSubconsulta + 1);
+
+            Assert.Contains(FromDaTabelaDeFotos, subconsulta);
+
+            return subconsulta;
+        }
+
+        /// <summary>Posicao do parentese que fecha o parentese aberto na posicao "abertura" (conta a profundidade).</summary>
+        private static int PosicaoDoParentesePorFechar(string sql, int abertura)
+        {
+            int profundidade = 0;
+            int posicao = -1;
+
+            for (int indice = abertura; indice < sql.Length && posicao < 0; indice++)
+            {
+                if (sql[indice] == '(')
+                {
+                    profundidade++;
+                }
+                else if (sql[indice] == ')')
+                {
+                    profundidade--;
+
+                    if (profundidade == 0)
+                    {
+                        posicao = indice;
+                    }
+                }
+            }
+
+            Assert.True(posicao > abertura, $"Parenteses da subconsulta de fotos sem fechamento. SQL: {sql}");
+
+            return posicao;
+        }
+
+        /// <summary>Prova que a subconsulta de fotos so traz fotos ativas: o alias de veiculo_foto tem disabled_at IS NULL dentro dela.</summary>
+        private static void AssertFotoAtivaNaSubconsulta(string subconsulta)
+        {
+            Match tabela = AliasDaTabelaDeFotos.Match(subconsulta);
+
+            Assert.True(tabela.Success, $"A subconsulta deveria ler veiculo_foto com alias. Trecho: {subconsulta}");
+            Assert.True(
+                Regex.IsMatch(subconsulta, @"\b" + Regex.Escape(tabela.Groups[1].Value) + @"\." + Regex.Escape(ColunaDisabledAt) + @" IS NULL\b"),
+                $"A foto de capa deveria filtrar disabled_at IS NULL dentro da subconsulta de fotos. Trecho: {subconsulta}");
         }
 
         /// <summary>A consulta sem paginacao nao carrega a locadora: nenhuma coluna da empresa no SELECT.</summary>
@@ -264,5 +334,114 @@ namespace AutoVia.Tests.Persistence
             Assert.DoesNotContain("  FIAT", sql);
         }
 
+        [Fact]
+        public void ConsultaDisponiveisPaginada_TrazAFotoDeCapa_SemParametroDeEmpresa_EmTodosOsContextos()
+        {
+            foreach (AutoViaDbContext db in CriarTresContextos())
+            {
+                using AutoViaDbContext contextoDoTeste = db;
+                VeiculoRepository repositorio = new VeiculoRepository(contextoDoTeste, new FakeLogService());
+
+                string sql = repositorio.ConsultaDisponiveisPaginada(RetiradaDoTeste, DevolucaoDoTeste, null, null, null, 0, 20).ToQueryString();
+
+                Assert.Contains(TabelaDeFotos, sql);
+                Assert.DoesNotContain(ParametroEmpresa, sql);
+            }
+        }
+
+        [Fact]
+        public void ConsultaCatalogoPaginada_TrazAFotoDeCapa_SemParametroDeEmpresa_EmTodosOsContextos()
+        {
+            foreach (AutoViaDbContext db in CriarTresContextos())
+            {
+                using AutoViaDbContext contextoDoTeste = db;
+                VeiculoRepository repositorio = new VeiculoRepository(contextoDoTeste, new FakeLogService());
+
+                string sql = repositorio.ConsultaCatalogoPaginada(null, null, null, null, null, null, 0, 20).ToQueryString();
+
+                Assert.Contains(TabelaDeFotos, sql);
+                Assert.DoesNotContain(ParametroEmpresa, sql);
+            }
+        }
+
+        [Fact]
+        public void ConsultaDisponiveisPaginada_AFotoDeCapaEAtivaOrdenadaELimitadaAUmaPorVeiculo()
+        {
+            using AutoViaDbContext db = CriarDbSemContexto();
+            VeiculoRepository repositorio = new VeiculoRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaDisponiveisPaginada(RetiradaDoTeste, DevolucaoDoTeste, null, null, null, 0, 20).ToQueryString();
+
+            AssertFotoDeCapaEAtivaOrdenadaELimitadaAUmaPorVeiculo(sql);
+        }
+
+        [Fact]
+        public void ConsultaCatalogoPaginada_AFotoDeCapaEAtivaOrdenadaELimitadaAUmaPorVeiculo()
+        {
+            using AutoViaDbContext db = CriarDbSemContexto();
+            VeiculoRepository repositorio = new VeiculoRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaCatalogoPaginada(null, null, null, null, null, null, 0, 20).ToQueryString();
+
+            AssertFotoDeCapaEAtivaOrdenadaELimitadaAUmaPorVeiculo(sql);
+        }
+
+        /// <summary>
+        /// Prova a foto de capa na subconsulta de veiculo_foto: foto ativa (disabled_at IS NULL do alias da foto), janela
+        /// ordenada por ordem e id da foto dentro de cada veiculo, e filtro row &lt;= 1 (uma foto por veiculo).
+        /// </summary>
+        private static void AssertFotoDeCapaEAtivaOrdenadaELimitadaAUmaPorVeiculo(string sql)
+        {
+            string subconsulta = TrechoDaSubconsultaDeFotos(sql);
+
+            Assert.Contains(TabelaDeFotos, subconsulta);
+            AssertFotoAtivaNaSubconsulta(subconsulta);
+            Assert.Contains(ParticaoDaPrimeiraFoto, subconsulta);
+            Assert.Matches(OrdemDaPrimeiraFotoNaJanela, subconsulta);
+            Assert.Contains(LimiteDaPrimeiraFoto, subconsulta);
+        }
+
+        [Fact]
+        public void ConsultasPaginadasComCapa_ContinuamExigindoLocadoraAtivaENaoDesativada()
+        {
+            using AutoViaDbContext dbDisponiveis = CriarDbComContextoDeFuncionario(IdEmpresaDoTeste);
+            using AutoViaDbContext dbCatalogo = CriarDbComContextoDeFuncionario(IdEmpresaDoTeste);
+            VeiculoRepository repositorioDisponiveis = new VeiculoRepository(dbDisponiveis, new FakeLogService());
+            VeiculoRepository repositorioCatalogo = new VeiculoRepository(dbCatalogo, new FakeLogService());
+
+            string sqlDisponiveis = repositorioDisponiveis.ConsultaDisponiveisPaginada(RetiradaDoTeste, DevolucaoDoTeste, null, null, null, 0, 20).ToQueryString();
+            string sqlCatalogo = repositorioCatalogo.ConsultaCatalogoPaginada(null, null, null, null, null, null, 0, 20).ToQueryString();
+
+            AssertLocadoraAtivaNoWhere(sqlDisponiveis);
+            AssertLocadoraAtivaNoWhere(sqlCatalogo);
+        }
+
+        [Fact]
+        public void ConsultasPaginadasComCapa_PaginamAntesDoJoinDasFotos()
+        {
+            using AutoViaDbContext dbDisponiveis = CriarDbSemContexto();
+            using AutoViaDbContext dbCatalogo = CriarDbSemContexto();
+            VeiculoRepository repositorioDisponiveis = new VeiculoRepository(dbDisponiveis, new FakeLogService());
+            VeiculoRepository repositorioCatalogo = new VeiculoRepository(dbCatalogo, new FakeLogService());
+
+            string sqlDisponiveis = repositorioDisponiveis.ConsultaDisponiveisPaginada(RetiradaDoTeste, DevolucaoDoTeste, null, null, null, 20, 10).ToQueryString();
+            string sqlCatalogo = repositorioCatalogo.ConsultaCatalogoPaginada(null, null, null, null, null, null, 20, 10).ToQueryString();
+
+            Assert.True(sqlDisponiveis.IndexOf(Limit, StringComparison.Ordinal) < sqlDisponiveis.IndexOf(JuncaoEsquerdaDasFotos, StringComparison.Ordinal), $"A paginacao precisa vir antes do join das fotos. SQL: {sqlDisponiveis}");
+            Assert.True(sqlCatalogo.IndexOf(Limit, StringComparison.Ordinal) < sqlCatalogo.IndexOf(JuncaoEsquerdaDasFotos, StringComparison.Ordinal), $"A paginacao precisa vir antes do join das fotos. SQL: {sqlCatalogo}");
+        }
+
+        [Fact]
+        public void ConsultasSemPaginacao_NaoCarregamAFotoDeCapa()
+        {
+            using AutoViaDbContext db = CriarDbSemContexto();
+            VeiculoRepository repositorio = new VeiculoRepository(db, new FakeLogService());
+
+            string sqlDisponiveis = repositorio.ConsultaDisponiveis(RetiradaDoTeste, DevolucaoDoTeste, null, null, null).ToQueryString();
+            string sqlCatalogo = repositorio.ConsultaCatalogo(null, null, null, null, null, null).ToQueryString();
+
+            Assert.DoesNotContain(TabelaDeFotos, sqlDisponiveis);
+            Assert.DoesNotContain(TabelaDeFotos, sqlCatalogo);
+        }
     }
 }

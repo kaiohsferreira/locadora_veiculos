@@ -25,6 +25,7 @@ namespace AutoVia.Api.Controllers
         /// </summary>
         [HttpGet("a-venda")]
         [AllowAnonymous]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
         [EnableRateLimiting(ConstantsValues.PoliticaLimiteLeituraPublica)]
         [ProducesResponseType(typeof(PaginaVO<ReturnVeiculoCatalogoVO>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]

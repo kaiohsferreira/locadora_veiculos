@@ -343,7 +343,7 @@ namespace AutoVia.Infrastructure.Repositories
             try
             {
                 IQueryable<Reserva> consulta = ConsultaReservasDoClienteLogado(idCliente)
-                    .Include(x => x.Veiculo).ThenInclude(x => x.Fotos.Where(foto => foto.DisabledAt == null).OrderBy(foto => foto.Ordem).ThenBy(foto => foto.IdVeiculoFoto).Take(1));
+                    .Include(x => x.Veiculo).ThenInclude(x => x.Fotos.Where(foto => foto.DisabledAt == null).OrderBy(foto => foto.Ordem).ThenBy(foto => foto.IdVeiculoFoto).Take(ConstantsValues.QuantidadeFotoCapaPorVeiculo));
 
                 return consulta;
             }

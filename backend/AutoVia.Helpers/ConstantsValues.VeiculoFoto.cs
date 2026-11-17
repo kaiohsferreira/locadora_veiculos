@@ -9,6 +9,9 @@ namespace AutoVia.Helpers
         /// <summary>Teto de fotos ativas por veiculo (KF1). Unica fonte do numero no back-end.</summary>
         public const int MaximoFotosPorVeiculo = 15;
 
+        /// <summary>Quantas fotos ativas por veiculo o Include da capa traz (a primeira por ordem e id). Unica fonte do numero nas consultas que carregam a capa.</summary>
+        public const int QuantidadeFotoCapaPorVeiculo = 1;
+
         /// <summary>Folga, em bytes, do corpo multipart alem da foto (bordas e cabecalhos das partes).</summary>
         public const int FolgaCorpoMultipartFotoVeiculo = 65536;
 
