@@ -6,7 +6,7 @@ namespace AutoVia.Communication.ViewObjects.Frota
     /// VO de saida (GET e retorno do POST) do veiculo. Traz os dados da entidade, o nome
     /// da categoria e os valores e datas formatados (preenchidos no VeiculoProfile).
     /// </summary>
-    public class ReturnVeiculoVO
+    public class ReturnVeiculoVO : IComFotoCapa
     {
         /// <summary>Identificador do veiculo.</summary>
         public int IdVeiculo { get; set; }
@@ -79,5 +79,14 @@ namespace AutoVia.Communication.ViewObjects.Frota
 
         /// <summary>UF da sede da locadora dona do veiculo (Empresa.Uf). Vazio sem a navegacao carregada.</summary>
         public string LocadoraUf { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Capa do veiculo. Preenchida so na lista GET /api/veiculos. No GET por id e no 201 do POST sai nula e NAO significa sem foto.
+        /// O AutoMapper nao preenche este campo (VeiculoProfile ignora); quem preenche e o IFotoCapaVeiculoService.
+        /// </summary>
+        public FotoCapaVeiculoVO? FotoCapa { get; set; }
+
+        /// <summary>Texto de erro da capa (ConstantsMessage) quando o armazenamento falhou para um veiculo com foto cadastrada; so na lista.</summary>
+        public string? ErroFotoCapa { get; set; }
     }
 }

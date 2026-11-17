@@ -83,6 +83,7 @@ namespace AutoVia.Api.Controllers
 
         /// <summary>Retorna uma reserva pertencente ao cliente autenticado.</summary>
         [HttpGet("{idReserva:int}")]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
         [ActionName(nameof(GetByIdAsync))]
         public async Task<IActionResult> GetByIdAsync(int idReserva)
         {
@@ -120,6 +121,7 @@ namespace AutoVia.Api.Controllers
 
         /// <summary>Lista as reservas do cliente autenticado com paginação e filtros opcionais de situação, status e busca.</summary>
         [HttpGet]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
         public async Task<IActionResult> GetAllAsync([FromQuery] FiltroReservaVO filtro)
         {
             try

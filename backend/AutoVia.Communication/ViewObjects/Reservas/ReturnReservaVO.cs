@@ -1,9 +1,10 @@
+using AutoVia.Communication.ViewObjects.Frota;
 using System;
 
 namespace AutoVia.Communication.ViewObjects.Reservas
 {
     /// <summary>Dados da reserva do proprio cliente autenticado (GET por id e cada item da listagem). Nunca expoe idCliente, idEmpresa, chassi ou renavam.</summary>
-    public class ReturnReservaVO
+    public class ReturnReservaVO : IComFotoCapa
     {
         public int IdReserva { get; set; }
 
@@ -45,5 +46,14 @@ namespace AutoVia.Communication.ViewObjects.Reservas
 
         /// <summary>UF com duas letras.</summary>
         public string LocadoraUf { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Capa do veiculo da reserva. Preenchida na listagem e no GET por id. Nulo nos dois NAO significa sem foto quando o
+        /// VO vem do GET por id: quem preenche e o IFotoCapaVeiculoService; o AutoMapper nao preenche (ReservaProfile ignora).
+        /// </summary>
+        public FotoCapaVeiculoVO? FotoCapa { get; set; }
+
+        /// <summary>Texto de erro da capa (ConstantsMessage) quando o armazenamento falhou para um veiculo com foto cadastrada.</summary>
+        public string? ErroFotoCapa { get; set; }
     }
 }

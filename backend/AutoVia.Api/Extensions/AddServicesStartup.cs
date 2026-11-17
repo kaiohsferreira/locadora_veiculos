@@ -47,6 +47,8 @@ namespace AutoVia.Api.Extensions
             // e a fila de espera valem para o processo inteiro.
             services.AddScoped<IVeiculoFotoService, VeiculoFotoService>();
             services.AddSingleton<IProcessadorFotoService, ProcessadorFotoService>();
+            // Scoped: a capa das listas (frota e reservas) usa o gateway de armazenamento da requisicao.
+            services.AddScoped<IFotoCapaVeiculoService, FotoCapaVeiculoService>();
 
             // --- Reserva ---
             services.AddScoped<IReservaService, ReservaService>();

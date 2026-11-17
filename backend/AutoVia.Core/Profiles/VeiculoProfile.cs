@@ -22,7 +22,9 @@ namespace AutoVia.Core.Profiles
                 .ForMember(dest => dest.AnoModelo, opt => opt.MapFrom(src => (int)src.AnoModelo))
                 .ForMember(dest => dest.ValorDiariaStr, opt => opt.MapFrom(src => StaticMethods.FormateToMonetary(src.ValorDiaria)))
                 .ForMember(dest => dest.ValorVendaStr, opt => opt.MapFrom(src => StaticMethods.FormateToMonetary(src.ValorVenda)))
-                .ForMember(dest => dest.DataAquisicaoStr, opt => opt.MapFrom(src => StaticMethods.FormateDateToPTBR(src.DataAquisicao)));
+                .ForMember(dest => dest.DataAquisicaoStr, opt => opt.MapFrom(src => StaticMethods.FormateDateToPTBR(src.DataAquisicao)))
+                .ForMember(dest => dest.FotoCapa, opt => opt.Ignore())
+                .ForMember(dest => dest.ErroFotoCapa, opt => opt.Ignore());
         }
     }
 }

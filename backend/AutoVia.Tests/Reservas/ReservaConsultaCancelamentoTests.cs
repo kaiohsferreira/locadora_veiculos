@@ -279,14 +279,14 @@ namespace AutoVia.Tests.Reservas
             FakeClienteLocadoraRepository repositorioLocadora = new FakeClienteLocadoraRepository(contexto, new ArmazenamentoClienteLocadora());
             FakeRelogio relogio = new FakeRelogio(new DateTime(2026, 11, 16, 10, 0, 0));
             ClienteLocadoraService clienteLocadora = new ClienteLocadoraService(repositorioLocadora, contexto, relogio, mapper, log, new ClientesOptions());
-            return new ReservaService(repositorio, clienteLocadora, relogio, mapper, new FakeLogService());
+            return new ReservaService(repositorio, clienteLocadora, relogio, mapper, new FakeLogService(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), new FakeLogService()));
         }
 
         private static VeiculoService CriarServicoDisponibilidade(FakeVeiculoRepository repositorio)
         {
             MapperConfiguration configuracao = new MapperConfiguration(opcoes => opcoes.AddProfile<VeiculoDisponivelProfile>(), NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
-            return new VeiculoService(repositorio, new FakeCategoriaRepository(), mapper, new FakeLogService(), ContextoEmpresaDeTeste.Criar());
+            return new VeiculoService(repositorio, new FakeCategoriaRepository(), mapper, new FakeLogService(), ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), new FakeLogService()));
         }
     }
 }

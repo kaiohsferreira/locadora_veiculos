@@ -60,7 +60,8 @@ namespace AutoVia.Tests.Fakes
                 DisabledAt = origem.DisabledAt,
                 Categoria = origem.Categoria,
                 Empresa = origem.Empresa,
-                Reservas = origem.Reservas
+                Reservas = origem.Reservas,
+                Fotos = origem.Fotos
             };
 
             return copia;

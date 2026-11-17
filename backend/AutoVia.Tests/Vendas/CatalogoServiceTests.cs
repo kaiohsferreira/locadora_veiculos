@@ -179,7 +179,7 @@ namespace AutoVia.Tests.Vendas
 
                 MapperConfiguration configuracao = new MapperConfiguration(cfg => cfg.AddProfile<VeiculoCatalogoProfile>(), NullLoggerFactory.Instance);
                 IMapper mapper = configuracao.CreateMapper();
-                Servico = new VeiculoService(Veiculos, Categorias, mapper, new FakeLogService(), ContextoEmpresaDeTeste.Criar());
+                Servico = new VeiculoService(Veiculos, Categorias, mapper, new FakeLogService(), ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), new FakeLogService()));
             }
 
             public FakeVeiculoRepository Veiculos { get; }

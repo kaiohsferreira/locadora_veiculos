@@ -289,7 +289,7 @@ namespace AutoVia.Infrastructure.Services
                 Ordem = foto.Ordem,
                 Url = arquivo.Url,
                 UrlMiniatura = null,
-                ExpiraEm = arquivo.ExpiraEm.ToUniversalTime().ToString(ConstantsValues.FormatoExpiracaoUrlFoto, CultureInfo.InvariantCulture)
+                ExpiraEm = RegrasVeiculoFoto.FormatarExpiraEm(arquivo.ExpiraEm)
             };
 
             return vo;

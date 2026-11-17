@@ -84,6 +84,44 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
+        public void ConsultaDoClienteLogado_NaoTrazAFotoDoVeiculo()
+        {
+            using AutoViaDbContext db = CriarDbComContextoDeCliente(IdClienteDoTeste);
+            ReservaRepository repositorio = new ReservaRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaReservasDoClienteLogado(IdClienteDoTeste).ToQueryString();
+
+            Assert.DoesNotContain("veiculo_foto", sql);
+        }
+
+        [Fact]
+        public void ConsultaDoClienteLogadoComCapa_TrazAPrimeiraFotoSemParametroDeEmpresaEComPosseDoCliente()
+        {
+            using AutoViaDbContext db = CriarDbComContextoDeCliente(IdClienteDoTeste);
+            ReservaRepository repositorio = new ReservaRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaReservasDoClienteLogadoComCapa(IdClienteDoTeste).ToQueryString();
+
+            Assert.Contains("veiculo_foto", sql);
+            Assert.Contains("row <= 1", sql);
+            Assert.DoesNotContain(ParametroEmpresa, sql);
+            string parametro = ExtrairParametro(sql, PredicadoDoDonoNoSql);
+            Assert.Contains($"{parametro.TrimStart('@')}='{IdClienteDoTeste}'", sql);
+        }
+
+        [Fact]
+        public void ConsultaDoClienteLogadoComCapa_OutroCliente_WhereFalseSemParametroDeEmpresa()
+        {
+            using AutoViaDbContext db = CriarDbComContextoDeCliente(IdClienteDoTeste);
+            ReservaRepository repositorio = new ReservaRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaReservasDoClienteLogadoComCapa(IdClienteAlheio).ToQueryString();
+
+            Assert.Contains(PosseNegadaNoSql, sql);
+            Assert.DoesNotContain(ParametroEmpresa, sql);
+        }
+
+        [Fact]
         public void ConsultaDoClienteLogado_MesmoDono_ContextoPositivoIgualAoIdPedido_WhereTrazOIdDoDono()
         {
             using AutoViaDbContext db = CriarDbComContextoDeCliente(IdClienteDoTeste);

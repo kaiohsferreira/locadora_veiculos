@@ -32,14 +32,16 @@ namespace AutoVia.Infrastructure.Services
         private readonly IRelogio _relogio;
         private readonly IMapper _mapper;
         private readonly ILogService _logService;
+        private readonly IFotoCapaVeiculoService _fotoCapaVeiculoService;
 
-        public ReservaService(IReservaRepository reservaRepository, IClienteLocadoraService clienteLocadoraService, IRelogio relogio, IMapper mapper, ILogService logService)
+        public ReservaService(IReservaRepository reservaRepository, IClienteLocadoraService clienteLocadoraService, IRelogio relogio, IMapper mapper, ILogService logService, IFotoCapaVeiculoService fotoCapaVeiculoService)
         {
             _reservaRepository = reservaRepository;
             _clienteLocadoraService = clienteLocadoraService;
             _relogio = relogio;
             _mapper = mapper;
             _logService = logService;
+            _fotoCapaVeiculoService = fotoCapaVeiculoService;
         }
 
         public async Task<ReturnReservaCriadaVO> CriarAsync(int idCliente, CriarReservaVO entrada)
@@ -130,6 +132,8 @@ namespace AutoVia.Infrastructure.Services
                 }
 
                 ReturnReservaVO retorno = MapearReserva(reserva);
+                List<ReturnReservaVO> itens = new List<ReturnReservaVO> { retorno };
+                await _fotoCapaVeiculoService.PreencherAsync(new List<Veiculo> { reserva.Veiculo }, itens);
                 return retorno;
             }
             catch (NotFoundException)
@@ -155,6 +159,7 @@ namespace AutoVia.Infrastructure.Services
                 int total = await _reservaRepository.CountAsync(idCliente, status, codigoBusca, textoBusca);
                 List<Reserva> reservas = await _reservaRepository.FindAllAsync(idCliente, status, codigoBusca, textoBusca, ordemCrescente, filtro.Deslocamento, filtro.TamanhoPagina);
                 List<ReturnReservaVO> itens = reservas.Select(MapearReserva).ToList();
+                await _fotoCapaVeiculoService.PreencherAsync(reservas.Select(reserva => reserva.Veiculo).ToList(), itens);
                 PaginaVO<ReturnReservaVO> pagina = new PaginaVO<ReturnReservaVO>(itens, total, filtro.Pagina, filtro.TamanhoPagina);
                 return pagina;
             }

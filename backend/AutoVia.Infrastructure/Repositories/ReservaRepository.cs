@@ -122,7 +122,7 @@ namespace AutoVia.Infrastructure.Repositories
         {
             try
             {
-                Reserva? reserva = await ConsultaReservasDoClienteLogado(idCliente)
+                Reserva? reserva = await ConsultaReservasDoClienteLogadoComCapa(idCliente)
                     .AsNoTracking()
                     .FirstOrDefaultAsync(x => x.IdReserva == idReserva);
                 return reserva;
@@ -139,7 +139,7 @@ namespace AutoVia.Infrastructure.Repositories
         {
             try
             {
-                IQueryable<Reserva> consulta = AplicarFiltrosDaListagem(idCliente, status, idReservaBusca, textoBusca);
+                IQueryable<Reserva> consulta = AplicarFiltrosDaListagem(ConsultaReservasDoClienteLogado(idCliente), status, idReservaBusca, textoBusca);
                 int total = await consulta.CountAsync();
                 return total;
             }
@@ -155,7 +155,7 @@ namespace AutoVia.Infrastructure.Repositories
         {
             try
             {
-                IQueryable<Reserva> consulta = AplicarFiltrosDaListagem(idCliente, status, idReservaBusca, textoBusca);
+                IQueryable<Reserva> consulta = AplicarFiltrosDaListagem(ConsultaReservasDoClienteLogadoComCapa(idCliente), status, idReservaBusca, textoBusca);
                 IQueryable<Reserva> ordenada = ordemCrescente
                     ? consulta.OrderBy(x => x.DataRetiradaPrevista).ThenBy(x => x.IdReserva)
                     : consulta.OrderByDescending(x => x.DataRetiradaPrevista).ThenByDescending(x => x.IdReserva);
@@ -334,6 +334,27 @@ namespace AutoVia.Infrastructure.Repositories
         }
 
         /// <summary>
+        /// Consulta nomeada: a mesma consulta do cliente, com a capa do veiculo (primeira foto ativa) por Include da colecao de
+        /// fotos. Usada so na leitura por id e na listagem; contagem e cancelamento seguem sem a capa. Sem bypass: parte de
+        /// ConsultaReservasDoClienteLogado, que ja faz a posse pelo cliente do contexto.
+        /// </summary>
+        public IQueryable<Reserva> ConsultaReservasDoClienteLogadoComCapa(int idCliente)
+        {
+            try
+            {
+                IQueryable<Reserva> consulta = ConsultaReservasDoClienteLogado(idCliente)
+                    .Include(x => x.Veiculo).ThenInclude(x => x.Fotos.Where(foto => foto.DisabledAt == null).OrderBy(foto => foto.Ordem).ThenBy(foto => foto.IdVeiculoFoto).Take(1));
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarReserva, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
         /// Consulta nomeada: trava do veiculo (FOR UPDATE), sem filtro de empresa, para criar e cancelar. Unica consulta
         /// com SQL bruto deste repositorio. Nao confere a locadora: quem cria reconfere a locadora ativa logo depois da trava.
         /// </summary>
@@ -369,12 +390,12 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        /// <summary>Aplica situacao (status) e busca (codigo OU modelo) sobre a consulta do cliente, sem paginacao.</summary>
-        private IQueryable<Reserva> AplicarFiltrosDaListagem(int idCliente, IReadOnlyCollection<StatusReserva>? status, int? idReservaBusca, string? textoBusca)
+        /// <summary>Aplica situacao (status) e busca (codigo OU modelo) sobre a consulta-base do cliente, sem paginacao. A contagem recebe a consulta sem a capa.</summary>
+        private IQueryable<Reserva> AplicarFiltrosDaListagem(IQueryable<Reserva> consultaBase, IReadOnlyCollection<StatusReserva>? status, int? idReservaBusca, string? textoBusca)
         {
             try
             {
-                IQueryable<Reserva> consulta = ConsultaReservasDoClienteLogado(idCliente).AsNoTracking();
+                IQueryable<Reserva> consulta = consultaBase.AsNoTracking();
 
                 if (status != null)
                 {

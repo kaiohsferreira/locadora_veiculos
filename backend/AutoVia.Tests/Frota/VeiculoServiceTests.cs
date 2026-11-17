@@ -717,7 +717,7 @@ namespace AutoVia.Tests.Frota
                 cfg.AddProfile<VeiculoCadastroProfile>();
             }, NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
-            VeiculoService servico = new VeiculoService(veiculos, categorias, mapper, log, contexto ?? ContextoEmpresaDeTeste.Criar());
+            VeiculoService servico = new VeiculoService(veiculos, categorias, mapper, log, contexto ?? ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), log));
 
             return servico;
         }

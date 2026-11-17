@@ -73,7 +73,7 @@ namespace AutoVia.Tests.Frota
             }, NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
 
-            return new VeiculoService(repositorio, new FakeCategoriaRepository(), mapper, log, ContextoEmpresaDeTeste.Criar());
+            return new VeiculoService(repositorio, new FakeCategoriaRepository(), mapper, log, ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), log));
         }
 
         private static FiltroVeiculoDisponibilidadeVO FiltroDisponibilidade()

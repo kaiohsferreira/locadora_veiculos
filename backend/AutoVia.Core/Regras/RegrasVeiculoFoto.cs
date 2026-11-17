@@ -55,6 +55,15 @@ namespace AutoVia.Core.Regras
         }
 
         /// <summary>
+        /// Texto do campo expiraEm das fotos (lista de fotos e capa): instante da URL em UTC, no formato ConstantsValues.FormatoExpiracaoUrlFoto.
+        /// Unico lugar que formata a expiracao; quem chama e o VeiculoFotoService e o FotoCapaVeiculoService.
+        /// </summary>
+        public static string FormatarExpiraEm(DateTimeOffset expiraEm)
+        {
+            return expiraEm.ToUniversalTime().ToString(ConstantsValues.FormatoExpiracaoUrlFoto, CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>
         /// Capa do veiculo: a foto ativa (DisabledAt nulo) de menor Ordem; no empate, a de menor IdVeiculoFoto. Desativadas sao
         /// ignoradas; sem foto ativa devolve nulo. Recebe as fotos da colecao Veiculo.Fotos.
         /// </summary>

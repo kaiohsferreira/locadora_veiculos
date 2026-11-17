@@ -20,6 +20,7 @@ namespace AutoVia.Api.Controllers
         /// GetAll - Lista os veiculos ativos, paginados e ordenados por placa, com filtros opcionais por categoria, status e placa.
         /// </summary>
         [HttpGet]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
         [ProducesResponseType(typeof(PaginaVO<ReturnVeiculoVO>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]

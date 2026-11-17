@@ -42,7 +42,9 @@ namespace AutoVia.Core.Profiles
                 .ForMember(destino => destino.LocadoraNumero, opcoes => opcoes.MapFrom(origem => origem.Veiculo.Empresa.Numero))
                 .ForMember(destino => destino.LocadoraBairro, opcoes => opcoes.MapFrom(origem => origem.Veiculo.Empresa.Bairro))
                 .ForMember(destino => destino.LocadoraCidade, opcoes => opcoes.MapFrom(origem => origem.Veiculo.Empresa.Cidade))
-                .ForMember(destino => destino.LocadoraUf, opcoes => opcoes.MapFrom(origem => origem.Veiculo.Empresa.Uf));
+                .ForMember(destino => destino.LocadoraUf, opcoes => opcoes.MapFrom(origem => origem.Veiculo.Empresa.Uf))
+                .ForMember(destino => destino.FotoCapa, opcoes => opcoes.Ignore())
+                .ForMember(destino => destino.ErroFotoCapa, opcoes => opcoes.Ignore());
         }
     }
 }

@@ -84,7 +84,7 @@ namespace AutoVia.Tests.Api
             MapperConfiguration configuracao = new MapperConfiguration(cfg => cfg.AddProfile<VeiculoProfile>(), NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
             FakeLogService logService = new FakeLogService();
-            VeiculoService servico = new VeiculoService(repositorio, new FakeCategoriaRepository(), mapper, logService, ContextoEmpresaDeTeste.Criar());
+            VeiculoService servico = new VeiculoService(repositorio, new FakeCategoriaRepository(), mapper, logService, ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), logService));
             VeiculoController controller = new VeiculoController(servico, logService);
 
             return controller;

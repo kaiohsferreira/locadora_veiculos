@@ -32,6 +32,15 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Quando verdadeiro, AssinarUrlsAsync lanca a falha de integracao generica de assinatura.</summary>
         public bool FalharAssinatura { get; set; }
 
+        /// <summary>Chaves que AssinarUrlsAsync deixa de devolver no lote (chave ausente no retorno do armazenamento).</summary>
+        public List<string> ChavesOmitidasNaAssinatura { get; } = new List<string>();
+
+        /// <summary>Quando verdadeiro, AssinarUrlsAsync lanca uma excecao nao prevista (nao e IntegrationException).</summary>
+        public bool LancarExcecaoGenericaAssinatura { get; set; }
+
+        /// <summary>Quando verdadeiro, AssinarUrlsAsync lanca OperationCanceledException com o token recebido (cancelamento do chamador).</summary>
+        public bool LancarCancelamentoAssinatura { get; set; }
+
         /// <summary>Quando verdadeiro, RemoverAsync lanca a falha de integracao generica de remocao e o objeto continua existindo.</summary>
         public bool FalharRemocao { get; set; }
 
@@ -69,11 +78,18 @@ namespace AutoVia.Tests.Fakes
             AssinaturaLoteCount++;
             ChavesAssinadas.AddRange(chaves);
             if (FalharAssinatura) throw new IntegrationException(ConstantsIntegration.Armazenamento, ConstantsMessage.ErroArmazenamentoObterUrl);
+            if (LancarExcecaoGenericaAssinatura) throw new InvalidOperationException("Assinatura indisponivel no teste");
+            if (LancarCancelamentoAssinatura) throw new OperationCanceledException(cancellationToken);
 
             DateTimeOffset expiraEm = DateTimeOffset.UtcNow.AddMinutes(5);
             Dictionary<string, ArquivoArmazenado> arquivos = new Dictionary<string, ArquivoArmazenado>(StringComparer.Ordinal);
             foreach (string chave in chaves)
             {
+                if (ChavesOmitidasNaAssinatura.Contains(chave))
+                {
+                    continue;
+                }
+
                 if (!arquivos.ContainsKey(chave))
                 {
                     arquivos[chave] = new ArquivoArmazenado("https://storage.example/foto/" + Uri.EscapeDataString(chave), expiraEm);
