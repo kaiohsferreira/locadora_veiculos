@@ -24,6 +24,7 @@ namespace AutoVia.Tests.Api
         private const string RotaVerificacao = "/api/clientes/verificar-cadastro";
         private const string RotaLogin = "/api/auth/login";
         private const string RotaAvarias = "/api/vistorias/1/avarias";
+        private const string RotaFotosVeiculo = "/api/veiculos/1/fotos";
         private const string PerfilFuncionario = "FUNCIONARIO";
         private const string CpfFuncionario = "11144477735";
         private const string SenhaFuncionario = "SenhaFunc#2026";
@@ -120,6 +121,28 @@ namespace AutoVia.Tests.Api
             formulario.Add(foto, "foto", FotoDeTeste);
 
             using HttpRequestMessage requisicao = new HttpRequestMessage(HttpMethod.Post, RotaAvarias) { Content = formulario };
+            requisicao.Headers.Authorization = new AuthenticationHeaderValue(ConstantsValues.TipoTokenBearer, token);
+            requisicao.Headers.ExpectContinue = true;
+
+            using HttpResponseMessage resposta = await cliente.SendAsync(requisicao);
+
+            await AssertErroDoCorpoAsync(resposta, fabrica, registrosAntes);
+        }
+
+        [Fact]
+        public async Task EnviarFotoVeiculo_CorpoMultipartAcimaDoTetoNoKestrel_Devolve400ComErrosDoCorpo()
+        {
+            using LimiteCorpoKestrelWebFactory fabrica = new LimiteCorpoKestrelWebFactory();
+            using HttpClient cliente = IniciarServidor(fabrica);
+            string token = await LogarFuncionarioAsync(cliente);
+            int registrosAntes = fabrica.Log.Snapshot().Count;
+
+            using MultipartFormDataContent formulario = new MultipartFormDataContent();
+            ByteArrayContent foto = new ByteArrayContent(new byte[ConstantsValues.TamanhoMaximoCorpoFotoVeiculo + 1]);
+            foto.Headers.ContentType = new MediaTypeHeaderValue(TipoJpeg);
+            formulario.Add(foto, ConstantsValues.CampoFotoVeiculo, FotoDeTeste);
+
+            using HttpRequestMessage requisicao = new HttpRequestMessage(HttpMethod.Post, RotaFotosVeiculo) { Content = formulario };
             requisicao.Headers.Authorization = new AuthenticationHeaderValue(ConstantsValues.TipoTokenBearer, token);
             requisicao.Headers.ExpectContinue = true;
 

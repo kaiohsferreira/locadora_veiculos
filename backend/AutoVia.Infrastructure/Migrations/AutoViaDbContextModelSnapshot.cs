@@ -1411,6 +1411,70 @@ namespace AutoVia.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.VeiculoFoto", b =>
+                {
+                    b.Property<int>("IdVeiculoFoto")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id_veiculo_foto");
+
+                    NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdVeiculoFoto"));
+
+                    b.Property<string>("ChaveMiniatura")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("chave_miniatura");
+
+                    b.Property<string>("ChaveObjeto")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("chave_objeto");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
+
+                    b.Property<int>("IdFuncionarioEnvio")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_funcionario_envio");
+
+                    b.Property<int?>("IdFuncionarioRemocao")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_funcionario_remocao");
+
+                    b.Property<int>("IdVeiculo")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_veiculo");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer")
+                        .HasColumnName("ordem");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("IdVeiculoFoto")
+                        .HasName("veiculo_foto_pkey");
+
+                    b.HasIndex("IdVeiculo", "Ordem")
+                        .HasDatabaseName("idx_veiculo_foto_veiculo");
+
+                    b.ToTable("veiculo_foto", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_veiculo_foto_ordem", "ordem >= 1");
+                        });
+                });
+
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Venda", b =>
                 {
                     b.Property<int>("IdVenda")
@@ -1964,6 +2028,35 @@ namespace AutoVia.Infrastructure.Migrations
                     b.Navigation("Empresa");
                 });
 
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.VeiculoFoto", b =>
+                {
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Funcionario", "FuncionarioEnvio")
+                        .WithMany()
+                        .HasForeignKey("IdFuncionarioEnvio")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_veiculo_foto_funcionario_envio");
+
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Funcionario", "FuncionarioRemocao")
+                        .WithMany()
+                        .HasForeignKey("IdFuncionarioRemocao")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_veiculo_foto_funcionario_remocao");
+
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Veiculo", "Veiculo")
+                        .WithMany("Fotos")
+                        .HasForeignKey("IdVeiculo")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_veiculo_foto_veiculo");
+
+                    b.Navigation("FuncionarioEnvio");
+
+                    b.Navigation("FuncionarioRemocao");
+
+                    b.Navigation("Veiculo");
+                });
+
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Venda", b =>
                 {
                     b.HasOne("AutoVia.Core.Entities.PgSql.Cliente", "Cliente")
@@ -2089,6 +2182,8 @@ namespace AutoVia.Infrastructure.Migrations
 
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Veiculo", b =>
                 {
+                    b.Navigation("Fotos");
+
                     b.Navigation("Locacoes");
 
                     b.Navigation("Manutencoes");

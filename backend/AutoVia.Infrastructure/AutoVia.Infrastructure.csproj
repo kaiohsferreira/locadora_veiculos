@@ -27,4 +27,9 @@
     <ProjectReference Include="..\AutoVia.Integrations\AutoVia.Integrations.csproj" />
   </ItemGroup>
 
+  <!-- Testes unitarios acessam o construtor interno do ProcessadorFotoService (tempo limite de espera injetavel). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="AutoVia.Tests" />
+  </ItemGroup>
+
 </Project>

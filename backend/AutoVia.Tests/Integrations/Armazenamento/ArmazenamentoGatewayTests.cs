@@ -270,6 +270,112 @@ namespace AutoVia.Tests.Integrations.Armazenamento
             Assert.DoesNotContain(SegredoFalso, entradas[0]);
         }
 
+        [Fact]
+        public async Task AssinarUrls_VariasChavesComUmaRepetida_UmaChamadaAoProvedorEUmaEntradaPorChaveDistinta()
+        {
+            FakeStorageProvider provider = new FakeStorageProvider();
+            FakeLogService log = new FakeLogService();
+            ArmazenamentoGateway gateway = new ArmazenamentoGateway(new FakeIntegrationResolver(CriarConfiguracao(new Dictionary<string, IntegrationSettingValue>())), new IArmazenamentoProvider[] { provider }, log);
+            List<string> chaves = new List<string> { "veiculos/1/fotos/a.jpg", "veiculos/1/fotos/b.jpg", "veiculos/1/fotos/a.jpg" };
+
+            IReadOnlyDictionary<string, ArquivoArmazenado> arquivos = await gateway.AssinarUrlsAsync(chaves);
+
+            Assert.Equal(1, provider.LoteCount);
+            Assert.Equal(chaves, provider.ChavesDoLote);
+            Assert.Equal("autovia-arquivos", provider.Bucket);
+            Assert.Equal(2, arquivos.Count);
+            Assert.Equal(UrlFalsa, arquivos["veiculos/1/fotos/a.jpg"].Url);
+            Assert.Equal(UrlFalsa, arquivos["veiculos/1/fotos/b.jpg"].Url);
+            Assert.Equal(arquivos["veiculos/1/fotos/a.jpg"].ExpiraEm, arquivos["veiculos/1/fotos/b.jpg"].ExpiraEm);
+            Assert.Empty(log.Entries);
+        }
+
+        [Fact]
+        public async Task AssinarUrls_ListaVazia_NaoResolveIntegracaoNemChamaProvedor()
+        {
+            FakeIntegrationResolverContador resolver = new FakeIntegrationResolverContador(CriarConfiguracao(new Dictionary<string, IntegrationSettingValue>()));
+            FakeStorageProvider provider = new FakeStorageProvider();
+            FakeLogService log = new FakeLogService();
+            ArmazenamentoGateway gateway = new ArmazenamentoGateway(resolver, new IArmazenamentoProvider[] { provider }, log);
+
+            IReadOnlyDictionary<string, ArquivoArmazenado> arquivos = await gateway.AssinarUrlsAsync(new List<string>());
+
+            Assert.Empty(arquivos);
+            Assert.Equal(0, resolver.ResolveCount);
+            Assert.Equal(0, provider.LoteCount);
+            Assert.Empty(log.Entries);
+        }
+
+        [Fact]
+        public async Task AssinarUrls_ExpiracaoDe600_RepassaOValorDoBancoAoProvedor()
+        {
+            Dictionary<string, IntegrationSettingValue> settings = new Dictionary<string, IntegrationSettingValue>
+            {
+                [ConstantsArmazenamento.ChaveExpiracao] = new IntegrationSettingValue("600", false)
+            };
+            FakeStorageProvider provider = new FakeStorageProvider();
+            ArmazenamentoGateway gateway = new ArmazenamentoGateway(new FakeIntegrationResolver(CriarConfiguracao(settings)), new IArmazenamentoProvider[] { provider }, new FakeLogService());
+
+            IReadOnlyDictionary<string, ArquivoArmazenado> arquivos = await gateway.AssinarUrlsAsync(new List<string> { ChaveObjeto });
+
+            Assert.Equal(600, provider.ExpiracaoSegundos);
+            Assert.Single(arquivos);
+        }
+
+        [Theory]
+        [InlineData("0")]
+        [InlineData("-1")]
+        [InlineData("901")]
+        [InlineData("abc")]
+        public async Task AssinarUrls_ExpiracaoInvalidaOuAcimaDoTeto_RecusadaSemChamarProvedor(string valor)
+        {
+            Dictionary<string, IntegrationSettingValue> settings = new Dictionary<string, IntegrationSettingValue>
+            {
+                [ConstantsArmazenamento.ChaveExpiracao] = new IntegrationSettingValue(valor, false)
+            };
+            FakeStorageProvider provider = new FakeStorageProvider();
+            ArmazenamentoGateway gateway = new ArmazenamentoGateway(new FakeIntegrationResolver(CriarConfiguracao(settings)), new IArmazenamentoProvider[] { provider }, new FakeLogService());
+
+            IntegrationException ex = await Assert.ThrowsAsync<IntegrationException>(() => gateway.AssinarUrlsAsync(new List<string> { ChaveObjeto }));
+
+            Assert.Equal(ConstantsArmazenamento.ChaveExpiracao, ex.Chave);
+            Assert.Equal(ConstantsMessage.ErroArmazenamentoExpiracaoInvalida, ex.Message);
+            Assert.Equal(0, provider.LoteCount);
+        }
+
+        [Fact]
+        public async Task AssinarUrls_FalhaDoProvedor_ViraIntegrationExceptionSemInnerESemSegredoNoLog()
+        {
+            FakeStorageProvider provider = new FakeStorageProvider();
+            provider.ExcecaoASerLancada = new InvalidOperationException($"access_key={SegredoFalso} secret={SegredoFalso} {UrlFalsa} assinatura={AssinaturaFalsa}");
+            FakeLogService log = new FakeLogService();
+            ArmazenamentoGateway gateway = new ArmazenamentoGateway(new FakeIntegrationResolver(CriarConfiguracao(new Dictionary<string, IntegrationSettingValue>())), new IArmazenamentoProvider[] { provider }, log);
+
+            IntegrationException ex = await Assert.ThrowsAsync<IntegrationException>(() => gateway.AssinarUrlsAsync(new List<string> { ChaveObjeto }));
+
+            Assert.Equal(ConstantsIntegration.Armazenamento, ex.CodigoIntegracao);
+            Assert.Equal(ConstantsMessage.ErroArmazenamentoObterUrl, ex.Message);
+            Assert.Null(ex.InnerException);
+            List<string> entradas = log.Snapshot();
+            Assert.Single(entradas);
+            Assert.Contains("InvalidOperationException", entradas[0]);
+            Assert.DoesNotContain(SegredoFalso, entradas[0]);
+            Assert.DoesNotContain(AssinaturaFalsa, entradas[0]);
+            Assert.DoesNotContain("https://", entradas[0]);
+        }
+
+        [Fact]
+        public async Task AssinarUrls_Cancelamento_SaiComoOperationCanceledENaoViraIntegrationException()
+        {
+            using CancellationTokenSource cancelamento = new CancellationTokenSource();
+            cancelamento.Cancel();
+            FakeStorageProvider provider = new FakeStorageProvider();
+            provider.ExcecaoASerLancada = new OperationCanceledException(cancelamento.Token);
+            ArmazenamentoGateway gateway = new ArmazenamentoGateway(new FakeIntegrationResolver(CriarConfiguracao(new Dictionary<string, IntegrationSettingValue>())), new IArmazenamentoProvider[] { provider }, new FakeLogService());
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() => gateway.AssinarUrlsAsync(new List<string> { ChaveObjeto }, cancelamento.Token));
+        }
+
         private static ConfiguracaoIntegracao CriarConfiguracao(IReadOnlyDictionary<string, IntegrationSettingValue> settings)
         {
             return new ConfiguracaoIntegracao(ConstantsIntegration.Armazenamento, ConstantsIntegration.Armazenamento, AmbienteIntegracao.SANDBOX, "https://storage.example", 1000, settings);
@@ -280,6 +386,19 @@ namespace AutoVia.Tests.Integrations.Armazenamento
             private readonly ConfiguracaoIntegracao _configuracao;
             public FakeIntegrationResolver(ConfiguracaoIntegracao configuracao) { _configuracao = configuracao; }
             public Task<ConfiguracaoIntegracao> ResolveAsync(string codigo, CancellationToken cancellationToken = default) => Task.FromResult(_configuracao);
+            public void Invalidate(string codigo) { }
+        }
+
+        private sealed class FakeIntegrationResolverContador : IIntegrationResolver
+        {
+            private readonly ConfiguracaoIntegracao _configuracao;
+            public int ResolveCount { get; private set; }
+            public FakeIntegrationResolverContador(ConfiguracaoIntegracao configuracao) { _configuracao = configuracao; }
+            public Task<ConfiguracaoIntegracao> ResolveAsync(string codigo, CancellationToken cancellationToken = default)
+            {
+                ResolveCount++;
+                return Task.FromResult(_configuracao);
+            }
             public void Invalidate(string codigo) { }
         }
 
@@ -319,6 +438,26 @@ namespace AutoVia.Tests.Integrations.Armazenamento
                 RemoverCount++;
                 if (ExcecaoASerLancada != null) throw ExcecaoASerLancada;
                 return Task.CompletedTask;
+            }
+
+            public int LoteCount { get; private set; }
+            public List<string> ChavesDoLote { get; } = new List<string>();
+
+            public Task<IReadOnlyDictionary<string, ArquivoArmazenado>> AssinarUrlsAsync(ConfiguracaoIntegracao configuracao, string bucket, IReadOnlyCollection<string> chaves, int expiracaoSegundos, CancellationToken cancellationToken = default)
+            {
+                Bucket = bucket;
+                ExpiracaoSegundos = expiracaoSegundos;
+                CallCount++;
+                LoteCount++;
+                ChavesDoLote.AddRange(chaves);
+                if (ExcecaoASerLancada != null) throw ExcecaoASerLancada;
+                DateTimeOffset expiraEm = DateTimeOffset.UtcNow.AddSeconds(expiracaoSegundos);
+                Dictionary<string, ArquivoArmazenado> arquivos = new Dictionary<string, ArquivoArmazenado>(StringComparer.Ordinal);
+                foreach (string chave in chaves)
+                {
+                    arquivos[chave] = new ArquivoArmazenado(UrlFalsa, expiraEm);
+                }
+                return Task.FromResult<IReadOnlyDictionary<string, ArquivoArmazenado>>(arquivos);
             }
 
             private void Registrar(string bucket, string chave, int expiracaoSegundos)

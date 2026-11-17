@@ -31,7 +31,9 @@ namespace AutoVia.Tests.Persistence
             // Desvio aprovado em 14/11/2026 (aprovacao do cadastro por locadora): vinculo cliente x locadora.
             "cliente_locadora",
             // Desvio aprovado por Kaio em 16/11/2026 (P9-INT-01; registro original de 13/11/2026): linha do tempo do sinistro.
-            "sinistro_historico"
+            "sinistro_historico",
+            // Desvio aprovado por Kaio em 16/11/2026 (fotos do veiculo, RF-94 a RF-101 e RF-105): tabela veiculo_foto.
+            "veiculo_foto"
         };
 
         private static readonly string[] TabelasIntegracao = new string[] { "integration", "integration_setting" };
@@ -56,7 +58,9 @@ namespace AutoVia.Tests.Persistence
             // Desvio aprovado em 14/11/2026 (aprovacao por locadora): indices comuns, sem UNIQUE.
             "idx_cliente_locadora_empresa_cliente", "idx_cliente_locadora_cliente",
             // Desvio aprovado por Kaio em 16/11/2026 (P9-INT-01): indice comum, sem UNIQUE.
-            "idx_sinistro_historico_sinistro"
+            "idx_sinistro_historico_sinistro",
+            // Desvio aprovado por Kaio em 16/11/2026 (fotos do veiculo): indice comum, sem UNIQUE.
+            "idx_veiculo_foto_veiculo"
         };
 
         /// <summary>
@@ -83,7 +87,7 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
-        public void Modelo_TemExatamenteAs20TabelasDaEspecificacaoMaisODesvios()
+        public void Modelo_TemExatamenteAs21TabelasDaEspecificacaoMaisODesvios()
         {
             IModel model = BuildModel();
 
@@ -168,14 +172,14 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
-        public void Modelo_TemAs39RestricoesCheckDaEspecificacaoMaisODesvios()
+        public void Modelo_TemAs40RestricoesCheckDaEspecificacaoMaisODesvios()
         {
             IModel model = BuildModel();
 
             int totalChecks = model.GetEntityTypes().SelectMany(x => x.GetCheckConstraints()).Count();
 
-            // 35 anteriores + 4 da sinistro_historico (desvio aprovado por Kaio em 16/11/2026).
-            Assert.Equal(39, totalChecks);
+            // 35 anteriores + 4 da sinistro_historico (desvio aprovado por Kaio em 16/11/2026) + 1 da veiculo_foto (mesmo desvio de fotos).
+            Assert.Equal(40, totalChecks);
         }
 
         [Fact]
@@ -496,6 +500,95 @@ namespace AutoVia.Tests.Persistence
             Assert.Equal(
                 "(id_cliente IS NOT NULL AND id_funcionario IS NULL) OR (id_cliente IS NULL AND id_funcionario IS NOT NULL)",
                 checks[0].Sql);
+        }
+
+        [Fact]
+        public void VeiculoFoto_TemAsColunasTiposENulabilidadeDoDesvio()
+        {
+            IModel model = BuildModel();
+            StoreObjectIdentifier table = StoreObjectIdentifier.Table("veiculo_foto", null);
+            IEntityType entity = model.GetEntityTypes().Single(x => x.GetTableName() == "veiculo_foto");
+
+            Dictionary<string, string> tiposEsperados = new Dictionary<string, string>
+            {
+                ["id_veiculo_foto"] = "integer",
+                ["id_veiculo"] = "integer",
+                ["ordem"] = "integer",
+                ["chave_objeto"] = "character varying(200)",
+                ["chave_miniatura"] = "character varying(200)",
+                ["id_funcionario_envio"] = "integer",
+                ["id_funcionario_remocao"] = "integer",
+                ["created_at"] = "timestamp without time zone",
+                ["updated_at"] = "timestamp without time zone",
+                ["disabled_at"] = "timestamp without time zone"
+            };
+
+            List<string> colunas = entity.GetProperties().Select(x => x.GetColumnName(table)!).OrderBy(x => x).ToList();
+            Assert.Equal(tiposEsperados.Keys.OrderBy(x => x).ToList(), colunas);
+
+            List<string> anulaveisEsperadas = new List<string> { "chave_miniatura", "id_funcionario_remocao", "disabled_at" };
+            foreach (IProperty propriedade in entity.GetProperties())
+            {
+                string coluna = propriedade.GetColumnName(table)!;
+                Assert.Equal(tiposEsperados[coluna], propriedade.GetColumnType(table));
+
+                bool anulavelEsperado = anulaveisEsperadas.Contains(coluna);
+                Assert.Equal(anulavelEsperado, propriedade.IsNullable);
+            }
+        }
+
+        [Fact]
+        public void VeiculoFoto_TemOCheckDeOrdemMaiorOuIgualAUm()
+        {
+            IModel model = BuildModel();
+            IEntityType entity = model.GetEntityTypes().Single(x => x.GetTableName() == "veiculo_foto");
+
+            List<ICheckConstraint> checks = entity.GetCheckConstraints().ToList();
+
+            Assert.Single(checks);
+            Assert.Equal("ck_veiculo_foto_ordem", checks[0].Name);
+            Assert.Equal("ordem >= 1", checks[0].Sql);
+        }
+
+        [Fact]
+        public void VeiculoFoto_TemTresFksNoActionEChavePrimariaComNomePadrao()
+        {
+            IModel model = BuildModel();
+            IEntityType entity = model.GetEntityTypes().Single(x => x.GetTableName() == "veiculo_foto");
+
+            Dictionary<string, Type> fksEsperadas = new Dictionary<string, Type>
+            {
+                ["fk_veiculo_foto_veiculo"] = typeof(Veiculo),
+                ["fk_veiculo_foto_funcionario_envio"] = typeof(Funcionario),
+                ["fk_veiculo_foto_funcionario_remocao"] = typeof(Funcionario)
+            };
+
+            List<IForeignKey> fks = entity.GetForeignKeys().ToList();
+            Assert.Equal(fksEsperadas.Count, fks.Count);
+
+            foreach (KeyValuePair<string, Type> esperada in fksEsperadas)
+            {
+                IForeignKey fk = fks.Single(x => x.GetConstraintName() == esperada.Key);
+
+                Assert.Equal(esperada.Value, fk.PrincipalEntityType.ClrType);
+                Assert.Equal(DeleteBehavior.NoAction, fk.DeleteBehavior);
+            }
+
+            Assert.Equal("veiculo_foto_pkey", entity.FindPrimaryKey()!.GetName());
+        }
+
+        [Fact]
+        public void VeiculoFoto_TemUmIndiceComumPorVeiculoEOrdemENenhumUnico()
+        {
+            IModel model = BuildModel();
+            IEntityType entity = model.GetEntityTypes().Single(x => x.GetTableName() == "veiculo_foto");
+            StoreObjectIdentifier table = StoreObjectIdentifier.Table("veiculo_foto", null);
+
+            IIndex indice = Assert.Single(entity.GetIndexes());
+
+            Assert.Equal("idx_veiculo_foto_veiculo", indice.GetDatabaseName());
+            Assert.False(indice.IsUnique);
+            Assert.Equal(new List<string> { "id_veiculo", "ordem" }, indice.Properties.Select(x => x.GetColumnName(table)!).ToList());
         }
 
         [Fact]

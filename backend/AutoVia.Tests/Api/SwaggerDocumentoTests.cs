@@ -14,6 +14,32 @@ namespace AutoVia.Tests.Api
         private const string RotaAvarias = "/api/vistorias/{idVistoria}/avarias";
         private const string RotaFotoAvaria = "/api/vistorias/{idVistoria}/avarias/{idAvaria}/foto";
         private const string TipoMultipart = "multipart/form-data";
+        private const string RotaFotosVeiculo = "/api/veiculos/{idVeiculo}/fotos";
+        private const string RotaFotoVeiculo = "/api/veiculos/{idVeiculo}/fotos/{idFoto}";
+
+        [Fact]
+        public void Swagger_GeraAsRotasDeFotosDoVeiculo()
+        {
+            using AutenticacaoWebFactory fabrica = new AutenticacaoWebFactory();
+            ISwaggerProvider provedor = fabrica.Services.GetRequiredService<ISwaggerProvider>();
+
+            OpenApiDocument documento = provedor.GetSwagger(NomeDocumento);
+
+            Assert.NotNull(documento.Paths);
+            Assert.True(documento.Paths.ContainsKey(RotaFotosVeiculo));
+            Assert.True(documento.Paths.ContainsKey(RotaFotoVeiculo));
+        }
+
+        [Fact]
+        public void Swagger_RotaDeEnvioDeFotoDeclaraMultipartFormData()
+        {
+            using AutenticacaoWebFactory fabrica = new AutenticacaoWebFactory();
+            ISwaggerProvider provedor = fabrica.Services.GetRequiredService<ISwaggerProvider>();
+
+            OpenApiDocument documento = provedor.GetSwagger(NomeDocumento);
+
+            Assert.True(DeclaraMultipart(documento, RotaFotosVeiculo, HttpMethod.Post));
+        }
 
         [Fact]
         public void Swagger_GeraDocumentoV1ComAsRotasDeAvaria()

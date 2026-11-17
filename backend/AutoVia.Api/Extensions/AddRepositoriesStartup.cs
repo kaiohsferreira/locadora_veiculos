@@ -18,6 +18,9 @@ namespace AutoVia.Api.Extensions
             // --- Modulos (Prompt 3) ---
             services.AddScoped<ICategoriaRepository, CategoriaRepository>();
 
+            // --- Fotos do veiculo (Scoped: um repositorio por requisicao, junto com o DbContext) ---
+            services.AddScoped<IVeiculoFotoRepository, VeiculoFotoRepository>();
+
             // --- Cliente ---
             services.AddScoped<IClienteRepository, ClienteRepository>();
             services.AddScoped<IClienteLocadoraRepository, ClienteLocadoraRepository>();

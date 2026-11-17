@@ -64,6 +64,28 @@ namespace AutoVia.Integrations.Services.Armazenamento
             }
         }
 
+        /// <summary>Assina em lote as URLs das chaves: resolve a integracao uma vez, sem chamada de rede por chave; lista vazia nao resolve nada.</summary>
+        public async Task<IReadOnlyDictionary<string, ArquivoArmazenado>> AssinarUrlsAsync(IReadOnlyCollection<string> chaves, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                if (chaves.Count == 0) return new Dictionary<string, ArquivoArmazenado>(StringComparer.Ordinal);
+                ConfiguracaoIntegracao configuracao = await ResolverAsync(cancellationToken);
+                return await Selecionar(configuracao).AssinarUrlsAsync(configuracao, ObterBucket(configuracao), chaves, ObterExpiracao(configuracao), cancellationToken);
+            }
+            catch (IntegrationException ex)
+            {
+                _logService.Write(CriarErroSanitizado(ex), ex.Message, GetType().ToString());
+                throw;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroArmazenamentoObterUrl, GetType().ToString());
+                throw new IntegrationException(ConstantsIntegration.Armazenamento, ConstantsMessage.ErroArmazenamentoObterUrl);
+            }
+        }
+
         public async Task RemoverAsync(string chave, CancellationToken cancellationToken = default)
         {
             try

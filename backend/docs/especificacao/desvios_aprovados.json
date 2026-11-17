@@ -168,5 +168,33 @@
     "motivo": "Com o isolamento por locadora, a consulta de duplicidade so enxerga a locadora do contexto; unicidade na plataforma exigiria bypass do filtro e revelaria a existencia de apolice de outra locadora.",
     "unicidade_no_servico": "numero da apolice unico por locadora, entre as apolices ativas dos veiculos dela; validada no servico, sem indice unico; divergencia da especificacao aprovada em 16/11/2026",
     "nao_muda": "tabela seguro, colunas, CHECK ck_seguro_vigencia e indice comum idx_seguro_numero_apolice; nenhum indice unico"
+  },
+  "veiculo_foto": {
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "data": "2026-11-16",
+    "tarefa": "RF-94 a RF-101 e RF-105 (fotos do veiculo, fatia minima)",
+    "motivo": "O sistema passa a guardar as fotos do veiculo (ate 15 ativas por veiculo), pedido do Kaio em 16/11/2026. A especificacao nao tem tabela para isso. O arquivo fica no armazenamento externo; o banco guarda a chave do objeto, a ordem e quem enviou e quem removeu.",
+    "tabelas_novas": {
+      "veiculo_foto": {
+        "colunas": {
+          "id_veiculo_foto": "SERIAL PK",
+          "id_veiculo": "INT NOT NULL, fk_veiculo_foto_veiculo (NO ACTION)",
+          "ordem": "INT NOT NULL (CHECK ordem >= 1; a menor ordem ativa e a capa)",
+          "chave_objeto": "VARCHAR(200) NOT NULL",
+          "chave_miniatura": "VARCHAR(200) NULL (reservada; nula nesta entrega)",
+          "id_funcionario_envio": "INT NOT NULL, fk_veiculo_foto_funcionario_envio (NO ACTION)",
+          "id_funcionario_remocao": "INT NULL, fk_veiculo_foto_funcionario_remocao (NO ACTION)"
+        },
+        "checks": {
+          "ck_veiculo_foto_ordem": "ordem >= 1"
+        },
+        "indices": [
+          "idx_veiculo_foto_veiculo (id_veiculo, ordem) (comum)"
+        ],
+        "auditoria": "created_at, updated_at, disabled_at (BaseEntities)"
+      }
+    },
+    "regra_no_servico": "no maximo 15 fotos ativas por veiculo, conferido no servico, sem trava, sem CHECK e sem indice unico",
+    "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico; nenhuma migracao de dados"
   }
 }

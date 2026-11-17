@@ -42,6 +42,12 @@ namespace AutoVia.Api.Extensions
             // Scoped: uma empresa e um cargo por requisicao, preenchidos na validacao do token com dados do banco.
             services.AddScoped<IContextoEmpresa, ContextoEmpresa>();
 
+            // --- Fotos do veiculo ---
+            // Scoped: o servico usa o contexto da sessao. O processador e Singleton: o limite de processamentos simultaneos
+            // e a fila de espera valem para o processo inteiro.
+            services.AddScoped<IVeiculoFotoService, VeiculoFotoService>();
+            services.AddSingleton<IProcessadorFotoService, ProcessadorFotoService>();
+
             // --- Reserva ---
             services.AddScoped<IReservaService, ReservaService>();
 

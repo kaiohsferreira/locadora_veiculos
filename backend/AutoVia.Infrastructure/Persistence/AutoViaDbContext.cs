@@ -62,6 +62,9 @@ namespace AutoVia.Infrastructure.Persistence
         // --- Frota ---
         public DbSet<Veiculo> Veiculos { get; set; } = null!;
 
+        /// <summary>Fotos do veiculo (veiculo_foto, desvio aprovado por Kaio em 16/11/2026). Filtro "Empresa" pelo Veiculo.</summary>
+        public DbSet<VeiculoFoto> VeiculoFotos { get; set; } = null!;
+
         // --- Reserva e locacao ---
         public DbSet<Reserva> Reservas { get; set; } = null!;
         public DbSet<Locacao> Locacoes { get; set; } = null!;

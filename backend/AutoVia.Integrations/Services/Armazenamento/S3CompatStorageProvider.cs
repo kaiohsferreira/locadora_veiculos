@@ -109,9 +109,38 @@ namespace AutoVia.Integrations.Services.Armazenamento
             return new AmazonS3Client(new BasicAWSCredentials(accessKey, secretKey), s3Config);
         }
 
+        public async Task<IReadOnlyDictionary<string, ArquivoArmazenado>> AssinarUrlsAsync(ConfiguracaoIntegracao configuracao, string bucket, IReadOnlyCollection<string> chaves, int expiracaoSegundos, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Dictionary<string, ArquivoArmazenado> arquivos = new Dictionary<string, ArquivoArmazenado>(StringComparer.Ordinal);
+                if (chaves.Count == 0) return arquivos;
+                using AmazonS3Client cliente = CriarCliente(configuracao);
+                DateTimeOffset expiraEm = DateTimeOffset.UtcNow.AddSeconds(expiracaoSegundos);
+                foreach (string chave in chaves.Distinct(StringComparer.Ordinal))
+                {
+                    arquivos[chave] = AssinarComExpiracao(cliente, bucket, chave, expiraEm);
+                }
+                return arquivos;
+            }
+            catch (IntegrationException) { throw; }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroArmazenamentoObterUrl, GetType().ToString());
+                throw new IntegrationException(configuracao.Codigo, ConstantsMessage.ErroArmazenamentoObterUrl);
+            }
+        }
+
         private static ArquivoArmazenado Assinar(AmazonS3Client cliente, string bucket, string chave, int expiracaoSegundos)
         {
             DateTimeOffset expiraEm = DateTimeOffset.UtcNow.AddSeconds(expiracaoSegundos);
+            return AssinarComExpiracao(cliente, bucket, chave, expiraEm);
+        }
+
+        private static ArquivoArmazenado AssinarComExpiracao(AmazonS3Client cliente, string bucket, string chave, DateTimeOffset expiraEm)
+        {
             GetPreSignedUrlRequest requisicao = new GetPreSignedUrlRequest { BucketName = bucket, Key = chave, Verb = HttpVerb.GET, Expires = expiraEm.UtcDateTime };
             string url = cliente.GetPreSignedURL(requisicao);
             return MontarArquivoAssinado(url, expiraEm);

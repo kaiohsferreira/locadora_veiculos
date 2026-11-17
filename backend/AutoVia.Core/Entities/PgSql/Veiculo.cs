@@ -76,5 +76,11 @@ namespace AutoVia.Core.Entities.PgSql
         /// por veiculo, validada no servico, sem indice unico no banco.
         /// </summary>
         public virtual List<Venda> Vendas { get; set; } = new List<Venda>();
+
+        /// <summary>
+        /// Fotos do veiculo (veiculo_foto). A capa (menor ordem ativa) e lida por Include nas consultas de listagem; quem le as
+        /// fotos ativas filtra DisabledAt nulo.
+        /// </summary>
+        public virtual List<VeiculoFoto> Fotos { get; set; } = new List<VeiculoFoto>();
     }
 }

@@ -267,12 +267,83 @@ namespace AutoVia.Tests.Integrations.Armazenamento
             Assert.Equal(expiraEm, arquivo.ExpiraEm);
         }
 
+        [Fact]
+        public async Task AssinarUrls_ListaVazia_DevolveVazioSemValidarConfiguracaoNemChamarRede()
+        {
+            // base_url em http: se a lista vazia chegasse a CriarCliente, sairia IntegrationException e o teste falharia.
+            ConfiguracaoIntegracao configuracao = CriarConfiguracao("http://storage.example", CriarSettingsValidos());
+            FakeLogService log = new FakeLogService();
+            S3CompatStorageProvider provider = new S3CompatStorageProvider(log);
+
+            IReadOnlyDictionary<string, ArquivoArmazenado> arquivos = await provider.AssinarUrlsAsync(configuracao, BucketTeste, new List<string>(), 900);
+
+            Assert.Empty(arquivos);
+            Assert.Empty(log.Entries);
+        }
+
+        [Fact]
+        public async Task AssinarUrls_VariasChavesComUmaRepetida_UmaUrlHttpsPorChaveDistintaComMesmaExpiracao()
+        {
+            ConfiguracaoIntegracao configuracao = CriarConfiguracao(BaseUrlHttps, CriarSettingsValidos());
+            FakeLogService log = new FakeLogService();
+            S3CompatStorageProvider provider = new S3CompatStorageProvider(log);
+            List<string> chaves = new List<string> { "veiculos/1/fotos/a.jpg", "veiculos/1/fotos/b.jpg", "veiculos/1/fotos/a.jpg" };
+
+            IReadOnlyDictionary<string, ArquivoArmazenado> arquivos = await provider.AssinarUrlsAsync(configuracao, BucketTeste, chaves, 900);
+
+            Assert.Equal(2, arquivos.Count);
+            ArquivoArmazenado arquivoA = arquivos["veiculos/1/fotos/a.jpg"];
+            ArquivoArmazenado arquivoB = arquivos["veiculos/1/fotos/b.jpg"];
+            Assert.StartsWith("https://", arquivoA.Url);
+            Assert.StartsWith("https://", arquivoB.Url);
+            Assert.Contains(BucketTeste, arquivoA.Url);
+            Assert.NotEqual(arquivoA.Url, arquivoB.Url);
+            Assert.Equal(arquivoA.ExpiraEm, arquivoB.ExpiraEm);
+            Assert.True(arquivoA.ExpiraEm > DateTimeOffset.UtcNow);
+            Assert.True(arquivoA.ExpiraEm <= DateTimeOffset.UtcNow.AddSeconds(900));
+            Assert.Empty(log.Entries);
+        }
+
+        [Fact]
+        public async Task AssinarUrls_ChavesNulas_LogTrazSoONomeDoTipoEFalhaViraIntegrationExceptionSemInner()
+        {
+            ConfiguracaoIntegracao configuracao = CriarConfiguracao(BaseUrlHttps, CriarSettingsValidos());
+            FakeLogService log = new FakeLogService();
+            S3CompatStorageProvider provider = new S3CompatStorageProvider(log);
+
+            IntegrationException ex = await Assert.ThrowsAsync<IntegrationException>(() => provider.AssinarUrlsAsync(configuracao, BucketTeste, null!, 900));
+
+            Assert.Equal(ConstantsIntegration.Armazenamento, ex.CodigoIntegracao);
+            Assert.Equal(ConstantsMessage.ErroArmazenamentoObterUrl, ex.Message);
+            Assert.Null(ex.InnerException);
+            List<string> entradas = log.Snapshot();
+            Assert.Single(entradas);
+            Assert.Contains("NullReferenceException", entradas[0]);
+            Assert.DoesNotContain(ValorAccessKey, entradas[0]);
+            Assert.DoesNotContain(ValorSecretKey, entradas[0]);
+        }
+
+        [Fact]
+        public async Task AssinarUrls_TokenJaCancelado_LancaOperationCanceledSemChamadaDeRede()
+        {
+            using CancellationTokenSource cancelamento = new CancellationTokenSource();
+            cancelamento.Cancel();
+            ConfiguracaoIntegracao configuracao = CriarConfiguracao("http://storage.example", CriarSettingsValidos());
+            FakeLogService log = new FakeLogService();
+            S3CompatStorageProvider provider = new S3CompatStorageProvider(log);
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() => provider.AssinarUrlsAsync(configuracao, BucketTeste, new List<string> { ChaveObjeto }, 900, cancelamento.Token));
+
+            Assert.Empty(log.Entries);
+        }
+
         private static IReadOnlyList<Func<S3CompatStorageProvider, ConfiguracaoIntegracao, Task>> ObterOperacoes()
         {
             List<Func<S3CompatStorageProvider, ConfiguracaoIntegracao, Task>> operacoes = new List<Func<S3CompatStorageProvider, ConfiguracaoIntegracao, Task>>();
             operacoes.Add((provider, configuracao) => provider.EnviarAsync(configuracao, BucketTeste, ChaveObjeto, new byte[] { 1 }, "image/jpeg", 900));
             operacoes.Add((provider, configuracao) => provider.ObterUrlAsync(configuracao, BucketTeste, ChaveObjeto, 900));
             operacoes.Add((provider, configuracao) => provider.RemoverAsync(configuracao, BucketTeste, ChaveObjeto));
+            operacoes.Add((provider, configuracao) => provider.AssinarUrlsAsync(configuracao, BucketTeste, new List<string> { ChaveObjeto }, 900));
             return operacoes;
         }
 

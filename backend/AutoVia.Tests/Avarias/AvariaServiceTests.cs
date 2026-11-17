@@ -337,6 +337,11 @@ namespace AutoVia.Tests.Avarias
             {
                 return Task.CompletedTask;
             }
+
+            public Task<IReadOnlyDictionary<string, ArquivoArmazenado>> AssinarUrlsAsync(IReadOnlyCollection<string> chaves, CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult<IReadOnlyDictionary<string, ArquivoArmazenado>>(new Dictionary<string, ArquivoArmazenado>());
+            }
         }
     }
 }

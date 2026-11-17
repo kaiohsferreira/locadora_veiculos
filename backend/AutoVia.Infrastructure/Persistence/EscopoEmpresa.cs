@@ -10,7 +10,7 @@ namespace AutoVia.Infrastructure.Persistence
     /// Isolamento por locadora (multi-locadora, T-BE-03b): o filtro global nomeado "Empresa" e
     /// registrado UMA vez, pelo AutoViaDbContext.OnModelCreating (metodo abaixo). Caminhos: Veiculo e
     /// Funcionario pela propria coluna id_empresa; Reserva, Locacao, Venda, Manutencao, Seguro e
-    /// Sinistro pelo Veiculo; SinistroHistorico pelo Sinistro; Vistoria e CobrancaExtra pela Locacao; Avaria pela Vistoria; Pagamento
+    /// Sinistro pelo Veiculo; SinistroHistorico pelo Sinistro; VeiculoFoto pelo Veiculo; Vistoria e CobrancaExtra pela Locacao; Avaria pela Vistoria; Pagamento
     /// pela Locacao ou pela Venda; ClienteLocadora pelo proprio id_empresa OU pelo id_cliente do contexto.
     /// Fail-closed: sem contexto de empresa (id 0) nada volta.
     /// Globais sem filtro: Cliente, Categoria, RedefinicaoSenha, Integration*, Empresa.
@@ -27,7 +27,7 @@ namespace AutoVia.Infrastructure.Persistence
     public partial class AutoViaDbContext
     {
         /// <summary>
-        /// Registra o filtro "Empresa" nas 14 entidades que pertencem a uma locadora (ClienteLocadora tem a condicao dupla: locadora ou cliente). As expressoes leem
+        /// Registra o filtro "Empresa" nas 15 entidades que pertencem a uma locadora (ClienteLocadora tem a condicao dupla: locadora ou cliente). As expressoes leem
         /// IdEmpresaContexto de ESTA instancia (this): o EF troca o this pelo contexto que executa a consulta,
         /// por isso o filtro nao pode capturar outra instancia nem uma variavel local.
         /// </summary>
@@ -80,6 +80,10 @@ namespace AutoVia.Infrastructure.Persistence
             modelBuilder.Entity<Avaria>().HasQueryFilter(
                 ConstantsValues.NomeFiltroEmpresa,
                 x => IdEmpresaContexto > 0 && x.Vistoria.Locacao.Veiculo.IdEmpresa == IdEmpresaContexto);
+
+            modelBuilder.Entity<VeiculoFoto>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0 && x.Veiculo.IdEmpresa == IdEmpresaContexto);
 
             modelBuilder.Entity<Pagamento>().HasQueryFilter(
                 ConstantsValues.NomeFiltroEmpresa,

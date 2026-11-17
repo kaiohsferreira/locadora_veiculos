@@ -173,3 +173,25 @@ Notas sobre a conferência:
 - `tools/compare_schema.py` não lê as entradas `tabelas_novas` nem `colunas_novas` dos blocos de desvio. Por isso "Diferencas: 0" não é critério para este desvio. A conferência é feita pelas contagens acima e pelo diff do `00_ModeloAtual.sql`.
 - O diff do `00_ModeloAtual.sql` traz só as adições de sinistro. O EF também reordena as tabelas do arquivo por dependência: nesta regeneração, o bloco `cliente_locadora` mudou de posição, sem mudança de conteúdo.
 - O bloco do desvio (`sinistro_acompanhamento`) está em `especificacao/desvios_aprovados.json` desde o merge da branch da Maria: aprovado por Kaio em 16/11/2026, com o registro original de 13/11/2026.
+
+## Desvio de 16/11/2026: fotos do veículo (RF-94 a RF-101 e RF-105)
+
+Aprovado pelo Kaio em 16/11/2026 (bloco `veiculo_foto` em `especificacao/desvios_aprovados.json`). O sistema passa a guardar as fotos do veículo, até 15 ativas por veículo. O arquivo fica no armazenamento externo; o banco guarda só a chave do objeto, a ordem, quem enviou e quem removeu.
+- Tabela nova `veiculo_foto` (10 colunas: 7 de negócio e 3 de auditoria do `BaseEntities`): `id_veiculo_foto` (SERIAL, PK `veiculo_foto_pkey`), `id_veiculo`, `ordem`, `chave_objeto` VARCHAR(200), `chave_miniatura` VARCHAR(200) anulável (reservada, nula nesta entrega), `id_funcionario_envio` (obrigatório) e `id_funcionario_remocao` (anulável).
+- CHECK `ck_veiculo_foto_ordem` (`ordem >= 1`).
+- FKs NO ACTION: `fk_veiculo_foto_veiculo`, `fk_veiculo_foto_funcionario_envio` e `fk_veiculo_foto_funcionario_remocao`.
+- Índice comum `idx_veiculo_foto_veiculo (id_veiculo, ordem)`. Nenhum índice único: o teto de 15 fotos ativas fica no serviço.
+- Migration `20261116233935_AdicionarVeiculoFoto`: gerada, não aplicada. Só cria a tabela, o CHECK, as FKs e o índice, e a tabela nasce vazia. Script `sql/16_AdicionarVeiculoFoto.sql`.
+
+Contagens depois do desvio (`sql/00_ModeloAtual.sql` regenerado em 16/11/2026):
+
+```text
+Tabelas:  20 -> 21 (+ veiculo_foto)
+Colunas:  +10 (veiculo_foto: 7 de negócio e 3 de auditoria)
+CHECK:    39 -> 40 (+1, ck_veiculo_foto_ordem)
+FK:       31 -> 34 (+3)
+UNIQUE:   0 (inalterado)
+Indices:  35 -> 36 (+1: idx_veiculo_foto_veiculo)
+```
+
+Como o `compare_schema.py` não lê as entradas `tabelas_novas`, a conferência é feita pelas contagens acima e pelo diff do `00_ModeloAtual.sql`, que traz só a tabela e o índice novos.

@@ -1,4 +1,5 @@
 using AutoVia.Api.Requests.Avaria;
+using AutoVia.Api.Requests.VeiculoFoto;
 using AutoVia.Communication.ViewObjects.Autenticacao;
 using AutoVia.Communication.ViewObjects.Frota;
 using System.Reflection;
@@ -183,6 +184,7 @@ namespace AutoVia.Tests.Persistence
 
             Assert.Contains(typeof(CriarAvariaRequest), formularios);
             Assert.Contains(typeof(RetryAvariaFotoRequest), formularios);
+            Assert.Contains(typeof(EnviarFotoVeiculoRequest), formularios);
 
             AssertSemPropriedadeEmpresa(formularios);
         }
