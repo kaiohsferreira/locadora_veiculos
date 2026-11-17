@@ -23,13 +23,15 @@ export interface CartaoReservaAtivaProps {
   nomeCondutor: string;
   /** Pede a confirmação do cancelamento desta reserva. */
   aoCancelar: (reserva: ReservaCliente) => void;
+  /** Chamado quando a foto de capa falha ao abrir. A tela decide se refaz a consulta. */
+  aoFalharFoto?: () => void;
 }
 
 /**
  * Cartão grande da reserva (desenho 29). Mostra só o que o contrato sustenta: código, criação, veículo, roteiro,
  * condutor titular e valor estimado. A única ação é o cancelamento (com confirmação, no modal).
  */
-export function CartaoReservaAtiva({ reserva, nomeCondutor, aoCancelar }: CartaoReservaAtivaProps) {
+export function CartaoReservaAtiva({ reserva, nomeCondutor, aoCancelar, aoFalharFoto }: CartaoReservaAtivaProps) {
   const diarias = calcularDiarias(reserva.dataRetirada, reserva.dataDevolucao);
   const valorDiaria = valorPorDiaria(reserva.valorEstimado, diarias);
   const legendaVeiculo = mensagemReservasAnoModeloCor(reserva.anoModelo, reserva.cor);
@@ -73,7 +75,11 @@ export function CartaoReservaAtiva({ reserva, nomeCondutor, aoCancelar }: Cartao
             </h2>
             <p className="text-legenda text-status-neutro">{legendaVeiculo}</p>
           </div>
-          <FotoVeiculo fotoCapa={reserva.fotoCapa} descricao={`${reserva.marca} ${reserva.modelo}`} />
+          <FotoVeiculo
+            fotoCapa={reserva.fotoCapa}
+            descricao={`${reserva.marca} ${reserva.modelo}`}
+            aoFalhar={aoFalharFoto}
+          />
         </div>
 
         <div className="flex min-w-0 flex-col gap-4 lg:col-span-4 lg:border-l lg:border-borda lg:pl-6">

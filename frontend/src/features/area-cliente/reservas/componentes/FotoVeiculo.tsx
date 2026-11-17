@@ -7,13 +7,15 @@ export interface FotoVeiculoProps {
   fotoCapa?: FotoCapaVeiculo | null;
   /** Texto alternativo da foto (marca e modelo). */
   descricao: string;
+  /** Chamado quando a imagem falha (ex.: URL vencida). A tela decide se refaz a consulta. */
+  aoFalhar?: () => void;
 }
 
 /**
  * Caixa da foto do veículo (16:10, como no desenho 29). A imagem inteira aparece, sem cortar (object-contain).
  * Sem foto, ou se a imagem falhar, mostra o ícone de carro.
  */
-export function FotoVeiculo({ fotoCapa, descricao }: FotoVeiculoProps) {
+export function FotoVeiculo({ fotoCapa, descricao, aoFalhar }: FotoVeiculoProps) {
   return (
     <ImagemVeiculo
       url={fotoCapa ? urlDaImagem(fotoCapa) : null}
@@ -21,6 +23,7 @@ export function FotoVeiculo({ fotoCapa, descricao }: FotoVeiculoProps) {
       ajuste="contain"
       className="aspect-[16/10] w-full rounded p-2"
       tamanhoIcone={64}
+      aoFalhar={aoFalhar}
     />
   );
 }

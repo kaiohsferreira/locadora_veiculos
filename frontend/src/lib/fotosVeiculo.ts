@@ -110,6 +110,36 @@ export function urlImagemExibida(url: string | null | undefined, urlComFalha: st
   return url === urlComFalha ? null : url;
 }
 
+/** Controle de falha de imagem de capa de uma visita à tela: decide se a consulta deve ser refeita. */
+export interface ControleNovaConsultaFoto {
+  /** Registra uma imagem que falhou. Devolve true só na primeira falha da visita: é o momento de refazer a consulta. */
+  registrarFalha(): boolean;
+}
+
+/**
+ * Uma nova consulta por visita, sem laço. A primeira falha pede a consulta; as seguintes (inclusive as que chegam
+ * juntas, de várias imagens) não pedem. Quando a consulta traz URL nova, a imagem tenta de novo (urlImagemExibida);
+ * se falhar outra vez, cai no ícone, sem nova consulta.
+ */
+export function criarControleNovaConsultaFoto(): ControleNovaConsultaFoto {
+  let jaPediuNovaConsulta = false;
+  return {
+    registrarFalha(): boolean {
+      if (jaPediuNovaConsulta) return false;
+      jaPediuNovaConsulta = true;
+      return true;
+    },
+  };
+}
+
+/**
+ * Aviso de imagem de capa que falhou: chama `recarregar` (refazer a consulta) só quando o controle pede, ou seja, na
+ * primeira falha da visita. As falhas seguintes não chamam nada.
+ */
+export function aoFalharFotoCapa(controle: ControleNovaConsultaFoto, recarregar: () => void): void {
+  if (controle.registrarFalha()) recarregar();
+}
+
 /**
  * Primeira mensagem de erro de foto de capa entre os itens de uma lista (erroFotoCapa do contrato reserva), ou nulo.
  * Texto vazio ou só com espaços não conta. A tela mostra uma única mensagem, a que o servidor mandou, sem texto novo.

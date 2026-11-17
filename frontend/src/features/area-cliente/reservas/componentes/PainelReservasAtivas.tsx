@@ -21,6 +21,8 @@ export interface PainelReservasAtivasProps {
   aoMudarPagina: (pagina: number) => void;
   nomeCondutor: string;
   aoCancelar: (reserva: ReservaCliente) => void;
+  /** Foto de capa que falhou ao abrir. Sem ela, a imagem que falha cai direto no ícone de carro. */
+  aoFalharFotoCapa?: () => void;
 }
 
 /**
@@ -33,6 +35,7 @@ export function PainelReservasAtivas({
   aoMudarPagina,
   nomeCondutor,
   aoCancelar,
+  aoFalharFotoCapa,
 }: PainelReservasAtivasProps) {
   const { dados, carregando, erro, atualizando, aoTentarNovamente } = estado;
 
@@ -87,6 +90,7 @@ export function PainelReservasAtivas({
           reserva={reserva}
           nomeCondutor={nomeCondutor}
           aoCancelar={aoCancelar}
+          aoFalharFoto={aoFalharFotoCapa}
         />
       ))}
 

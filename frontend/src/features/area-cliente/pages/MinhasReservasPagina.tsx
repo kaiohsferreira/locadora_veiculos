@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAviso } from '@/components/ui';
+import { useAoFalharFotoCapa } from '@/features/area-cliente/hooks/useAoFalharFotoCapa';
 import { useCancelarReserva } from '@/features/area-cliente/hooks/useCancelarReserva';
 import { useReservas, useTotalReservas } from '@/features/area-cliente/hooks/useMinhasReservas';
 import { AbasReservas, type ContagemAba } from '@/features/area-cliente/reservas/componentes/AbasReservas';
@@ -50,6 +51,8 @@ export default function MinhasReservasPagina() {
 
   const filtro = montarFiltroReservas(situacao, pagina, buscaAplicada);
   const consulta = useReservas(filtro);
+  /** Imagem de capa que falha: refaz a consulta uma vez nesta visita (URL assinada nova); depois, ícone de carro. */
+  const aoFalharFotoCapa = useAoFalharFotoCapa(() => void consulta.refetch());
   const totalAtivas = useTotalReservas('ATIVAS');
   const totalHistorico = useTotalReservas('HISTORICO');
   const cancelamento = useCancelarReserva();
@@ -165,6 +168,7 @@ export default function MinhasReservasPagina() {
               aoMudarPagina={setPagina}
               nomeCondutor={nomeCondutor}
               aoCancelar={setParaCancelar}
+              aoFalharFotoCapa={aoFalharFotoCapa}
             />
           ) : (
             <PainelHistoricoReservas

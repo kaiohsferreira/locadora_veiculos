@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { ErroApi } from '@/types/api';
 import type { FotoDoVeiculo, ItemFilaFoto, SituacaoItemFila } from '@/types/fotosVeiculo';
 import {
+  aoFalharFotoCapa,
+  criarControleNovaConsultaFoto,
   fotosParaExibir,
   formatarContadorFotos,
   LADO_MAXIMO_FOTO_PIXELS,
@@ -115,6 +117,7 @@ describe('formatarContadorFotos', () => {
   it('mostra o total sobre o teto', () => {
     expect(formatarContadorFotos(4)).toBe('4/15 Fotos');
     expect(formatarContadorFotos(0)).toBe('0/15 Fotos');
+    expect(formatarContadorFotos(15)).toBe('15/15 Fotos');
   });
 });
 
@@ -196,6 +199,75 @@ describe('urlDaImagem e urlImagemExibida', () => {
     expect(urlImagemExibida('https://a/1', null)).toBe('https://a/1');
     expect(urlImagemExibida('https://a/1', 'https://a/1')).toBeNull();
     expect(urlImagemExibida('https://a/2', 'https://a/1')).toBe('https://a/2');
+  });
+});
+
+describe('criarControleNovaConsultaFoto', () => {
+  it('a primeira falha pede nova consulta; a segunda não', () => {
+    const controle = criarControleNovaConsultaFoto();
+
+    expect(controle.registrarFalha()).toBe(true);
+    expect(controle.registrarFalha()).toBe(false);
+  });
+
+  it('várias imagens que falham juntas geram uma consulta só', () => {
+    const controle = criarControleNovaConsultaFoto();
+    const pedidos = [1, 2, 3, 4, 5].map(() => controle.registrarFalha());
+
+    expect(pedidos.filter(Boolean)).toHaveLength(1);
+    expect(pedidos[0]).toBe(true);
+  });
+
+  it('depois da consulta, URL nova volta a ser usada; se falhar de novo, não pede outra consulta (fica o ícone)', () => {
+    const controle = criarControleNovaConsultaFoto();
+    const urlVencida = 'https://armazenamento.exemplo/fotos/1?expirou';
+    const urlNova = 'https://armazenamento.exemplo/fotos/1?nova';
+
+    expect(controle.registrarFalha()).toBe(true);
+    expect(urlImagemExibida(urlVencida, urlVencida)).toBeNull();
+    expect(urlImagemExibida(urlNova, urlVencida)).toBe(urlNova);
+    expect(controle.registrarFalha()).toBe(false);
+    expect(urlImagemExibida(urlNova, urlNova)).toBeNull();
+  });
+
+  it('controles diferentes (visitas diferentes) têm contagem própria', () => {
+    expect(criarControleNovaConsultaFoto().registrarFalha()).toBe(true);
+    expect(criarControleNovaConsultaFoto().registrarFalha()).toBe(true);
+  });
+});
+
+describe('aoFalharFotoCapa', () => {
+  it('duas falhas chamam recarregar uma vez só; a terceira não chama', () => {
+    const controle = criarControleNovaConsultaFoto();
+    let chamadas = 0;
+    const recarregar = (): void => {
+      chamadas += 1;
+    };
+
+    aoFalharFotoCapa(controle, recarregar);
+    aoFalharFotoCapa(controle, recarregar);
+    expect(chamadas).toBe(1);
+
+    aoFalharFotoCapa(controle, recarregar);
+    expect(chamadas).toBe(1);
+  });
+
+  it('a consulta refeita traz URL nova; se essa URL também falhar, não há nova consulta (sem laço)', () => {
+    const controle = criarControleNovaConsultaFoto();
+    let chamadas = 0;
+    const recarregar = (): void => {
+      chamadas += 1;
+    };
+    const urlVencida = 'https://armazenamento.exemplo/fotos/1?expirou';
+    const urlNova = 'https://armazenamento.exemplo/fotos/1?nova';
+
+    aoFalharFotoCapa(controle, recarregar);
+    expect(chamadas).toBe(1);
+    expect(urlImagemExibida(urlNova, urlVencida)).toBe(urlNova);
+
+    aoFalharFotoCapa(controle, recarregar);
+    expect(chamadas).toBe(1);
+    expect(urlImagemExibida(urlNova, urlNova)).toBeNull();
   });
 });
 
