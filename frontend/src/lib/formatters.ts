@@ -63,6 +63,30 @@ export function formatarQuilometragem(valor: number | null | undefined): string 
   return `${formatadorNumero.format(valor)} km`;
 }
 
+/**
+ * Máscara de digitação de valor em reais (pt-BR). Só os dígitos digitados contam, e os dois últimos são centavos:
+ * "22900" → "229,00"; "10450000" → "104.500,00"; "5" → "0,05"; sem dígito → "" (campo vazio).
+ */
+export function mascararMoedaDigitada(valor: string): string {
+  const digitos = somenteDigitos(valor).replace(/^0+/, '');
+  if (digitos.length === 0) return '';
+  const comCentavos = digitos.padStart(3, '0');
+  const inteiros = comCentavos.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${inteiros},${comCentavos.slice(-2)}`;
+}
+
+/**
+ * Texto de valor em reais (pt-BR) para número: "229,00" → 229; "104.500,00" → 104500; "1234,5" → 1234.5.
+ * Aceita só dígitos, ponto de milhar (em grupos de três) e vírgula decimal. Texto vazio ou fora desse formato → nulo.
+ */
+export function converterMoedaPtBrParaNumero(texto: string): number | null {
+  const limpo = texto.trim();
+  if (limpo.length === 0) return null;
+  if (!/^(\d{1,3}(\.\d{3})+|\d+)(,\d*)?$/.test(limpo)) return null;
+  const numero = Number(limpo.replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(numero) ? numero : null;
+}
+
 // Datas ----------------------------------------------------------------------
 
 /**

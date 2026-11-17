@@ -1,5 +1,6 @@
 import type { Pagina } from '@/types/api';
 import type { StatusReserva } from '@/types/enums';
+import type { FotoCapaVeiculo } from '@/types/fotosVeiculo';
 
 /**
  * Situações da lista do cliente (parâmetro `situacao` de GET /api/reservas, contrato reserva).
@@ -42,6 +43,10 @@ export interface ReservaCliente {
   locadoraBairro: string;
   locadoraCidade: string;
   locadoraUf: string;
+  /** Foto de capa do veículo (contrato veiculo-foto). Nula quando não há foto ou quando o armazenamento falhou. Opcional: respostas antigas não trazem o campo. */
+  fotoCapa?: FotoCapaVeiculo | null;
+  /** Texto do servidor quando o armazenamento falhou para esta reserva (com fotoCapa nulo). Opcional: respostas antigas não trazem o campo. */
+  erroFotoCapa?: string | null;
 }
 
 /** Parâmetros da listagem. `busca` só sai quando há termo depois de aparar. */

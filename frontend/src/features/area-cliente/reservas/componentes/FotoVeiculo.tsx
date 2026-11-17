@@ -1,16 +1,26 @@
-import { Icone } from '@/components/ui';
+import { ImagemVeiculo } from '@/components/ui';
+import { urlDaImagem } from '@/lib/fotosVeiculo';
+import type { FotoCapaVeiculo } from '@/types/fotosVeiculo';
+
+export interface FotoVeiculoProps {
+  /** Capa do veículo da reserva. Nula ou ausente: mostra a caixa com o ícone de carro, como no desenho sem foto. */
+  fotoCapa?: FotoCapaVeiculo | null;
+  /** Texto alternativo da foto (marca e modelo). */
+  descricao: string;
+}
 
 /**
- * Caixa da foto do veículo (16:10, como no desenho). O contrato ainda não tem campo de foto: por enquanto mostra o
- * ícone de carro. Quando a foto existir, troque só o conteúdo deste componente, sem refazer o cartão.
+ * Caixa da foto do veículo (16:10, como no desenho 29). A imagem inteira aparece, sem cortar (object-contain).
+ * Sem foto, ou se a imagem falhar, mostra o ícone de carro.
  */
-export function FotoVeiculo() {
+export function FotoVeiculo({ fotoCapa, descricao }: FotoVeiculoProps) {
   return (
-    <div
-      aria-hidden="true"
-      className="relative flex aspect-[16/10] w-full items-center justify-center overflow-hidden rounded bg-steel-fundo p-2"
-    >
-      <Icone nome="directions_car" tamanho={64} className="text-borda-forte" />
-    </div>
+    <ImagemVeiculo
+      url={fotoCapa ? urlDaImagem(fotoCapa) : null}
+      alt={descricao}
+      ajuste="contain"
+      className="aspect-[16/10] w-full rounded p-2"
+      tamanhoIcone={64}
+    />
   );
 }

@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { AvisoProvider } from '@/components/ui';
 import { useCancelarReserva } from '@/features/area-cliente/hooks/useCancelarReserva';
 import { useReservas, useTotalReservas } from '@/features/area-cliente/hooks/useMinhasReservas';
-import { RESERVA_ATIVA, TERMOS_SEM_LASTRO } from '@/features/area-cliente/reservas/fixturasReservas';
+import { RESERVA_ATIVA, RESERVA_CONFIRMADA, TERMOS_SEM_LASTRO } from '@/features/area-cliente/reservas/fixturasReservas';
 import { ErroApi } from '@/types/api';
 import type { ReservaCliente, RespostaReservas, SituacaoReserva } from '@/types/reservas';
 import { AutenticacaoContexto, type AutenticacaoContextoValor } from '@/routes/autenticacao/AutenticacaoContexto';
@@ -151,5 +151,70 @@ describe('MinhasReservasPagina (T-FE-03)', () => {
     const html = renderizar({ lista: consultaCom({ data: pagina([RESERVA_ATIVA], 1) }) });
     expect(html).toMatch(/role="tab"[^>]*aria-selected="true"[^>]*>/);
     expect(html).not.toContain('Filtrar por código ou modelo');
+  });
+
+  describe('foto de capa nos cartões (contrato reserva v2)', () => {
+    const URL_CAPA = 'https://armazenamento.exemplo/bucket/veiculos/7/fotos/abc.jpg?assinatura=teste';
+    const MENSAGEM_FALHA = 'Não foi possível carregar as fotos agora. Tente novamente em instantes.';
+    const CAPA = { url: URL_CAPA, urlMiniatura: null, expiraEm: '2026-11-16T21:15:00.0000000+00:00' };
+
+    it('com foto de capa: a imagem aparece no cartão, sem aviso de erro', () => {
+      const html = renderizar({
+        lista: consultaCom({ data: pagina([{ ...RESERVA_ATIVA, fotoCapa: CAPA, erroFotoCapa: null }], 1) }),
+      });
+      expect(html).toContain(`src="${URL_CAPA}"`);
+      expect(html).toContain('alt="Jeep Renegade Longitude"');
+      expect(html).not.toContain('<output');
+    });
+
+    it('sem foto cadastrada (nulo e nulo): a caixa com o ícone de carro e nenhum aviso', () => {
+      const html = renderizar({
+        lista: consultaCom({ data: pagina([{ ...RESERVA_ATIVA, fotoCapa: null, erroFotoCapa: null }], 1) }),
+      });
+      expect(html).toContain('directions_car');
+      expect(html).not.toContain(URL_CAPA);
+      expect(html).not.toContain('<output');
+    });
+
+    it('falha do armazenamento: a lista sai sem a foto e o aviso aparece UMA vez, com a mensagem do servidor', () => {
+      const html = renderizar({
+        lista: consultaCom({
+          data: pagina(
+            [
+              { ...RESERVA_ATIVA, fotoCapa: null, erroFotoCapa: MENSAGEM_FALHA },
+              { ...RESERVA_CONFIRMADA, fotoCapa: null, erroFotoCapa: MENSAGEM_FALHA },
+            ],
+            2,
+          ),
+        }),
+      });
+      expect(html.split('<output').length - 1).toBe(1);
+      expect(html.split(MENSAGEM_FALHA).length - 1).toBe(1);
+      expect(html).toContain('AV-00042');
+      expect(html).toContain('AV-00043');
+      expect(html).not.toContain('<img');
+    });
+
+    it('sem erro de foto em nenhum item: o aviso não aparece', () => {
+      const html = renderizar({
+        lista: consultaCom({ data: pagina([{ ...RESERVA_ATIVA, fotoCapa: CAPA, erroFotoCapa: null }], 1) }),
+      });
+      expect(html).not.toContain('<output');
+      expect(html).not.toContain(MENSAGEM_FALHA);
+    });
+
+    it('resposta antiga, sem os campos de capa: a tela funciona com o ícone de carro e sem aviso', () => {
+      const html = renderizar({ lista: consultaCom({ data: pagina([RESERVA_ATIVA], 1) }) });
+      expect(html).toContain('AV-00042');
+      expect(html).toContain('directions_car');
+      expect(html).not.toContain('<output');
+    });
+
+    it('a URL assinada nunca vai para atributo de dados da página', () => {
+      const html = renderizar({
+        lista: consultaCom({ data: pagina([{ ...RESERVA_ATIVA, fotoCapa: CAPA, erroFotoCapa: null }], 1) }),
+      });
+      expect(html).not.toMatch(/data-[\w-]*="[^"]*https?:/);
+    });
   });
 });

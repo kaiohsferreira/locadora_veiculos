@@ -3,6 +3,7 @@ import { useAviso } from '@/components/ui';
 import { useCancelarReserva } from '@/features/area-cliente/hooks/useCancelarReserva';
 import { useReservas, useTotalReservas } from '@/features/area-cliente/hooks/useMinhasReservas';
 import { AbasReservas, type ContagemAba } from '@/features/area-cliente/reservas/componentes/AbasReservas';
+import { AvisoFotosReservas } from '@/features/area-cliente/reservas/componentes/AvisoFotosReservas';
 import { CabecalhoReservas } from '@/features/area-cliente/reservas/componentes/CabecalhoReservas';
 import { ModalCancelarReserva } from '@/features/area-cliente/reservas/componentes/ModalCancelarReserva';
 import { PainelHistoricoReservas } from '@/features/area-cliente/reservas/componentes/PainelHistoricoReservas';
@@ -19,6 +20,7 @@ import {
   ultimaPagina,
 } from '@/features/area-cliente/reservas/parametrosReservas';
 import { obterMensagemErro } from '@/lib/erros';
+import { primeiraMensagemErroFotoCapa } from '@/lib/fotosVeiculo';
 import { MENSAGEM_RESERVAS_CANCELADA, MENSAGEM_RESERVAS_TITULO_PAGINA } from '@/lib/mensagens';
 import { useTituloDocumento } from '@/hooks/useTituloDocumento';
 import { useAutenticacao } from '@/routes/autenticacao/useAutenticacao';
@@ -52,6 +54,8 @@ export default function MinhasReservasPagina() {
   const totalHistorico = useTotalReservas('HISTORICO');
   const cancelamento = useCancelarReserva();
   const dados = consulta.data;
+  /** Um único aviso por resposta da aba exibida: a primeira mensagem de erro de foto que o servidor mandou. */
+  const erroFotoCapa = primeiraMensagemErroFotoCapa(dados?.itens ?? []);
 
   // Página além da última (ex.: a última reserva da página saiu, depois de cancelar): volta para a última existente.
   // Feito durante o render, como o React indica para estado derivado. Não roda com dado de outra consulta.
@@ -153,6 +157,7 @@ export default function MinhasReservasPagina() {
           id={ID_PAINEL_RESERVAS}
           aria-labelledby={situacao === 'ATIVAS' ? ID_ABA_ATIVAS : ID_ABA_HISTORICO}
         >
+          {erroFotoCapa !== null && <AvisoFotosReservas mensagem={erroFotoCapa} />}
           {situacao === 'ATIVAS' ? (
             <PainelReservasAtivas
               estado={estadoLista}

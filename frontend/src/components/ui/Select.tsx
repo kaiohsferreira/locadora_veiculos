@@ -7,6 +7,7 @@ import {
   classesDica,
   classesEnvoltorioCampo,
   classesRotulo,
+  classesSelectDesenho,
   idsDescricao,
   type VarianteCampo,
 } from './estilosCampo';
@@ -28,12 +29,19 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   dica?: string;
   /** Mostra o asterisco no rótulo e marca o campo como obrigatório para leitores de tela. */
   obrigatorio?: boolean;
+  /** Esconde só o asterisco visual; `aria-required` segue para leitores de tela. */
+  ocultarAsterisco?: boolean;
   /** Mantém o rótulo só para leitores de tela. */
   ocultarRotulo?: boolean;
   /** Texto da primeira opção, de valor vazio. `false` remove essa opção. Padrão: "Selecione". */
   opcaoVazia?: string | false;
-  /** `padrao` (visual de sempre) ou `cartao` (cartão-campo da etapa de documentos do cadastro). Padrão: `padrao`. */
-  variante?: Extract<VarianteCampo, 'padrao' | 'cartao'>;
+  /**
+   * `padrao` (visual de sempre), `cartao` (cartão-campo da etapa de documentos do cadastro) ou `desenho` (back office
+   * do cadastro de veículo, tela 05). Padrão: `padrao`.
+   */
+  variante?: Extract<VarianteCampo, 'padrao' | 'cartao' | 'desenho'>;
+  /** Só na variante `desenho`: texto em destaque laranja e seminegrito (status do veículo). */
+  destaque?: boolean;
 }
 
 /**
@@ -47,9 +55,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     erro,
     dica,
     obrigatorio = false,
+    ocultarAsterisco = false,
     ocultarRotulo = false,
     opcaoVazia = 'Selecione',
     variante = 'padrao',
+    destaque = false,
     id,
     className = '',
     ...props
@@ -60,12 +70,13 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   const idCampo = id ?? `select-${idGerado}`;
   const idErro = `${idCampo}-erro`;
   const idDica = `${idCampo}-dica`;
+  const desenho = variante === 'desenho';
 
   return (
     <div className={classesEnvoltorioCampo(variante)}>
       <label htmlFor={idCampo} className={ocultarRotulo ? 'sr-only' : classesRotulo(variante)}>
         {rotulo}
-        {obrigatorio && (
+        {obrigatorio && !ocultarAsterisco && (
           <span className="ml-0.5 text-status-perigo" aria-hidden="true">
             *
           </span>
@@ -79,7 +90,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           aria-invalid={erro ? true : undefined}
           aria-required={obrigatorio || undefined}
           aria-describedby={idsDescricao(dica && !erro && idDica, erro && idErro)}
-          className={`${variante === 'cartao' ? classesControleCartao(Boolean(erro)) : classesControle(Boolean(erro))} appearance-none pr-10 ${className}`}
+          className={
+            desenho
+              ? `${classesSelectDesenho(Boolean(erro), destaque)} ${className}`
+              : `${variante === 'cartao' ? classesControleCartao(Boolean(erro)) : classesControle(Boolean(erro))} appearance-none pr-10 ${className}`
+          }
         >
           {opcaoVazia !== false && <option value="">{opcaoVazia}</option>}
           {opcoes.map((opcao) => (
@@ -90,7 +105,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         </select>
         <Icone
           nome="expand_more"
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-steel"
+          className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 ${desenho ? 'text-contorno' : 'text-steel'}`}
         />
       </div>
       {dica && !erro && (

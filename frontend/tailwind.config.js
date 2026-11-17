@@ -23,6 +23,10 @@ export default {
         DEFAULT: '#10243E',
         claro: '#1C3A5E',
         escuro: '#0A1829',
+        /** Cadastro de veículo (tela 05): ícones de cabeçalho, botão "Veículo Ativado!" e texto da trilha em foco. */
+        profundo: '#000E23',
+        /** Cadastro de veículo (tela 05): hover do botão "Salvar como Rascunho". */
+        marinho: '#002542',
       },
       /** Cor secundária: ícones e elementos de apoio. */
       steel: {
@@ -46,14 +50,32 @@ export default {
         DEFAULT: '#FF6B35',
         escuro: '#E5551F',
         claro: '#FFF0EA',
+        /** Cadastro de veículo (tela 05): botão principal e anel de foco do desenho. */
+        acao: '#FE6A34',
       },
       /** Fundo das páginas. */
       offwhite: '#F7F8FA',
       /** Fundo dos cartões. */
       branco: '#FFFFFF',
+      /** Cadastro de veículo (tela 05): fundo da barra fixa de ações (com 95% de opacidade). */
+      superficie: '#F8F9FF',
+      /** Cadastro de veículo (tela 05): cor decorativa de bordas, separadores, setas e etiquetas de seção. */
+      contorno: '#74777E',
+      /** Cadastro de veículo (tela 05): contorno tracejado da zona de envio de fotos (outline-variant do desenho). */
+      'contorno-suave': '#C4C6CE',
+      /** Amostras de cor externa do seletor (tela 05): as três que não estavam no tema; o branco é `branco`. */
+      amostra: {
+        preto: '#10141A',
+        prata: '#BAC2CB',
+        cinza: '#585E67',
+      },
       texto: {
         DEFAULT: '#1A1A2E',
         suave: '#6B7789',
+        /** Cadastro de veículo (tela 05): texto de campos, títulos de cartão e rótulos. */
+        desenho: '#0B1C30',
+        /** Cadastro de veículo (tela 05): descrições, prefixo "R$", sufixo "KM" e texto de apoio. */
+        apoio: '#44474D',
       },
       borda: {
         DEFAULT: '#E1E5EB',
@@ -114,6 +136,14 @@ export default {
         rotulo: ['0.75rem', { lineHeight: '1rem', fontWeight: '600', letterSpacing: '0.02em' }],
         /** Minhas reservas (design 29): nome do veículo no cartão (18/24, negrito). Autorizado pelo Kaio em 16/11/2026. */
         'nome-veiculo': ['1.125rem', { lineHeight: '1.5rem', fontWeight: '700' }],
+        /** Cadastro de veículo (tela 05): placa no campo (16/22, semibold). Autorizado pelo Kaio em 16/11/2026. */
+        'titulo-md': ['1rem', { lineHeight: '1.375rem', fontWeight: '600', letterSpacing: '0em' }],
+        /** Cadastro de veículo (tela 05): chassi, renavam, anos e quilometragem (13/18, medium). Autorizado pelo Kaio em 16/11/2026. */
+        'dado-tabular': ['0.8125rem', { lineHeight: '1.125rem', fontWeight: '500', letterSpacing: '0.02em' }],
+        /** Cadastro de veículo (tela 05): texto de ajuda sob os campos (12/16, com respiro de letra). Autorizado pelo Kaio em 16/11/2026. */
+        apoio: ['0.75rem', { lineHeight: '1rem', fontWeight: '400', letterSpacing: '0.01em' }],
+        /** Cadastro de veículo (tela 05): emblema "BR" da placa (9px). Autorizado pelo Kaio em 16/11/2026. */
+        emblema: ['0.5625rem', { lineHeight: '0.875rem', fontWeight: '700' }],
       },
       borderRadius: {
         cartao: '8px',
@@ -123,6 +153,10 @@ export default {
         elevado: '0 12px 32px -8px rgb(16 36 62 / 0.30)',
         /** Cadastro (design 20): sombra larga e suave do cartão principal. */
         destaque: '0 12px 40px -8px rgb(16 36 62 / 0.08), 0 2px 8px -2px rgb(16 36 62 / 0.04)',
+        /** Cadastro de veículo (tela 05): sombra da barra fixa de ações, para cima. Autorizado pelo Kaio em 16/11/2026. */
+        'barra-inferior': '0 -4px 16px rgba(0, 0, 0, 0.06)',
+        /** Cadastro de veículo (tela 05): sombra laranja do botão principal (shadow-md com a cor do botão a 20%). Autorizado pelo Kaio em 16/11/2026. */
+        'acao-laranja': '0 4px 6px -1px rgb(254 106 52 / 0.2), 0 2px 4px -2px rgb(254 106 52 / 0.2)',
       },
     },
   },

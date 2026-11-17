@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CAMINHOS, obterCaminhoRetorno } from './caminhos';
+import { CAMINHOS, caminhoEditarVeiculo, obterCaminhoRetorno } from './caminhos';
 
 const ORIGEM = 'https://autovia.test';
 const PADRAO = '/padrao-de-teste';
@@ -89,6 +89,22 @@ describe('obterCaminhoRetorno: estado sem retorno', () => {
 
   it('sem padrão informado, usa o início', () => {
     expect(obterCaminhoRetorno(undefined)).toBe(CAMINHOS.inicio);
+  });
+});
+
+describe('CAMINHOS: edição de veículo', () => {
+  it('a rota de edição tem o id na URL, sob o mesmo prefixo da frota', () => {
+    expect(CAMINHOS.frotaEditarVeiculo).toBe('/back-office/frota/veiculos/:idVeiculo/editar');
+    expect(CAMINHOS.frotaEditarVeiculo.startsWith(CAMINHOS.frotaVeiculos)).toBe(true);
+  });
+
+  it('caminhoEditarVeiculo monta o caminho com o id do veículo', () => {
+    expect(caminhoEditarVeiculo(42)).toBe('/back-office/frota/veiculos/42/editar');
+  });
+
+  it('o cadastro continua em /novo, e a edição não o substitui', () => {
+    expect(CAMINHOS.frotaNovoVeiculo).toBe('/back-office/frota/veiculos/novo');
+    expect(caminhoEditarVeiculo(1)).not.toBe(CAMINHOS.frotaNovoVeiculo);
   });
 });
 

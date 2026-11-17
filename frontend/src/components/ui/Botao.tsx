@@ -3,11 +3,19 @@ import { Link, type LinkProps } from 'react-router-dom';
 import { Icone } from './Icone';
 
 export type VarianteBotao = 'primario' | 'secundario' | 'contorno' | 'fantasma' | 'perigo';
+/**
+ * Variantes do back office do cadastro de veículo (tela 05). Têm altura, espaçamento e cantos próprios do desenho, então
+ * ignoram `tamanho`. Só existem para essa tela: as variantes de `VarianteBotao` seguem iguais.
+ */
+export type VarianteBotaoDesenho = 'cinzaAzulado' | 'azulMarinho' | 'laranjaAcao' | 'azulProfundo';
 export type TamanhoBotao = 'pequeno' | 'medio' | 'grande';
 
 interface PropsVisuaisBotao {
-  /** primario (laranja, ação principal da tela), secundario (navy), contorno, fantasma ou perigo. Padrão: primario. */
-  variante?: VarianteBotao;
+  /**
+   * primario (laranja, ação principal da tela), secundario (navy), contorno, fantasma ou perigo. Variantes da tela 05
+   * (`cinzaAzulado`, `azulMarinho`, `laranjaAcao`, `azulProfundo`) têm o visual do desenho. Padrão: primario.
+   */
+  variante?: VarianteBotao | VarianteBotaoDesenho;
   /** Padrão: medio. */
   tamanho?: TamanhoBotao;
   /** Ocupa toda a largura disponível. */
@@ -23,7 +31,10 @@ export interface BotaoProps extends ButtonHTMLAttributes<HTMLButtonElement>, Pro
   carregando?: boolean;
 }
 
-export interface BotaoLinkProps extends LinkProps, PropsVisuaisBotao {}
+/** Link com a aparência do Botao: só as variantes gerais (as da tela 05 são de botão, não de link). */
+export interface BotaoLinkProps extends LinkProps, Omit<PropsVisuaisBotao, 'variante'> {
+  variante?: VarianteBotao;
+}
 
 const CLASSES_BASE =
   'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-semibold transition-colors ' +
@@ -58,6 +69,23 @@ const TAMANHO_ICONE: Readonly<Record<TamanhoBotao, number>> = {
   grande: 20,
 };
 
+/** Base das variantes do desenho: 40px, canto de 2px, texto semibold e anel de foco do próprio botão. */
+const CLASSES_BASE_DESENHO =
+  'inline-flex h-10 items-center justify-center gap-1 whitespace-nowrap rounded-sm text-corpo-denso font-semibold transition-colors ' +
+  'disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-acao';
+
+/** Estilo completo de cada variante do desenho (tela 05). Hover só com o botão habilitado, como nas demais variantes. */
+const CLASSES_DESENHO: Readonly<Record<VarianteBotaoDesenho, string>> = {
+  cinzaAzulado: `${CLASSES_BASE_DESENHO} bg-steel-suave px-4 text-texto-desenho enabled:hover:bg-steel-alto`,
+  azulMarinho: `${CLASSES_BASE_DESENHO} bg-navy px-4 text-branco enabled:hover:bg-navy-marinho`,
+  laranjaAcao: `${CLASSES_BASE_DESENHO} gap-1.5 bg-orange-acao px-6 font-bold text-branco shadow-acao-laranja enabled:hover:bg-status-pendente`,
+  azulProfundo: `${CLASSES_BASE_DESENHO} gap-1.5 bg-navy-profundo px-6 font-bold text-branco shadow-acao-laranja`,
+};
+
+function ehVarianteDesenho(variante: VarianteBotao | VarianteBotaoDesenho): variante is VarianteBotaoDesenho {
+  return variante in CLASSES_DESENHO;
+}
+
 /** Botão de ação. Para navegação, use BotaoLink. */
 export const Botao = forwardRef<HTMLButtonElement, BotaoProps>(function Botao(
   {
@@ -75,13 +103,19 @@ export const Botao = forwardRef<HTMLButtonElement, BotaoProps>(function Botao(
   },
   ref,
 ) {
+  const desenho = ehVarianteDesenho(variante);
+  const classesEstilo = desenho
+    ? CLASSES_DESENHO[variante]
+    : `${CLASSES_BASE} ${CLASSES_VARIANTE[variante]} ${CLASSES_TAMANHO[tamanho]}`;
+  const tamanhoIcone = desenho ? TAMANHO_ICONE.medio : TAMANHO_ICONE[tamanho];
+
   return (
     <button
       ref={ref}
       type={type}
       disabled={disabled || carregando}
       aria-busy={carregando || undefined}
-      className={`${CLASSES_BASE} ${CLASSES_VARIANTE[variante]} ${CLASSES_TAMANHO[tamanho]} ${larguraTotal ? 'w-full' : ''} ${className}`}
+      className={`${classesEstilo} ${larguraTotal ? 'w-full' : ''} ${className}`}
       {...props}
     >
       {carregando ? (
@@ -90,10 +124,10 @@ export const Botao = forwardRef<HTMLButtonElement, BotaoProps>(function Botao(
           aria-hidden="true"
         />
       ) : (
-        icone && <Icone nome={icone} tamanho={TAMANHO_ICONE[tamanho]} />
+        icone && <Icone nome={icone} tamanho={tamanhoIcone} />
       )}
       {children}
-      {iconeDireita && !carregando && <Icone nome={iconeDireita} tamanho={TAMANHO_ICONE[tamanho]} />}
+      {iconeDireita && !carregando && <Icone nome={iconeDireita} tamanho={tamanhoIcone} />}
     </button>
   );
 });

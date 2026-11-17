@@ -73,7 +73,7 @@ export function CartaoReservaAtiva({ reserva, nomeCondutor, aoCancelar }: Cartao
             </h2>
             <p className="text-legenda text-status-neutro">{legendaVeiculo}</p>
           </div>
-          <FotoVeiculo />
+          <FotoVeiculo fotoCapa={reserva.fotoCapa} descricao={`${reserva.marca} ${reserva.modelo}`} />
         </div>
 
         <div className="flex min-w-0 flex-col gap-4 lg:col-span-4 lg:border-l lg:border-borda lg:pl-6">

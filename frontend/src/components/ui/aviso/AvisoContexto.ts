@@ -17,3 +17,13 @@ export interface AvisoContextoValor {
 }
 
 export const AvisoContexto = createContext<AvisoContextoValor | null>(null);
+
+/**
+ * Pedido de uma tela para que os avisos fiquem acima da barra de ações fixa (ex.: a tela de cadastro de veículo).
+ * `registrar` devolve a função que desfaz o pedido. Sem provedor por perto, o pedido não faz nada.
+ */
+export interface AvisoElevacaoContextoValor {
+  registrar: () => () => void;
+}
+
+export const AvisoElevacaoContexto = createContext<AvisoElevacaoContextoValor | null>(null);

@@ -1,5 +1,56 @@
 import { describe, expect, it } from 'vitest';
-import { formatarCep, formatarCnpj, formatarCpf, formatarHora, formatarTelefone, limitarDigitos } from '@/lib/formatters';
+import {
+  converterMoedaPtBrParaNumero,
+  formatarCep,
+  formatarCnpj,
+  formatarCpf,
+  formatarHora,
+  formatarNumero,
+  formatarTelefone,
+  limitarDigitos,
+  mascararMoedaDigitada,
+} from '@/lib/formatters';
+
+describe('mascararMoedaDigitada', () => {
+  it('põe a vírgula dos centavos e o ponto de milhar enquanto a pessoa digita', () => {
+    expect(mascararMoedaDigitada('')).toBe('');
+    expect(mascararMoedaDigitada('5')).toBe('0,05');
+    expect(mascararMoedaDigitada('22900')).toBe('229,00');
+    expect(mascararMoedaDigitada('10450000')).toBe('104.500,00');
+    expect(mascararMoedaDigitada('123456789')).toBe('1.234.567,89');
+  });
+
+  it('ignora o que não é dígito e zeros à esquerda; sem dígito volta vazio', () => {
+    expect(mascararMoedaDigitada('R$ 2.290,05')).toBe('2.290,05');
+    expect(mascararMoedaDigitada('000')).toBe('');
+    expect(mascararMoedaDigitada('0100')).toBe('1,00');
+  });
+});
+
+describe('converterMoedaPtBrParaNumero', () => {
+  it('converte o texto em reais para número, com o ponto de milhar e a vírgula decimal', () => {
+    expect(converterMoedaPtBrParaNumero('229,00')).toBe(229);
+    expect(converterMoedaPtBrParaNumero('104.500,00')).toBe(104500);
+    expect(converterMoedaPtBrParaNumero('1234,5')).toBe(1234.5);
+    expect(converterMoedaPtBrParaNumero(' 0,05 ')).toBe(0.05);
+    expect(converterMoedaPtBrParaNumero('12')).toBe(12);
+  });
+
+  it('vazio ou fora do formato pt-BR vira nulo (ponto decimal, vírgula no lugar errado, letras)', () => {
+    expect(converterMoedaPtBrParaNumero('')).toBeNull();
+    expect(converterMoedaPtBrParaNumero('   ')).toBeNull();
+    expect(converterMoedaPtBrParaNumero('1.2')).toBeNull();
+    expect(converterMoedaPtBrParaNumero('1234.567')).toBeNull();
+    expect(converterMoedaPtBrParaNumero(',5')).toBeNull();
+    expect(converterMoedaPtBrParaNumero('R$ 5')).toBeNull();
+  });
+
+  it('é o inverso da máscara: o valor digitado volta ao mesmo número', () => {
+    expect(converterMoedaPtBrParaNumero(mascararMoedaDigitada('10450000'))).toBe(104500);
+    expect(formatarNumero(229, 2)).toBe('229,00');
+    expect(converterMoedaPtBrParaNumero(formatarNumero(104500, 2))).toBe(104500);
+  });
+});
 
 describe('formatarHora', () => {
   it('formata a hora local em 24 horas, com zero à esquerda', () => {

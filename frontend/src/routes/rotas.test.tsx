@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { RouteObject } from 'react-router-dom';
 import { CAMINHOS } from './caminhos';
+import { CadastroVeiculoPagina } from './paginas';
 import { rotas } from './rotas';
 
 // A árvore de rotas é lida como dado: o roteador do navegador não é criado nos testes (não há janela aqui).
@@ -44,6 +45,30 @@ describe('rotas: índice do back office', () => {
     const visaoGeral = acharRotaPorCaminho(rotaBackOffice().children, CAMINHOS.visaoGeral);
 
     expect(visaoGeral).toBeDefined();
+  });
+});
+
+describe('rotas: edição de veículo', () => {
+  it('a rota de edição fica no back office protegido para funcionário, como a de cadastro', () => {
+    const raiz = rotaBackOffice();
+    const protegida = raiz.element as ReactElement<{ perfisPermitidos: string[] }> | undefined;
+    const edicao = acharRotaPorCaminho(raiz.children, CAMINHOS.frotaEditarVeiculo);
+    const cadastro = acharRotaPorCaminho(raiz.children, CAMINHOS.frotaNovoVeiculo);
+
+    expect(protegida?.props.perfisPermitidos).toEqual(['funcionario']);
+    expect(edicao).toBeDefined();
+    expect(cadastro).toBeDefined();
+  });
+
+  it('usa a mesma página do cadastro enquanto a tela de edição não existe', () => {
+    const raiz = rotaBackOffice();
+    const edicao = acharRotaPorCaminho(raiz.children, CAMINHOS.frotaEditarVeiculo);
+    const cadastro = acharRotaPorCaminho(raiz.children, CAMINHOS.frotaNovoVeiculo);
+    const elementoEdicao = edicao?.element as ReactElement | undefined;
+    const elementoCadastro = cadastro?.element as ReactElement | undefined;
+
+    expect(elementoEdicao?.type).toBe(elementoCadastro?.type);
+    expect(elementoEdicao?.type).toBe(CadastroVeiculoPagina);
   });
 });
 

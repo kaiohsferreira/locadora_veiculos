@@ -1,6 +1,6 @@
 /** Componentes de base da AutoVia. Importe sempre daqui: `import { Botao, Campo } from '@/components/ui';` */
 export { Botao, BotaoLink } from './Botao';
-export type { BotaoLinkProps, BotaoProps, TamanhoBotao, VarianteBotao } from './Botao';
+export type { BotaoLinkProps, BotaoProps, TamanhoBotao, VarianteBotao, VarianteBotaoDesenho } from './Botao';
 export { Campo } from './Campo';
 export type { CampoProps } from './Campo';
 export { CampoSenha } from './CampoSenha';
@@ -25,7 +25,10 @@ export { Cartao } from './Cartao';
 export type { CartaoProps } from './Cartao';
 export { Icone } from './Icone';
 export type { IconeProps } from './Icone';
+export { ImagemVeiculo } from './ImagemVeiculo';
+export type { AjusteImagemVeiculo, ImagemVeiculoProps } from './ImagemVeiculo';
 export { AvisoProvider } from './aviso/AvisoProvider';
 export type { AvisoProviderProps } from './aviso/AvisoProvider';
 export { useAviso } from './aviso/useAviso';
+export { useAvisosAcimaDaBarra } from './aviso/useAvisosAcimaDaBarra';
 export type { AvisoContextoValor, TipoAviso } from './aviso/AvisoContexto';

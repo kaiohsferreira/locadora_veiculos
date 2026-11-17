@@ -137,6 +137,8 @@ export const rotas: RouteObject[] = [
           { path: CAMINHOS.frota, element: <PainelFrotaPagina /> },
           { path: CAMINHOS.frotaVeiculos, element: <ListagemFrotaPagina /> },
           { path: CAMINHOS.frotaNovoVeiculo, element: <CadastroVeiculoPagina /> },
+          // Edição usa a mesma página até a tela de edição existir (P1-FE-03: o formulário é o mesmo).
+          { path: CAMINHOS.frotaEditarVeiculo, element: <CadastroVeiculoPagina /> },
 
           // Clientes
           { path: CAMINHOS.clientes, element: <Navigate to={CAMINHOS.verificacaoCadastros} replace /> },

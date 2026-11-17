@@ -1,16 +1,20 @@
-import { forwardRef, useId, type ChangeEvent, type InputHTMLAttributes } from 'react';
+import { forwardRef, useId, type ChangeEvent, type InputHTMLAttributes, type ReactNode } from 'react';
 import { Icone } from './Icone';
 import {
-  CLASSES_APOIO_ROTULO,
   CLASSES_ERRO,
+  CLASSES_PREFIXO_DESENHO,
+  CLASSES_SUFIXO_DESENHO,
+  classesApoioRotulo,
   classesControle,
   classesControleCadastro,
   classesControleCartao,
+  classesControleDesenho,
   classesControlePortal,
   classesDica,
   classesEnvoltorioCampo,
   classesRotulo,
   idsDescricao,
+  type TipografiaCampo,
   type VarianteCampo,
 } from './estilosCampo';
 
@@ -31,7 +35,8 @@ export interface CampoProps extends InputHTMLAttributes<HTMLInputElement> {
   iconeInicial?: string;
   /**
    * `padrao` (visual de sempre), `portal` (tela de acesso), `cadastro` (etapa de dados pessoais do
-   * cadastro) ou `cartao` (cartão-campo da etapa de documentos). Padrão: `padrao`.
+   * cadastro), `cartao` (cartão-campo da etapa de documentos) ou `desenho` (back office do cadastro de veículo).
+   * Padrão: `padrao`.
    */
   variante?: VarianteCampo;
   /** Esconde só o asterisco visual; `aria-required` segue para leitores de tela. */
@@ -42,13 +47,32 @@ export interface CampoProps extends InputHTMLAttributes<HTMLInputElement> {
   valido?: boolean;
   /** Ícone Material Symbols antes do texto de ajuda (`dica`). Opcional. */
   dicaIcone?: string;
+  /** Só na variante `desenho`: texto ou elemento dentro do campo, à esquerda (ex.: "R$"). */
+  prefixo?: ReactNode;
+  /** Só na variante `desenho`: texto ou ícone dentro do campo, à direita (ex.: "KM"). */
+  sufixo?: ReactNode;
+  /**
+   * Só na variante `desenho`: o sufixo é um ícone decorativo sobre a borda direita e não reserva espaço no texto
+   * (o desenho do chassi usa 16px de recuo; o "KM" do odômetro precisa do recuo padrão e não usa esta opção).
+   */
+  sufixoSemRecuo?: boolean;
+  /** Só na variante `desenho`: recuo maior à esquerda para o emblema da placa (56px em vez de 44px). */
+  prefixoLargo?: boolean;
+  /** Só na variante `desenho`: fonte do texto digitado (corpo, dado, placa ou valor). Padrão: corpo. */
+  tipografia?: TipografiaCampo;
 }
 
 /** Classes do input conforme a variante (a padrão só ganha `pl-10` quando há ícone inicial). */
-function classesDoControle(variante: VarianteCampo, temErro: boolean, comIcone: boolean): string {
+function classesDoControle(
+  variante: VarianteCampo,
+  temErro: boolean,
+  comIcone: boolean,
+  desenho: { recuoEsquerdo: 'nenhum' | 'prefixo' | 'prefixoLargo'; sufixo: boolean; tipografia: TipografiaCampo },
+): string {
   if (variante === 'portal') return classesControlePortal(temErro, comIcone);
   if (variante === 'cadastro') return classesControleCadastro(temErro, comIcone);
   if (variante === 'cartao') return classesControleCartao(temErro);
+  if (variante === 'desenho') return classesControleDesenho(temErro, desenho);
   return `${classesControle(temErro)}${comIcone ? ' pl-10' : ''}`;
 }
 
@@ -70,6 +94,11 @@ export const Campo = forwardRef<HTMLInputElement, CampoProps>(function Campo(
     apoioRotulo,
     valido,
     dicaIcone,
+    prefixo,
+    sufixo,
+    sufixoSemRecuo = false,
+    prefixoLargo = false,
+    tipografia = 'corpo',
     id,
     className = '',
     onChange,
@@ -91,8 +120,15 @@ export const Campo = forwardRef<HTMLInputElement, CampoProps>(function Campo(
   }
 
   const cadastro = variante === 'cadastro';
-  const classesInput = classesDoControle(variante, Boolean(erro), iconeInicial !== undefined);
-  const comEnvoltorio = iconeInicial !== undefined || valido === true;
+  const desenho = variante === 'desenho';
+  const recuoEsquerdo = prefixo === undefined ? 'nenhum' : prefixoLargo ? 'prefixoLargo' : 'prefixo';
+  const classesInput = classesDoControle(variante, Boolean(erro), iconeInicial !== undefined, {
+    recuoEsquerdo,
+    sufixo: sufixo !== undefined && !sufixoSemRecuo,
+    tipografia,
+  });
+  const comEnvoltorio =
+    iconeInicial !== undefined || valido === true || (desenho && (prefixo !== undefined || sufixo !== undefined));
 
   const input = (
     <input
@@ -107,8 +143,14 @@ export const Campo = forwardRef<HTMLInputElement, CampoProps>(function Campo(
     />
   );
 
+  // Na variante desenho, rótulo e apoio ficam numa linha só, nas pontas, sem quebra de linha e sem espaço fixo entre eles.
+  const semQuebraComApoio = desenho && apoioRotulo !== undefined ? ' whitespace-nowrap' : '';
+  const classeLinhaRotulo = desenho
+    ? 'flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between'
+    : 'flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2';
+
   const elementoRotulo = (
-    <label htmlFor={idCampo} className={ocultarRotulo ? 'sr-only' : classesRotulo(variante)}>
+    <label htmlFor={idCampo} className={(ocultarRotulo ? 'sr-only' : classesRotulo(variante)) + semQuebraComApoio}>
       {rotulo}
       {obrigatorio && !ocultarAsterisco && (
         <span className={`ml-0.5 text-status-perigo${cadastro ? ' font-bold' : ''}`} aria-hidden="true">
@@ -123,9 +165,9 @@ export const Campo = forwardRef<HTMLInputElement, CampoProps>(function Campo(
       {apoioRotulo === undefined ? (
         elementoRotulo
       ) : (
-        <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+        <div className={classeLinhaRotulo}>
           {elementoRotulo}
-          <span id={idApoio} className={CLASSES_APOIO_ROTULO}>{apoioRotulo}</span>
+          <span id={idApoio} className={classesApoioRotulo(variante) + semQuebraComApoio}>{apoioRotulo}</span>
         </div>
       )}
       {!comEnvoltorio ? (
@@ -139,7 +181,9 @@ export const Campo = forwardRef<HTMLInputElement, CampoProps>(function Campo(
               className={`pointer-events-none absolute text-texto-suave ${cadastro ? 'left-3' : 'left-3.5'}`}
             />
           )}
+          {prefixo !== undefined && <span className={CLASSES_PREFIXO_DESENHO}>{prefixo}</span>}
           {input}
+          {sufixo !== undefined && <span className={CLASSES_SUFIXO_DESENHO}>{sufixo}</span>}
           {valido === true && !erro && (
             // Campo de data nativo tem o próprio ícone de calendário na borda direita: o "conferido" fica ao lado dele.
             <Icone

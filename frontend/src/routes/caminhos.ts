@@ -36,6 +36,7 @@ export const CAMINHOS = {
   frota: '/back-office/frota',
   frotaVeiculos: '/back-office/frota/veiculos',
   frotaNovoVeiculo: '/back-office/frota/veiculos/novo',
+  frotaEditarVeiculo: '/back-office/frota/veiculos/:idVeiculo/editar',
   clientes: '/back-office/clientes',
   verificacaoCadastros: '/back-office/clientes/verificacao',
   reservas: '/back-office/reservas',
@@ -51,6 +52,11 @@ export const CAMINHOS = {
   seguros: '/back-office/seguros',
   detalheSinistro: '/back-office/seguros/sinistros/:sinistroId',
 } as const;
+
+/** Caminho da edição de um veículo, com o id na URL (CAMINHOS.frotaEditarVeiculo). */
+export function caminhoEditarVeiculo(idVeiculo: number): string {
+  return CAMINHOS.frotaEditarVeiculo.replace(':idVeiculo', String(idVeiculo));
+}
 
 /** Estado enviado para a tela de login, para voltar à página que o usuário tentou abrir. */
 export interface EstadoRedirecionamentoLogin {

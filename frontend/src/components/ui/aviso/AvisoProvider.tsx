@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icone } from '../Icone';
-import { AvisoContexto, type AvisoContextoValor, type ItemAviso, type TipoAviso } from './AvisoContexto';
+import {
+  AvisoContexto,
+  AvisoElevacaoContexto,
+  type AvisoContextoValor,
+  type AvisoElevacaoContextoValor,
+  type ItemAviso,
+  type TipoAviso,
+} from './AvisoContexto';
+import { classeSecaoAvisos } from './classeSecaoAvisos';
 
 /** Tempo na tela de cada tipo de aviso. Erros ficam mais tempo para dar tempo de ler. */
 const DURACAO_MS: Readonly<Record<TipoAviso, number>> = {
@@ -28,11 +36,20 @@ export interface AvisoProviderProps {
   children: ReactNode;
 }
 
-/** Provedor das notificações. Envolve a aplicação no `main.tsx`. */
+/**
+ * Provedor das notificações. Envolve a aplicação no `main.tsx`. Uma tela pode pedir que os avisos subam acima da sua
+ * barra de ações fixa (`useAvisosAcimaDaBarra`); sem pedido, a área fica no canto de sempre.
+ */
 export function AvisoProvider({ children }: AvisoProviderProps) {
   const [avisos, setAvisos] = useState<ItemAviso[]>([]);
+  const [pedidosAcimaDaBarra, setPedidosAcimaDaBarra] = useState(0);
   const proximoId = useRef(1);
   const temporizadores = useRef(new Map<number, number>());
+
+  const registrarAcimaDaBarra = useCallback(() => {
+    setPedidosAcimaDaBarra((atuais) => atuais + 1);
+    return () => setPedidosAcimaDaBarra((atuais) => Math.max(0, atuais - 1));
+  }, []);
 
   const remover = useCallback((id: number) => {
     setAvisos((atuais) => atuais.filter((aviso) => aviso.id !== id));
@@ -72,38 +89,42 @@ export function AvisoProvider({ children }: AvisoProviderProps) {
     [adicionar],
   );
 
+  const valorElevacao = useMemo<AvisoElevacaoContextoValor>(
+    () => ({ registrar: registrarAcimaDaBarra }),
+    [registrarAcimaDaBarra],
+  );
+
   return (
     <AvisoContexto.Provider value={valor}>
-      {children}
-      <section
-        aria-label="Notificações"
-        className="pointer-events-none fixed inset-x-4 bottom-4 z-[60] flex flex-col gap-2 sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-96"
-      >
-        {avisos.map((aviso) => {
-          const aparencia = APARENCIA[aviso.tipo];
-          return (
-            <div
-              key={aviso.id}
-              role={aviso.tipo === 'erro' ? 'alert' : 'status'}
-              className={`pointer-events-auto flex items-start gap-3 rounded-cartao border-l-4 bg-branco p-4 shadow-elevado ${aparencia.classes}`}
-            >
-              <Icone nome={aparencia.icone} preenchido />
-              <div className="min-w-0 flex-1">
-                <p className="text-corpo-denso font-semibold">{aparencia.titulo}</p>
-                <p className="break-words text-corpo-denso text-texto">{aviso.mensagem}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => remover(aviso.id)}
-                aria-label="Fechar notificação"
-                className="-m-1 inline-flex h-7 w-7 items-center justify-center rounded-md text-texto-suave transition-colors hover:bg-offwhite hover:text-navy"
+      <AvisoElevacaoContexto.Provider value={valorElevacao}>
+        {children}
+        <section aria-label="Notificações" className={classeSecaoAvisos(pedidosAcimaDaBarra > 0)}>
+          {avisos.map((aviso) => {
+            const aparencia = APARENCIA[aviso.tipo];
+            return (
+              <div
+                key={aviso.id}
+                role={aviso.tipo === 'erro' ? 'alert' : 'status'}
+                className={`pointer-events-auto flex items-start gap-3 rounded-cartao border-l-4 bg-branco p-4 shadow-elevado ${aparencia.classes}`}
               >
-                <Icone nome="close" tamanho={18} />
-              </button>
-            </div>
-          );
-        })}
-      </section>
+                <Icone nome={aparencia.icone} preenchido />
+                <div className="min-w-0 flex-1">
+                  <p className="text-corpo-denso font-semibold">{aparencia.titulo}</p>
+                  <p className="break-words text-corpo-denso text-texto">{aviso.mensagem}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => remover(aviso.id)}
+                  aria-label="Fechar notificação"
+                  className="-m-1 inline-flex h-7 w-7 items-center justify-center rounded-md text-texto-suave transition-colors hover:bg-offwhite hover:text-navy"
+                >
+                  <Icone nome="close" tamanho={18} />
+                </button>
+              </div>
+            );
+          })}
+        </section>
+      </AvisoElevacaoContexto.Provider>
     </AvisoContexto.Provider>
   );
 }
