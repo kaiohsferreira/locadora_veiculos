@@ -24,6 +24,7 @@ namespace AutoVia.Infrastructure.Services
         private static readonly byte[] AssinaturaJpeg = { 0xFF, 0xD8, 0xFF };
         private static readonly byte[] AssinaturaPng = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
         private static readonly SKSamplingOptions AmostragemReducao = new SKSamplingOptions(SKCubicResampler.Mitchell);
+        private static readonly SKSamplingOptions AmostragemLinear = new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None);
 
         private readonly ILogService _logService;
         private readonly TimeSpan _tempoMaximoEspera;
@@ -136,7 +137,10 @@ namespace AutoVia.Infrastructure.Services
             return conteudo;
         }
 
-        /// <summary>Decodifica e recodifica a imagem. Todos os objetos nativos saem por using, inclusive nos caminhos de erro.</summary>
+        /// <summary>
+        /// Decodifica e recodifica a imagem. A decodificacao sai na menor escala reduzida que ainda cobre a saida
+        /// (EscolherDimensoesDeDecodificacao). Todos os objetos nativos saem por using, inclusive nos caminhos de erro.
+        /// </summary>
         private static FotoProcessada Processar(byte[] fotoBytes)
         {
             using SKData dadosOriginais = SKData.CreateCopy(fotoBytes);
@@ -150,14 +154,6 @@ namespace AutoVia.Infrastructure.Services
             ValidarDimensoes(infoOriginal);
             SKEncodedOrigin origem = codec.EncodedOrigin;
 
-            // Decodifica so depois da conferencia do cabecalho. JPEG cortado devolve imagem parcial sem erro: o resultado do codec decide.
-            using SKBitmap original = new SKBitmap(infoOriginal);
-            SKCodecResult resultadoDecodificacao = codec.GetPixels(original.Info, original.GetPixels());
-            if (resultadoDecodificacao != SKCodecResult.Success)
-            {
-                throw CriarRecusa(ConstantsMessage.ErroVeiculoFotoFormatoInvalido);
-            }
-
             bool trocaLadoELado = origem == SKEncodedOrigin.LeftTop
                 || origem == SKEncodedOrigin.RightTop
                 || origem == SKEncodedOrigin.RightBottom
@@ -170,6 +166,30 @@ namespace AutoVia.Infrastructure.Services
                 alturaOrientada,
                 ConstantsValues.LadoMaximoFotoVeiculoPixels);
 
+            // Decodifica so depois da conferencia do cabecalho, na menor escala que cobre a saida. JPEG cortado devolve imagem parcial sem erro: o resultado do codec decide.
+            SKSizeI dimensoesDecodificacao = EscolherDimensoesDeDecodificacao(codec, larguraSaida, alturaSaida);
+            SKImageInfo infoDecodificacao = new SKImageInfo(
+                dimensoesDecodificacao.Width,
+                dimensoesDecodificacao.Height,
+                infoOriginal.ColorType,
+                infoOriginal.AlphaType,
+                infoOriginal.ColorSpace);
+            using SKBitmap decodificada = new SKBitmap(infoDecodificacao);
+            SKCodecResult resultadoDecodificacao = codec.GetPixels(decodificada.Info, decodificada.GetPixels());
+            if (resultadoDecodificacao != SKCodecResult.Success)
+            {
+                throw CriarRecusa(ConstantsMessage.ErroVeiculoFotoFormatoInvalido);
+            }
+
+            // Orientacao e escala usam as dimensoes DECODIFICADAS, que podem ser menores que as do arquivo.
+            int larguraDecodificada = decodificada.Width;
+            int alturaDecodificada = decodificada.Height;
+            int larguraOrientadaDecodificada = trocaLadoELado ? alturaDecodificada : larguraDecodificada;
+            int alturaOrientadaDecodificada = trocaLadoELado ? larguraDecodificada : alturaDecodificada;
+            int ladoMaiorDecodificado = Math.Max(larguraOrientadaDecodificada, alturaOrientadaDecodificada);
+            int ladoMaiorSaida = Math.Max(larguraSaida, alturaSaida);
+            SKSamplingOptions amostragem = UsaFiltroRapido(ladoMaiorDecodificado, ladoMaiorSaida) ? AmostragemLinear : AmostragemReducao;
+
             SKImageInfo infoSaida = new SKImageInfo(larguraSaida, alturaSaida, SKColorType.Rgba8888, SKAlphaType.Opaque);
             using SKBitmap saida = new SKBitmap(infoSaida);
             using SKCanvas canvas = new SKCanvas(saida);
@@ -178,10 +198,10 @@ namespace AutoVia.Infrastructure.Services
             canvas.Clear(SKColors.White);
 
             // Escala por ultimo: a orientacao corrige os pixels e so depois a imagem e reduzida. Sem ampliacao (ver CalcularDimensoesDeSaida).
-            canvas.Scale((float)larguraSaida / larguraOrientada, (float)alturaSaida / alturaOrientada);
-            SKMatrix orientacao = MontarOrientacao(origem, infoOriginal.Width, infoOriginal.Height);
+            canvas.Scale((float)larguraSaida / larguraOrientadaDecodificada, (float)alturaSaida / alturaOrientadaDecodificada);
+            SKMatrix orientacao = MontarOrientacao(origem, larguraDecodificada, alturaDecodificada);
             canvas.Concat(in orientacao);
-            canvas.DrawBitmap(original, 0, 0, AmostragemReducao, pincel);
+            canvas.DrawBitmap(decodificada, 0, 0, amostragem, pincel);
 
             using SKData? codificada = saida.Encode(SKEncodedImageFormat.Jpeg, ConstantsValues.QualidadeJpegFotoVeiculo);
             if (codificada == null)
@@ -190,6 +210,45 @@ namespace AutoVia.Infrastructure.Services
             }
 
             return new FotoProcessada(codificada.ToArray(), ConstantsArmazenamento.MimeJpeg, larguraSaida, alturaSaida);
+        }
+
+        /// <summary>
+        /// Escolhe a escala de decodificacao do JPEG: 1/8, 1/4 e depois 1/2, nesta ordem, usando a primeira cujo lado maior e cujo lado
+        /// menor ficam iguais ou maiores que os da saida (nunca amplia). PNG e qualquer outro formato sao decodificados inteiros.
+        /// </summary>
+        internal static SKSizeI EscolherDimensoesDeDecodificacao(SKCodec codec, int larguraOrientadaSaida, int alturaOrientadaSaida)
+        {
+            SKSizeI dimensoesOriginais = new SKSizeI(codec.Info.Width, codec.Info.Height);
+            if (codec.EncodedFormat != SKEncodedImageFormat.Jpeg)
+            {
+                return dimensoesOriginais;
+            }
+
+            int ladoMaiorSaida = Math.Max(larguraOrientadaSaida, alturaOrientadaSaida);
+            int ladoMenorSaida = Math.Min(larguraOrientadaSaida, alturaOrientadaSaida);
+            float[] escalas = { ConstantsValues.EscalaDecodificacaoFotoOitavo, ConstantsValues.EscalaDecodificacaoFotoQuarto, ConstantsValues.EscalaDecodificacaoFotoMetade };
+
+            foreach (float escala in escalas)
+            {
+                SKSizeI dimensoes = codec.GetScaledDimensions(escala);
+                int ladoMaior = Math.Max(dimensoes.Width, dimensoes.Height);
+                int ladoMenor = Math.Min(dimensoes.Width, dimensoes.Height);
+                if (ladoMaior >= ladoMaiorSaida && ladoMenor >= ladoMenorSaida)
+                {
+                    return dimensoes;
+                }
+            }
+
+            return dimensoesOriginais;
+        }
+
+        /// <summary>
+        /// Usa o filtro linear rapido so quando o lado maior decodificado tem ate FatorResidualMaximoFiltroRapidoFoto vezes o lado maior
+        /// da saida. Acima disso (reducao maior), segue o filtro Mitchell de sempre.
+        /// </summary>
+        internal static bool UsaFiltroRapido(int ladoMaiorDecodificado, int ladoMaiorSaida)
+        {
+            return ladoMaiorDecodificado <= ladoMaiorSaida * ConstantsValues.FatorResidualMaximoFiltroRapidoFoto;
         }
 
         /// <summary>Recusa se o cabecalho nao tem area valida, ou se algum lado ou o total de pixels passa do limite. Nada e decodificado antes.</summary>

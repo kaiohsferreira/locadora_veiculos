@@ -33,6 +33,21 @@ namespace AutoVia.Tests.Frota
         }
 
         [Fact]
+        public void EscalasDeDecodificacao_E_FatorResidual_SaoOsDoContratoDeDesempenho()
+        {
+            Assert.Equal(0.125f, ConstantsValues.EscalaDecodificacaoFotoOitavo);
+            Assert.Equal(0.25f, ConstantsValues.EscalaDecodificacaoFotoQuarto);
+            Assert.Equal(0.5f, ConstantsValues.EscalaDecodificacaoFotoMetade);
+            Assert.Equal(2, ConstantsValues.FatorResidualMaximoFiltroRapidoFoto);
+        }
+
+        [Fact]
+        public void TextoDoItemSemArquivo_EhOAprovadoPeloKaio()
+        {
+            Assert.Equal("Não foi possível carregar esta foto. Se o problema continuar, remova a foto e envie de novo.", ConstantsMessage.ErroVeiculoFotoSemArquivo);
+        }
+
+        [Fact]
         public void LadoDaSaida_NaoPassaDoLimiteDaImagemAceita()
         {
             Assert.True(ConstantsValues.LadoMaximoFotoVeiculoPixels <= ConstantsArmazenamento.DimensaoMaximaFotoPixels);
