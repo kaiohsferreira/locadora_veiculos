@@ -7,6 +7,9 @@
     Configuracao dinamica: URL, timeout e credenciais vem das tabelas
     integration e integration_setting, via IIntegrationResolver. Nada de
     variavel de ambiente, appsettings ou constante compilada.
+    Ressalva: o provedor DISCO_LOCAL (armazenamento em pasta) le a configuracao
+    da maquina (secao Armazenamento) por ser um caminho de computador; segue o
+    contrato armazenamento-disco.
   -->
 
   <ItemGroup>

@@ -28,5 +28,16 @@ namespace AutoVia.Core.RepositoriesInterface
         /// Desativa a foto ativa rastreada do veiculo (Disable) e grava quem removeu. Falso quando nao encontrou.
         /// </summary>
         Task<bool> DesativarAsync(int idVeiculo, int idVeiculoFoto, int idFuncionarioRemocao, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Quantas fotos ativas tem o veiculo ativo da locadora do contexto, numa consulta so. Nulo quando o veiculo nao existe,
+        /// esta desativado ou e de outra locadora.
+        /// </summary>
+        Task<int?> ContarAtivasDeVeiculoAtivoAsync(int idVeiculo, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Total e maior ordem das fotos ativas do veiculo, numa consulta so e sem trazer as fotos. Sem foto: Total 0 e MaiorOrdem nulo.
+        /// </summary>
+        Task<ResumoFotosAtivasVeiculo> ObterResumoAtivasAsync(int idVeiculo, CancellationToken cancellationToken = default);
     }
 }

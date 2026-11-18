@@ -24,9 +24,19 @@ namespace AutoVia.Tests.Frota
         [Fact]
         public void ReturnVeiculoFotoVO_TemExatamenteOsCamposDoContrato()
         {
-            string[] esperados = { "ExpiraEm", "IdVeiculoFoto", "Ordem", "Url", "UrlMiniatura" };
+            string[] esperados = { "ErroFoto", "ExpiraEm", "IdVeiculoFoto", "Ordem", "Url", "UrlMiniatura" };
 
             Assert.Equal(esperados, NomesDasPropriedades(typeof(ReturnVeiculoFotoVO)));
+        }
+
+        [Fact]
+        public void ReturnVeiculoFotoVO_NovoNaoTemUrlNemExpiraEmNemErroFoto()
+        {
+            ReturnVeiculoFotoVO vo = new ReturnVeiculoFotoVO();
+
+            Assert.Null(vo.Url);
+            Assert.Null(vo.ExpiraEm);
+            Assert.Null(vo.ErroFoto);
         }
 
         [Fact]

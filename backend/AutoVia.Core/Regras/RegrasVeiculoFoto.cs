@@ -42,6 +42,20 @@ namespace AutoVia.Core.Regras
         }
 
         /// <summary>
+        /// Ordem da foto nova a partir da maior ordem ativa (vinda do resumo do repositorio): 1 quando nao ha foto ativa; senao a
+        /// maior ordem mais 1. Mesmo resultado de ProximaOrdem para a mesma lista. ProximaOrdem continua existindo.
+        /// </summary>
+        public static int ProximaOrdemDepoisDe(int? maiorOrdemAtiva)
+        {
+            if (maiorOrdemAtiva == null)
+            {
+                return 1;
+            }
+
+            return maiorOrdemAtiva.Value + 1;
+        }
+
+        /// <summary>
         /// Chave do objeto no armazenamento: veiculos/{idVeiculo}/fotos/{guid}.jpg. Sem id da locadora e sem nome de arquivo do cliente.
         /// O identificador unico e recebido por parametro para a funcao continuar pura.
         /// </summary>

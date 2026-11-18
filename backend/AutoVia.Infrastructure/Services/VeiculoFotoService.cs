@@ -6,7 +6,6 @@ using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Integrations.Communication.Armazenamento;
-using AutoVia.Integrations.Helpers;
 using AutoVia.Integrations.Interfaces;
 using System.Collections.Generic;
 using System.Globalization;
@@ -44,8 +43,9 @@ namespace AutoVia.Infrastructure.Services
         }
 
         /// <summary>
-        /// Ordem: id do veiculo; sessao; veiculo ativo sob o filtro; contagem (409); processamento da imagem; envio ao armazenamento;
-        /// segunda conferencia do teto e gravacao. Depois do envio, qualquer saida sem linha remove o objeto e relanca.
+        /// Ordem: id do veiculo; sessao; veiculo ativo sob o filtro e contagem numa consulta so (404 sem o veiculo); teto (409);
+        /// processamento da imagem; envio ao armazenamento; resumo e gravacao. Depois do envio, qualquer saida sem linha remove o
+        /// objeto e relanca.
         /// </summary>
         public async Task<ReturnVeiculoFotoVO> EnviarAsync(int idVeiculo, byte[]? conteudo, string? contentType, CancellationToken cancellationToken = default)
         {
@@ -58,14 +58,13 @@ namespace AutoVia.Infrastructure.Services
 
                 int idFuncionario = ObterFuncionarioDoContexto();
 
-                bool veiculoExiste = await _veiculoFotoRepository.VeiculoAtivoExisteAsync(idVeiculo, cancellationToken);
-                if (!veiculoExiste)
+                int? fotosAtivasAntes = await _veiculoFotoRepository.ContarAtivasDeVeiculoAtivoAsync(idVeiculo, cancellationToken);
+                if (!fotosAtivasAntes.HasValue)
                 {
                     throw new NotFoundException(ConstantsMessage.ErroVeiculoNaoEncontrado);
                 }
 
-                int fotosAtivasAntes = await _veiculoFotoRepository.CountAtivasAsync(idVeiculo, cancellationToken);
-                if (!RegrasVeiculoFoto.PodeReceberMaisFotos(fotosAtivasAntes))
+                if (!RegrasVeiculoFoto.PodeReceberMaisFotos(fotosAtivasAntes.Value))
                 {
                     throw new BusinessException(MontarMensagemLimiteAtingido());
                 }
@@ -104,7 +103,10 @@ namespace AutoVia.Infrastructure.Services
             }
         }
 
-        /// <summary>Lista as fotos ativas do veiculo; sem foto devolve lista vazia sem chamar o armazenamento; com foto, uma assinatura em lote.</summary>
+        /// <summary>
+        /// Lista as fotos ativas do veiculo; sem foto devolve lista vazia sem chamar o armazenamento; com foto, uma assinatura em lote.
+        /// Foto sem URL assinada (arquivo ausente) vem na mesma posicao com erroFoto e nao derruba a lista; a falha da assinatura inteira sobe.
+        /// </summary>
         public async Task<List<ReturnVeiculoFotoVO>> GetAllAsync(int idVeiculo, CancellationToken cancellationToken = default)
         {
             try
@@ -130,14 +132,25 @@ namespace AutoVia.Infrastructure.Services
                 IReadOnlyDictionary<string, ArquivoArmazenado> assinadas = await _armazenamentoGateway.AssinarUrlsAsync(chaves, cancellationToken);
 
                 List<ReturnVeiculoFotoVO> lista = new List<ReturnVeiculoFotoVO>(fotos.Count);
+                int semUrlAssinada = 0;
                 foreach (VeiculoFoto foto in fotos)
                 {
                     if (!assinadas.TryGetValue(foto.ChaveObjeto, out ArquivoArmazenado? arquivo) || arquivo == null)
                     {
-                        throw new IntegrationException(ConstantsIntegration.Armazenamento, ConstantsMessage.ErroArmazenamentoObterUrl);
+                        lista.Add(MapearFotoSemUrl(foto));
+                        semUrlAssinada++;
+                        continue;
                     }
 
                     lista.Add(MapearFoto(foto, arquivo));
+                }
+
+                if (semUrlAssinada > 0)
+                {
+                    _logService.Write(
+                        string.Format(CultureInfo.InvariantCulture, ConstantsMessage.ErroVeiculoFotoListaSemUrlAssinada, semUrlAssinada),
+                        ConstantsMessage.ErroListarFotosVeiculo,
+                        GetType().ToString());
                 }
 
                 return lista;
@@ -221,22 +234,22 @@ namespace AutoVia.Infrastructure.Services
         }
 
         /// <summary>
-        /// Segunda conferencia do teto e gravacao com a proxima ordem. Qualquer falha depois do envio apaga o objeto recem-enviado
-        /// (CancellationToken.None, de proposito) e relanca a excecao original; se a remocao tambem falhar, sobe a falha dela.
+        /// Resumo das fotos ativas (total e maior ordem) numa consulta so: segunda conferencia do teto e gravacao com a proxima
+        /// ordem. Qualquer falha depois do envio apaga o objeto recem-enviado (CancellationToken.None, de proposito) e relanca a
+        /// excecao original; se a remocao tambem falhar, sobe a falha dela.
         /// </summary>
         private async Task<ReturnVeiculoFotoVO> GravarAposEnvioAsync(int idVeiculo, int idFuncionario, string chave, ArquivoArmazenado arquivo, CancellationToken cancellationToken)
         {
             VeiculoFoto gravada;
             try
             {
-                List<VeiculoFoto> ativasDepois = await _veiculoFotoRepository.FindAtivasAsync(idVeiculo, cancellationToken);
-                if (!RegrasVeiculoFoto.PodeReceberMaisFotos(ativasDepois.Count))
+                ResumoFotosAtivasVeiculo resumo = await _veiculoFotoRepository.ObterResumoAtivasAsync(idVeiculo, cancellationToken);
+                if (!RegrasVeiculoFoto.PodeReceberMaisFotos(resumo.Total))
                 {
                     throw new BusinessException(MontarMensagemLimiteAtingido());
                 }
 
-                IEnumerable<int> ordensAtivas = ativasDepois.Select(foto => foto.Ordem);
-                int ordem = RegrasVeiculoFoto.ProximaOrdem(ordensAtivas);
+                int ordem = RegrasVeiculoFoto.ProximaOrdemDepoisDe(resumo.MaiorOrdem);
 
                 VeiculoFoto nova = new VeiculoFoto
                 {
@@ -290,6 +303,23 @@ namespace AutoVia.Infrastructure.Services
                 Url = arquivo.Url,
                 UrlMiniatura = null,
                 ExpiraEm = RegrasVeiculoFoto.FormatarExpiraEm(arquivo.ExpiraEm)
+            };
+
+            return vo;
+        }
+
+        /// <summary>Foto sem URL assinada (arquivo ausente no armazenamento): url, urlMiniatura e expiraEm nulos e erroFoto com o texto do item.</summary>
+        private static ReturnVeiculoFotoVO MapearFotoSemUrl(VeiculoFoto foto)
+        {
+            ReturnVeiculoFotoVO vo = new ReturnVeiculoFotoVO
+            {
+                IdVeiculoFoto = foto.IdVeiculoFoto,
+                Ordem = foto.Ordem,
+                Url = null,
+                UrlMiniatura = null,
+                ExpiraEm = null,
+                // ponto unico de atribuicao de erroFoto
+                ErroFoto = ConstantsMessage.ErroVeiculoFotoSemArquivo
             };
 
             return vo;

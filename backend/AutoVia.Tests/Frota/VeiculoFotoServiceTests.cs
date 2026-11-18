@@ -30,6 +30,7 @@ namespace AutoVia.Tests.Frota
         private const int IdFotoPrimeira = 1;
         private const int IdFotoSegunda = 2;
         private const int IdFotoTerceira = 3;
+        private const int IdFotoQuarta = 4;
         private const int IdFotoDeOutroVeiculo = 5;
         private const string PadraoChaveObjeto = @"^veiculos/7/fotos/[0-9a-f]{32}\.jpg$";
         private static readonly byte[] JpegValido = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 };
@@ -89,6 +90,23 @@ namespace AutoVia.Tests.Frota
         private static string MensagemLimite()
         {
             return string.Format(CultureInfo.InvariantCulture, ConstantsMessage.ErroVeiculoFotoLimiteAtingido, ConstantsValues.MaximoFotosPorVeiculo);
+        }
+
+        /// <summary>Cada item da listagem traz url OU erroFoto, exatamente um deles; a miniatura segue nula nesta fatia.</summary>
+        private static void AssertUmDosDoisEstados(ReturnVeiculoFotoVO foto)
+        {
+            bool temUrl = foto.Url != null;
+            bool temErro = foto.ErroFoto != null;
+            Assert.NotEqual(temUrl, temErro);
+            Assert.Null(foto.UrlMiniatura);
+        }
+
+        /// <summary>Verifica que o item sem URL nao leva URL nem prazo e leva o texto do item, comparado pela constante.</summary>
+        private static void AssertItemSemUrl(ReturnVeiculoFotoVO foto)
+        {
+            Assert.Null(foto.Url);
+            Assert.Null(foto.ExpiraEm);
+            Assert.Equal(ConstantsMessage.ErroVeiculoFotoSemArquivo, foto.ErroFoto);
         }
 
         [Fact]
@@ -350,6 +368,9 @@ namespace AutoVia.Tests.Frota
 
             ReturnVeiculoFotoVO vo = await cenario.Servico.EnviarAsync(IdVeiculo, JpegValido, ConstantsArmazenamento.MimeJpeg);
 
+            Assert.NotNull(vo.Url);
+            Assert.Null(vo.ErroFoto);
+            Assert.NotNull(vo.ExpiraEm);
             DateTimeOffset expiraEm = DateTimeOffset.Parse(vo.ExpiraEm, CultureInfo.InvariantCulture, DateTimeStyles.None);
             Assert.Equal(TimeSpan.Zero, expiraEm.Offset);
         }
@@ -389,6 +410,54 @@ namespace AutoVia.Tests.Frota
             await cenario.Servico.EnviarAsync(IdVeiculo, JpegValido, ConstantsArmazenamento.MimeJpeg, origem.Token);
 
             Assert.Equal(origem.Token, cenario.Processador.UltimoToken);
+        }
+
+        [Fact]
+        public async Task Enviar_SucessoFazExatamenteTresIdasAoBanco()
+        {
+            Cenario cenario = new Cenario();
+
+            await cenario.Servico.EnviarAsync(IdVeiculo, JpegValido, ConstantsArmazenamento.MimeJpeg);
+
+            Assert.Equal(1, cenario.Repositorio.ContarAtivasCount);
+            Assert.Equal(1, cenario.Repositorio.ResumoCount);
+            Assert.Equal(1, cenario.Repositorio.InsertCount);
+            Assert.Equal(0, cenario.Repositorio.VeiculoAtivoExisteCount);
+            Assert.Equal(0, cenario.Repositorio.CountAtivasCount);
+            Assert.Equal(0, cenario.Repositorio.FindAtivasCount);
+            Assert.Equal(3, cenario.Repositorio.TotalChamadas);
+        }
+
+        [Fact]
+        public async Task Enviar_VeiculoInexistenteComTetoCheio_Da404AntesDo409SemProcessar()
+        {
+            Cenario cenario = new Cenario();
+            for (int i = 1; i <= 15; i++)
+            {
+                cenario.Repositorio.Fotos.Add(CriarFotoAtiva(i, i, IdVeiculoDeOutraLocadora));
+            }
+
+            NotFoundException ex = await Assert.ThrowsAsync<NotFoundException>(() => cenario.Servico.EnviarAsync(IdVeiculoDeOutraLocadora, JpegValido, ConstantsArmazenamento.MimeJpeg));
+
+            Assert.Equal(ConstantsMessage.ErroVeiculoNaoEncontrado, ex.Message);
+            Assert.Equal(0, cenario.Processador.ChamadasCount);
+            Assert.Equal(0, cenario.Armazenamento.UploadCount);
+            Assert.Equal(1, cenario.Repositorio.ContarAtivasCount);
+            Assert.Equal(0, cenario.Repositorio.ResumoCount);
+        }
+
+        [Fact]
+        public async Task Enviar_FotoDesativadaNaoContaNemEntraNaOrdem()
+        {
+            Cenario cenario = new Cenario();
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoPrimeira, 1, IdVeiculo));
+            VeiculoFoto desativada = CriarFotoAtiva(IdFotoSegunda, 9, IdVeiculo);
+            desativada.Disable();
+            cenario.Repositorio.Fotos.Add(desativada);
+
+            ReturnVeiculoFotoVO vo = await cenario.Servico.EnviarAsync(IdVeiculo, JpegValido, ConstantsArmazenamento.MimeJpeg);
+
+            Assert.Equal(2, vo.Ordem);
         }
 
         [Fact]
@@ -454,6 +523,129 @@ namespace AutoVia.Tests.Frota
             IntegrationException ex = await Assert.ThrowsAsync<IntegrationException>(() => cenario.Servico.GetAllAsync(IdVeiculo));
 
             Assert.Equal(ConstantsMessage.ErroArmazenamentoObterUrl, ex.Message);
+        }
+
+        [Fact]
+        public async Task Listar_ChaveAusenteNoMeio_DevolveOsTresItensNaOrdemComOMeioEmErro()
+        {
+            Cenario cenario = new Cenario();
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoPrimeira, 1, IdVeiculo));
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoSegunda, 2, IdVeiculo));
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoTerceira, 3, IdVeiculo));
+            cenario.Armazenamento.ChavesOmitidasNaAssinatura.Add(cenario.Repositorio.Fotos[1].ChaveObjeto);
+
+            List<ReturnVeiculoFotoVO> lista = await cenario.Servico.GetAllAsync(IdVeiculo);
+
+            Assert.Equal(new int[] { IdFotoPrimeira, IdFotoSegunda, IdFotoTerceira }, lista.Select(foto => foto.IdVeiculoFoto).ToArray());
+            Assert.NotNull(lista[0].Url);
+            Assert.NotNull(lista[0].ExpiraEm);
+            Assert.Null(lista[0].ErroFoto);
+            AssertItemSemUrl(lista[1]);
+            Assert.NotNull(lista[2].Url);
+            Assert.NotNull(lista[2].ExpiraEm);
+            Assert.Null(lista[2].ErroFoto);
+            Assert.All(lista, AssertUmDosDoisEstados);
+            Assert.Equal(1, cenario.Armazenamento.AssinaturaLoteCount);
+            Assert.Equal(0, cenario.Armazenamento.HeadCount);
+        }
+
+        [Fact]
+        public async Task Listar_PrimeiraFotoSemArquivo_FicaNaPosicaoZeroComErroESemDerrubarALista()
+        {
+            Cenario cenario = new Cenario();
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoPrimeira, 1, IdVeiculo));
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoSegunda, 2, IdVeiculo));
+            cenario.Armazenamento.ChavesOmitidasNaAssinatura.Add(cenario.Repositorio.Fotos[0].ChaveObjeto);
+
+            List<ReturnVeiculoFotoVO> lista = await cenario.Servico.GetAllAsync(IdVeiculo);
+
+            Assert.Equal(2, lista.Count);
+            Assert.Equal(IdFotoPrimeira, lista[0].IdVeiculoFoto);
+            AssertItemSemUrl(lista[0]);
+            Assert.Equal(IdFotoSegunda, lista[1].IdVeiculoFoto);
+            Assert.NotNull(lista[1].Url);
+            Assert.Null(lista[1].ErroFoto);
+            Assert.All(lista, AssertUmDosDoisEstados);
+        }
+
+        [Fact]
+        public async Task Listar_TodasSemArquivo_DevolveTodasComErroSemExcecao()
+        {
+            Cenario cenario = new Cenario();
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoPrimeira, 1, IdVeiculo));
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoSegunda, 2, IdVeiculo));
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoTerceira, 3, IdVeiculo));
+            foreach (VeiculoFoto foto in cenario.Repositorio.Fotos)
+            {
+                cenario.Armazenamento.ChavesOmitidasNaAssinatura.Add(foto.ChaveObjeto);
+            }
+
+            List<ReturnVeiculoFotoVO> lista = await cenario.Servico.GetAllAsync(IdVeiculo);
+
+            Assert.Equal(3, lista.Count);
+            Assert.All(lista, AssertItemSemUrl);
+            Assert.All(lista, AssertUmDosDoisEstados);
+        }
+
+        [Fact]
+        public async Task Listar_DuasSemArquivoEmQuatro_GeraUmRegistroComAContagemSemChaveNemUrl()
+        {
+            Cenario cenario = new Cenario();
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoPrimeira, 1, IdVeiculo));
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoSegunda, 2, IdVeiculo));
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoTerceira, 3, IdVeiculo));
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoQuarta, 4, IdVeiculo));
+            cenario.Armazenamento.ChavesOmitidasNaAssinatura.Add(cenario.Repositorio.Fotos[0].ChaveObjeto);
+            cenario.Armazenamento.ChavesOmitidasNaAssinatura.Add(cenario.Repositorio.Fotos[2].ChaveObjeto);
+
+            await cenario.Servico.GetAllAsync(IdVeiculo);
+
+            string esperado = ConstantsMessage.ErroListarFotosVeiculo + " | " + string.Format(CultureInfo.InvariantCulture, ConstantsMessage.ErroVeiculoFotoListaSemUrlAssinada, 2);
+            List<string> entradas = cenario.Log.Snapshot();
+            Assert.Equal(new List<string> { esperado }, entradas);
+            Assert.All(cenario.Repositorio.Fotos, foto => Assert.All(entradas, entrada => Assert.DoesNotContain(foto.ChaveObjeto, entrada)));
+            Assert.All(entradas, entrada => Assert.DoesNotContain(MarcaUrlAssinadaDeTeste, entrada));
+        }
+
+        [Fact]
+        public async Task Listar_TodasComArquivo_NaoGeraNenhumRegistro()
+        {
+            Cenario cenario = new Cenario();
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoPrimeira, 1, IdVeiculo));
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoSegunda, 2, IdVeiculo));
+
+            List<ReturnVeiculoFotoVO> lista = await cenario.Servico.GetAllAsync(IdVeiculo);
+
+            Assert.Equal(2, lista.Count);
+            Assert.Empty(cenario.Log.Entries);
+        }
+
+        [Fact]
+        public async Task Listar_ExcecaoNaoPrevistaNaAssinatura_SobeEGravaORegistroDeListagem()
+        {
+            Cenario cenario = new Cenario();
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoPrimeira, 1, IdVeiculo));
+            cenario.Armazenamento.LancarExcecaoGenericaAssinatura = true;
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => cenario.Servico.GetAllAsync(IdVeiculo));
+
+            List<string> entradas = cenario.Log.Snapshot();
+            Assert.Single(entradas);
+            Assert.StartsWith(ConstantsMessage.ErroListarFotosVeiculo + " | ", entradas[0]);
+        }
+
+        [Fact]
+        public async Task Listar_CancelamentoNaAssinatura_SobeEGravaORegistroDeListagem()
+        {
+            Cenario cenario = new Cenario();
+            cenario.Repositorio.Fotos.Add(CriarFotoAtiva(IdFotoPrimeira, 1, IdVeiculo));
+            cenario.Armazenamento.LancarCancelamentoAssinatura = true;
+
+            await Assert.ThrowsAsync<OperationCanceledException>(() => cenario.Servico.GetAllAsync(IdVeiculo));
+
+            List<string> entradas = cenario.Log.Snapshot();
+            Assert.Single(entradas);
+            Assert.StartsWith(ConstantsMessage.ErroListarFotosVeiculo + " | ", entradas[0]);
         }
 
         [Fact]
