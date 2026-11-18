@@ -2,10 +2,11 @@
  * Funções puras das fotos do veículo: conferência antes do envio (só conveniência; o servidor decide),
  * vagas, ordem, capa, imagem exibida, próximo da fila e tradução dos erros da API.
  */
-import type { FotoCapaVeiculo, FotoDoVeiculo, ItemFilaFoto } from '@/types/fotosVeiculo';
+import type { FotoDoVeiculo, ItemFilaFoto } from '@/types/fotosVeiculo';
 import { ErroApi } from '@/types/api';
 import {
   MENSAGEM_FOTOS_ERRO_ARMAZENAMENTO,
+  MENSAGEM_FOTOS_ERRO_CARREGAR,
   MENSAGEM_FOTOS_ERRO_DIMENSAO,
   MENSAGEM_FOTOS_ERRO_ENVIO,
   MENSAGEM_FOTOS_ERRO_TAMANHO,
@@ -96,9 +97,22 @@ export function primeiraFoto(fotos: readonly FotoDoVeiculo[]): FotoDoVeiculo | n
   return ordenadas.length > 0 ? ordenadas[0] : null;
 }
 
-/** Miniatura quando existir; senão a imagem comum. */
-export function urlDaImagem(foto: Pick<FotoCapaVeiculo, 'url' | 'urlMiniatura'>): string {
+/**
+ * Miniatura quando existir; senão a imagem comum. Pode devolver nulo: foto sem URL (arquivo ausente). Aceita a capa
+ * (url sempre texto) e a foto gravada (url pode ser nula) sem conversão.
+ */
+export function urlDaImagem(foto: { url: string | null; urlMiniatura: string | null }): string | null {
   return foto.urlMiniatura ?? foto.url;
+}
+
+/**
+ * Texto de erro de uma foto gravada, ou nulo quando ela tem URL. Sem URL (arquivo ausente nesta máquina), usa o
+ * texto que o servidor mandou em erroFoto, sem espaços nas pontas; sem texto útil, o texto de lista que já existe.
+ */
+export function erroDaFotoGravada(foto: { url?: string | null; erroFoto?: string | null }): string | null {
+  if (foto.url) return null;
+  const texto = (foto.erroFoto ?? '').trim();
+  return texto !== '' ? texto : MENSAGEM_FOTOS_ERRO_CARREGAR;
 }
 
 /**
@@ -158,6 +172,22 @@ export function proximoDaFila(itens: readonly ItemFilaFoto[]): ItemFilaFoto | nu
   return itens.find((item) => item.situacao === 'aguardando') ?? null;
 }
 
+/**
+ * Próxima foto a preparar antecipadamente (chave), enquanto outra sobe. Nulo quando já há uma preparação em curso
+ * (uma por vez), quando não há candidato, ou quando o candidato já está preparado (só se antecipa UMA foto).
+ * O candidato é o primeiro "aguardando" na ordem da lista, que é a próxima a ser enviada.
+ */
+export function proximoParaPreparar(
+  itens: readonly ItemFilaFoto[],
+  preparadas: ReadonlySet<number>,
+  emPreparo: number | null,
+): number | null {
+  if (emPreparo !== null) return null;
+  const candidato = itens.find((item) => item.situacao === 'aguardando') ?? null;
+  if (candidato === null || preparadas.has(candidato.chave)) return null;
+  return candidato.chave;
+}
+
 /** Números do lote em andamento: quantas fotos já foram gravadas, quantas faltam e se há envio agora. */
 export interface ResumoFila {
   emEnvio: boolean;
@@ -206,4 +236,25 @@ export function mensagemErroEnvioFoto(erro: unknown): string {
   if (!(erro instanceof ErroApi)) return MENSAGEM_FOTOS_ERRO_ENVIO;
   if (erro.status === STATUS_FALHA_INTEGRACAO) return MENSAGEM_FOTOS_ERRO_ARMAZENAMENTO;
   return erro.mensagem;
+}
+
+/** Status HTTP de arquivo recusado pelo servidor (400). */
+const STATUS_ARQUIVO_RECUSADO = 400;
+
+/**
+ * Arquivo que a fila envia: o reduzido, salvo quando não há reduzido ou quando o original deve ir (depois de recusa
+ * do servidor ao reduzido, "reenviarOriginal").
+ */
+export function arquivoParaEnviar(registro: {
+  original: File;
+  preparado: File | null;
+  reenviarOriginal: boolean;
+}): File {
+  if (registro.reenviarOriginal || registro.preparado === null) return registro.original;
+  return registro.preparado;
+}
+
+/** Verdadeiro só quando o servidor recusou o arquivo (400). Falha de rede, 409, 429, 500 e 502 são falsos. */
+export function erroRecusouArquivo(erro: unknown): boolean {
+  return erro instanceof ErroApi && erro.status === STATUS_ARQUIVO_RECUSADO;
 }

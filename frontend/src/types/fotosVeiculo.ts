@@ -3,17 +3,22 @@
  * Nenhum campo de id de locadora, de funcionário ou de chave do objeto existe aqui: a API não devolve.
  */
 
-/** Foto gravada do veículo (201 do envio e cada item da lista). */
+/**
+ * Foto gravada do veículo (201 do envio e cada item da lista). Na lista, a foto sem arquivo nesta máquina vem sem
+ * `url` nem `expiraEm` e com `erroFoto` (texto pronto do servidor).
+ */
 export interface FotoDoVeiculo {
   idVeiculoFoto: number;
   /** Maior ou igual a 1. A menor ordem ativa é a capa. */
   ordem: number;
-  /** URL temporária (até 900 s). Não guardar: a lista traz outra. */
-  url: string;
+  /** URL temporária (até 900 s); nula quando a foto não tem arquivo. Não guardar: a lista traz outra. */
+  url: string | null;
   /** Reservado para a miniatura da fatia completa: nesta fatia sempre nulo. */
   urlMiniatura: string | null;
-  /** Instante de validade da URL, em UTC com fuso. */
-  expiraEm: string;
+  /** Instante de validade da URL, em UTC com fuso; nulo quando `url` é nula. */
+  expiraEm: string | null;
+  /** Texto para o usuário quando a foto não tem URL (arquivo ausente). Ausente ou nulo nas respostas sem erro. */
+  erroFoto?: string | null;
 }
 
 /** Capa do veículo nas listas. Não tem id: nenhuma rota pública conhece idFoto. */

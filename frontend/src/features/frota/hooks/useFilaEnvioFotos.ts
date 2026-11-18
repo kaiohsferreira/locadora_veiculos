@@ -2,10 +2,19 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { filaSemPendencias } from '@/features/frota/formulario/fluxoCadastroVeiculo';
 import { FilaEnvioFotos, type ArquivoParaFila, type OpcoesFilaEnvioFotos } from '@/lib/filaFotosVeiculo';
-import { mensagemErroEnvioFoto } from '@/lib/fotosVeiculo';
+import { erroRecusouArquivo, mensagemErroEnvioFoto } from '@/lib/fotosVeiculo';
+import {
+  criarAmbienteReducaoDoNavegador,
+  detectarSuporteReducao,
+  memorizarSuporteReducao,
+  prepararFotoParaEnvio,
+} from '@/lib/reducaoFotoVeiculo';
 import type { ItemFilaFoto } from '@/types/fotosVeiculo';
 import { useEnviarFotoVeiculo } from './useEnviarFotoVeiculo';
 import { CHAVE_VEICULOS } from './chavesVeiculos';
+
+/** Suporte do navegador à redução: a sonda roda uma vez por carga da página (quem chama guarda a promessa). */
+const obterSuporteReducao = memorizarSuporteReducao(() => detectarSuporteReducao(criarAmbienteReducaoDoNavegador()));
 
 /** Controle da fila exposto à tela. */
 export interface FilaFotosVeiculo {
@@ -61,6 +70,12 @@ function criarFilaEnvioFotos(
       const temFalha = lerPonte().fila?.obterInstantaneo().some((item) => item.situacao === 'erro') ?? false;
       lerPonte().aoFimDoLote?.(temFalha);
     },
+    preparar: async (arquivo, cabecalho) => {
+      const suporte = await obterSuporteReducao();
+      return prepararFotoParaEnvio(arquivo, cabecalho, suporte, criarAmbienteReducaoDoNavegador());
+    },
+    criarPrevia: (arquivo) => URL.createObjectURL(arquivo),
+    recusaDoArquivo: erroRecusouArquivo,
   });
 }
 

@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ErroApi } from '@/types/api';
 import type { FotoDoVeiculo } from '@/types/fotosVeiculo';
+import type { CabecalhoFoto } from './cabecalhoFoto';
+import { erroRecusouArquivo } from './fotosVeiculo';
 import { FilaEnvioFotos, type ArquivoParaFila, type OpcoesFilaEnvioFotos } from './filaFotosVeiculo';
+import type { FotoPreparada } from './reducaoFotoVeiculo';
 
 interface ChamadaEnvio {
   idVeiculo: number;
@@ -27,7 +30,34 @@ function arquivo(nome: string): File {
 }
 
 function paraFila(...nomes: string[]): ArquivoParaFila[] {
-  return nomes.map((nome) => ({ arquivo: arquivo(nome), previa: `blob:${nome}` }));
+  return nomes.map((nome) => ({ arquivo: arquivo(nome), previa: `blob:${nome}`, cabecalho: null }));
+}
+
+/** Preparação que devolve a própria foto (não reduzida): é o padrão dos testes anteriores à redução. */
+function preparacaoDireta(arquivoOriginal: File): Promise<FotoPreparada> {
+  return Promise.resolve({ arquivo: arquivoOriginal, reduzida: false });
+}
+
+/** Preparações controladas à mão: cada chamada fica pendente até o teste resolver ou rejeitar. */
+function criarPreparacaoControlada() {
+  const pendentes: Array<{
+    arquivo: File;
+    cabecalho: CabecalhoFoto | null;
+    resolver: (foto: FotoPreparada) => void;
+    rejeitar: (erro: unknown) => void;
+  }> = [];
+  const preparar = vi.fn(
+    (arquivoOriginal: File, cabecalho: CabecalhoFoto | null) =>
+      new Promise<FotoPreparada>((resolver, rejeitar) => {
+        pendentes.push({ arquivo: arquivoOriginal, cabecalho, resolver, rejeitar });
+      }),
+  );
+  return { preparar, pendentes };
+}
+
+/** Foto reduzida de teste: JPEG com o nome do original trocado. */
+function reduzida(nome: string): File {
+  return new File(['reduzido'], nome, { type: 'image/jpeg' });
 }
 
 /** Envios controlados à mão: cada chamada fica pendente até o teste resolver ou rejeitar. */
@@ -42,16 +72,23 @@ function criarEnvioControlado() {
   return { enviar, chamadas };
 }
 
-function criarOpcoes(enviar: OpcoesFilaEnvioFotos['enviar']) {
+function criarOpcoes(
+  enviar: OpcoesFilaEnvioFotos['enviar'],
+  preparar: OpcoesFilaEnvioFotos['preparar'] = preparacaoDireta,
+) {
   const liberarPrevia = vi.fn<(previa: string) => void>();
   const aoConcluirLote = vi.fn<() => Promise<void>>(async () => undefined);
+  const criarPrevia = vi.fn((arquivoReduzido: File) => `blob:reduzido:${arquivoReduzido.name}`);
   const opcoes: OpcoesFilaEnvioFotos = {
     enviar,
     liberarPrevia,
     mensagemDeErro: (erro) => (erro instanceof ErroApi ? erro.mensagem : 'erro genérico'),
     aoConcluirLote,
+    preparar,
+    criarPrevia,
+    recusaDoArquivo: erroRecusouArquivo,
   };
-  return { opcoes, liberarPrevia, aoConcluirLote };
+  return { opcoes, liberarPrevia, aoConcluirLote, criarPrevia };
 }
 
 /** Deixa as promessas e as trocas de estado da fila andarem até o fim da fila de microtarefas. */
@@ -493,5 +530,428 @@ describe('FilaEnvioFotos: encerramento e avisos', () => {
     fila.adicionar(paraFila('a.png'), 0);
 
     expect(fila.obterInstantaneo()).toBe(fila.obterInstantaneo());
+  });
+});
+
+describe('FilaEnvioFotos: preparo antes do envio', () => {
+  it('prepara a foto da vez, envia a reduzida e troca a prévia (a antiga é liberada uma vez)', async () => {
+    const { enviar, chamadas } = criarEnvioControlado();
+    const { preparar, pendentes } = criarPreparacaoControlada();
+    const { opcoes, liberarPrevia, criarPrevia } = criarOpcoes(enviar, preparar);
+    const fila = new FilaEnvioFotos(opcoes);
+
+    fila.definirVeiculo(7);
+    fila.adicionar(paraFila('a.png'), 0);
+    await aguardar();
+
+    expect(preparar).toHaveBeenCalledTimes(1);
+    expect(enviar).not.toHaveBeenCalled();
+    expect(fila.obterInstantaneo()[0]).toMatchObject({ situacao: 'aguardando', percentual: 0, erro: null });
+
+    pendentes[0].resolver({ arquivo: reduzida('a.jpg'), reduzida: true });
+    await aguardar();
+
+    expect(criarPrevia).toHaveBeenCalledTimes(1);
+    expect(criarPrevia.mock.calls[0][0].name).toBe('a.jpg');
+    expect(fila.obterInstantaneo()[0].previa).toBe('blob:reduzido:a.jpg');
+    expect(liberarPrevia.mock.calls.filter(([previa]) => previa === 'blob:a.png')).toHaveLength(1);
+    expect(enviar).toHaveBeenCalledTimes(1);
+    expect(chamadas[0].arquivo.name).toBe('a.jpg');
+  });
+
+  it('uma preparação por vez: a foto N+1 é preparada enquanto a N sobe, e a N+2 só começa quando a N+1 vira enviando', async () => {
+    const { enviar, chamadas } = criarEnvioControlado();
+    const { preparar, pendentes } = criarPreparacaoControlada();
+    const { opcoes } = criarOpcoes(enviar, preparar);
+    const fila = new FilaEnvioFotos(opcoes);
+
+    fila.definirVeiculo(7);
+    fila.adicionar(paraFila('a.png', 'b.png', 'c.png'), 0);
+    await aguardar();
+    expect(preparar).toHaveBeenCalledTimes(1);
+
+    pendentes[0].resolver({ arquivo: arquivo('a.png'), reduzida: false });
+    await aguardar();
+    expect(enviar).toHaveBeenCalledTimes(1);
+    expect(preparar).toHaveBeenCalledTimes(2);
+
+    chamadas[0].resolver(foto(1));
+    await aguardar();
+    expect(enviar).toHaveBeenCalledTimes(1);
+    expect(preparar).toHaveBeenCalledTimes(2);
+
+    pendentes[1].resolver({ arquivo: arquivo('b.png'), reduzida: false });
+    await aguardar();
+    expect(enviar).toHaveBeenCalledTimes(2);
+    expect(preparar).toHaveBeenCalledTimes(3);
+
+    chamadas[1].resolver(foto(2));
+    await aguardar();
+    expect(enviar).toHaveBeenCalledTimes(2);
+    pendentes[2].resolver({ arquivo: arquivo('c.png'), reduzida: false });
+    await aguardar();
+    chamadas[2].resolver(foto(3));
+    await aguardar();
+
+    expect(enviar.mock.calls.map((args) => args[1].name)).toEqual(['a.png', 'b.png', 'c.png']);
+    expect(preparar).toHaveBeenCalledTimes(3);
+  });
+
+  it('ordem preservada com 5 fotos e preparacoes concluindo fora de ordem: a foto que volta de erro sobe antes, mesmo com o preparo da seguinte já pronto', async () => {
+    const { enviar, chamadas } = criarEnvioControlado();
+    const { preparar, pendentes } = criarPreparacaoControlada();
+    const { opcoes, criarPrevia } = criarOpcoes(enviar, preparar);
+    const fila = new FilaEnvioFotos(opcoes);
+
+    fila.definirVeiculo(7);
+    fila.adicionar(paraFila('a.png', 'b.png', 'c.png', 'd.png', 'e.png'), 0);
+    await aguardar();
+    pendentes[0].resolver({ arquivo: arquivo('a.png'), reduzida: false });
+    await aguardar();
+    chamadas[0].rejeitar(new ErroApi({ status: 500, mensagem: 'Falha interna.' }));
+    await aguardar();
+    expect(preparar).toHaveBeenCalledTimes(2);
+
+    fila.tentarDeNovo(fila.obterInstantaneo()[0].chave);
+    await aguardar();
+    expect(enviar).toHaveBeenCalledTimes(1);
+
+    pendentes[1].resolver({ arquivo: reduzida('b.jpg'), reduzida: true });
+    await aguardar();
+    expect(enviar).toHaveBeenCalledTimes(2);
+    expect(chamadas[1].arquivo.name).toBe('a.png');
+    expect(criarPrevia).toHaveBeenCalledTimes(1);
+
+    chamadas[1].resolver(foto(1));
+    await aguardar();
+    expect(enviar).toHaveBeenCalledTimes(3);
+    expect(chamadas[2].arquivo.name).toBe('b.jpg');
+    expect(preparar).toHaveBeenCalledTimes(3);
+
+    chamadas[2].resolver(foto(2));
+    await aguardar();
+    pendentes[2].resolver({ arquivo: arquivo('c.png'), reduzida: false });
+    await aguardar();
+    expect(enviar).toHaveBeenCalledTimes(4);
+    expect(preparar).toHaveBeenCalledTimes(4);
+
+    chamadas[3].resolver(foto(3));
+    await aguardar();
+    pendentes[3].resolver({ arquivo: arquivo('d.png'), reduzida: false });
+    await aguardar();
+    expect(enviar).toHaveBeenCalledTimes(5);
+    expect(preparar).toHaveBeenCalledTimes(5);
+
+    chamadas[4].resolver(foto(4));
+    await aguardar();
+    pendentes[4].resolver({ arquivo: arquivo('e.png'), reduzida: false });
+    await aguardar();
+    chamadas[5].resolver(foto(5));
+    await aguardar();
+
+    expect(enviar.mock.calls.map((args) => args[1].name)).toEqual(['a.png', 'a.png', 'b.jpg', 'c.png', 'd.png', 'e.png']);
+    expect(preparar).toHaveBeenCalledTimes(5);
+    expect(fila.obterInstantaneo()).toEqual([]);
+  });
+
+  it('foto antecipada removida durante o preparo: nada mais é enviado e nenhuma prévia nova é criada', async () => {
+    const { enviar, chamadas } = criarEnvioControlado();
+    const { preparar, pendentes } = criarPreparacaoControlada();
+    const { opcoes, liberarPrevia, criarPrevia } = criarOpcoes(enviar, preparar);
+    const fila = new FilaEnvioFotos(opcoes);
+
+    fila.definirVeiculo(7);
+    fila.adicionar(paraFila('a.png', 'b.png'), 0);
+    await aguardar();
+    pendentes[0].resolver({ arquivo: arquivo('a.png'), reduzida: false });
+    await aguardar();
+    expect(preparar).toHaveBeenCalledTimes(2);
+
+    fila.remover(fila.obterInstantaneo()[1].chave);
+    pendentes[1].resolver({ arquivo: reduzida('b.jpg'), reduzida: true });
+    await aguardar();
+
+    expect(criarPrevia).not.toHaveBeenCalled();
+    expect(liberarPrevia.mock.calls.filter(([previa]) => previa === 'blob:b.png')).toHaveLength(1);
+
+    chamadas[0].resolver(foto(1));
+    await aguardar();
+    expect(enviar).toHaveBeenCalledTimes(1);
+    expect(fila.obterInstantaneo()).toEqual([]);
+  });
+
+  it('falha do preparo antecipado não derruba a fila: a foto segue com o próprio original', async () => {
+    const { enviar, chamadas } = criarEnvioControlado();
+    const { preparar, pendentes } = criarPreparacaoControlada();
+    const { opcoes, criarPrevia } = criarOpcoes(enviar, preparar);
+    const fila = new FilaEnvioFotos(opcoes);
+
+    fila.definirVeiculo(7);
+    fila.adicionar(paraFila('a.png', 'b.png', 'c.png'), 0);
+    await aguardar();
+    pendentes[0].resolver({ arquivo: arquivo('a.png'), reduzida: false });
+    await aguardar();
+    expect(preparar).toHaveBeenCalledTimes(2);
+
+    pendentes[1].rejeitar(new Error('falha de preparo'));
+    await aguardar();
+    chamadas[0].resolver(foto(1));
+    await aguardar();
+
+    expect(enviar).toHaveBeenCalledTimes(2);
+    expect(chamadas[1].arquivo.name).toBe('b.png');
+    expect(chamadas[1].arquivo.type).toBe('image/png');
+    expect(criarPrevia).not.toHaveBeenCalled();
+    expect(preparar).toHaveBeenCalledTimes(3);
+  });
+
+  it('envia o próprio original quando a preparação devolve não reduzida, ou quando ela falha', async () => {
+    const { enviar } = criarEnvioControlado();
+    const original = arquivo('a.png');
+    const fila = new FilaEnvioFotos(criarOpcoes(enviar).opcoes);
+    fila.definirVeiculo(7);
+    fila.adicionar([{ arquivo: original, previa: 'blob:a.png', cabecalho: null }], 0);
+    await aguardar();
+    expect(enviar.mock.calls[0][1]).toBe(original);
+
+    const { enviar: enviarFalha } = criarEnvioControlado();
+    const preparacaoFalha = vi.fn(async (): Promise<FotoPreparada> => {
+      throw new Error('falha de preparo');
+    });
+    const original2 = arquivo('b.png');
+    const filaFalha = new FilaEnvioFotos(criarOpcoes(enviarFalha, preparacaoFalha).opcoes);
+    filaFalha.definirVeiculo(7);
+    filaFalha.adicionar([{ arquivo: original2, previa: 'blob:b.png', cabecalho: null }], 0);
+    await aguardar();
+    expect(enviarFalha.mock.calls[0][1]).toBe(original2);
+  });
+
+  it('tentar de novo reenvia o mesmo arquivo reduzido, sem preparar outra vez', async () => {
+    const { enviar, chamadas } = criarEnvioControlado();
+    const { preparar, pendentes } = criarPreparacaoControlada();
+    const { opcoes, criarPrevia } = criarOpcoes(enviar, preparar);
+    const fila = new FilaEnvioFotos(opcoes);
+    const arquivoReduzido = reduzida('a.jpg');
+
+    fila.definirVeiculo(7);
+    fila.adicionar(paraFila('a.png'), 0);
+    await aguardar();
+    pendentes[0].resolver({ arquivo: arquivoReduzido, reduzida: true });
+    await aguardar();
+    chamadas[0].rejeitar(new ErroApi({ status: 500, mensagem: 'Falha interna.' }));
+    await aguardar();
+
+    fila.tentarDeNovo(fila.obterInstantaneo()[0].chave);
+    await aguardar();
+
+    expect(preparar).toHaveBeenCalledTimes(1);
+    expect(enviar).toHaveBeenCalledTimes(2);
+    expect(chamadas[1].arquivo).toBe(arquivoReduzido);
+    expect(criarPrevia).toHaveBeenCalledTimes(1);
+
+    chamadas[1].resolver(foto(1));
+    await aguardar();
+    expect(fila.obterInstantaneo()).toEqual([]);
+  });
+
+  it('depois de 400 com o arquivo reduzido, tentar de novo reenvia o original', async () => {
+    const { enviar, chamadas } = criarEnvioControlado();
+    const { preparar, pendentes } = criarPreparacaoControlada();
+    const { opcoes } = criarOpcoes(enviar, preparar);
+    const fila = new FilaEnvioFotos(opcoes);
+    const original = arquivo('a.png');
+
+    fila.definirVeiculo(7);
+    fila.adicionar([{ arquivo: original, previa: 'blob:a.png', cabecalho: null }], 0);
+    await aguardar();
+    pendentes[0].resolver({ arquivo: reduzida('a.jpg'), reduzida: true });
+    await aguardar();
+    chamadas[0].rejeitar(new ErroApi({ status: 400, mensagem: 'Arquivo recusado.' }));
+    await aguardar();
+    expect(fila.obterInstantaneo()[0].situacao).toBe('erro');
+
+    fila.tentarDeNovo(fila.obterInstantaneo()[0].chave);
+    await aguardar();
+
+    expect(preparar).toHaveBeenCalledTimes(1);
+    expect(chamadas[1].arquivo).toBe(original);
+  });
+
+  it('409 ou 429 com o arquivo reduzido não trocam o envio pelo original', async () => {
+    const { enviar, chamadas } = criarEnvioControlado();
+    const { preparar, pendentes } = criarPreparacaoControlada();
+    const { opcoes } = criarOpcoes(enviar, preparar);
+    const fila = new FilaEnvioFotos(opcoes);
+    const arquivoReduzido = reduzida('a.jpg');
+
+    fila.definirVeiculo(7);
+    fila.adicionar(paraFila('a.png'), 0);
+    await aguardar();
+    pendentes[0].resolver({ arquivo: arquivoReduzido, reduzida: true });
+    await aguardar();
+    chamadas[0].rejeitar(new ErroApi({ status: 429, mensagem: 'Muitas tentativas.' }));
+    await aguardar();
+
+    fila.tentarDeNovo(fila.obterInstantaneo()[0].chave);
+    await aguardar();
+
+    expect(chamadas[1].arquivo).toBe(arquivoReduzido);
+  });
+
+  it('encerrar libera a prévia reduzida uma vez e a original uma vez, sem sobrar URL', async () => {
+    const { enviar } = criarEnvioControlado();
+    const { preparar, pendentes } = criarPreparacaoControlada();
+    const { opcoes, liberarPrevia } = criarOpcoes(enviar, preparar);
+    const fila = new FilaEnvioFotos(opcoes);
+
+    fila.definirVeiculo(7);
+    fila.adicionar(paraFila('a.png'), 0);
+    await aguardar();
+    pendentes[0].resolver({ arquivo: reduzida('a.jpg'), reduzida: true });
+    await aguardar();
+
+    fila.encerrar();
+
+    const liberadas = liberarPrevia.mock.calls.map(([previa]) => previa);
+    expect(liberadas.filter((previa) => previa === 'blob:a.png')).toHaveLength(1);
+    expect(liberadas.filter((previa) => previa === 'blob:reduzido:a.jpg')).toHaveLength(1);
+  });
+
+  it('remover a foto durante a preparação: nada é enviado e nenhuma prévia nova é criada', async () => {
+    const { enviar } = criarEnvioControlado();
+    const { preparar, pendentes } = criarPreparacaoControlada();
+    const { opcoes, liberarPrevia, criarPrevia } = criarOpcoes(enviar, preparar);
+    const fila = new FilaEnvioFotos(opcoes);
+
+    fila.definirVeiculo(7);
+    fila.adicionar(paraFila('a.png'), 0);
+    await aguardar();
+    fila.remover(fila.obterInstantaneo()[0].chave);
+
+    pendentes[0].resolver({ arquivo: reduzida('a.jpg'), reduzida: true });
+    await aguardar();
+
+    expect(enviar).not.toHaveBeenCalled();
+    expect(criarPrevia).not.toHaveBeenCalled();
+    expect(liberarPrevia.mock.calls.filter(([previa]) => previa === 'blob:a.png')).toHaveLength(1);
+    expect(fila.obterInstantaneo()).toEqual([]);
+  });
+
+  it('trocar de veículo durante a preparação: nada do veículo anterior é enviado e a foto nova vai ao novo', async () => {
+    const { enviar, chamadas } = criarEnvioControlado();
+    const { preparar, pendentes } = criarPreparacaoControlada();
+    const { opcoes, criarPrevia } = criarOpcoes(enviar, preparar);
+    const fila = new FilaEnvioFotos(opcoes);
+
+    fila.definirVeiculo(7);
+    fila.adicionar(paraFila('a.png'), 0);
+    await aguardar();
+    fila.definirVeiculo(8);
+    fila.adicionar(paraFila('c.png'), 0);
+    await aguardar();
+
+    pendentes[0].resolver({ arquivo: reduzida('a.jpg'), reduzida: true });
+    await aguardar();
+    expect(criarPrevia).not.toHaveBeenCalled();
+    expect(enviar).not.toHaveBeenCalled();
+
+    pendentes[1].resolver({ arquivo: arquivo('c.png'), reduzida: false });
+    await aguardar();
+    expect(enviar).toHaveBeenCalledTimes(1);
+    expect(enviar.mock.calls[0][0]).toBe(8);
+    expect(chamadas[0].arquivo.name).toBe('c.png');
+  });
+
+  it('encerrar durante a preparação: nada é enviado depois', async () => {
+    const { enviar } = criarEnvioControlado();
+    const { preparar, pendentes } = criarPreparacaoControlada();
+    const { opcoes, criarPrevia } = criarOpcoes(enviar, preparar);
+    const fila = new FilaEnvioFotos(opcoes);
+
+    fila.definirVeiculo(7);
+    fila.adicionar(paraFila('a.png'), 0);
+    await aguardar();
+    fila.encerrar();
+
+    pendentes[0].resolver({ arquivo: reduzida('a.jpg'), reduzida: true });
+    await aguardar();
+
+    expect(enviar).not.toHaveBeenCalled();
+    expect(criarPrevia).not.toHaveBeenCalled();
+  });
+
+  it('tentar de novo numa foto anterior durante o preparo da seguinte: a anterior sobe primeiro, sem ser preparada de novo e com a mesma prévia', async () => {
+    const { enviar, chamadas } = criarEnvioControlado();
+    const { preparar, pendentes } = criarPreparacaoControlada();
+    const { opcoes } = criarOpcoes(enviar, preparar);
+    const fila = new FilaEnvioFotos(opcoes);
+    const reduzidaA = reduzida('a.jpg');
+
+    fila.definirVeiculo(7);
+    fila.adicionar(paraFila('a.png', 'b.png'), 0);
+    await aguardar();
+    pendentes[0].resolver({ arquivo: reduzidaA, reduzida: true });
+    await aguardar();
+    chamadas[0].rejeitar(new ErroApi({ status: 500, mensagem: 'Falha interna.' }));
+    await aguardar();
+    expect(preparar).toHaveBeenCalledTimes(2);
+
+    const previaA = fila.obterInstantaneo()[0].previa;
+    fila.tentarDeNovo(fila.obterInstantaneo()[0].chave);
+    await aguardar();
+    expect(enviar).toHaveBeenCalledTimes(1);
+
+    pendentes[1].resolver({ arquivo: reduzida('b.jpg'), reduzida: true });
+    await aguardar();
+    expect(enviar).toHaveBeenCalledTimes(2);
+    expect(chamadas[1].arquivo).toBe(reduzidaA);
+    expect(fila.obterInstantaneo()[0].previa).toBe(previaA);
+
+    chamadas[1].resolver(foto(1));
+    await aguardar();
+    expect(enviar).toHaveBeenCalledTimes(3);
+    expect(chamadas[2].arquivo.name).toBe('b.jpg');
+    expect(preparar).toHaveBeenCalledTimes(2);
+  });
+
+  it('remover a foto com erro libera a prévia reduzida', async () => {
+    const { enviar, chamadas } = criarEnvioControlado();
+    const { preparar, pendentes } = criarPreparacaoControlada();
+    const { opcoes, liberarPrevia } = criarOpcoes(enviar, preparar);
+    const fila = new FilaEnvioFotos(opcoes);
+
+    fila.definirVeiculo(7);
+    fila.adicionar(paraFila('a.png'), 0);
+    await aguardar();
+    pendentes[0].resolver({ arquivo: reduzida('a.jpg'), reduzida: true });
+    await aguardar();
+    chamadas[0].rejeitar(new ErroApi({ status: 500, mensagem: 'Falha interna.' }));
+    await aguardar();
+
+    fila.remover(fila.obterInstantaneo()[0].chave);
+
+    expect(liberarPrevia.mock.calls.filter(([previa]) => previa === 'blob:reduzido:a.jpg')).toHaveLength(1);
+    expect(fila.obterInstantaneo()).toEqual([]);
+  });
+
+  it('limpar as concluídas e trocar de veículo liberam a prévia reduzida', async () => {
+    const { enviar, chamadas } = criarEnvioControlado();
+    const { preparar, pendentes } = criarPreparacaoControlada();
+    const { opcoes, liberarPrevia } = criarOpcoes(enviar, preparar);
+    const fila = new FilaEnvioFotos(opcoes);
+
+    fila.definirVeiculo(7);
+    fila.adicionar(paraFila('a.png', 'b.png'), 0);
+    await aguardar();
+    pendentes[0].resolver({ arquivo: reduzida('a.jpg'), reduzida: true });
+    await aguardar();
+    chamadas[0].resolver(foto(1));
+    await aguardar();
+    fila.limparConcluidas();
+
+    expect(liberarPrevia.mock.calls.filter(([previa]) => previa === 'blob:reduzido:a.jpg')).toHaveLength(1);
+
+    fila.definirVeiculo(8);
+    expect(liberarPrevia.mock.calls.filter(([previa]) => previa === 'blob:b.png')).toHaveLength(1);
   });
 });

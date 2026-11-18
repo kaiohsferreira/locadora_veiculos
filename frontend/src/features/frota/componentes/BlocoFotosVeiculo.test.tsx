@@ -449,3 +449,131 @@ describe('BlocoFotosVeiculo: largura e prévia do envio (1280 px com barra de ro
     expect(html).not.toContain('blob:');
   });
 });
+
+/** Foto gravada sem arquivo nesta máquina: sem URL e sem validade; o texto do servidor vem em erroFoto, se houver. */
+function fotoSemArquivo(idVeiculoFoto: number, ordem: number, erroFoto?: string): FotoDoVeiculo {
+  return { idVeiculoFoto, ordem, url: null, urlMiniatura: null, expiraEm: null, ...(erroFoto === undefined ? {} : { erroFoto }) };
+}
+
+const TEXTO_FOTO_SEM_ARQUIVO = 'Não foi possível carregar esta foto. Se o problema continuar, remova a foto e envie de novo.';
+
+describe('BlocoFotosVeiculo: foto gravada sem arquivo (erro no item, sem Tentar de novo)', () => {
+  beforeEach(() => {
+    consultaMock.mockReset();
+    filaMock.mockReset();
+    remocaoMock.mockReset();
+  });
+
+  it('lista com a do meio sem arquivo: três itens na ordem; o do meio sem imagem, com o texto do servidor e com remover', () => {
+    const html = renderizar({
+      idVeiculo: 7,
+      consulta: consultaCom({ data: [foto(1, 1), fotoSemArquivo(2, 2, TEXTO_FOTO_SEM_ARQUIVO), foto(3, 3)] }),
+    });
+
+    expect(contagem(html, '<img')).toBe(2);
+    expect(html.indexOf('src="https://a/1"')).toBeLessThan(html.indexOf(TEXTO_FOTO_SEM_ARQUIVO));
+    expect(html.indexOf(TEXTO_FOTO_SEM_ARQUIVO)).toBeLessThan(html.indexOf('src="https://a/3"'));
+    expect(html).toContain('aria-label="Remover imagem 2"');
+    expect(html).toContain('aria-label="Remover imagem 3"');
+    expect(html).toContain('3/15 Fotos');
+  });
+
+  it('o item sem arquivo não mostra "Tentar de novo" e o erro de lista não aparece; a zona de envio segue liberada', () => {
+    const html = renderizar({
+      idVeiculo: 7,
+      consulta: consultaCom({ data: [foto(1, 1), fotoSemArquivo(2, 2, TEXTO_FOTO_SEM_ARQUIVO), foto(3, 3)] }),
+    });
+
+    expect(html).not.toContain('Tentar de novo');
+    expect(html).not.toContain('Não foi possível carregar as fotos do veículo.');
+    expect(html).toMatch(ZONA_HABILITADA);
+  });
+
+  it('primeira foto sem arquivo: continua sendo a principal, com o selo "Foto Principal"', () => {
+    const html = renderizar({
+      idVeiculo: 7,
+      consulta: consultaCom({ data: [fotoSemArquivo(1, 1, TEXTO_FOTO_SEM_ARQUIVO), foto(2, 2)] }),
+    });
+
+    expect(contagem(html, 'Foto Principal')).toBe(1);
+    expect(html.indexOf('Foto Principal')).toBeLessThan(html.indexOf(TEXTO_FOTO_SEM_ARQUIVO));
+    expect(html).toContain('aria-label="Remover imagem 1"');
+  });
+
+  it('15 fotos com uma sem arquivo: contador 15/15, zona e botão de adicionar desabilitados', () => {
+    const html = renderizar({
+      idVeiculo: 7,
+      consulta: consultaCom({ data: [...fotos(14), fotoSemArquivo(15, 15, TEXTO_FOTO_SEM_ARQUIVO)] }),
+    });
+
+    expect(html).toContain('15/15 Fotos');
+    expect(html).toMatch(ZONA_DESABILITADA);
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>(?:(?!<\/button>)[\s\S])*\+ Adicionar Mais Fotos<\/button>/);
+  });
+
+  it('foto sem arquivo e sem erroFoto: mostra o texto de lista que já existe, no item', () => {
+    const html = renderizar({
+      idVeiculo: 7,
+      consulta: consultaCom({ data: [fotoSemArquivo(1, 1)] }),
+    });
+
+    expect(contagem(html, 'Não foi possível carregar as fotos do veículo.')).toBe(1);
+    expect(html).not.toContain('<img');
+    expect(html).not.toContain('Tentar de novo');
+  });
+});
+
+/** Tag de abertura do botão de remover de uma posição (o rótulo acessível identifica o botão). */
+function tagDoBotaoRemover(html: string, posicao: number): string {
+  const achado = new RegExp(`<button\\b[^>]*aria-label="Remover imagem ${posicao}"[^>]*>`).exec(html);
+  if (achado === null) throw new Error(`botão de remover ${posicao} ausente`);
+  return achado[0];
+}
+
+describe('BlocoFotosVeiculo: botão de remover por tipo de foto (visibilidade)', () => {
+  beforeEach(() => {
+    consultaMock.mockReset();
+    filaMock.mockReset();
+    remocaoMock.mockReset();
+  });
+
+  it('a foto gravada sem arquivo tem o botão de remover sempre visível, sem as classes que o escondem', () => {
+    const html = renderizar({
+      idVeiculo: 7,
+      consulta: consultaCom({ data: [foto(1, 1), fotoSemArquivo(2, 2, TEXTO_FOTO_SEM_ARQUIVO), foto(3, 3)] }),
+    });
+
+    expect(tagDoBotaoRemover(html, 2)).not.toContain('opacity-0');
+    expect(tagDoBotaoRemover(html, 2)).not.toContain('group-hover:opacity-100');
+  });
+
+  it('a foto gravada sem arquivo sem erroFoto (texto de lista) também tem o botão sempre visível', () => {
+    const html = renderizar({ idVeiculo: 7, consulta: consultaCom({ data: [fotoSemArquivo(1, 1)] }) });
+
+    expect(tagDoBotaoRemover(html, 1)).not.toContain('opacity-0');
+    expect(tagDoBotaoRemover(html, 1)).not.toContain('group-hover:opacity-100');
+  });
+
+  it('as fotos gravadas com arquivo mantêm as classes que escondem o botão fora do hover', () => {
+    const html = renderizar({
+      idVeiculo: 7,
+      consulta: consultaCom({ data: [foto(1, 1), fotoSemArquivo(2, 2, TEXTO_FOTO_SEM_ARQUIVO), foto(3, 3)] }),
+    });
+
+    for (const posicao of [1, 3]) {
+      expect(tagDoBotaoRemover(html, posicao)).toContain('[@media(hover:hover)]:opacity-0');
+      expect(tagDoBotaoRemover(html, posicao)).toContain('[@media(hover:hover)]:group-hover:opacity-100');
+    }
+  });
+
+  it('o item em erro de envio da fila mantém as classes que escondem o botão', () => {
+    const html = renderizar({
+      idVeiculo: 7,
+      consulta: consultaCom({ data: [] }),
+      itensFila: [item(1, 'erro', { erro: 'A foto passa de 10 MB.' })],
+    });
+
+    expect(tagDoBotaoRemover(html, 1)).toContain('[@media(hover:hover)]:opacity-0');
+    expect(tagDoBotaoRemover(html, 1)).toContain('[@media(hover:hover)]:group-hover:opacity-100');
+  });
+});

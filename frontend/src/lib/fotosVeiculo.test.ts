@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { ErroApi } from '@/types/api';
-import type { FotoDoVeiculo, ItemFilaFoto, SituacaoItemFila } from '@/types/fotosVeiculo';
+import type { FotoCapaVeiculo, FotoDoVeiculo, ItemFilaFoto, SituacaoItemFila } from '@/types/fotosVeiculo';
 import {
   aoFalharFotoCapa,
+  arquivoParaEnviar,
   criarControleNovaConsultaFoto,
+  erroDaFotoGravada,
+  erroRecusouArquivo,
   fotosParaExibir,
   formatarContadorFotos,
   LADO_MAXIMO_FOTO_PIXELS,
@@ -14,6 +17,7 @@ import {
   primeiraFoto,
   primeiraMensagemErroFotoCapa,
   proximoDaFila,
+  proximoParaPreparar,
   resumoFila,
   TAMANHO_MAXIMO_FOTO_BYTES,
   TOTAL_MAXIMO_PIXELS_FOTO,
@@ -26,6 +30,7 @@ import {
 } from './fotosVeiculo';
 import {
   MENSAGEM_FOTOS_ERRO_ARMAZENAMENTO,
+  MENSAGEM_FOTOS_ERRO_CARREGAR,
   MENSAGEM_FOTOS_ERRO_DIMENSAO,
   MENSAGEM_FOTOS_ERRO_ENVIO,
   MENSAGEM_FOTOS_ERRO_TAMANHO,
@@ -202,6 +207,58 @@ describe('urlDaImagem e urlImagemExibida', () => {
   });
 });
 
+describe('urlDaImagem com url nula (foto gravada sem arquivo)', () => {
+  it('url e miniatura nulas: nulo, sem imagem', () => {
+    expect(urlDaImagem({ url: null, urlMiniatura: null })).toBeNull();
+  });
+
+  it('aceita a capa (url texto) e a foto gravada (url nula ou texto) sem conversão', () => {
+    const capa: FotoCapaVeiculo = { url: 'https://a/capa', urlMiniatura: null, expiraEm: '2026-11-16T21:15:00.0000000+00:00' };
+    const gravada: FotoDoVeiculo = foto(5, 1);
+    const semArquivo: FotoDoVeiculo = { ...foto(6, 2), url: null, expiraEm: null, erroFoto: 'Texto do servidor.' };
+
+    expect(urlDaImagem(capa)).toBe('https://a/capa');
+    expect(urlDaImagem(gravada)).toBe('https://armazenamento.exemplo/5');
+    expect(urlDaImagem(semArquivo)).toBeNull();
+  });
+});
+
+describe('erroDaFotoGravada', () => {
+  const TEXTO_SERVIDOR = 'Texto que o servidor mandou.';
+
+  it('foto com url preenchida: nulo, mesmo que o servidor mande erroFoto', () => {
+    expect(erroDaFotoGravada({ url: 'https://a/1', erroFoto: null })).toBeNull();
+    expect(erroDaFotoGravada({ url: 'https://a/1', erroFoto: TEXTO_SERVIDOR })).toBeNull();
+  });
+
+  it('foto sem url com erroFoto: o texto do servidor', () => {
+    expect(erroDaFotoGravada({ url: null, erroFoto: TEXTO_SERVIDOR })).toBe(TEXTO_SERVIDOR);
+  });
+
+  it('o texto do servidor sai sem espaços nas pontas', () => {
+    expect(erroDaFotoGravada({ url: null, erroFoto: `   ${TEXTO_SERVIDOR}  ` })).toBe(TEXTO_SERVIDOR);
+  });
+
+  it('foto sem url e erroFoto nulo, ausente ou só com espaços: o texto de lista que já existe', () => {
+    expect(erroDaFotoGravada({ url: null, erroFoto: null })).toBe(MENSAGEM_FOTOS_ERRO_CARREGAR);
+    expect(erroDaFotoGravada({ url: null })).toBe(MENSAGEM_FOTOS_ERRO_CARREGAR);
+    expect(erroDaFotoGravada({ url: null, erroFoto: '   ' })).toBe(MENSAGEM_FOTOS_ERRO_CARREGAR);
+  });
+
+  it('url vazia conta como sem url', () => {
+    expect(erroDaFotoGravada({ url: '', erroFoto: TEXTO_SERVIDOR })).toBe(TEXTO_SERVIDOR);
+    expect(erroDaFotoGravada({ url: '' })).toBe(MENSAGEM_FOTOS_ERRO_CARREGAR);
+  });
+
+  it('aceita a foto do tipo FotoDoVeiculo, com erroFoto opcional', () => {
+    const semArquivo: FotoDoVeiculo = { ...foto(7, 1), url: null, expiraEm: null, erroFoto: TEXTO_SERVIDOR };
+    const semCampo: FotoDoVeiculo = { ...foto(8, 2), url: null, expiraEm: null };
+
+    expect(erroDaFotoGravada(semArquivo)).toBe(TEXTO_SERVIDOR);
+    expect(erroDaFotoGravada(semCampo)).toBe(MENSAGEM_FOTOS_ERRO_CARREGAR);
+  });
+});
+
 describe('criarControleNovaConsultaFoto', () => {
   it('a primeira falha pede nova consulta; a segunda não', () => {
     const controle = criarControleNovaConsultaFoto();
@@ -338,5 +395,71 @@ describe('primeiraMensagemErroFotoCapa', () => {
     expect(
       primeiraMensagemErroFotoCapa([{}, { erroFotoCapa: 'Primeira.' }, { erroFotoCapa: 'Segunda.' }]),
     ).toBe('Primeira.');
+  });
+});
+
+describe('arquivoParaEnviar', () => {
+  const original = new File(['original'], 'a.png', { type: 'image/png' });
+  const reduzido = new File(['reduzido'], 'a.jpg', { type: 'image/jpeg' });
+
+  it('sem reduzido: o original', () => {
+    expect(arquivoParaEnviar({ original, preparado: null, reenviarOriginal: false })).toBe(original);
+  });
+
+  it('com reduzido: o reduzido', () => {
+    expect(arquivoParaEnviar({ original, preparado: reduzido, reenviarOriginal: false })).toBe(reduzido);
+  });
+
+  it('com reduzido e reenviarOriginal: o original', () => {
+    expect(arquivoParaEnviar({ original, preparado: reduzido, reenviarOriginal: true })).toBe(original);
+  });
+});
+
+describe('proximoParaPreparar (antecipação de uma foto)', () => {
+  const semPreparo = new Set<number>();
+
+  it('fila vazia: nulo', () => {
+    expect(proximoParaPreparar([], semPreparo, null)).toBeNull();
+  });
+
+  it('preparação em curso: nulo, mesmo com candidato', () => {
+    expect(proximoParaPreparar([item(1, 'aguardando')], semPreparo, 3)).toBeNull();
+  });
+
+  it('primeiro aguardando não preparado, sem foto enviando: a chave dele', () => {
+    expect(proximoParaPreparar([item(1, 'aguardando'), item(2, 'aguardando')], semPreparo, null)).toBe(1);
+  });
+
+  it('primeiro aguardando não preparado, com foto enviando antes dele: a chave dele', () => {
+    expect(proximoParaPreparar([item(1, 'enviando'), item(2, 'aguardando')], semPreparo, null)).toBe(2);
+  });
+
+  it('primeiro aguardando já preparado: nulo, mesmo com o segundo não preparado', () => {
+    expect(proximoParaPreparar([item(1, 'aguardando'), item(2, 'aguardando')], new Set([1]), null)).toBeNull();
+  });
+
+  it('erro e concluída não contam como candidato', () => {
+    expect(proximoParaPreparar([item(1, 'concluida'), item(2, 'erro'), item(3, 'aguardando')], semPreparo, null)).toBe(3);
+    expect(proximoParaPreparar([item(1, 'erro'), item(2, 'concluida')], semPreparo, null)).toBeNull();
+  });
+
+  it('item que voltou de erro para aguardando e é o primeiro da ordem: a chave dele', () => {
+    const itens = [item(1, 'aguardando'), item(2, 'aguardando')];
+    expect(proximoParaPreparar(itens, semPreparo, null)).toBe(1);
+    expect(proximoParaPreparar(itens, new Set([1]), null)).toBeNull();
+  });
+});
+
+describe('erroRecusouArquivo', () => {
+  it('só o 400 do servidor (o arquivo foi recusado) é verdadeiro', () => {
+    expect(erroRecusouArquivo(new ErroApi({ status: 400, mensagem: 'Arquivo recusado.' }))).toBe(true);
+  });
+
+  it('409, 429, 500, 502, erro comum e cancelamento são falsos', () => {
+    for (const status of [409, 429, 500, 502]) {
+      expect(erroRecusouArquivo(new ErroApi({ status, mensagem: 'Erro.' }))).toBe(false);
+    }
+    expect(erroRecusouArquivo(new TypeError('Failed to fetch'))).toBe(false);
+    expect(erroRecusouArquivo(new DOMException('cancelado', 'AbortError'))).toBe(false);
   });
 });

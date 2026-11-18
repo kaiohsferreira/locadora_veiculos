@@ -17,8 +17,11 @@ export type EstadoMiniatura = 'gravada' | 'aguardando' | 'enviando' | 'erro';
 export interface MiniaturaFotoVeiculoProps {
   /** Posição na grade, a partir de 1 (usada no nome acessível do botão de remover). */
   posicao: number;
-  /** Imagem a mostrar: URL da foto gravada ou prévia local da fila. */
-  url: string;
+  /**
+   * Imagem a mostrar: URL da foto gravada ou prévia local da fila. Nula quando a foto gravada não tem arquivo: aparece
+   * o ícone de carro no lugar da imagem.
+   */
+  url: string | null;
   /** Texto alternativo da foto. */
   alt: string;
   estado: EstadoMiniatura;
@@ -33,6 +36,11 @@ export interface MiniaturaFotoVeiculoProps {
    * servidor até ela carregar ou falhar; depois sai. A fila libera a prévia por conta própria.
    */
   previaAteCarregar?: string | null;
+  /**
+   * Só a foto gravada sem arquivo: o botão de remover fica sempre visível, sem depender do mouse (toque, foco ou hover).
+   * Padrão falso: as demais miniaturas seguem com o botão escondido fora do hover.
+   */
+  removerSempreVisivel?: boolean;
   aoRemover: () => void;
   aoTentarDeNovo?: () => void;
 }
@@ -42,7 +50,9 @@ export interface MiniaturaFotoVeiculoProps {
  * rodapé. Foto da fila mostra o estado de verdade (aguardando ou progresso dentro da caixa). Foto com erro mantém a
  * caixa 4:3 com uma faixa de ícone; a mensagem completa e o "Tentar de novo" ficam logo abaixo, na mesma célula da
  * grade, com quebra de linha: nada sai da caixa nem sobrepõe a foto vizinha. O botão de remover fica visível no foco e
- * em telas sem hover; some enquanto a foto está enviando.
+ * em telas sem hover; some enquanto a foto está enviando. A foto gravada sem arquivo usa o mesmo estado "erro", sem
+ * imagem (url nula), com o texto do servidor e sem "Tentar de novo" (só o erro de envio tem o botão); nela o botão de
+ * remover fica sempre visível (`removerSempreVisivel`).
  */
 export function MiniaturaFotoVeiculo({
   posicao,
@@ -53,6 +63,7 @@ export function MiniaturaFotoVeiculo({
   percentual = 0,
   mensagemErro = null,
   previaAteCarregar = null,
+  removerSempreVisivel = false,
   aoRemover,
   aoTentarDeNovo,
 }: MiniaturaFotoVeiculoProps) {
@@ -95,7 +106,9 @@ export function MiniaturaFotoVeiculo({
             onClick={aoRemover}
             title={MENSAGEM_FOTOS_REMOVER_IMAGEM}
             aria-label={mensagemFotoRemoverNumero(posicao)}
-            className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-sm bg-navy/80 text-branco transition-opacity focus-visible:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+            className={`absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-sm bg-navy/80 text-branco transition-opacity focus-visible:opacity-100${
+              removerSempreVisivel ? '' : ' [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100'
+            }`}
           >
             <Icone nome="close" tamanho={14} />
           </button>
