@@ -1,3 +1,4 @@
+import { MENSAGEM_RESERVAS_ABA_HISTORICO, MENSAGEM_RESERVAS_HISTORICO_TITULO } from '@/lib/mensagensReservas';
 import type { ReservaCliente } from '@/types/reservas';
 
 /** Dados de exemplo para os testes da tela Minhas reservas. Não são chamadas à API. */
@@ -50,7 +51,9 @@ export const RESERVA_HISTORICO: ReservaCliente = {
 
 /**
  * Termos do desenho 29 que o contrato não sustenta (ver o plano da tela, seção 1). Nenhuma tela deste módulo pode
- * mostrar nenhum deles: o teste negativo procura cada um no HTML renderizado.
+ * mostrar nenhum deles: o teste negativo procura cada um no HTML renderizado. Por decisão do Kaio de 18/11/2026, a aba
+ * "Histórico de Locações" e o título "Histórico de Locações Recentes" do desenho 29 são permitidos (ver
+ * `semTextosAprovadosDoDesenho`); a palavra "Locações" continua proibida fora desses dois textos.
  */
 export const TERMOS_SEM_LASTRO: readonly string[] = [
   'Gold',
@@ -97,3 +100,11 @@ export const TERMOS_SEM_LASTRO: readonly string[] = [
   'Atendimento',
   'Locações',
 ];
+
+/**
+ * Retira do HTML, antes da conferência de TERMOS_SEM_LASTRO, só os dois textos aprovados do desenho 29. O mais longo
+ * sai primeiro, porque "Histórico de Locações" está contido em "Histórico de Locações Recentes".
+ */
+export function semTextosAprovadosDoDesenho(html: string): string {
+  return html.split(MENSAGEM_RESERVAS_HISTORICO_TITULO).join('').split(MENSAGEM_RESERVAS_ABA_HISTORICO).join('');
+}

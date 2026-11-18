@@ -3,7 +3,11 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { AvisoProvider } from '@/components/ui';
 import { PainelHistoricoReservas } from '@/features/area-cliente/reservas/componentes/PainelHistoricoReservas';
 import type { EstadoListaReservas } from '@/features/area-cliente/reservas/estadoLista';
-import { RESERVA_HISTORICO, TERMOS_SEM_LASTRO } from '@/features/area-cliente/reservas/fixturasReservas';
+import {
+  RESERVA_HISTORICO,
+  semTextosAprovadosDoDesenho,
+  TERMOS_SEM_LASTRO,
+} from '@/features/area-cliente/reservas/fixturasReservas';
 import { ErroApi } from '@/types/api';
 import type { RespostaReservas } from '@/types/reservas';
 
@@ -114,8 +118,9 @@ describe('PainelHistoricoReservas', () => {
 
   it('nenhum termo sem lastro do desenho aparece no histórico', () => {
     const html = renderizar({ estado: { dados: COM_DADOS } });
+    const limpo = semTextosAprovadosDoDesenho(html).toLowerCase();
     for (const termo of TERMOS_SEM_LASTRO) {
-      expect(html.toLowerCase(), `termo proibido: ${termo}`).not.toContain(termo.toLowerCase());
+      expect(limpo, `termo proibido: ${termo}`).not.toContain(termo.toLowerCase());
     }
   });
 });

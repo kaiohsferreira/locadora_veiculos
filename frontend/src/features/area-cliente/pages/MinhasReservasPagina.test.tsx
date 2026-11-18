@@ -4,7 +4,12 @@ import { MemoryRouter } from 'react-router-dom';
 import { AvisoProvider } from '@/components/ui';
 import { useCancelarReserva } from '@/features/area-cliente/hooks/useCancelarReserva';
 import { useReservas, useTotalReservas } from '@/features/area-cliente/hooks/useMinhasReservas';
-import { RESERVA_ATIVA, RESERVA_CONFIRMADA, TERMOS_SEM_LASTRO } from '@/features/area-cliente/reservas/fixturasReservas';
+import {
+  RESERVA_ATIVA,
+  RESERVA_CONFIRMADA,
+  semTextosAprovadosDoDesenho,
+  TERMOS_SEM_LASTRO,
+} from '@/features/area-cliente/reservas/fixturasReservas';
 import { ErroApi } from '@/types/api';
 import type { ReservaCliente, RespostaReservas, SituacaoReserva } from '@/types/reservas';
 import { AutenticacaoContexto, type AutenticacaoContextoValor } from '@/routes/autenticacao/AutenticacaoContexto';
@@ -101,7 +106,7 @@ describe('MinhasReservasPagina (T-FE-03)', () => {
       historico: consultaCom({ data: pagina([], 1) }),
     });
     expect(html).toMatch(/Ativas e Próximas<\/span><span[^>]*>2<\/span>/);
-    expect(html).toMatch(/Histórico<\/span><span[^>]*>1<\/span>/);
+    expect(html).toMatch(/Histórico de Locações<\/span><span[^>]*>1<\/span>/);
   });
 
   it('a aba Faturas e Notas Fiscais não aparece', () => {
@@ -116,8 +121,8 @@ describe('MinhasReservasPagina (T-FE-03)', () => {
       historico: consultaCom({ isError: true, error: new ErroApi({ status: 500, mensagem: 'Falha.' }) }),
     });
     // A aba Histórico sai sem número (o rótulo fica, o contador não).
-    expect(html).toMatch(/<span>Histórico<\/span><\/button>/);
-    expect(html).not.toMatch(/Histórico<\/span><span/);
+    expect(html).toMatch(/<span>Histórico de Locações<\/span><\/button>/);
+    expect(html).not.toMatch(/Histórico de Locações<\/span><span/);
     expect(html).toContain('Bem-vindo de volta, Marina Costa');
   });
 
@@ -142,8 +147,9 @@ describe('MinhasReservasPagina (T-FE-03)', () => {
     const html = renderizar({ lista: consultaCom({ data: pagina([RESERVA_ATIVA], 1) }) });
     expect(html).toContain('AV-00042');
     expect(html).toContain('Cancelar reserva');
+    const limpo = semTextosAprovadosDoDesenho(html).toLowerCase();
     for (const termo of TERMOS_SEM_LASTRO) {
-      expect(html.toLowerCase(), `termo proibido: ${termo}`).not.toContain(termo.toLowerCase());
+      expect(limpo, `termo proibido: ${termo}`).not.toContain(termo.toLowerCase());
     }
   });
 
