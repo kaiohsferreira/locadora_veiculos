@@ -6,6 +6,7 @@ import { ProvedorCadastro } from '@/features/clientes/cadastro/ProvedorCadastro'
 import { ExigirCadastroConcluido } from '@/features/locadoras/cadastro/ExigirCadastroConcluido';
 import { ExigirDadosEmpresa } from '@/features/locadoras/cadastro/ExigirDadosEmpresa';
 import { ProvedorCadastroLocadora } from '@/features/locadoras/cadastro/ProvedorCadastroLocadora';
+import { ProvedorFiltrosFrota } from '@/features/frota/listagem/ProvedorFiltrosFrota';
 import { CAMINHOS } from './caminhos';
 import { ErroInesperado } from './ErroInesperado';
 import { PaginaNaoEncontrada } from './PaginaNaoEncontrada';
@@ -133,9 +134,14 @@ export const rotas: RouteObject[] = [
           // Visão geral (P11-FE-01: telas 39 e 40)
           { path: CAMINHOS.visaoGeral, element: <VisaoGeralPagina /> },
 
-          // Frota
-          { path: CAMINHOS.frota, element: <PainelFrotaPagina /> },
-          { path: CAMINHOS.frotaVeiculos, element: <ListagemFrotaPagina /> },
+          // Frota: Painel (11) e Lista (12) dividem os filtros numa rota-pai sem caminho; novo veículo e edição ficam fora.
+          {
+            element: <ProvedorFiltrosFrota />,
+            children: [
+              { path: CAMINHOS.frota, element: <PainelFrotaPagina /> },
+              { path: CAMINHOS.frotaVeiculos, element: <ListagemFrotaPagina /> },
+            ],
+          },
           { path: CAMINHOS.frotaNovoVeiculo, element: <CadastroVeiculoPagina /> },
           // Edição usa a mesma página até a tela de edição existir (P1-FE-03: o formulário é o mesmo).
           { path: CAMINHOS.frotaEditarVeiculo, element: <CadastroVeiculoPagina /> },

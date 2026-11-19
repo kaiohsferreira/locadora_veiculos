@@ -70,7 +70,8 @@ export const ESTADO_LISTAGEM_FROTA_INICIAL: EstadoListagemFrota = {
 export type MudancaListagemFrota =
   | { tipo: 'filtro'; parcial: Partial<EstadoFiltrosFrota> }
   | { tipo: 'linhas'; tamanhoPagina: number }
-  | { tipo: 'pagina'; pagina: number };
+  | { tipo: 'pagina'; pagina: number }
+  | { tipo: 'tela' };
 
 /**
  * Se o parcial muda algum filtro do estado atual. Busca compara o termo aparado (espaços não contam); categoria e
@@ -90,6 +91,8 @@ export function filtroMudou(atual: EstadoFiltrosFrota, parcial: Partial<EstadoFi
  */
 export function alterarListagemFrota(estado: EstadoListagemFrota, mudanca: MudancaListagemFrota): EstadoListagemFrota {
   if (mudanca.tipo === 'pagina') return { ...estado, pagina: mudanca.pagina };
+  // Trocar de tela (Painel | Lista) mantém busca, categoria, status e linhas, e volta para a página 1.
+  if (mudanca.tipo === 'tela') return { ...estado, pagina: 1 };
   if (mudanca.tipo === 'linhas') return { ...estado, tamanhoPagina: mudanca.tamanhoPagina, pagina: 1 };
   if (!filtroMudou(estado.filtros, mudanca.parcial)) return estado;
   return { ...estado, filtros: { ...estado.filtros, ...mudanca.parcial }, pagina: 1 };

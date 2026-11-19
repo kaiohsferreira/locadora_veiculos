@@ -1,8 +1,9 @@
 import type { ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { RouteObject } from 'react-router-dom';
+import { ProvedorFiltrosFrota } from '@/features/frota/listagem/ProvedorFiltrosFrota';
 import { CAMINHOS } from './caminhos';
-import { CadastroVeiculoPagina } from './paginas';
+import { CadastroVeiculoPagina, ListagemFrotaPagina, PainelFrotaPagina } from './paginas';
 import { rotas } from './rotas';
 
 // A árvore de rotas é lida como dado: o roteador do navegador não é criado nos testes (não há janela aqui).
@@ -71,6 +72,44 @@ describe('rotas: edição de veículo', () => {
     expect(elementoEdicao?.type).toBe(CadastroVeiculoPagina);
   });
 });
+
+describe('rotas: frota com filtros compartilhados (Painel e Lista)', () => {
+  it('Painel e Lista ficam dentro do provedor de filtros, na rota-pai sem caminho', () => {
+    const provedor = acharRotaPorTipoDeElemento(rotaBackOffice().children, ProvedorFiltrosFrota);
+
+    expect(provedor).toBeDefined();
+    expect(provedor?.path).toBeUndefined();
+    expect(acharRotaPorCaminho(provedor?.children, CAMINHOS.frota)).toBeDefined();
+    expect(acharRotaPorCaminho(provedor?.children, CAMINHOS.frotaVeiculos)).toBeDefined();
+  });
+
+  it('/back-office/frota/veiculos abre a listagem nova (tela 12); /back-office/frota segue na tela 11', () => {
+    const provedor = acharRotaPorTipoDeElemento(rotaBackOffice().children, ProvedorFiltrosFrota);
+    const lista = acharRotaPorCaminho(provedor?.children, CAMINHOS.frotaVeiculos);
+    const painel = acharRotaPorCaminho(provedor?.children, CAMINHOS.frota);
+
+    expect((lista?.element as ReactElement | undefined)?.type).toBe(ListagemFrotaPagina);
+    expect((painel?.element as ReactElement | undefined)?.type).toBe(PainelFrotaPagina);
+  });
+
+  it('novo veículo e edição ficam fora do provedor de filtros', () => {
+    const provedor = acharRotaPorTipoDeElemento(rotaBackOffice().children, ProvedorFiltrosFrota);
+
+    expect(acharRotaPorCaminho(provedor?.children, CAMINHOS.frotaNovoVeiculo)).toBeUndefined();
+    expect(acharRotaPorCaminho(provedor?.children, CAMINHOS.frotaEditarVeiculo)).toBeUndefined();
+    expect(acharRotaPorCaminho(rotaBackOffice().children, CAMINHOS.frotaNovoVeiculo)).toBeDefined();
+  });
+});
+
+/** Procura, em profundidade, a rota cujo elemento é do tipo dado (ex.: o provedor da frota). */
+function acharRotaPorTipoDeElemento(lista: readonly RouteObject[] | undefined, tipo: unknown): RouteObject | undefined {
+  for (const rota of lista ?? []) {
+    if ((rota.element as ReactElement | undefined)?.type === tipo) return rota;
+    const dentro = acharRotaPorTipoDeElemento(rota.children, tipo);
+    if (dentro) return dentro;
+  }
+  return undefined;
+}
 
 function acharRotaPorCaminho(lista: readonly RouteObject[] | undefined, caminho: string): RouteObject | undefined {
   for (const rota of lista ?? []) {

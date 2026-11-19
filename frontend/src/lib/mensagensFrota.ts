@@ -143,3 +143,50 @@ export const MENSAGEM_FROTA_CANCELAR = 'Cancelar';
 export const MENSAGEM_FROTA_SUCESSO_MANUTENCAO = 'Veículo enviado para manutenção.';
 export const MENSAGEM_FROTA_SUCESSO_DISPONIVEL = 'Veículo de volta para disponível.';
 export const MENSAGEM_FROTA_SUCESSO_BAIXA = 'Baixa registrada.';
+
+// Alternância Painel | Lista (cabeçalho das telas 11 e 12; texto novo, aprovado no plano T) -----
+
+export const MENSAGEM_FROTA_ALTERNANCIA_GRUPO = 'Visão da frota';
+export const MENSAGEM_FROTA_ALTERNANCIA_PAINEL = 'Painel';
+export const MENSAGEM_FROTA_ALTERNANCIA_LISTA = 'Lista';
+
+// Listagem da frota (tela 12, P1-FE-02) ------------------------------------------------------------
+
+/** Cartões do desenho 12 (textos novos; o título da tela 11 para "Locados" é outro). */
+export const MENSAGEM_FROTA_RESUMO_DISPONIVEIS = 'Veículos Disponíveis';
+export const MENSAGEM_FROTA_RESUMO_LOCADOS = 'Locados';
+export const MENSAGEM_FROTA_RESUMO_EM_MANUTENCAO = 'Em Manutenção';
+export const MENSAGEM_FROTA_RESUMO_TAXA_OCUPACAO = 'Taxa de Ocupação';
+export const MENSAGEM_FROTA_RESUMO_CONTRATOS_VIGENTES = 'Contratos vigentes';
+export const MENSAGEM_FROTA_NENHUMA_ENCERRA_HOJE = 'Nenhuma encerra hoje';
+export const MENSAGEM_FROTA_UMA_ENCERRA_HOJE = '1 encerra hoje';
+
+/** "31 encerram hoje" (o número já vem formatado por `@/lib/formatters`). */
+export function mensagemFrotaEncerramHoje(numeroFormatado: string): string {
+  return `${numeroFormatado} encerram hoje`;
+}
+
+/** Filtro de status da tela 12 (lista suspensa). */
+export const MENSAGEM_FROTA_STATUS_ROTULO = 'Status do veículo';
+export const MENSAGEM_FROTA_STATUS_TODOS = 'Todos os Status';
+export const MENSAGEM_FROTA_LIMPAR_BOTAO = 'Limpar';
+/** Título e nome acessível do botão Limpar (o texto some em telas pequenas). */
+export const MENSAGEM_FROTA_LIMPAR_TITULO = 'Limpar Filtros';
+
+/** Colunas da tela 12 (as de status e ações reaproveitam as constantes da tela 11). */
+export const MENSAGEM_FROTA_LISTAGEM_COLUNA_PLACA = 'Identificação / Placa';
+export const MENSAGEM_FROTA_LISTAGEM_COLUNA_MODELO = 'Modelo & Especificação';
+export const MENSAGEM_FROTA_LISTAGEM_COLUNA_CATEGORIA = 'Categoria';
+export const MENSAGEM_FROTA_LISTAGEM_COLUNA_ODOMETRO = 'Odômetro';
+
+export const MENSAGEM_FROTA_CHASSI_ROTULO = 'Chassi:';
+/** "2024 • Chassi: 9BR58...7821" (linha de baixo do modelo; o chassi já vem abreviado). */
+export function mensagemFrotaAnoEChassi(ano: number, chassi: string): string {
+  return `${ano} • ${MENSAGEM_FROTA_CHASSI_ROTULO} ${chassi}`;
+}
+
+/** Botão de lápis: abre o cadastro do veículo (todo funcionário). Nome acessível com a placa. */
+export const MENSAGEM_FROTA_EDITAR = 'Editar';
+export function mensagemFrotaEditarDoVeiculo(placa: string): string {
+  return `Editar veículo ${placa}`;
+}

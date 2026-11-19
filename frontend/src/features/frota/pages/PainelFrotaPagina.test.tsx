@@ -14,6 +14,7 @@ import { usePainelVisaoGeral } from '@/features/visao-geral/hooks/usePainelVisao
 import { EstadoVazioFrota } from '@/features/frota/componentes/EstadoVazioFrota';
 import { PilulasStatusFrota } from '@/features/frota/componentes/PilulasStatusFrota';
 import { AutenticacaoContexto, type AutenticacaoContextoValor } from '@/routes/autenticacao/AutenticacaoContexto';
+import { ProvedorFiltrosFrota } from '@/features/frota/listagem/ProvedorFiltrosFrota';
 import PainelFrotaPagina from './PainelFrotaPagina';
 
 // Nenhum teste chama a API: as consultas viram dublês, como nas telas de equipe e de visão geral.
@@ -143,7 +144,9 @@ function renderizar(
     <AutenticacaoContexto.Provider value={autenticacaoCom(cargo)}>
       <AvisoProvider>
         <MemoryRouter>
-          <PainelFrotaPagina />
+          <ProvedorFiltrosFrota>
+            <PainelFrotaPagina />
+          </ProvedorFiltrosFrota>
         </MemoryRouter>
       </AvisoProvider>
     </AutenticacaoContexto.Provider>,
@@ -372,6 +375,46 @@ describe('PainelFrotaPagina: menu de troca de status por cargo (etapa 2)', () =>
     expect(marcado).not.toContain('Enviar para manutenção');
     expect(marcado).not.toContain('Dar baixa');
     expect(marcado).not.toContain('role="menu"');
+  });
+});
+
+describe('PainelFrotaPagina: alternância Painel | Lista (única mudança visível da tela 11)', () => {
+  /** Renderiza a tela num caminho dado (a alternância marca a opção pelo caminho atual). */
+  function renderizarNoCaminho(caminho: string): string {
+    vi.mocked(useListarVeiculos).mockReturnValue(consultaListagem({ data: LISTA }));
+    vi.mocked(usePainelVisaoGeral).mockReturnValue(consultaPainel({}));
+    vi.mocked(useCategorias).mockReturnValue({ data: CATEGORIAS, isPending: false } as unknown as ConsultaCategorias);
+    vi.mocked(useAlterarStatusVeiculo).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+      variables: undefined,
+    } as unknown as TrocaStatus);
+    return renderToStaticMarkup(
+      <AutenticacaoContexto.Provider value={autenticacaoCom('GESTOR_FROTA')}>
+        <AvisoProvider>
+          <MemoryRouter initialEntries={[caminho]}>
+            <ProvedorFiltrosFrota>
+              <PainelFrotaPagina />
+            </ProvedorFiltrosFrota>
+          </MemoryRouter>
+        </AvisoProvider>
+      </AutenticacaoContexto.Provider>,
+    );
+  }
+
+  it('no Painel, a opção Painel vem marcada (aria-current) e Lista aponta para a lista da frota', () => {
+    const marcado = renderizarNoCaminho('/back-office/frota');
+
+    expect(marcado).toContain('Visão da frota');
+    expect(marcado).toMatch(/aria-current="page"[^>]*>Painel</);
+    expect(marcado).not.toMatch(/aria-current="page"[^>]*>Lista</);
+    expect(marcado).toContain('href="/back-office/frota/veiculos"');
+  });
+
+  it('o Exportar Relatório do desenho não aparece no cabeçalho', () => {
+    const marcado = renderizarNoCaminho('/back-office/frota');
+
+    expect(marcado).not.toContain('Exportar Relatório');
   });
 });
 

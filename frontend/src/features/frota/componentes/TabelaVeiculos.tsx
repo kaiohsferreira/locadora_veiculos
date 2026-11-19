@@ -1,13 +1,13 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Esqueleto, ImagemVeiculo, Icone } from '@/components/ui';
+import { Esqueleto, ImagemVeiculo } from '@/components/ui';
 import { caminhoEditarVeiculo } from '@/routes/caminhos';
 import { MenuOperacionalVeiculo } from '@/features/frota/componentes/MenuOperacionalVeiculo';
+import { ChassiEAno, PlacaMercosul } from '@/features/frota/componentes/PlacaEChassiFrota';
 import { montarMenuOperacional, type ItemMenuOperacional } from '@/features/frota/status/menuOperacional';
-import { formatarPlaca, formatarQuilometragem } from '@/lib/formatters';
+import { formatarQuilometragem } from '@/lib/formatters';
 import {
   MENSAGEM_FROTA_BOTAO_DETALHES,
-  MENSAGEM_FROTA_BRASIL,
   MENSAGEM_FROTA_COLUNA_ACOES,
   MENSAGEM_FROTA_COLUNA_CHASSI,
   MENSAGEM_FROTA_COLUNA_KM,
@@ -36,8 +36,9 @@ const COLUNAS = [
 const LINHAS_ESQUELETO = 5;
 
 /**
- * Ações de troca de status da linha (menu de três pontos, etapa 2 da tela 11). Só a tela 11 passa esta propriedade; sem
- * ela (ex.: tela 12), a coluna fica como antes. A tela já confere o cargo antes de passar.
+ * Ações de troca de status da linha (menu de três pontos da tela 11). Sem esta propriedade, a coluna fica só com o botão
+ * Detalhes. A tela 12 tem o mesmo menu na tabela irmã (TabelaListagemVeiculos), que usa este mesmo tipo. A tela já confere
+ * o cargo antes de passar.
  */
 export interface AcoesStatusTabelaVeiculos {
   /** Veículo com troca em andamento: a linha dele fica bloqueada. Com um pedido em curso, todos os menus ficam bloqueados. */
@@ -65,9 +66,10 @@ export interface TabelaVeiculosProps {
 }
 
 /**
- * Tabela da frota (tela 11). Componente único, para a tela 12 reaproveitar: cada linha tem a capa (com ícone de carro
- * quando não há foto ou ela falha), a placa, o chassi e ano, a quilometragem, a situação e o botão Detalhes, que abre
- * o cadastro do veículo. Com `acoesStatus`, o botão de três pontos fica ao lado do Detalhes.
+ * Tabela da frota (tela 11). A tela 12 tem a tabela irmã TabelaListagemVeiculos (decisão 4 do contrato da tela 12); o tipo
+ * AcoesStatusTabelaVeiculos é compartilhado. Cada linha tem a capa (com ícone de carro quando não há foto ou ela falha), a
+ * placa, o chassi e ano, a quilometragem, a situação e o botão Detalhes, que abre o cadastro do veículo. Com `acoesStatus`,
+ * o botão de três pontos fica ao lado do Detalhes.
  */
 export function TabelaVeiculos({
   itens,
@@ -229,28 +231,3 @@ function LinhaVeiculo({
   );
 }
 
-/** Chassi em cima e os anos (fabricação / modelo) embaixo, como no desenho. */
-function ChassiEAno({ chassi, anoFabricacao, anoModelo }: { chassi: string; anoFabricacao: number; anoModelo: number }) {
-  return (
-    <span className="flex flex-col">
-      <span className="text-apoio font-medium text-texto-desenho">{chassi}</span>
-      <span className="text-micro text-texto-apoio">{`${anoFabricacao} / ${anoModelo}`}</span>
-    </span>
-  );
-}
-
-/** Placa no emblema do desenho: faixa azul com "BRASIL" e a placa embaixo, no padrão de `@/lib/formatters`. */
-function PlacaMercosul({ placa }: { placa: string }) {
-  return (
-    <div className="inline-flex flex-col overflow-hidden rounded-sm border border-contorno-suave bg-branco shadow-sm">
-      <div className="flex items-center justify-between gap-1 bg-navy-marinho px-2 py-0.5 leading-none text-branco">
-        <span className="inline-block h-1.5 w-2 rounded-sm bg-frota-disponivel-ponto" aria-hidden="true" />
-        <span className="text-emblema-brasil tracking-widest">{MENSAGEM_FROTA_BRASIL}</span>
-        <Icone nome="flag" tamanho={8} />
-      </div>
-      <div className="px-2 py-0.5 text-center text-corpo-denso font-bold leading-none tracking-wider text-texto-desenho">
-        {formatarPlaca(placa)}
-      </div>
-    </div>
-  );
-}
