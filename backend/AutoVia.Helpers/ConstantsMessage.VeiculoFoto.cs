@@ -2,7 +2,7 @@ namespace AutoVia.Helpers
 {
     /// <summary>
     /// Mensagens do modulo de fotos do veiculo. As seis primeiras chegam ao usuario (400, 404 e 409) e a de processamento ocupado (429); ErroFotoCapaIndisponivel chega ao usuario
-    /// no campo erroFotoCapa das listas (200); as demais so vao para o log.
+    /// no campo erroFotoCapa das listas (200); ErroVeiculoFotoSemArquivo chega ao usuario no campo erroFoto do item sem arquivo da lista de fotos do veiculo (200); as demais so vao para o log.
     /// ErroVeiculoFotoLimiteAtingido tem {0}, preenchido com ConstantsValues.MaximoFotosPorVeiculo (CultureInfo.InvariantCulture).
     /// </summary>
     public static partial class ConstantsMessage
@@ -52,7 +52,13 @@ namespace AutoVia.Helpers
         /// <summary>Texto de erroFotoCapa no item da lista quando o armazenamento nao devolveu a foto de capa (decisao do Kaio, 16/11/2026).</summary>
         public const string ErroFotoCapaIndisponivel = "Não foi possível carregar as fotos agora. Tente novamente em instantes.";
 
+        /// <summary>Texto de erroFoto no item da lista de fotos do veiculo quando a foto esta gravada e o arquivo nao existe no armazenamento (decisao do Kaio, 18/11/2026).</summary>
+        public const string ErroVeiculoFotoSemArquivo = "Não foi possível carregar esta foto. Se o problema continuar, remova a foto e envie de novo.";
+
         /// <summary>Mensagem do log quando o armazenamento devolveu o lote sem a URL de uma chave de capa (so vai para o log).</summary>
         public const string ErroCapaVeiculoSemUrlAssinada = "O armazenamento não devolveu a URL assinada de uma foto de capa.";
+
+        /// <summary>Mensagem do log quando o armazenamento devolveu o lote sem a URL de uma ou mais fotos da lista do veiculo ({0} = quantidade, CultureInfo.InvariantCulture; so vai para o log).</summary>
+        public const string ErroVeiculoFotoListaSemUrlAssinada = "O armazenamento não devolveu a URL assinada de {0} foto(s) da lista de fotos do veículo.";
     }
 }

@@ -376,6 +376,114 @@ namespace AutoVia.Tests.Integrations.Armazenamento
             await Assert.ThrowsAsync<OperationCanceledException>(() => gateway.AssinarUrlsAsync(new List<string> { ChaveObjeto }, cancelamento.Token));
         }
 
+        [Theory]
+        [InlineData("DISCO_LOCAL")]
+        [InlineData("  DISCO_LOCAL  ")]
+        [InlineData("disco_local")]
+        public async Task ProvedorDiscoLocal_EscolheOProvedorDeDiscoEFicaLongeDoS3(string valorConfigurado)
+        {
+            Dictionary<string, IntegrationSettingValue> settings = new Dictionary<string, IntegrationSettingValue>
+            {
+                [ConstantsArmazenamento.ChaveProvedor] = new IntegrationSettingValue(valorConfigurado, false)
+            };
+            FakeStorageProvider s3 = new FakeStorageProvider();
+            FakeStorageProvider disco = new FakeStorageProvider(ConstantsArmazenamento.ProvedorDiscoLocal);
+            ArmazenamentoGateway gateway = new ArmazenamentoGateway(new FakeIntegrationResolver(CriarConfiguracao(settings)), new IArmazenamentoProvider[] { s3, disco }, new FakeLogService());
+
+            await gateway.RemoverAsync(ChaveObjeto);
+
+            Assert.Equal(1, disco.RemoverCount);
+            Assert.Equal(0, s3.RemoverCount);
+        }
+
+        [Fact]
+        public async Task ProvedorAusente_EscolheOS3MesmoComOProvedorDeDiscoRegistrado()
+        {
+            FakeStorageProvider s3 = new FakeStorageProvider();
+            FakeStorageProvider disco = new FakeStorageProvider(ConstantsArmazenamento.ProvedorDiscoLocal);
+            ArmazenamentoGateway gateway = new ArmazenamentoGateway(new FakeIntegrationResolver(CriarConfiguracao(new Dictionary<string, IntegrationSettingValue>())), new IArmazenamentoProvider[] { disco, s3 }, new FakeLogService());
+
+            await gateway.RemoverAsync(ChaveObjeto);
+
+            Assert.Equal(1, s3.RemoverCount);
+            Assert.Equal(0, disco.RemoverCount);
+        }
+
+        [Theory]
+        [InlineData("DISCO_LOCAL")]
+        [InlineData("")]
+        [InlineData("   ")]
+        [InlineData("OUTRO")]
+        public async Task ProvedorSemRegistro_LancaFalhaDeProvedorNaoSuportadoSemChamarNenhum(string valorConfigurado)
+        {
+            Dictionary<string, IntegrationSettingValue> settings = new Dictionary<string, IntegrationSettingValue>
+            {
+                [ConstantsArmazenamento.ChaveProvedor] = new IntegrationSettingValue(valorConfigurado, false)
+            };
+            FakeStorageProvider s3 = new FakeStorageProvider();
+            ArmazenamentoGateway gateway = new ArmazenamentoGateway(new FakeIntegrationResolver(CriarConfiguracao(settings)), new IArmazenamentoProvider[] { s3 }, new FakeLogService());
+
+            IntegrationException ex = await Assert.ThrowsAsync<IntegrationException>(() => gateway.ObterUrlAsync(ChaveObjeto));
+
+            Assert.Equal(ConstantsMessage.ErroArmazenamentoProvedorNaoSuportado, ex.Message);
+            Assert.Equal(ConstantsArmazenamento.ChaveProvedor, ex.Chave);
+            Assert.Equal(0, s3.CallCount);
+        }
+
+        [Fact]
+        public async Task CadaMetodoDoGateway_FalhaDoProvedorComIntegrationException_GravaExatamenteUmRegistro()
+        {
+            IntegrationException falha = new IntegrationException(ConstantsIntegration.Armazenamento, ConstantsArmazenamento.ChaveAccessKey, ConstantsMessage.ErroArmazenamentoChaveNaoProtegida);
+            FakeStorageProvider providerEnviar = new FakeStorageProvider { ExcecaoASerLancada = falha };
+            FakeLogService logEnviar = new FakeLogService();
+            await Assert.ThrowsAsync<IntegrationException>(() => CriarGateway(providerEnviar, logEnviar).EnviarAsync(ChaveObjeto, new byte[] { 1 }, "image/jpeg"));
+            Assert.Single(logEnviar.Snapshot());
+
+            FakeStorageProvider providerObter = new FakeStorageProvider { ExcecaoASerLancada = falha };
+            FakeLogService logObter = new FakeLogService();
+            await Assert.ThrowsAsync<IntegrationException>(() => CriarGateway(providerObter, logObter).ObterUrlAsync(ChaveObjeto));
+            Assert.Single(logObter.Snapshot());
+
+            FakeStorageProvider providerLote = new FakeStorageProvider { ExcecaoASerLancada = falha };
+            FakeLogService logLote = new FakeLogService();
+            await Assert.ThrowsAsync<IntegrationException>(() => CriarGateway(providerLote, logLote).AssinarUrlsAsync(new List<string> { ChaveObjeto }));
+            Assert.Single(logLote.Snapshot());
+
+            FakeStorageProvider providerRemover = new FakeStorageProvider { ExcecaoASerLancada = falha };
+            FakeLogService logRemover = new FakeLogService();
+            await Assert.ThrowsAsync<IntegrationException>(() => CriarGateway(providerRemover, logRemover).RemoverAsync(ChaveObjeto));
+            Assert.Single(logRemover.Snapshot());
+        }
+
+        [Fact]
+        public async Task CadaMetodoDoGateway_FalhaInesperadaDoProvedor_GravaExatamenteUmRegistro()
+        {
+            FakeStorageProvider providerEnviar = new FakeStorageProvider { ExcecaoASerLancada = new InvalidOperationException("falha") };
+            FakeLogService logEnviar = new FakeLogService();
+            await Assert.ThrowsAsync<IntegrationException>(() => CriarGateway(providerEnviar, logEnviar).EnviarAsync(ChaveObjeto, new byte[] { 1 }, "image/jpeg"));
+            Assert.Single(logEnviar.Snapshot());
+
+            FakeStorageProvider providerObter = new FakeStorageProvider { ExcecaoASerLancada = new InvalidOperationException("falha") };
+            FakeLogService logObter = new FakeLogService();
+            await Assert.ThrowsAsync<IntegrationException>(() => CriarGateway(providerObter, logObter).ObterUrlAsync(ChaveObjeto));
+            Assert.Single(logObter.Snapshot());
+
+            FakeStorageProvider providerLote = new FakeStorageProvider { ExcecaoASerLancada = new InvalidOperationException("falha") };
+            FakeLogService logLote = new FakeLogService();
+            await Assert.ThrowsAsync<IntegrationException>(() => CriarGateway(providerLote, logLote).AssinarUrlsAsync(new List<string> { ChaveObjeto }));
+            Assert.Single(logLote.Snapshot());
+
+            FakeStorageProvider providerRemover = new FakeStorageProvider { ExcecaoASerLancada = new InvalidOperationException("falha") };
+            FakeLogService logRemover = new FakeLogService();
+            await Assert.ThrowsAsync<IntegrationException>(() => CriarGateway(providerRemover, logRemover).RemoverAsync(ChaveObjeto));
+            Assert.Single(logRemover.Snapshot());
+        }
+
+        private static ArmazenamentoGateway CriarGateway(FakeStorageProvider provider, FakeLogService log)
+        {
+            return new ArmazenamentoGateway(new FakeIntegrationResolver(CriarConfiguracao(new Dictionary<string, IntegrationSettingValue>())), new IArmazenamentoProvider[] { provider }, log);
+        }
+
         private static ConfiguracaoIntegracao CriarConfiguracao(IReadOnlyDictionary<string, IntegrationSettingValue> settings)
         {
             return new ConfiguracaoIntegracao(ConstantsIntegration.Armazenamento, ConstantsIntegration.Armazenamento, AmbienteIntegracao.SANDBOX, "https://storage.example", 1000, settings);
@@ -404,7 +512,11 @@ namespace AutoVia.Tests.Integrations.Armazenamento
 
         private sealed class FakeStorageProvider : IArmazenamentoProvider
         {
-            public string Nome => ConstantsArmazenamento.ProvedorS3Compativel;
+            public FakeStorageProvider() : this(ConstantsArmazenamento.ProvedorS3Compativel) { }
+
+            public FakeStorageProvider(string nome) { Nome = nome; }
+
+            public string Nome { get; }
             public string? Bucket { get; private set; }
             public string? Chave { get; private set; }
             public byte[]? Conteudo { get; private set; }

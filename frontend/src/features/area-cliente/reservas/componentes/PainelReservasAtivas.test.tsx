@@ -4,7 +4,12 @@ import { MemoryRouter } from 'react-router-dom';
 import { AvisoProvider } from '@/components/ui';
 import { PainelReservasAtivas } from '@/features/area-cliente/reservas/componentes/PainelReservasAtivas';
 import type { EstadoListaReservas } from '@/features/area-cliente/reservas/estadoLista';
-import { RESERVA_ATIVA, RESERVA_CONFIRMADA, TERMOS_SEM_LASTRO } from '@/features/area-cliente/reservas/fixturasReservas';
+import {
+  RESERVA_ATIVA,
+  RESERVA_CONFIRMADA,
+  semTextosAprovadosDoDesenho,
+  TERMOS_SEM_LASTRO,
+} from '@/features/area-cliente/reservas/fixturasReservas';
 import { ErroApi } from '@/types/api';
 import type { RespostaReservas } from '@/types/reservas';
 
@@ -99,8 +104,9 @@ describe('PainelReservasAtivas', () => {
 
   it('nenhum termo sem lastro do desenho aparece na aba de ativas', () => {
     const html = renderizar({ dados: COM_DADOS });
+    const limpo = semTextosAprovadosDoDesenho(html).toLowerCase();
     for (const termo of TERMOS_SEM_LASTRO) {
-      expect(html.toLowerCase(), `termo proibido: ${termo}`).not.toContain(termo.toLowerCase());
+      expect(limpo, `termo proibido: ${termo}`).not.toContain(termo.toLowerCase());
     }
   });
 });

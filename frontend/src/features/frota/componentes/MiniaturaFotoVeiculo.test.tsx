@@ -96,6 +96,44 @@ describe('MiniaturaFotoVeiculo: foto com erro', () => {
   });
 });
 
+describe('MiniaturaFotoVeiculo: foto gravada sem arquivo (url nula, estado erro, sem Tentar de novo)', () => {
+  const TEXTO_SERVIDOR = 'Não foi possível carregar esta foto. Se o problema continuar, remova a foto e envie de novo.';
+
+  it('não mostra imagem: o ícone de carro fica dentro da caixa 4:3, no lugar da foto', () => {
+    const html = renderizar({ url: null, mensagemErro: TEXTO_SERVIDOR, aoTentarDeNovo: undefined });
+    const caixa = html.slice(...intervaloDaCaixa(html));
+
+    expect(html).not.toContain('<img');
+    expect(caixa).toContain('>directions_car</span>');
+  });
+
+  it('a faixa de erro fica dentro da caixa e a mensagem do servidor fica logo abaixo dela', () => {
+    const html = renderizar({ url: null, mensagemErro: TEXTO_SERVIDOR, aoTentarDeNovo: undefined });
+    const [inicio, fim] = intervaloDaCaixa(html);
+    const caixa = html.slice(inicio, fim);
+    const abaixo = html.slice(fim);
+
+    expect(caixa).toContain('>error</span>');
+    expect(caixa).toContain('bg-status-perigo');
+    expect(caixa).not.toContain(TEXTO_SERVIDOR);
+    expect(abaixo).toContain(TEXTO_SERVIDOR);
+  });
+
+  it('não tem "Tentar de novo", mas tem o botão de remover com o nome da posição', () => {
+    const html = renderizar({ url: null, mensagemErro: TEXTO_SERVIDOR, aoTentarDeNovo: undefined });
+
+    expect(html).not.toContain('Tentar de novo');
+    expect(html).toContain('aria-label="Remover imagem 2"');
+  });
+
+  it('com a posição 1, mostra o selo "Foto Principal" quando é a principal', () => {
+    const html = renderizar({ url: null, posicao: 1, principal: true, mensagemErro: TEXTO_SERVIDOR, aoTentarDeNovo: undefined });
+
+    expect(html).toContain('Foto Principal');
+    expect(html).toContain('aria-label="Remover imagem 1"');
+  });
+});
+
 describe('MiniaturaFotoVeiculo: outros estados da fila', () => {
   it('aguardando e enviando ficam dentro da caixa 4:3, com o texto dentro dela', () => {
     const aguardando = renderizar({ estado: 'aguardando', mensagemErro: null, aoTentarDeNovo: undefined });
@@ -142,6 +180,51 @@ describe('MiniaturaFotoVeiculo: prévia até a imagem do servidor carregar', () 
 
     expect(html).not.toContain('blob:');
     expect(html).toContain('src="https://armazenamento.exemplo/foto-1.jpg"');
+  });
+});
+
+/** Tag de abertura do botão de remover de uma posição (o rótulo acessível identifica o botão). */
+function tagDoBotaoRemover(html: string, posicao: number): string {
+  const achado = new RegExp(`<button\\b[^>]*aria-label="Remover imagem ${posicao}"[^>]*>`).exec(html);
+  if (achado === null) throw new Error(`botão de remover ${posicao} ausente`);
+  return achado[0];
+}
+
+const CLASSES_QUE_ESCONDEM_O_BOTAO = ['[@media(hover:hover)]:opacity-0', '[@media(hover:hover)]:group-hover:opacity-100'];
+
+describe('MiniaturaFotoVeiculo: botão de remover (visibilidade)', () => {
+  const TEXTO_SERVIDOR = 'Não foi possível carregar esta foto. Se o problema continuar, remova a foto e envie de novo.';
+
+  it('foto gravada sem arquivo com removerSempreVisivel: o botão não tem as classes que o escondem fora do hover', () => {
+    const tag = tagDoBotaoRemover(
+      renderizar({ url: null, mensagemErro: TEXTO_SERVIDOR, aoTentarDeNovo: undefined, removerSempreVisivel: true }),
+      2,
+    );
+
+    for (const classe of CLASSES_QUE_ESCONDEM_O_BOTAO) expect(tag).not.toContain(classe);
+    expect(tag).not.toContain('opacity-0');
+    expect(tag).toContain('aria-label="Remover imagem 2"');
+    expect(tag).toContain('title="Remover imagem"');
+    expect(tag).toContain('focus-visible:opacity-100');
+  });
+
+  it('sem a propriedade (padrão falso), a foto gravada sem arquivo mantém as classes que escondem o botão', () => {
+    const tag = tagDoBotaoRemover(renderizar({ url: null, mensagemErro: TEXTO_SERVIDOR, aoTentarDeNovo: undefined }), 2);
+
+    for (const classe of CLASSES_QUE_ESCONDEM_O_BOTAO) expect(tag).toContain(classe);
+  });
+
+  it('a miniatura gravada com arquivo, a de erro de envio e a da fila aguardando mantêm as classes que escondem o botão', () => {
+    const gravada = tagDoBotaoRemover(
+      renderizar({ estado: 'gravada', url: 'https://armazenamento.exemplo/foto-1.jpg', mensagemErro: null, aoTentarDeNovo: undefined }),
+      2,
+    );
+    const erroDeEnvio = tagDoBotaoRemover(renderizar({}), 2);
+    const aguardando = tagDoBotaoRemover(renderizar({ estado: 'aguardando', mensagemErro: null, aoTentarDeNovo: undefined }), 2);
+
+    for (const tag of [gravada, erroDeEnvio, aguardando]) {
+      for (const classe of CLASSES_QUE_ESCONDEM_O_BOTAO) expect(tag).toContain(classe);
+    }
   });
 });
 

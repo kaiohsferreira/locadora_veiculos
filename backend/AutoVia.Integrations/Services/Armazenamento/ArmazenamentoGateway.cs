@@ -109,15 +109,14 @@ namespace AutoVia.Integrations.Services.Armazenamento
         private async Task<ConfiguracaoIntegracao> ResolverAsync(CancellationToken cancellationToken)
         {
             ConfiguracaoIntegracao configuracao = await _integrationResolver.ResolveAsync(ConstantsIntegration.Armazenamento, cancellationToken);
-            string nome = configuracao.GetOptional(ConstantsArmazenamento.ChaveProvedor) ?? ConstantsArmazenamento.ProvedorS3Compativel;
-            if (!string.Equals(nome.Trim(), ConstantsArmazenamento.ProvedorS3Compativel, StringComparison.OrdinalIgnoreCase))
-                throw new IntegrationException(ConstantsIntegration.Armazenamento, ConstantsArmazenamento.ChaveProvedor, ConstantsMessage.ErroArmazenamentoProvedorNaoSuportado);
             return configuracao;
         }
 
+        /// <summary>Escolhe o provedor pelo nome da chave 'provedor' (ausente = S3_COMPATIVEL; com Trim, sem diferenciar maiusculas; valor vazio ou desconhecido = EA-05).</summary>
         private IArmazenamentoProvider Selecionar(ConfiguracaoIntegracao configuracao)
         {
-            IArmazenamentoProvider? provider = _providers.FirstOrDefault(x => string.Equals(x.Nome, ConstantsArmazenamento.ProvedorS3Compativel, StringComparison.OrdinalIgnoreCase));
+            string nome = (configuracao.GetOptional(ConstantsArmazenamento.ChaveProvedor) ?? ConstantsArmazenamento.ProvedorS3Compativel).Trim();
+            IArmazenamentoProvider? provider = _providers.FirstOrDefault(x => string.Equals(x.Nome, nome, StringComparison.OrdinalIgnoreCase));
             if (provider == null) throw new IntegrationException(ConstantsIntegration.Armazenamento, ConstantsArmazenamento.ChaveProvedor, ConstantsMessage.ErroArmazenamentoProvedorNaoSuportado);
             return provider;
         }

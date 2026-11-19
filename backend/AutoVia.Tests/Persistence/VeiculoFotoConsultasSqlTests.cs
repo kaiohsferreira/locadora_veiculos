@@ -23,6 +23,13 @@ namespace AutoVia.Tests.Persistence
         private const string GuardaFalso = "='False'";
         private const string DisabledAtNulo = "disabled_at IS NULL";
         private const string ContextoSemEmpresa = "0";
+        private const string SeparadorDeComando = ";";
+        private const string GroupBy = "GROUP BY";
+        private const string PalavraSelect = "SELECT";
+        private const string FuncaoContagem = "count(";
+        private const string FuncaoMaximo = "max(";
+        private const string LimiteSqlComParametro = @"LIMIT @\w+";
+        private const string ValorDoLimiteUmaLinha = @"-- @\w+='1'";
 
         private static readonly DbContextOptions<AutoViaDbContext> Opcoes = new DbContextOptionsBuilder<AutoViaDbContext>()
             .UseNpgsql("Host=localhost;Database=autovia_modelo_teste")
@@ -118,6 +125,75 @@ namespace AutoVia.Tests.Persistence
 
             string sql = repositorio.ConsultaFotoAtiva(IdVeiculoDoTeste, IdVeiculoFotoDoTeste).ToQueryString();
 
+            Assert.Contains($"{ParametroEmpresa}='{ContextoSemEmpresa}'", sql);
+            Assert.Contains(GuardaFalso, sql);
+            Assert.DoesNotContain($"{ParametroEmpresa}='{EmpresaDoTeste}'", sql);
+        }
+
+        [Fact]
+        public void ConsultaContagemAtivasDeVeiculoAtivo_ComContexto_EUmSoComandoComFiltroDaEmpresaEDesativadasFora()
+        {
+            using AutoViaDbContext db = CriarDbComContextoDeFuncionario(EmpresaDoTeste);
+            VeiculoFotoRepository repositorio = new VeiculoFotoRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaContagemAtivasDeVeiculoAtivo(IdVeiculoDoTeste).ToQueryString();
+
+            Assert.Contains(PalavraSelect, sql);
+            Assert.DoesNotContain(SeparadorDeComando, sql);
+            Assert.DoesNotContain(GroupBy, sql, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains(FuncaoContagem, sql, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("veiculo_foto", sql);
+            Assert.Contains($"{ParametroEmpresa}='{EmpresaDoTeste}'", sql);
+            Assert.Contains(GuardaVerdadeiro, sql);
+            Assert.Contains(DisabledAtNulo, sql);
+        }
+
+        [Fact]
+        public void ConsultaContagemAtivasDeVeiculoAtivo_SemContexto_FailClosedComIdZeroEGuardaFalsa()
+        {
+            using AutoViaDbContext db = CriarDbSemContexto();
+            VeiculoFotoRepository repositorio = new VeiculoFotoRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaContagemAtivasDeVeiculoAtivo(IdVeiculoDoTeste).ToQueryString();
+
+            Assert.DoesNotContain(SeparadorDeComando, sql);
+            Assert.DoesNotContain(GroupBy, sql, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains($"{ParametroEmpresa}='{ContextoSemEmpresa}'", sql);
+            Assert.Contains(GuardaFalso, sql);
+            Assert.DoesNotContain($"{ParametroEmpresa}='{EmpresaDoTeste}'", sql);
+        }
+
+        [Fact]
+        public void ConsultaResumoAtivasDoVeiculo_ComContexto_EUmSoComandoComFiltroDaEmpresaEDesativadasFora()
+        {
+            using AutoViaDbContext db = CriarDbComContextoDeFuncionario(EmpresaDoTeste);
+            VeiculoFotoRepository repositorio = new VeiculoFotoRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaResumoAtivasDoVeiculo(IdVeiculoDoTeste).ToQueryString();
+
+            Assert.Contains(PalavraSelect, sql);
+            Assert.DoesNotContain(SeparadorDeComando, sql);
+            Assert.DoesNotContain(GroupBy, sql, StringComparison.OrdinalIgnoreCase);
+            Assert.Matches(LimiteSqlComParametro, sql);
+            Assert.Matches(ValorDoLimiteUmaLinha, sql);
+            Assert.Contains(FuncaoContagem, sql, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains(FuncaoMaximo, sql, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("veiculo_foto", sql);
+            Assert.Contains($"{ParametroEmpresa}='{EmpresaDoTeste}'", sql);
+            Assert.Contains(GuardaVerdadeiro, sql);
+            Assert.Contains(DisabledAtNulo, sql);
+        }
+
+        [Fact]
+        public void ConsultaResumoAtivasDoVeiculo_SemContexto_FailClosedComIdZeroEGuardaFalsa()
+        {
+            using AutoViaDbContext db = CriarDbSemContexto();
+            VeiculoFotoRepository repositorio = new VeiculoFotoRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaResumoAtivasDoVeiculo(IdVeiculoDoTeste).ToQueryString();
+
+            Assert.DoesNotContain(SeparadorDeComando, sql);
+            Assert.DoesNotContain(GroupBy, sql, StringComparison.OrdinalIgnoreCase);
             Assert.Contains($"{ParametroEmpresa}='{ContextoSemEmpresa}'", sql);
             Assert.Contains(GuardaFalso, sql);
             Assert.DoesNotContain($"{ParametroEmpresa}='{EmpresaDoTeste}'", sql);

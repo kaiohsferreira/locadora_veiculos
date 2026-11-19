@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using System;
 using System.Threading.RateLimiting;
 using System.Threading.Tasks;
@@ -21,7 +22,8 @@ namespace AutoVia.Api.Extensions
     /// locadora; uma hora; numero em Locadoras:LimiteCadastroPorHora, padrao 5) e AutoViaLeituraPublica (busca de
     /// disponiveis e catalogo de seminovos; um minuto; numero em Veiculos:LimiteLeituraPublicaPorMinuto, padrao 60) e
     /// AutoViaEnvioFotoVeiculo (envio de foto do veiculo, rota autenticada; um minuto; numero em Veiculos:LimiteEnvioFotoPorMinuto,
-    /// padrao 60). Um valor menor ou igual a
+    /// padrao 60) e AutoViaLeituraArquivo (leitura publica de arquivo do armazenamento; um minuto; numero em
+    /// Armazenamento:LimiteLeituraPorMinuto, padrao 600; o teto da rota fica em TetoLeituraArquivo, depois deste limite). Um valor menor ou igual a
     /// zero cai no padrao. O IP vem do cabecalho configurado em Rede:CabecalhoIpCliente (padrao X-Real-IP,
     /// um salto), lido pelo UseForwardedHeaders montado no Program; vazio desliga a leitura e vale o IP do socket.
     /// Um valor que nao e nome de cabecalho HTTP valido impede a subida da API, e com FORWARDEDHEADERS_ENABLED
@@ -43,6 +45,7 @@ namespace AutoVia.Api.Extensions
                 int limiteCadastroEmpresa = LerLimite(configuration, ConstantsValues.ChaveLimiteCadastroPorHora, ConstantsValues.LimiteCadastroEmpresaPorHoraPadrao);
                 int limiteLeituraPublica = LerLimite(configuration, ConstantsValues.ChaveLimiteLeituraPublica, ConstantsValues.LimiteLeituraPublicaPorMinutoPadrao);
                 int limiteEnvioFoto = LerLimite(configuration, ConstantsValues.ChaveLimiteEnvioFotoVeiculo, ConstantsValues.LimiteEnvioFotoVeiculoPorMinutoPadrao);
+                int limiteLeituraArquivo = LerLimite(configuration, ConstantsValues.ChaveLimiteLeituraArquivo, ConstantsValues.LimiteLeituraArquivoPorMinutoPadrao);
 
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
@@ -51,9 +54,17 @@ namespace AutoVia.Api.Extensions
                 RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteCadastroEmpresa, limiteCadastroEmpresa, TimeSpan.FromHours(1));
                 RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteLeituraPublica, limiteLeituraPublica, TimeSpan.FromMinutes(1));
                 RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteEnvioFotoVeiculo, limiteEnvioFoto, TimeSpan.FromMinutes(1));
+                RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteLeituraArquivo, limiteLeituraArquivo, TimeSpan.FromMinutes(1));
 
                 options.OnRejected = async (context, cancellationToken) =>
                 {
+                    if (EhPoliticaDaLeituraDeArquivo(context.HttpContext))
+                    {
+                        // Registro agregado do 429 desta rota (no maximo um por minuto). As outras politicas continuam sem registro.
+                        RegistroRecusasLimiteLeitura? registro = context.HttpContext.RequestServices.GetService<RegistroRecusasLimiteLeitura>();
+                        registro?.RegistrarPorIp();
+                    }
+
                     await ProblemDetailsWriter.WriteAsync(
                         context.HttpContext,
                         StatusCodes.Status429TooManyRequests,
@@ -61,6 +72,11 @@ namespace AutoVia.Api.Extensions
                         ConstantsMessage.ErroLimiteRequisicoes);
                 };
             });
+
+            // Teto da rota de leitura de arquivo (contador sem IP, consultado pela acao) e registro agregado do seu 429.
+            services.AddSingleton<TetoLeituraArquivo>();
+            services.AddSingleton<RegistroRecusasLimiteLeitura>();
+            services.TryAddSingleton(TimeProvider.System);
 
             return services;
         }
@@ -172,8 +188,16 @@ namespace AutoVia.Api.Extensions
             return true;
         }
 
-        /// <summary>Le o limite da chave informada; zero ou negativo cai no padrao informado.</summary>
-        private static int LerLimite(IConfiguration configuration, string chave, int padrao)
+        /// <summary>Indica se o endpoint da requisicao tem a politica da leitura de arquivo (so ela registra o 429 agregado).</summary>
+        private static bool EhPoliticaDaLeituraDeArquivo(HttpContext httpContext)
+        {
+            EnableRateLimitingAttribute? atributo = httpContext.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>();
+
+            return atributo?.PolicyName == ConstantsValues.PoliticaLimiteLeituraArquivo;
+        }
+
+        /// <summary>Le o limite da chave informada; zero ou negativo cai no padrao informado. Interno: o teto da leitura usa a mesma regra.</summary>
+        internal static int LerLimite(IConfiguration configuration, string chave, int padrao)
         {
             int limite = configuration.GetValue<int>(chave, padrao);
 

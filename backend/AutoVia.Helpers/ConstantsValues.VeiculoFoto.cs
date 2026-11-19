@@ -27,6 +27,18 @@ namespace AutoVia.Helpers
         /// <summary>Qualidade (0 a 100) do JPEG gravado.</summary>
         public const int QualidadeJpegFotoVeiculo = 85;
 
+        /// <summary>Primeira escala de decodificacao reduzida do JPEG testada (1/8 do lado); so e usada se cobre a saida.</summary>
+        public const float EscalaDecodificacaoFotoOitavo = 0.125f;
+
+        /// <summary>Segunda escala de decodificacao reduzida testada (1/4 do lado); so e usada se cobre a saida.</summary>
+        public const float EscalaDecodificacaoFotoQuarto = 0.25f;
+
+        /// <summary>Ultima escala de decodificacao reduzida testada (metade do lado); so e usada se cobre a saida.</summary>
+        public const float EscalaDecodificacaoFotoMetade = 0.5f;
+
+        /// <summary>Fator maximo entre o lado maior decodificado e o da saida para o filtro linear rapido; acima disso, filtro Mitchell.</summary>
+        public const int FatorResidualMaximoFiltroRapidoFoto = 2;
+
         /// <summary>Quantas imagens podem ser decodificadas ao mesmo tempo no processo.</summary>
         public const int MaximoProcessamentosSimultaneosFoto = 2;
 

@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { CabecalhoFoto } from './cabecalhoFoto';
 import {
   MENSAGEM_FOTOS_ERRO_DIMENSAO,
   MENSAGEM_FOTOS_ERRO_TAMANHO,
   MENSAGEM_FOTOS_ERRO_TIPO,
 } from './mensagensFotosVeiculo';
-import { analisarArquivosFoto, lerDimensoesFoto } from './arquivosFotoVeiculo';
+import { analisarArquivosFoto } from './arquivosFotoVeiculo';
 import { TAMANHO_MAXIMO_FOTO_BYTES } from './fotosVeiculo';
 
 function arquivoComTipo(nome: string, tipo: string, tamanho = 100): File {
@@ -13,51 +14,22 @@ function arquivoComTipo(nome: string, tipo: string, tamanho = 100): File {
   return arquivo;
 }
 
-/** Imagem falsa: dispara onload ou onerror quando o teste manda. */
-function imagemFalsa(largura: number, altura: number) {
-  const imagem = {
-    naturalWidth: largura,
-    naturalHeight: altura,
-    src: '',
-    onload: null as (() => void) | null,
-    onerror: null as (() => void) | null,
-  };
-  return imagem;
+function cabecalho(largura: number, altura: number): CabecalhoFoto {
+  return { formato: 'jpeg', largura, altura, orientacao: 1 };
 }
 
-describe('lerDimensoesFoto', () => {
-  it('lê largura e altura quando a imagem carrega', async () => {
-    const imagem = imagemFalsa(1600, 1200);
-    const leitura = lerDimensoesFoto('blob:foto', () => imagem as unknown as HTMLImageElement);
-
-    imagem.onload?.();
-
-    expect(imagem.src).toBe('blob:foto');
-    await expect(leitura).resolves.toEqual({ largura: 1600, altura: 1200 });
-  });
-
-  it('devolve nulo quando o navegador não consegue decodificar a imagem', async () => {
-    const imagem = imagemFalsa(0, 0);
-    const leitura = lerDimensoesFoto('blob:ruim', () => imagem as unknown as HTMLImageElement);
-
-    imagem.onerror?.();
-
-    await expect(leitura).resolves.toBeNull();
-  });
-});
+/** Dependências com o cabeçalho de cada arquivo, na ordem em que são lidos (null = ilegível). */
+function dependencias(cabecalhos: Array<CabecalhoFoto | null>) {
+  const fila = [...cabecalhos];
+  return {
+    criarPrevia: vi.fn((arquivo: File) => `blob:${arquivo.name}`),
+    lerCabecalho: vi.fn(async () => fila.shift() ?? null),
+  };
+}
 
 describe('analisarArquivosFoto', () => {
-  function dependencias(dimensoes: Array<{ largura: number; altura: number } | null>) {
-    const fila = [...dimensoes];
-    return {
-      criarPrevia: vi.fn((arquivo: File) => `blob:${arquivo.name}`),
-      liberarPrevia: vi.fn<(previa: string) => void>(),
-      lerDimensoes: vi.fn(async () => fila.shift() ?? null),
-    };
-  }
-
   it('segue para a fila o que passa tipo, tamanho e dimensão, na ordem em que foi escolhido', async () => {
-    const deps = dependencias([{ largura: 1600, altura: 1200 }, { largura: 800, altura: 600 }]);
+    const deps = dependencias([cabecalho(1600, 1200), cabecalho(800, 600)]);
 
     const resultado = await analisarArquivosFoto(
       [arquivoComTipo('a.jpg', 'image/jpeg'), arquivoComTipo('b.png', 'image/png')],
@@ -66,11 +38,11 @@ describe('analisarArquivosFoto', () => {
 
     expect(resultado.validos.map((v) => v.arquivo.name)).toEqual(['a.jpg', 'b.png']);
     expect(resultado.validos[0].previa).toBe('blob:a.jpg');
+    expect(resultado.validos[0].cabecalho).toEqual(cabecalho(1600, 1200));
     expect(resultado.recusas).toEqual([]);
-    expect(deps.liberarPrevia).not.toHaveBeenCalled();
   });
 
-  it('recusa por tipo antes de criar prévia ou ler dimensão', async () => {
+  it('recusa por tipo antes de criar prévia ou ler o cabeçalho', async () => {
     const deps = dependencias([]);
 
     const resultado = await analisarArquivosFoto([arquivoComTipo('planilha.pdf', 'application/pdf')], deps);
@@ -78,10 +50,10 @@ describe('analisarArquivosFoto', () => {
     expect(resultado.validos).toEqual([]);
     expect(resultado.recusas).toEqual([{ nome: 'planilha.pdf', mensagem: MENSAGEM_FOTOS_ERRO_TIPO }]);
     expect(deps.criarPrevia).not.toHaveBeenCalled();
-    expect(deps.lerDimensoes).not.toHaveBeenCalled();
+    expect(deps.lerCabecalho).not.toHaveBeenCalled();
   });
 
-  it('recusa por tamanho acima de 10 MiB, sem ler a imagem', async () => {
+  it('recusa por tamanho acima de 10 MiB, sem ler o cabeçalho', async () => {
     const deps = dependencias([]);
 
     const resultado = await analisarArquivosFoto(
@@ -90,25 +62,52 @@ describe('analisarArquivosFoto', () => {
     );
 
     expect(resultado.recusas).toEqual([{ nome: 'grande.png', mensagem: MENSAGEM_FOTOS_ERRO_TAMANHO }]);
-    expect(deps.lerDimensoes).not.toHaveBeenCalled();
+    expect(deps.lerCabecalho).not.toHaveBeenCalled();
   });
 
-  it('recusa por dimensão e libera a prévia criada', async () => {
-    const deps = dependencias([{ largura: 9000, altura: 100 }]);
+  it('recusa por dimensão lida do cabeçalho e não cria prévia para o arquivo recusado', async () => {
+    const deps = dependencias([cabecalho(9000, 100)]);
 
     const resultado = await analisarArquivosFoto([arquivoComTipo('larga.png', 'image/png')], deps);
 
     expect(resultado.validos).toEqual([]);
     expect(resultado.recusas).toEqual([{ nome: 'larga.png', mensagem: MENSAGEM_FOTOS_ERRO_DIMENSAO }]);
-    expect(deps.liberarPrevia).toHaveBeenCalledWith('blob:larga.png');
+    expect(deps.criarPrevia).not.toHaveBeenCalled();
   });
 
-  it('imagem que o navegador não consegue ler segue para o servidor, que decide', async () => {
+  it('recusa lado de 8193 px lido do cabeçalho', async () => {
+    const deps = dependencias([cabecalho(8193, 100)]);
+
+    const resultado = await analisarArquivosFoto([arquivoComTipo('limite.jpg', 'image/jpeg')], deps);
+
+    expect(resultado.recusas).toEqual([{ nome: 'limite.jpg', mensagem: MENSAGEM_FOTOS_ERRO_DIMENSAO }]);
+    expect(deps.criarPrevia).not.toHaveBeenCalled();
+  });
+
+  it('recusa mais de 16.777.216 pixels mesmo com lados dentro de 8192 px', async () => {
+    const deps = dependencias([cabecalho(4097, 4097)]);
+
+    const resultado = await analisarArquivosFoto([arquivoComTipo('muitos.jpg', 'image/jpeg')], deps);
+
+    expect(resultado.recusas).toEqual([{ nome: 'muitos.jpg', mensagem: MENSAGEM_FOTOS_ERRO_DIMENSAO }]);
+  });
+
+  it('aceita 8192 px de lado (o limite não muda)', async () => {
+    const deps = dependencias([cabecalho(8192, 2048)]);
+
+    const resultado = await analisarArquivosFoto([arquivoComTipo('no-limite.jpg', 'image/jpeg')], deps);
+
+    expect(resultado.validos.map((v) => v.arquivo.name)).toEqual(['no-limite.jpg']);
+    expect(resultado.recusas).toEqual([]);
+  });
+
+  it('imagem cujo cabeçalho não pode ser lido segue para o servidor, que decide', async () => {
     const deps = dependencias([null]);
 
     const resultado = await analisarArquivosFoto([arquivoComTipo('estranha.jpg', 'image/jpeg')], deps);
 
     expect(resultado.validos.map((v) => v.arquivo.name)).toEqual(['estranha.jpg']);
+    expect(resultado.validos[0].cabecalho).toBeNull();
     expect(resultado.recusas).toEqual([]);
   });
 });

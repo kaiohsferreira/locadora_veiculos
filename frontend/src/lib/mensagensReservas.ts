@@ -18,7 +18,7 @@ export function mensagemReservasBoasVindas(nome: string): string {
 
 export const MENSAGEM_RESERVAS_NAVEGACAO = 'Navegação de reservas';
 export const MENSAGEM_RESERVAS_ABA_ATIVAS = 'Ativas e Próximas';
-export const MENSAGEM_RESERVAS_ABA_HISTORICO = 'Histórico';
+export const MENSAGEM_RESERVAS_ABA_HISTORICO = 'Histórico de Locações';
 
 export function mensagemReservasAtualizadoHoje(hora: string): string {
   return `Atualizado hoje às ${hora}`;
@@ -88,7 +88,7 @@ export function mensagemReservasCancelarTitulo(codigo: string): string {
 
 // Histórico ------------------------------------------------------------------
 
-export const MENSAGEM_RESERVAS_HISTORICO_TITULO = 'Histórico de reservas';
+export const MENSAGEM_RESERVAS_HISTORICO_TITULO = 'Histórico de Locações Recentes';
 export const MENSAGEM_RESERVAS_HISTORICO_DESCRICAO = 'Reservas concluídas e canceladas.';
 export const MENSAGEM_RESERVAS_HISTORICO_BUSCA_FORM = 'Buscar no histórico de reservas';
 export const MENSAGEM_RESERVAS_BUSCA_ROTULO = 'Filtrar por código ou modelo';

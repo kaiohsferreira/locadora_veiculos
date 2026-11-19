@@ -3,9 +3,11 @@ import { Botao, Icone, Modal, useAviso } from '@/components/ui';
 import { useFilaEnvioFotos } from '@/features/frota/hooks/useFilaEnvioFotos';
 import { useFotosVeiculo } from '@/features/frota/hooks/useFotosVeiculo';
 import { useRemoverFotoVeiculo } from '@/features/frota/hooks/useRemoverFotoVeiculo';
-import { analisarArquivosFoto, lerDimensoesFoto, type RecusaArquivoFoto } from '@/lib/arquivosFotoVeiculo';
+import { analisarArquivosFoto, type RecusaArquivoFoto } from '@/lib/arquivosFotoVeiculo';
+import { lerCabecalhoDoArquivo } from '@/lib/cabecalhoFoto';
 import { obterMensagemErro } from '@/lib/erros';
 import {
+  erroDaFotoGravada,
   fotosParaExibir,
   formatarContadorFotos,
   MAXIMO_FOTOS_POR_VEICULO,
@@ -118,8 +120,7 @@ export function BlocoFotosVeiculo({ idVeiculo, descricaoVeiculo, aoFimDoLote }: 
     const idDoInicio = idVeiculo;
     const analise = await analisarArquivosFoto(arquivos, {
       criarPrevia: (arquivo) => URL.createObjectURL(arquivo),
-      liberarPrevia: (previa) => URL.revokeObjectURL(previa),
-      lerDimensoes: lerDimensoesFoto,
+      lerCabecalho: (arquivo) => lerCabecalhoDoArquivo(arquivo),
     });
     // Depois da espera: o veículo pode ter trocado e as fotos gravadas podem ter mudado. Vale o que está agora.
     const atualDepois = agora.current;
@@ -276,18 +277,37 @@ export function BlocoFotosVeiculo({ idVeiculo, descricaoVeiculo, aoFimDoLote }: 
 
         {!listaCarregando && !listaComErro && temItens && (
           <ul aria-labelledby={idSelecionadas} className="grid grid-cols-2 gap-2">
-            {gravadas.map((foto, indice) => (
-              <MiniaturaFotoVeiculo
-                key={`gravada-${foto.idVeiculoFoto}`}
-                posicao={indice + 1}
-                url={urlDaImagem(foto)}
-                alt={mensagemFotoAlt(descricaoVeiculo)}
-                estado="gravada"
-                principal={indice === 0}
-                previaAteCarregar={previaDaFoto(foto.idVeiculoFoto)}
-                aoRemover={() => setFotoParaRemover(foto)}
-              />
-            ))}
+            {gravadas.map((foto, indice) => {
+              // Foto gravada sem arquivo nesta máquina: o item fica no lugar dele, em erro, com o texto do servidor e remover.
+              const erroDaFoto = erroDaFotoGravada(foto);
+              if (erroDaFoto !== null) {
+                return (
+                  <MiniaturaFotoVeiculo
+                    key={`gravada-${foto.idVeiculoFoto}`}
+                    posicao={indice + 1}
+                    url={null}
+                    alt={mensagemFotoAlt(descricaoVeiculo)}
+                    estado="erro"
+                    principal={indice === 0}
+                    mensagemErro={erroDaFoto}
+                    removerSempreVisivel
+                    aoRemover={() => setFotoParaRemover(foto)}
+                  />
+                );
+              }
+              return (
+                <MiniaturaFotoVeiculo
+                  key={`gravada-${foto.idVeiculoFoto}`}
+                  posicao={indice + 1}
+                  url={urlDaImagem(foto)}
+                  alt={mensagemFotoAlt(descricaoVeiculo)}
+                  estado="gravada"
+                  principal={indice === 0}
+                  previaAteCarregar={previaDaFoto(foto.idVeiculoFoto)}
+                  aoRemover={() => setFotoParaRemover(foto)}
+                />
+              );
+            })}
             {naFila.map((item, indice) => (
               <MiniaturaFotoVeiculo
                 key={`fila-${item.chave}`}

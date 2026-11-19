@@ -60,6 +60,33 @@ namespace AutoVia.Tests.Frota
         }
 
         [Fact]
+        public void ProximaOrdemDepoisDe_SemFotoAtiva_DevolveUm()
+        {
+            Assert.Equal(1, RegrasVeiculoFoto.ProximaOrdemDepoisDe(null));
+        }
+
+        [Theory]
+        [InlineData(1, 2)]
+        [InlineData(15, 16)]
+        public void ProximaOrdemDepoisDe_DevolveAMaiorOrdemMaisUm(int maiorOrdem, int esperado)
+        {
+            Assert.Equal(esperado, RegrasVeiculoFoto.ProximaOrdemDepoisDe(maiorOrdem));
+        }
+
+        [Theory]
+        [InlineData(new int[] { })]
+        [InlineData(new int[] { 1, 2, 3 })]
+        [InlineData(new int[] { 5, 1, 3 })]
+        [InlineData(new int[] { 1, 5 })]
+        public void ProximaOrdemDepoisDe_MesmoResultadoDeProximaOrdemParaAMesmaLista(int[] ordens)
+        {
+            List<int> lista = ordens.ToList();
+            int? maiorOrdem = lista.Select(ordem => (int?)ordem).Max();
+
+            Assert.Equal(RegrasVeiculoFoto.ProximaOrdem(lista), RegrasVeiculoFoto.ProximaOrdemDepoisDe(maiorOrdem));
+        }
+
+        [Fact]
         public void MontarChaveObjeto_FormatoDoContrato_SemIdDaLocadora()
         {
             Guid identificador = new Guid("0123456789abcdef0123456789abcdef");

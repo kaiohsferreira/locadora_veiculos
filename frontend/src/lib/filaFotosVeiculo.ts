@@ -2,17 +2,21 @@
  * Fila de envio das fotos do veículo: uma foto por vez, em ordem. Sem React: o hook só liga esta classe ao
  * estado da tela (useSyncExternalStore). Erro numa foto não para as seguintes; "tentar de novo" é por foto;
  * nunca há nova tentativa automática. Ao encerrar, cancela o envio em curso e libera todas as prévias.
+ * Antes de enviar, cada foto é preparada (reduzida no navegador ou a própria original), uma por vez.
  */
-import { PERCENTUAL_MAXIMO, proximoDaFila, vagasRestantes } from '@/lib/fotosVeiculo';
+import type { CabecalhoFoto } from '@/lib/cabecalhoFoto';
+import type { FotoPreparada } from '@/lib/reducaoFotoVeiculo';
+import { arquivoParaEnviar, PERCENTUAL_MAXIMO, proximoDaFila, proximoParaPreparar, vagasRestantes } from '@/lib/fotosVeiculo';
 import type { FotoDoVeiculo, ItemFilaFoto } from '@/types/fotosVeiculo';
 
-/** Arquivo aceito para a fila, com a sua pré-visualização local. */
+/** Arquivo aceito para a fila, com a sua pré-visualização local e o cabeçalho lido (nulo quando ilegível). */
 export interface ArquivoParaFila {
   arquivo: File;
   previa: string;
+  cabecalho: CabecalhoFoto | null;
 }
 
-/** Dependências da fila: a chamada à API e o que o navegador precisa fazer (liberar prévias, traduzir erros). */
+/** Dependências da fila: a chamada à API e o que o navegador precisa fazer (preparar, prévias, erros). */
 export interface OpcoesFilaEnvioFotos {
   enviar(
     idVeiculo: number,
@@ -27,11 +31,31 @@ export interface OpcoesFilaEnvioFotos {
    * gravadas do lote depois que esta promessa resolve, para a lista não piscar.
    */
   aoConcluirLote(): Promise<void>;
+  /** Prepara a foto antes do envio (reduzida ou a própria original). Nunca rejeita. */
+  preparar(arquivo: File, cabecalho: CabecalhoFoto | null): Promise<FotoPreparada>;
+  /** Cria a prévia (URL de objeto) da foto reduzida. */
+  criarPrevia(arquivo: Blob): string;
+  /** Verdadeiro quando o servidor recusou o arquivo enviado (400). */
+  recusaDoArquivo(erro: unknown): boolean;
 }
 
 interface RegistroFila {
   item: ItemFilaFoto;
-  arquivo: File;
+  /** Arquivo escolhido pela pessoa. */
+  original: File;
+  cabecalho: CabecalhoFoto | null;
+  /** Arquivo reduzido, quando a preparação reduziu a foto. */
+  preparado: File | null;
+  /** Verdadeiro depois que a preparação terminou (reduzida ou não). */
+  jaPreparado: boolean;
+  /** Verdadeiro depois de o servidor recusar o arquivo reduzido: o próximo envio usa o original. */
+  reenviarOriginal: boolean;
+}
+
+/** Preparação em curso (no máximo uma): a chave da foto e a promessa que termina quando ela fica pronta. */
+interface PreparoEmCurso {
+  chave: number;
+  promessa: Promise<void>;
 }
 
 export class FilaEnvioFotos {
@@ -41,6 +65,7 @@ export class FilaEnvioFotos {
   private idVeiculo: number | null = null;
   private encerrada = false;
   private processando = false;
+  private preparoEmCurso: PreparoEmCurso | null = null;
   private controleAtual: AbortController | null = null;
   private proximaChave = 1;
   private readonly ouvintes = new Set<() => void>();
@@ -86,7 +111,11 @@ export class FilaEnvioFotos {
         continue;
       }
       this.registros.push({
-        arquivo: novo.arquivo,
+        original: novo.arquivo,
+        cabecalho: novo.cabecalho,
+        preparado: null,
+        jaPreparado: false,
+        reenviarOriginal: false,
         item: {
           chave: this.proximaChave,
           nome: novo.arquivo.name,
@@ -104,7 +133,10 @@ export class FilaEnvioFotos {
     return recusados;
   }
 
-  /** Volta uma foto com erro para a fila. Só age sobre item em erro. */
+  /**
+   * Volta uma foto com erro para a fila. Só age sobre item em erro. O arquivo reenviado é o mesmo já preparado
+   * (sem preparar de novo), salvo depois de recusa do servidor ao arquivo reduzido: aí vai o original.
+   */
   tentarDeNovo(chave: number): void {
     const registro = this.localizar(chave);
     if (registro === undefined || registro.item.situacao !== 'erro') return;
@@ -171,26 +203,46 @@ export class FilaEnvioFotos {
     this.publicar();
   }
 
+  /**
+   * Laço de envio. Para cada foto da vez: (1) pega o próximo da fila; (2) se ainda não foi preparada, espera a
+   * preparação em curso (ou começa a dela) e (3) confere de novo quem é o próximo, porque a foto pode ter sido
+   * removida ou uma anterior pode ter voltado para aguardando durante o preparo: nesse caso não envia esta agora e
+   * volta ao passo 1; (4) envia o arquivo certo; (5) logo depois de marcar "enviando", antecipa o preparo da próxima;
+   * (6) grava o resultado (201 sai da fila; erro guarda a mensagem).
+   */
   private async processar(): Promise<void> {
     if (this.processando || this.encerrada || this.idVeiculo === null) return;
     this.processando = true;
     let houveEnvio = false;
     try {
-      let proximo = proximoDaFila(this.instantaneo);
+      let proximo: ItemFilaFoto | null = proximoDaFila(this.instantaneo);
       while (proximo !== null && !this.encerrada && this.idVeiculo !== null) {
-        houveEnvio = true;
-        const chave = proximo.chave;
-        const idVeiculo = this.idVeiculo;
+        const chave: number = proximo.chave;
+        const idVeiculo: number = this.idVeiculo;
         const registro = this.localizar(chave);
         if (registro === undefined) break;
 
+        if (!registro.jaPreparado) {
+          await this.aguardarPreparo(registro);
+          if (this.encerrada || this.idVeiculo !== idVeiculo) break;
+          const agora = proximoDaFila(this.instantaneo);
+          if (agora === null || agora.chave !== chave) {
+            proximo = agora;
+            continue;
+          }
+        }
+
+        houveEnvio = true;
+        const arquivo = arquivoParaEnviar(registro);
+        const eraPreparado = arquivo !== registro.original;
         const controle = new AbortController();
         this.controleAtual = controle;
         this.atualizar(chave, { situacao: 'enviando', percentual: 0, erro: null });
+        this.anteciparPreparo();
         try {
           const foto = await this.opcoes.enviar(
             idVeiculo,
-            registro.arquivo,
+            arquivo,
             (percentual) => {
               if (!controle.signal.aborted) this.atualizar(chave, { percentual });
             },
@@ -200,6 +252,7 @@ export class FilaEnvioFotos {
           this.atualizar(chave, { situacao: 'concluida', percentual: PERCENTUAL_MAXIMO, erro: null, foto });
         } catch (erro: unknown) {
           if (this.encerrada || controle.signal.aborted) break;
+          if (eraPreparado && this.opcoes.recusaDoArquivo(erro)) registro.reenviarOriginal = true;
           this.atualizar(chave, { situacao: 'erro', percentual: 0, erro: this.opcoes.mensagemDeErro(erro) });
         } finally {
           this.controleAtual = null;
@@ -216,6 +269,87 @@ export class FilaEnvioFotos {
     // Fotos adicionadas enquanto este lote ainda rodava (ex.: depois de trocar o veículo) esperaram o fim daqui.
     if (!this.encerrada && this.idVeiculo !== null && proximoDaFila(this.instantaneo) !== null) {
       void this.processar();
+    }
+  }
+
+  /**
+   * Antes de enviar uma foto ainda não preparada: espera a preparação em curso (uma por vez) e, se a própria foto
+   * continua na fila sem preparo, começa a preparação dela e espera.
+   */
+  private async aguardarPreparo(registro: RegistroFila): Promise<void> {
+    while (this.preparoEmCurso !== null) {
+      await this.preparoEmCurso.promessa;
+    }
+    if (!registro.jaPreparado && this.localizar(registro.item.chave) === registro) {
+      await this.comecarPreparo(registro);
+    }
+  }
+
+  /**
+   * Antecipação de UMA foto (V5): logo depois de a foto da vez ir para "enviando", prepara a próxima a ser enviada
+   * enquanto a atual sobe. Nada começa enquanto outra preparação está em curso.
+   */
+  private anteciparPreparo(): void {
+    const preparadas = new Set<number>(
+      this.registros.filter((registro) => registro.jaPreparado).map((registro) => registro.item.chave),
+    );
+    const chave = proximoParaPreparar(this.instantaneo, preparadas, this.preparoEmCurso?.chave ?? null);
+    if (chave === null) return;
+    const registro = this.localizar(chave);
+    if (registro === undefined) return;
+    void this.comecarPreparo(registro);
+  }
+
+  /**
+   * Começa a preparação de uma foto. A promessa nunca rejeita (falha vira o original, em prepararSeguro). Quando
+   * termina, deixa de ser a preparação em curso.
+   */
+  private comecarPreparo(registro: RegistroFila): Promise<void> {
+    const promessa: Promise<void> = this.preparar(registro).catch((): void => undefined);
+    const marca: PreparoEmCurso = { chave: registro.item.chave, promessa };
+    this.preparoEmCurso = marca;
+    void promessa.then((): void => {
+      if (this.preparoEmCurso === marca) this.preparoEmCurso = null;
+    });
+    return promessa;
+  }
+
+  /**
+   * Prepara uma foto. O resultado é descartado se a foto saiu da fila enquanto preparava (removida, fila
+   * esvaziada ou encerrada): nenhuma prévia nova é criada. Se a foto foi reduzida, a prévia passa a ser a
+   * reduzida e só então a antiga é liberada.
+   */
+  private async preparar(registro: RegistroFila): Promise<void> {
+    const resultado = await this.prepararSeguro(registro);
+    if (this.encerrada || this.localizar(registro.item.chave) !== registro) return;
+    const previaNova = resultado.reduzida ? this.criarPreviaSegura(resultado.arquivo) : null;
+    registro.jaPreparado = true;
+    if (previaNova === null) {
+      registro.preparado = null;
+      return;
+    }
+    registro.preparado = resultado.arquivo;
+    const previaAntiga = registro.item.previa;
+    registro.item = { ...registro.item, previa: previaNova };
+    this.opcoes.liberarPrevia(previaAntiga);
+    this.publicar();
+  }
+
+  /** Prévia da foto reduzida. Falha ao criá-la devolve nulo: a foto segue com o original. */
+  private criarPreviaSegura(arquivo: File): string | null {
+    try {
+      return this.opcoes.criarPrevia(arquivo);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Preparação que nunca rejeita: falha vira o original. */
+  private async prepararSeguro(registro: RegistroFila): Promise<FotoPreparada> {
+    try {
+      return await this.opcoes.preparar(registro.original, registro.cabecalho);
+    } catch {
+      return { arquivo: registro.original, reduzida: false };
     }
   }
 

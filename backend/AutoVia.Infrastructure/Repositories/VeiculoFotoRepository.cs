@@ -124,6 +124,99 @@ namespace AutoVia.Infrastructure.Repositories
         }
 
         /// <summary>
+        /// Quantas fotos ativas tem o veiculo ativo da locadora do contexto, em um unico comando. Nulo quando o veiculo nao existe,
+        /// esta desativado ou e de outra locadora (a mesma consulta confere o veiculo e conta as fotos).
+        /// </summary>
+        public async Task<int?> ContarAtivasDeVeiculoAtivoAsync(int idVeiculo, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                int? total = await ConsultaContagemAtivasDeVeiculoAtivo(idVeiculo).FirstOrDefaultAsync(cancellationToken);
+                return total;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarFotoVeiculo, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Total e maior ordem das fotos ativas do veiculo, em um unico comando e sem trazer as fotos. Sem foto: Total 0 e
+        /// MaiorOrdem nulo. Nao exige que o veiculo esteja ativo (so as fotos ativas da locadora do contexto contam): quem confere
+        /// o veiculo e ContarAtivasDeVeiculoAtivoAsync, antes.
+        /// </summary>
+        public async Task<ResumoFotosAtivasVeiculo> ObterResumoAtivasAsync(int idVeiculo, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                ResumoFotosAtivasVeiculo? resumo = await ConsultaResumoAtivasDoVeiculo(idVeiculo).FirstOrDefaultAsync(cancellationToken);
+                if (resumo == null)
+                {
+                    return new ResumoFotosAtivasVeiculo(0, null);
+                }
+
+                return resumo;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarFotoVeiculo, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta da contagem das fotos ativas do veiculo ativo, em um unico SELECT (subconsulta escalar, sem GROUP BY). Sem linha
+        /// quando o veiculo nao e ativo da locadora do contexto. So monta a consulta, sem executar: quem executa e
+        /// ContarAtivasDeVeiculoAtivoAsync. Publica para o teste de SQL por ToQueryString.
+        /// </summary>
+        public IQueryable<int?> ConsultaContagemAtivasDeVeiculoAtivo(int idVeiculo)
+        {
+            try
+            {
+                IQueryable<int?> consulta = ConsultaVeiculoAtivo(idVeiculo)
+                    .AsNoTracking()
+                    .Select(veiculo => (int?)_db.VeiculoFotos.Count(foto => foto.IdVeiculo == idVeiculo && foto.DisabledAt == null));
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarFotoVeiculo, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta do resumo das fotos ativas do veiculo (Total e MaiorOrdem), em um unico SELECT com subconsultas escalares e sem
+        /// GROUP BY. A ancora e no maximo uma foto ativa do veiculo (Take(1)), com o filtro "Empresa" das fotos; sem foto ativa nao
+        /// ha linha e quem executa devolve Total 0 e MaiorOrdem nulo. Nao confere o veiculo ativo. So monta a consulta, sem
+        /// executar: quem executa e ObterResumoAtivasAsync. Publica para o teste de SQL por ToQueryString.
+        /// </summary>
+        public IQueryable<ResumoFotosAtivasVeiculo> ConsultaResumoAtivasDoVeiculo(int idVeiculo)
+        {
+            try
+            {
+                IQueryable<ResumoFotosAtivasVeiculo> consulta = _db.VeiculoFotos
+                    .Where(x => x.IdVeiculo == idVeiculo && x.DisabledAt == null)
+                    .AsNoTracking()
+                    .Take(1)
+                    .Select(ancora => new ResumoFotosAtivasVeiculo(
+                        _db.VeiculoFotos.Count(foto => foto.IdVeiculo == idVeiculo && foto.DisabledAt == null),
+                        _db.VeiculoFotos
+                            .Where(foto => foto.IdVeiculo == idVeiculo && foto.DisabledAt == null)
+                            .Max(foto => (int?)foto.Ordem)));
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarFotoVeiculo, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
         /// Consulta do veiculo ativo (nao desativado) com o filtro "Empresa" da locadora do contexto. So monta a consulta, sem executar:
         /// quem executa e VeiculoAtivoExisteAsync. Publica para o teste de SQL por ToQueryString.
         /// </summary>

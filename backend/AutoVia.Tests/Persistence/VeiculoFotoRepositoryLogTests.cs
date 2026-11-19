@@ -152,6 +152,50 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
+        public async Task ContarAtivasDeVeiculoAtivoAsync_FalhaDeLeitura_RegistraConsultarERelancaAExcecao()
+        {
+            FakeLogService log = new FakeLogService();
+            VeiculoFotoRepository repositorio = CriarRepositorioComContextoDescartado(log);
+
+            await Assert.ThrowsAsync<ObjectDisposedException>(() => repositorio.ContarAtivasDeVeiculoAtivoAsync(IdVeiculoDoTeste));
+
+            AssertUltimoRegistroEhConstante(log, ConstantsMessage.ErroConsultarFotoVeiculo);
+        }
+
+        [Fact]
+        public async Task ObterResumoAtivasAsync_FalhaDeLeitura_RegistraConsultarERelancaAExcecao()
+        {
+            FakeLogService log = new FakeLogService();
+            VeiculoFotoRepository repositorio = CriarRepositorioComContextoDescartado(log);
+
+            await Assert.ThrowsAsync<ObjectDisposedException>(() => repositorio.ObterResumoAtivasAsync(IdVeiculoDoTeste));
+
+            AssertUltimoRegistroEhConstante(log, ConstantsMessage.ErroConsultarFotoVeiculo);
+        }
+
+        [Fact]
+        public void ConsultaContagemAtivasDeVeiculoAtivo_FalhaAoMontarAConsulta_RegistraConsultarERelancaAExcecao()
+        {
+            FakeLogService log = new FakeLogService();
+            VeiculoFotoRepository repositorio = CriarRepositorioComContextoDescartado(log);
+
+            Assert.Throws<ObjectDisposedException>(() => repositorio.ConsultaContagemAtivasDeVeiculoAtivo(IdVeiculoDoTeste));
+
+            AssertRegistrouConstante(log, ConstantsMessage.ErroConsultarFotoVeiculo);
+        }
+
+        [Fact]
+        public void ConsultaResumoAtivasDoVeiculo_FalhaAoMontarAConsulta_RegistraConsultarERelancaAExcecao()
+        {
+            FakeLogService log = new FakeLogService();
+            VeiculoFotoRepository repositorio = CriarRepositorioComContextoDescartado(log);
+
+            Assert.Throws<ObjectDisposedException>(() => repositorio.ConsultaResumoAtivasDoVeiculo(IdVeiculoDoTeste));
+
+            AssertRegistrouConstante(log, ConstantsMessage.ErroConsultarFotoVeiculo);
+        }
+
+        [Fact]
         public async Task InsertAsync_FalhaDeGravacao_RegistraGravarERelancaAExcecao()
         {
             FakeLogService log = new FakeLogService();

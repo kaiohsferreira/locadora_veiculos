@@ -23,6 +23,8 @@ namespace AutoVia.Tests.Api
     {
         private const int IdVeiculo = 7;
         private const int IdFoto = 3;
+        private const int TamanhoUmMiB = 1048576;
+        private const int TamanhoTetoArquivoFoto = 10485760;
 
         /// <summary>Servico falso: devolve a foto fixa ou lanca a excecao configurada.</summary>
         private sealed class ServicoFotoFalso : IVeiculoFotoService
@@ -197,6 +199,73 @@ namespace AutoVia.Tests.Api
             Assert.Equal(bytes, servico.UltimoConteudo);
             Assert.Equal(ConstantsArmazenamento.MimePng, servico.UltimoContentType);
             Assert.Equal(cancelamento.Token, servico.UltimoToken);
+        }
+
+        [Fact]
+        public async Task Enviar_ArquivoDeUmByte_EntregaExatamenteOsMesmosBytes()
+        {
+            byte[] bytes = new byte[] { 0xFF };
+
+            ServicoFotoFalso servico = await EnviarBytes(bytes);
+
+            Assert.Equal(bytes, servico.UltimoConteudo);
+        }
+
+        [Fact]
+        public async Task Enviar_ArquivoDeUmMiB_EntregaExatamenteOsMesmosBytes()
+        {
+            byte[] bytes = CriarBytesSequenciais(TamanhoUmMiB);
+
+            ServicoFotoFalso servico = await EnviarBytes(bytes);
+
+            Assert.Equal(bytes, servico.UltimoConteudo);
+        }
+
+        [Fact]
+        public async Task Enviar_ArquivoNoTetoDeDezMiB_EntregaExatamenteOsMesmosBytes()
+        {
+            byte[] bytes = CriarBytesSequenciais(TamanhoTetoArquivoFoto);
+
+            ServicoFotoFalso servico = await EnviarBytes(bytes);
+
+            Assert.Equal(bytes, servico.UltimoConteudo);
+        }
+
+        [Fact]
+        public async Task Enviar_SemArquivo_PassaConteudoNulo()
+        {
+            ServicoFotoFalso servico = new ServicoFotoFalso();
+            VeiculoFotoController controller = CriarController(servico, new FakeLogService());
+
+            await controller.Enviar(IdVeiculo, new EnviarFotoVeiculoRequest());
+
+            Assert.Null(servico.UltimoConteudo);
+            Assert.Null(servico.UltimoContentType);
+        }
+
+        /// <summary>Envia um arquivo com estes bytes pelo controller e devolve o servico falso, que guarda o conteudo recebido.</summary>
+        private static async Task<ServicoFotoFalso> EnviarBytes(byte[] bytes)
+        {
+            ServicoFotoFalso servico = new ServicoFotoFalso();
+            VeiculoFotoController controller = CriarController(servico, new FakeLogService());
+            using MemoryStream fluxo = new MemoryStream(bytes);
+            FormFile arquivo = new FormFile(fluxo, 0, bytes.Length, "foto", "original.jpg") { Headers = new HeaderDictionary(), ContentType = ConstantsArmazenamento.MimeJpeg };
+
+            await controller.Enviar(IdVeiculo, new EnviarFotoVeiculoRequest { Foto = arquivo });
+
+            return servico;
+        }
+
+        /// <summary>Bytes de teste com padrao que muda a cada posicao, para um vetor trocado ou cortado nao passar.</summary>
+        private static byte[] CriarBytesSequenciais(int tamanho)
+        {
+            byte[] bytes = new byte[tamanho];
+            for (int i = 0; i < tamanho; i++)
+            {
+                bytes[i] = (byte)(i % 256);
+            }
+
+            return bytes;
         }
 
         [Fact]

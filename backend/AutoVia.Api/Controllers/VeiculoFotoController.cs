@@ -80,7 +80,7 @@ namespace AutoVia.Api.Controllers
             }
         }
 
-        /// <summary>GetAll - Lista as fotos ativas do veiculo da locadora, em ordem, com URL temporaria.</summary>
+        /// <summary>GetAll - Lista as fotos ativas do veiculo da locadora, em ordem, com URL temporaria; a foto sem arquivo no armazenamento vem sem URL e com erroFoto.</summary>
         [HttpGet]
         [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
         [ProducesResponseType(typeof(List<ReturnVeiculoFotoVO>), StatusCodes.Status200OK)]
@@ -147,7 +147,10 @@ namespace AutoVia.Api.Controllers
             }
         }
 
-        /// <summary>Copia o arquivo do formulario para a memoria. Sem arquivo devolve nulos: o validador ja recusou antes da action.</summary>
+        /// <summary>
+        /// Le o arquivo do formulario para um vetor do tamanho exato, direto do fluxo (uma copia so). Sem arquivo devolve nulos:
+        /// o validador ja recusou antes da action.
+        /// </summary>
         private static async Task<(byte[]? Conteudo, string? ContentType)> LerFotoAsync(IFormFile? foto, System.Threading.CancellationToken cancellationToken)
         {
             if (foto == null)
@@ -155,10 +158,11 @@ namespace AutoVia.Api.Controllers
                 return (null, null);
             }
 
-            using MemoryStream memoria = new MemoryStream();
-            await foto.CopyToAsync(memoria, cancellationToken);
+            byte[] conteudo = new byte[foto.Length];
+            using Stream fluxo = foto.OpenReadStream();
+            await fluxo.ReadExactlyAsync(conteudo, 0, conteudo.Length, cancellationToken);
 
-            return (memoria.ToArray(), foto.ContentType);
+            return (conteudo, foto.ContentType);
         }
     }
 }
