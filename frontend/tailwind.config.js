@@ -123,6 +123,14 @@ export default {
           fundo: '#FFDBD0',
         },
       },
+      /**
+       * Documentos do cliente (tela 21): selo "Enviado" (verde do desenho, que não existia no tema). Valor novo
+       * da tela 21, listado para o Kaio antes do commit. As outras telas não usam este token.
+       */
+      documento: {
+        DEFAULT: '#065F46',
+        fundo: '#D1FAE5',
+      },
     },
     extend: {
       fontFamily: {
@@ -163,6 +171,8 @@ export default {
         'chip-frota': ['0.625rem', { lineHeight: '0.875rem', fontWeight: '700' }],
         /** Frota (tela 11): sigla "BRASIL" do emblema da placa (8/8, negrito). Valor novo da tela 11, listado para o Kaio. */
         'emblema-brasil': ['0.5rem', { lineHeight: '0.5rem', fontWeight: '700' }],
+        /** Documentos do cliente (tela 21): título da página (30/38, seminegrito). Valor novo da tela 21, listado para o Kaio. */
+        'titulo-documentos': ['1.875rem', { lineHeight: '2.375rem', fontWeight: '600', letterSpacing: '-0.015em' }],
       },
       borderRadius: {
         cartao: '8px',

@@ -6,6 +6,15 @@
  * aceitam o valor parcial enquanto o usuário digita, então servem tanto para
  * exibir quanto como máscara de campo (prop `mascara` do componente Campo).
  */
+import {
+  MENSAGEM_TEMPO_MENOS_DE_UM_MINUTO,
+  MENSAGEM_TEMPO_UMA_HORA,
+  MENSAGEM_TEMPO_UM_DIA,
+  MENSAGEM_TEMPO_UM_MINUTO,
+  mensagemTempoDias,
+  mensagemTempoHoras,
+  mensagemTempoMinutos,
+} from '@/lib/mensagensCadastro';
 
 /** Exibido quando não há valor (null, undefined ou data inválida). */
 export const VALOR_AUSENTE = '—';
@@ -184,4 +193,50 @@ export function formatarCnpj(valor: string | null | undefined): string {
   if (d.length <= 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`;
   if (d.length <= 12) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`;
   return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+}
+
+const BYTES_POR_KB = 1024;
+const BYTES_POR_MB = 1024 * 1024;
+
+/** 2516582 → "2,4 MB"; 512000 → "500 KB" (abaixo de 1 MB, em KB inteiros). Decimal com vírgula (pt-BR). */
+export function formatarTamanhoArquivo(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return VALOR_AUSENTE;
+  if (bytes < BYTES_POR_MB) return `${Math.max(1, Math.round(bytes / BYTES_POR_KB))} KB`;
+  return `${(bytes / BYTES_POR_MB).toFixed(1).replace('.', ',')} MB`;
+}
+
+/** Data e hora como o backend manda (dd/MM/yyyy HH:mm, com segundos opcionais), na hora local. */
+const REGEX_DATA_HORA_PTBR = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})(?::(\d{2}))?$/;
+
+/**
+ * Lê a data e hora que o backend devolve: "19/11/2026 09:58" (formato do projeto, hora de Brasília, sem fuso).
+ * Aceita também ISO. Devolve null quando não é uma data real (ex.: 31/02).
+ */
+export function interpretarDataHoraServidor(valor: string): Date | null {
+  const texto = valor.trim();
+  const partes = REGEX_DATA_HORA_PTBR.exec(texto);
+  if (partes) {
+    const [, dia, mes, ano, hora, minuto, segundo = '0'] = partes;
+    const data = new Date(Number(ano), Number(mes) - 1, Number(dia), Number(hora), Number(minuto), Number(segundo));
+    const conferePeloCalendario =
+      data.getFullYear() === Number(ano) && data.getMonth() === Number(mes) - 1 && data.getDate() === Number(dia);
+    return conferePeloCalendario && !Number.isNaN(data.getTime()) ? data : null;
+  }
+  const iso = new Date(texto);
+  return Number.isNaN(iso.getTime()) ? null : iso;
+}
+
+/**
+ * Tempo decorrido entre `data` (hora do servidor) e `agora`, em palavras: "menos de 1 minuto", "2 minutos",
+ * "1 hora", "3 dias". Data inválida ou no futuro vira o tempo mínimo.
+ */
+export function formatarTempoDecorrido(data: string, agora: Date): string {
+  const instante = interpretarDataHoraServidor(data);
+  const minutos = instante === null ? 0 : Math.floor((agora.getTime() - instante.getTime()) / 60_000);
+  if (minutos < 1) return MENSAGEM_TEMPO_MENOS_DE_UM_MINUTO;
+  if (minutos < 60) return minutos === 1 ? MENSAGEM_TEMPO_UM_MINUTO : mensagemTempoMinutos(minutos);
+  const horas = Math.floor(minutos / 60);
+  if (horas < 24) return horas === 1 ? MENSAGEM_TEMPO_UMA_HORA : mensagemTempoHoras(horas);
+  const dias = Math.floor(horas / 24);
+  return dias === 1 ? MENSAGEM_TEMPO_UM_DIA : mensagemTempoDias(dias);
 }

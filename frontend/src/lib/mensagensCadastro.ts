@@ -140,16 +140,16 @@ export const MENSAGEM_CADASTRO_FAIXA_ESCURA_BOTAO = 'Explorar catálogo';
 export const MENSAGEM_CADASTRO_TITULO_PAGINA_DOCUMENTOS = 'Cadastro: documentos e acesso';
 export const MENSAGEM_CADASTRO_TRILHA_CADASTRO = 'Cadastro AutoVia';
 export const MENSAGEM_CADASTRO_TRILHA_DADOS_PESSOAIS = 'Dados pessoais';
-export const MENSAGEM_CADASTRO_TRILHA_DOCUMENTOS = 'Documentos';
+export const MENSAGEM_CADASTRO_TRILHA_DOCUMENTOS = 'Envio de Documentos';
+export const MENSAGEM_CADASTRO_TRILHA_VALIDACAO = 'Validação Cadastral';
 
-export const MENSAGEM_CADASTRO_SELO_DOCUMENTOS = 'Dados da habilitação';
-export const MENSAGEM_CADASTRO_TITULO_DOCUMENTOS = 'Documentos e acesso';
+export const MENSAGEM_CADASTRO_SELO_DOCUMENTOS = 'Documentos do cadastro';
+export const MENSAGEM_CADASTRO_TITULO_DOCUMENTOS = 'Envio e Validação de Documentos';
 export const MENSAGEM_CADASTRO_SUBTITULO_DOCUMENTOS =
-  'Informe os dados da sua CNH e crie a senha de acesso. A equipe confere o cadastro antes da primeira reserva.';
+  'Para sua segurança e agilidade na retirada do carro, envie sua CNH e comprovante residencial.';
 
 export const MENSAGEM_CADASTRO_BLOCO_CNH_TITULO = 'Dados da CNH';
-export const MENSAGEM_CADASTRO_BLOCO_CNH_TEXTO =
-  'Digite os dados como aparecem na sua carteira de habilitação.';
+export const MENSAGEM_CADASTRO_BLOCO_CNH_TEXTO = 'Informe os dados como estão na sua CNH.';
 export const MENSAGEM_CADASTRO_ROTULO_CNH_NUMERO = 'Número do registro CNH';
 export const MENSAGEM_CADASTRO_ROTULO_CNH_CATEGORIA = 'Categoria da habilitação';
 export const MENSAGEM_CADASTRO_ROTULO_CNH_VALIDADE = 'Data de validade da CNH';
@@ -180,3 +180,60 @@ export const MENSAGEM_CADASTRO_SUCESSO_COM_LOGIN =
 
 export const MENSAGEM_CADASTRO_SUCESSO_SEM_LOGIN =
   'Cadastro criado. Entre com seu CPF e sua senha.';
+
+// Documentos do cliente (tela 21) ----------------------------------------------
+
+export const MENSAGEM_DOCUMENTO_TITULO_CNH = 'Foto da CNH (frente e verso)';
+export const MENSAGEM_DOCUMENTO_TITULO_COMPROVANTE = 'Comprovante de residência';
+export const MENSAGEM_DOCUMENTO_FORMATOS_CNH = 'Formatos aceitos: PDF, JPG ou PNG (máx. 10MB)';
+export const MENSAGEM_DOCUMENTO_FORMATOS_COMPROVANTE =
+  'Formatos aceitos: PDF, JPG ou PNG (emitido nos últimos 90 dias)';
+export const MENSAGEM_DOCUMENTO_SELO_SELECIONADO = 'Selecionado';
+export const MENSAGEM_DOCUMENTO_SELO_ENVIANDO = 'Enviando';
+export const MENSAGEM_DOCUMENTO_SELO_ENVIADO = 'Enviado';
+export const MENSAGEM_DOCUMENTO_SELO_ERRO = 'Erro no envio';
+export const MENSAGEM_DOCUMENTO_VAZIO = 'Nenhum arquivo selecionado.';
+export const MENSAGEM_DOCUMENTO_SELECIONAR = 'Selecionar arquivo';
+export const MENSAGEM_DOCUMENTO_SUBSTITUIR = 'Substituir arquivo';
+export const MENSAGEM_DOCUMENTO_TENTAR_DE_NOVO = 'Tentar de novo';
+export const MENSAGEM_DOCUMENTO_ERRO_ENVIO = 'Não foi possível enviar este arquivo.';
+export const MENSAGEM_DOCUMENTO_RECUSA_FORMATO = 'Use um arquivo PDF, JPG ou PNG.';
+export const MENSAGEM_DOCUMENTO_RECUSA_TAMANHO = 'O arquivo passa de 10 MB.';
+export const MENSAGEM_DOCUMENTO_RECUSA_VAZIO = 'O arquivo está vazio.';
+export const MENSAGEM_DOCUMENTO_ESCOLHER_ARQUIVO = 'Escolher arquivo';
+export const MENSAGEM_DOCUMENTO_PROGRESSO = 'Progresso do envio';
+export const MENSAGEM_DOCUMENTO_ENVIADO_HA = (tempo: string): string => `Enviado há ${tempo}`;
+export const MENSAGEM_DOCUMENTO_CPF_VINCULADO = 'CPF Vinculado:';
+export const MENSAGEM_DOCUMENTO_INFORMACOES_COMPLEMENTARES = 'Informações complementares:';
+export const MENSAGEM_DOCUMENTO_BOTAO_ENVIAR = 'Enviar documentos';
+export const MENSAGEM_DOCUMENTO_BOTAO_ENVIANDO = 'Enviando documentos...';
+export const MENSAGEM_DOCUMENTO_MODO_SO_ENVIAR =
+  'Seu cadastro já foi criado. Envie os documentos que faltam.';
+export const MENSAGEM_DOCUMENTO_JA_ENVIADOS =
+  'Seus documentos já foram enviados. Se precisar, substitua um arquivo.';
+export const MENSAGEM_DOCUMENTO_FALTA_ARQUIVO =
+  'Envie a CNH e o comprovante de residência para continuar.';
+export const MENSAGEM_DOCUMENTO_SUCESSO_SO_ENVIAR = 'Documentos enviados.';
+export const MENSAGEM_DOCUMENTO_SEM_ID_CLIENTE = 'Cliente sem id para enviar os documentos.';
+
+// Tempo desde o envio ("Enviado há X") ----------------------------------------
+
+export const MENSAGEM_TEMPO_MENOS_DE_UM_MINUTO = 'menos de 1 minuto';
+export const MENSAGEM_TEMPO_UM_MINUTO = '1 minuto';
+export const MENSAGEM_TEMPO_UMA_HORA = '1 hora';
+export const MENSAGEM_TEMPO_UM_DIA = '1 dia';
+
+/** Ex.: "2 minutos". */
+export function mensagemTempoMinutos(quantidade: number): string {
+  return `${quantidade} minutos`;
+}
+
+/** Ex.: "5 horas". */
+export function mensagemTempoHoras(quantidade: number): string {
+  return `${quantidade} horas`;
+}
+
+/** Ex.: "3 dias". */
+export function mensagemTempoDias(quantidade: number): string {
+  return `${quantidade} dias`;
+}

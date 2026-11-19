@@ -1,6 +1,7 @@
 import { createContext } from 'react';
 import type { ErroCampoCadastro, EtapaCadastro } from './etapasCadastro';
 import type { DadosPessoaisCadastro, DocumentosCadastro } from './esquemaCadastro';
+import type { ArquivosDocumento } from '@/lib/documentosCliente';
 
 /**
  * Dados do cadastro entre as duas telas, só em memória (nada em localStorage nem sessionStorage).
@@ -13,10 +14,14 @@ export interface CadastroContextoValor {
   documentos: DocumentosCadastro | null;
   /** O nome e o e-mail da etapa 1 vieram do login com Google (a faixa de aviso continua ao voltar). */
   veioDoGoogle: boolean;
+  /** Arquivos da CNH e do comprovante escolhidos (só na memória; sobrevivem ao voltar para a etapa 1). */
+  arquivosDocumentos: ArquivosDocumento;
   /** Erros da API por campo, esperando a tela do campo abrir (ex.: 409 de CPF volta para a etapa 1). */
   errosServidor: readonly ErroCampoCadastro[];
   salvarDadosPessoais: (dados: DadosPessoaisCadastro, veioDoGoogle: boolean) => void;
   salvarDocumentos: (documentos: DocumentosCadastro) => void;
+  /** Atualiza os arquivos a partir do valor mais recente (não do valor da tela, que pode ter ficado para trás). */
+  salvarArquivosDocumentos: (atualizar: (atual: ArquivosDocumento) => ArquivosDocumento) => void;
   definirErrosServidor: (erros: readonly ErroCampoCadastro[]) => void;
   /** Tira da espera os erros da etapa, depois de a tela tê-los aplicado aos campos. */
   removerErrosServidor: (etapa: EtapaCadastro) => void;

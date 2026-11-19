@@ -4,6 +4,7 @@ import { Outlet } from 'react-router-dom';
 import { CadastroContexto, type CadastroContextoValor } from './ContextoCadastro';
 import { etapaDoCampo, type ErroCampoCadastro, type EtapaCadastro } from './etapasCadastro';
 import type { DadosPessoaisCadastro, DocumentosCadastro } from './esquemaCadastro';
+import type { ArquivosDocumento } from '@/lib/documentosCliente';
 import { CHAVE_VERIFICACAO_CADASTRO } from './verificacaoCadastro';
 
 /** Estado em memória do cadastro. Some quando a pessoa sai das duas telas (o provedor desmonta). */
@@ -11,6 +12,7 @@ interface EstadoCadastro {
   dadosPessoais: DadosPessoaisCadastro | null;
   documentos: DocumentosCadastro | null;
   veioDoGoogle: boolean;
+  arquivosDocumentos: ArquivosDocumento;
   errosServidor: readonly ErroCampoCadastro[];
 }
 
@@ -18,6 +20,7 @@ const ESTADO_INICIAL: EstadoCadastro = {
   dadosPessoais: null,
   documentos: null,
   veioDoGoogle: false,
+  arquivosDocumentos: {},
   errosServidor: [],
 };
 
@@ -46,6 +49,10 @@ export function ProvedorCadastro() {
     setEstado((atual) => ({ ...atual, documentos }));
   }, []);
 
+  const salvarArquivosDocumentos = useCallback((atualizar: (atual: ArquivosDocumento) => ArquivosDocumento) => {
+    setEstado((atual) => ({ ...atual, arquivosDocumentos: atualizar(atual.arquivosDocumentos) }));
+  }, []);
+
   const definirErrosServidor = useCallback((erros: readonly ErroCampoCadastro[]) => {
     setEstado((atual) => ({ ...atual, errosServidor: erros }));
   }, []);
@@ -62,10 +69,11 @@ export function ProvedorCadastro() {
       ...estado,
       salvarDadosPessoais,
       salvarDocumentos,
+      salvarArquivosDocumentos,
       definirErrosServidor,
       removerErrosServidor,
     }),
-    [estado, salvarDadosPessoais, salvarDocumentos, definirErrosServidor, removerErrosServidor],
+    [estado, salvarDadosPessoais, salvarDocumentos, salvarArquivosDocumentos, definirErrosServidor, removerErrosServidor],
   );
 
   return (
