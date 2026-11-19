@@ -69,5 +69,8 @@ namespace AutoVia.Communication.ViewObjects.Painel
 
         /// <summary>Veiculos por situacao, com todos os status de StatusVeiculo na ordem do enum (zero quando nao ha nenhum).</summary>
         public List<FrotaSituacaoVO> FrotaPorSituacao { get; set; } = new List<FrotaSituacaoVO>();
+
+        /// <summary>Veiculos da locadora cadastrados no mes corrente (em qualquer status, sem os desativados). Campo aditivo: a tela 39 nao usa.</summary>
+        public int VeiculosNovosNoMes { get; set; }
     }
 }

@@ -316,6 +316,7 @@ namespace AutoVia.Tests.Painel
             Assert.Equal(0, visao.LocacoesAtivas);
             Assert.Equal(0, visao.QuantidadeCobrancasEmAberto);
             Assert.Equal(0, visao.QuantidadeCobrancasVencidas);
+            Assert.Equal(0, visao.VeiculosNovosNoMes);
             Assert.All(visao.FrotaPorSituacao, x => Assert.Equal(0, x.Quantidade));
         }
 
@@ -355,6 +356,158 @@ namespace AutoVia.Tests.Painel
 
             Assert.Equal(2, visao.LocacoesAtivas);
             Assert.Equal(1, visao.DevolucoesPrevistasHoje);
+        }
+
+        /// <summary>Frota com os seis status em quantidades diferentes: DISPONIVEL 3, RESERVADO 1, LOCADO 2, MANUTENCAO 4, VENDIDO 5, BAIXADO 6.</summary>
+        private static DadosPainelFake DadosSeisStatus()
+        {
+            return new DadosPainelFake
+            {
+                Frota = new List<FrotaSituacaoContagem>
+                {
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.DISPONIVEL, Quantidade = 3 },
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.RESERVADO, Quantidade = 1 },
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.LOCADO, Quantidade = 2 },
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.MANUTENCAO, Quantidade = 4 },
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.VENDIDO, Quantidade = 5 },
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.BAIXADO, Quantidade = 6 }
+                }
+            };
+        }
+
+        [Fact]
+        public async Task SeisStatus_TotalLocadosTaxaEItensConferidos()
+        {
+            (PainelService servico, _, _) = Criar(ContextoEmpresaDeTeste.Criar(EmpresaA, CargoFuncionario.ATENDENTE), DadosPorEmpresa(DadosSeisStatus()));
+
+            ReturnVisaoGeralVO visao = await servico.ObterVisaoGeralAsync(PeriodoVisaoGeral.TRINTA_DIAS);
+
+            Assert.Equal(10, visao.TotalVeiculos);
+            Assert.Equal(2, visao.VeiculosLocados);
+            Assert.Equal(20.0m, visao.TaxaOcupacaoPercentual);
+            Assert.Equal(6, visao.FrotaPorSituacao.Count);
+            Dictionary<StatusVeiculo, int> esperado = new Dictionary<StatusVeiculo, int>
+            {
+                [StatusVeiculo.DISPONIVEL] = 3,
+                [StatusVeiculo.RESERVADO] = 1,
+                [StatusVeiculo.LOCADO] = 2,
+                [StatusVeiculo.MANUTENCAO] = 4,
+                [StatusVeiculo.VENDIDO] = 5,
+                [StatusVeiculo.BAIXADO] = 6
+            };
+            foreach (KeyValuePair<StatusVeiculo, int> item in esperado)
+            {
+                Assert.Equal(item.Value, visao.FrotaPorSituacao.Single(x => x.Situacao == item.Key).Quantidade);
+            }
+        }
+
+        [Fact]
+        public async Task Ocupacao_ManutencaoEReservado_EntramNoDenominador()
+        {
+            DadosPainelFake dados = new DadosPainelFake
+            {
+                Frota = new List<FrotaSituacaoContagem>
+                {
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.RESERVADO, Quantidade = 1 },
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.MANUTENCAO, Quantidade = 3 },
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.LOCADO, Quantidade = 1 }
+                }
+            };
+            (PainelService servico, _, _) = Criar(ContextoEmpresaDeTeste.Criar(EmpresaA, CargoFuncionario.ATENDENTE), DadosPorEmpresa(dados));
+
+            ReturnVisaoGeralVO visao = await servico.ObterVisaoGeralAsync(PeriodoVisaoGeral.TRINTA_DIAS);
+
+            Assert.Equal(5, visao.TotalVeiculos);
+            Assert.Equal(1, visao.VeiculosLocados);
+            Assert.Equal(20.0m, visao.TaxaOcupacaoPercentual);
+        }
+
+        [Fact]
+        public async Task Ocupacao_VendidoEBaixado_FicamForaDoDenominador()
+        {
+            DadosPainelFake dados = new DadosPainelFake
+            {
+                Frota = new List<FrotaSituacaoContagem>
+                {
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.DISPONIVEL, Quantidade = 1 },
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.LOCADO, Quantidade = 1 },
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.VENDIDO, Quantidade = 10 },
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.BAIXADO, Quantidade = 10 }
+                }
+            };
+            (PainelService servico, _, _) = Criar(ContextoEmpresaDeTeste.Criar(EmpresaA, CargoFuncionario.ATENDENTE), DadosPorEmpresa(dados));
+
+            ReturnVisaoGeralVO visao = await servico.ObterVisaoGeralAsync(PeriodoVisaoGeral.TRINTA_DIAS);
+
+            Assert.Equal(2, visao.TotalVeiculos);
+            Assert.Equal(1, visao.VeiculosLocados);
+            Assert.Equal(50.0m, visao.TaxaOcupacaoPercentual);
+            Assert.Equal(10, visao.FrotaPorSituacao.Single(x => x.Situacao == StatusVeiculo.VENDIDO).Quantidade);
+            Assert.Equal(10, visao.FrotaPorSituacao.Single(x => x.Situacao == StatusVeiculo.BAIXADO).Quantidade);
+        }
+
+        [Fact]
+        public async Task VeiculosNovosNoMes_LimitesDaJanela_NoMesDeNovembro()
+        {
+            DadosPainelFake dados = DadosBasicos();
+            dados.VeiculosCadastrados = new List<CadastroVeiculoFake>
+            {
+                new CadastroVeiculoFake(new DateTime(2026, 10, 31, 23, 59, 59, 999), true),
+                new CadastroVeiculoFake(new DateTime(2026, 11, 1, 0, 0, 0), true),
+                new CadastroVeiculoFake(new DateTime(2026, 11, 30, 23, 59, 59, 999), true),
+                new CadastroVeiculoFake(new DateTime(2026, 12, 1, 0, 0, 0), true),
+                new CadastroVeiculoFake(new DateTime(2026, 11, 5, 10, 0, 0), false)
+            };
+            (PainelService servico, FakePainelRepository repositorio, _) = Criar(ContextoEmpresaDeTeste.Criar(EmpresaA, CargoFuncionario.ATENDENTE), DadosPorEmpresa(dados));
+
+            ReturnVisaoGeralVO visao = await servico.ObterVisaoGeralAsync(PeriodoVisaoGeral.TRINTA_DIAS);
+
+            Assert.Equal(2, visao.VeiculosNovosNoMes);
+            (DateTime inicioJanela, DateTime fimJanela) = repositorio.JanelasVeiculosNovos[0];
+            Assert.Equal(new DateTime(2026, 11, 1), inicioJanela);
+            Assert.Equal(new DateTime(2026, 12, 1), fimJanela);
+        }
+
+        [Fact]
+        public async Task VeiculosNovosNoMes_ViradaDeAno_NoMesDeDezembro()
+        {
+            DadosPainelFake dados = DadosBasicos();
+            dados.VeiculosCadastrados = new List<CadastroVeiculoFake>
+            {
+                new CadastroVeiculoFake(new DateTime(2026, 11, 30, 23, 59, 59, 999), true),
+                new CadastroVeiculoFake(new DateTime(2026, 12, 1, 0, 0, 0), true),
+                new CadastroVeiculoFake(new DateTime(2026, 12, 31, 23, 59, 59, 999), true),
+                new CadastroVeiculoFake(new DateTime(2027, 1, 1, 0, 0, 0), true)
+            };
+            DateTime ultimoDiaDoAno = new DateTime(2026, 12, 31, 23, 0, 0);
+            (PainelService servico, FakePainelRepository repositorio, _) = Criar(ContextoEmpresaDeTeste.Criar(EmpresaA, CargoFuncionario.ATENDENTE), DadosPorEmpresa(dados), ultimoDiaDoAno);
+
+            ReturnVisaoGeralVO visao = await servico.ObterVisaoGeralAsync(PeriodoVisaoGeral.TRINTA_DIAS);
+
+            Assert.Equal(2, visao.VeiculosNovosNoMes);
+            (DateTime inicioJanela, DateTime fimJanela) = repositorio.JanelasVeiculosNovos[0];
+            Assert.Equal(new DateTime(2026, 12, 1), inicioJanela);
+            Assert.Equal(new DateTime(2027, 1, 1), fimJanela);
+        }
+
+        [Fact]
+        public async Task VeiculosNovosNoMes_DuasLocadoras_CadaUmaSoOsSeus()
+        {
+            CadastroVeiculoFake cadastroNoMes = new CadastroVeiculoFake(new DateTime(2026, 11, 2, 9, 0, 0), true);
+            DadosPainelFake dadosA = DadosBasicos();
+            dadosA.VeiculosCadastrados = Enumerable.Repeat(cadastroNoMes, 2).ToList();
+            DadosPainelFake dadosB = DadosBasicos();
+            dadosB.VeiculosCadastrados = Enumerable.Repeat(cadastroNoMes, 5).ToList();
+            Dictionary<int, DadosPainelFake> dados = new Dictionary<int, DadosPainelFake> { [EmpresaA] = dadosA, [EmpresaB] = dadosB };
+
+            (PainelService servicoA, _, _) = Criar(ContextoEmpresaDeTeste.Criar(EmpresaA, CargoFuncionario.ADMINISTRADOR), dados);
+            (PainelService servicoB, _, _) = Criar(ContextoEmpresaDeTeste.Criar(EmpresaB, CargoFuncionario.ADMINISTRADOR), dados);
+
+            ReturnVisaoGeralVO visaoA = await servicoA.ObterVisaoGeralAsync(PeriodoVisaoGeral.TRINTA_DIAS);
+            ReturnVisaoGeralVO visaoB = await servicoB.ObterVisaoGeralAsync(PeriodoVisaoGeral.TRINTA_DIAS);
+
+            Assert.Equal(2, visaoA.VeiculosNovosNoMes);
+            Assert.Equal(5, visaoB.VeiculosNovosNoMes);
         }
 
         [Fact]

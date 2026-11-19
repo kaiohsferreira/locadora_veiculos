@@ -48,6 +48,16 @@ namespace AutoVia.Tests.Api
         private const string PropVariacao = "variacaoReceitaPercentual";
         private const int QuantidadeEmAberto = 4;
         private const int TotalVeiculosDaLocadora = 5;
+        private const string PropVeiculosLocados = "veiculosLocados";
+        private const string PropTaxaOcupacao = "taxaOcupacaoPercentual";
+        private const string PropFrotaPorSituacao = "frotaPorSituacao";
+        private const string PropSituacao = "situacao";
+        private const string PropQuantidade = "quantidade";
+        private const string PropVeiculosNovosNoMes = "veiculosNovosNoMes";
+        private const int TotalSeisStatus = 10;
+        private const int LocadosSeisStatus = 2;
+        private const decimal TaxaSeisStatus = 20.0m;
+        private const int NovosNoMesSeisStatus = 3;
 
         [Fact]
         public async Task SemToken_Devolve401()
@@ -171,6 +181,66 @@ namespace AutoVia.Tests.Api
             Assert.Equal(HttpStatusCode.BadRequest, nomeInvalido.StatusCode);
             Assert.Equal(HttpStatusCode.BadRequest, numeroForaDoEnum.StatusCode);
             Assert.Equal(MediaProblema, nomeInvalido.Content.Headers.ContentType?.MediaType);
+        }
+
+        [Fact]
+        public async Task SeisStatus_DevolveTotaisItensETaxaEVeiculosNovosNoMes()
+        {
+            using PainelWebFactory fabrica = new PainelWebFactory();
+            using HttpClient cliente = fabrica.CreateClient();
+            fabrica.DadosPorEmpresa[fabrica.LocadoraA.IdEmpresa] = DadosSeisStatusComNovos();
+            string token = TokenDeFuncionario(fabrica, fabrica.Atendente);
+
+            HttpResponseMessage resposta = await cliente.SendAsync(Requisicao(RotaVisaoGeral + "?periodo=HOJE", token));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(TotalSeisStatus, corpo.GetProperty(PropTotalVeiculos).GetInt32());
+            Assert.Equal(LocadosSeisStatus, corpo.GetProperty(PropVeiculosLocados).GetInt32());
+            Assert.Equal(TaxaSeisStatus, corpo.GetProperty(PropTaxaOcupacao).GetDecimal());
+            Assert.Equal(NovosNoMesSeisStatus, corpo.GetProperty(PropVeiculosNovosNoMes).GetInt32());
+
+            Dictionary<StatusVeiculo, int> quantidades = new Dictionary<StatusVeiculo, int>();
+            foreach (JsonElement item in corpo.GetProperty(PropFrotaPorSituacao).EnumerateArray())
+            {
+                StatusVeiculo situacao = Enum.Parse<StatusVeiculo>(item.GetProperty(PropSituacao).GetString() ?? string.Empty);
+                quantidades[situacao] = item.GetProperty(PropQuantidade).GetInt32();
+            }
+
+            Assert.Equal(6, quantidades.Count);
+            Assert.Equal(3, quantidades[StatusVeiculo.DISPONIVEL]);
+            Assert.Equal(1, quantidades[StatusVeiculo.RESERVADO]);
+            Assert.Equal(2, quantidades[StatusVeiculo.LOCADO]);
+            Assert.Equal(4, quantidades[StatusVeiculo.MANUTENCAO]);
+            Assert.Equal(5, quantidades[StatusVeiculo.VENDIDO]);
+            Assert.Equal(6, quantidades[StatusVeiculo.BAIXADO]);
+        }
+
+        /// <summary>Numeros do HTTP com os seis status (DISPONIVEL 3, RESERVADO 1, LOCADO 2, MANUTENCAO 4, VENDIDO 5, BAIXADO 6) e tres veiculos novos no mes (um desativado e um de outubro ficam de fora).</summary>
+        private static DadosPainelFake DadosSeisStatusComNovos()
+        {
+            return new DadosPainelFake
+            {
+                Frota = new List<FrotaSituacaoContagem>
+                {
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.DISPONIVEL, Quantidade = 3 },
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.RESERVADO, Quantidade = 1 },
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.LOCADO, Quantidade = 2 },
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.MANUTENCAO, Quantidade = 4 },
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.VENDIDO, Quantidade = 5 },
+                    new FrotaSituacaoContagem { Situacao = StatusVeiculo.BAIXADO, Quantidade = 6 }
+                },
+                LocacoesEmAndamento = 2,
+                DevolucoesPrevistas = 1,
+                VeiculosCadastrados = new List<CadastroVeiculoFake>
+                {
+                    new CadastroVeiculoFake(new DateTime(2026, 11, 2, 9, 0, 0), true),
+                    new CadastroVeiculoFake(new DateTime(2026, 11, 14, 8, 0, 0), true),
+                    new CadastroVeiculoFake(new DateTime(2026, 11, 1, 0, 0, 0), true),
+                    new CadastroVeiculoFake(new DateTime(2026, 11, 5, 9, 0, 0), false),
+                    new CadastroVeiculoFake(new DateTime(2026, 10, 31, 23, 59, 59, 999), true)
+                }
+            };
         }
 
         private static HttpRequestMessage Requisicao(string rota, string? token)

@@ -34,8 +34,9 @@ namespace AutoVia.Infrastructure.Services
         }
 
         /// <summary>
-        /// Monta a visao geral: periodo e datas, situacao da frota e ocupacao, locacoes, quantidades de cobrancas e, quando o
-        /// cargo pode ver valores, receita, variacao, a receber e em atraso. Falha de consulta vira 500 (detalhe so no log).
+        /// Monta a visao geral: periodo e datas, situacao da frota e ocupacao, veiculos novos no mes, locacoes, quantidades de
+        /// cobrancas e, quando o cargo pode ver valores, receita, variacao, a receber e em atraso. Falha de consulta vira 500
+        /// (detalhe so no log).
         /// </summary>
         public async Task<ReturnVisaoGeralVO> ObterVisaoGeralAsync(PeriodoVisaoGeral periodo)
         {
@@ -79,6 +80,10 @@ namespace AutoVia.Infrastructure.Services
                 DateTime inicioDia = agora.Date;
                 int devolucoesHoje = await _painelRepository.ContarDevolucoesPrevistasAsync(inicioDia, inicioDia.AddDays(1));
 
+                DateTime inicioMes = new DateTime(agora.Year, agora.Month, ConstantsValues.PrimeiroDiaDoMes);
+                DateTime fimExclusivoMes = inicioMes.AddMonths(ConstantsValues.MesesDaJanelaMensal);
+                int veiculosNovosNoMes = await _painelRepository.ContarVeiculosCadastradosNoMesAsync(inicioMes, fimExclusivoMes);
+
                 ReturnVisaoGeralVO retorno = new ReturnVisaoGeralVO
                 {
                     Periodo = periodo,
@@ -100,7 +105,8 @@ namespace AutoVia.Infrastructure.Services
                     TotalVeiculos = totalVeiculos,
                     LocacoesAtivas = locacoesAtivas,
                     DevolucoesPrevistasHoje = devolucoesHoje,
-                    FrotaPorSituacao = frota
+                    FrotaPorSituacao = frota,
+                    VeiculosNovosNoMes = veiculosNovosNoMes
                 };
 
                 return retorno;
@@ -141,7 +147,7 @@ namespace AutoVia.Infrastructure.Services
                     inicio = hoje.AddDays(1 - ConstantsValues.DiasPeriodoMedio);
                     break;
                 case PeriodoVisaoGeral.MES_ATUAL:
-                    inicio = new DateOnly(hoje.Year, hoje.Month, 1);
+                    inicio = new DateOnly(hoje.Year, hoje.Month, ConstantsValues.PrimeiroDiaDoMes);
                     break;
                 default:
                     throw new InvalidOperationException(ConstantsMessage.ErroConsultarVisaoGeral);

@@ -34,5 +34,8 @@ namespace AutoVia.Core.RepositoriesInterface
 
         /// <summary>Quantidade de locacoes em andamento com devolucao prevista em [inicioDia, fimDia).</summary>
         Task<int> ContarDevolucoesPrevistasAsync(DateTime inicioDia, DateTime fimDia);
+
+        /// <summary>Quantidade de veiculos com CreatedAt em [inicioMes, fimExclusivoMes), em qualquer status, com DisabledAt nulo.</summary>
+        Task<int> ContarVeiculosCadastradosNoMesAsync(DateTime inicioMes, DateTime fimExclusivoMes);
     }
 }

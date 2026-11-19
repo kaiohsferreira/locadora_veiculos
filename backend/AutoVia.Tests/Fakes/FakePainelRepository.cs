@@ -2,6 +2,7 @@ using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace AutoVia.Tests.Fakes
@@ -33,6 +34,9 @@ namespace AutoVia.Tests.Fakes
 
         /// <summary>Janelas [inicio, fim) pedidas para a receita, na ordem das chamadas.</summary>
         public List<(DateOnly Inicio, DateOnly FimExclusivo)> JanelasReceita { get; } = new List<(DateOnly Inicio, DateOnly FimExclusivo)>();
+
+        /// <summary>Janelas [inicio, fim) pedidas para os veiculos cadastrados no mes, na ordem das chamadas.</summary>
+        public List<(DateTime Inicio, DateTime FimExclusivo)> JanelasVeiculosNovos { get; } = new List<(DateTime Inicio, DateTime FimExclusivo)>();
 
         /// <summary>Quando nao for null, toda consulta lanca esta excecao (simula falha do banco).</summary>
         public Exception? ExcecaoAoConsultar { get; set; }
@@ -99,6 +103,18 @@ namespace AutoVia.Tests.Fakes
             return Task.FromResult(DadosDaEmpresa().DevolucoesPrevistas);
         }
 
+        public Task<int> ContarVeiculosCadastradosNoMesAsync(DateTime inicioMes, DateTime fimExclusivoMes)
+        {
+            LancarSeConfigurado();
+            JanelasVeiculosNovos.Add((inicioMes, fimExclusivoMes));
+
+            DadosPainelFake dados = DadosDaEmpresa();
+            int total = dados.VeiculosCadastrados
+                .Count(x => x.Ativo && x.CriadoEm >= inicioMes && x.CriadoEm < fimExclusivoMes);
+
+            return Task.FromResult(total);
+        }
+
         /// <summary>Dados da locadora do contexto; zerados quando nao ha contexto ou a locadora nao tem dados (fail-closed).</summary>
         private DadosPainelFake DadosDaEmpresa()
         {
@@ -143,5 +159,11 @@ namespace AutoVia.Tests.Fakes
         public int LocacoesEmAndamento { get; set; }
 
         public int DevolucoesPrevistas { get; set; }
+
+        /// <summary>Veiculos cadastrados da locadora, com a data de cadastro (CreatedAt) e se estao ativos (DisabledAt nulo).</summary>
+        public List<CadastroVeiculoFake> VeiculosCadastrados { get; set; } = new List<CadastroVeiculoFake>();
     }
+
+    /// <summary>Um veiculo no fake do painel: data de cadastro e se esta ativo. Desativado nao conta nos novos do mes.</summary>
+    public sealed record CadastroVeiculoFake(DateTime CriadoEm, bool Ativo);
 }

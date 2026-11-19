@@ -32,6 +32,8 @@ namespace AutoVia.Tests.Painel
         private static readonly DateOnly Hoje = new DateOnly(2026, 11, 14);
         private static readonly DateTime InicioDia = new DateTime(2026, 11, 14, 0, 0, 0);
         private static readonly DateTime FimDia = new DateTime(2026, 11, 15, 0, 0, 0);
+        private static readonly DateTime InicioMes = new DateTime(2026, 11, 1, 0, 0, 0);
+        private static readonly DateTime FimExclusivoMes = new DateTime(2026, 12, 1, 0, 0, 0);
 
         private static readonly DbContextOptions<AutoViaDbContext> Opcoes = new DbContextOptionsBuilder<AutoViaDbContext>()
             .UseNpgsql("Host=localhost;Database=autovia_modelo_teste")
@@ -62,7 +64,8 @@ namespace AutoVia.Tests.Painel
                 ["EmAtraso"] = r => r.ConsultaEmAtraso(Hoje).ToQueryString(),
                 ["FrotaPorSituacao"] = r => r.ConsultaFrotaPorSituacao().ToQueryString(),
                 ["LocacoesEmAndamento"] = r => r.ConsultaLocacoesEmAndamento().ToQueryString(),
-                ["DevolucoesPrevistas"] = r => r.ConsultaDevolucoesPrevistas(InicioDia, FimDia).ToQueryString()
+                ["DevolucoesPrevistas"] = r => r.ConsultaDevolucoesPrevistas(InicioDia, FimDia).ToQueryString(),
+                ["VeiculosNovosNoMes"] = r => r.ConsultaVeiculosCadastradosNoMes(InicioMes, FimExclusivoMes).ToQueryString()
             };
         }
 
@@ -190,6 +193,28 @@ namespace AutoVia.Tests.Painel
 
             Assert.Contains("GROUP BY v.status", sql);
             Assert.Contains("count(*)", sql);
+        }
+
+        [Fact]
+        public void VeiculosNovosNoMes_FiltraCreatedAtNaJanelaComInicioIncluidoEFimExcluido()
+        {
+            string sql = CriarRepositorio(EmpresaA).ConsultaVeiculosCadastradosNoMes(InicioMes, FimExclusivoMes).ToQueryString();
+
+            Assert.Contains("v.created_at >= @inicioMes", sql);
+            Assert.Contains("v.created_at < @fimExclusivoMes", sql);
+            Assert.Contains(DesativadoNulo, sql);
+            Assert.Contains("@inicioMes='2026-11-01", sql);
+            Assert.Contains("@fimExclusivoMes='2026-12-01", sql);
+        }
+
+        [Fact]
+        public void VeiculosNovosNoMes_ContaEmQualquerStatus_SemFiltroDeStatusNoWhere()
+        {
+            string sql = CriarRepositorio(EmpresaA).ConsultaVeiculosCadastradosNoMes(InicioMes, FimExclusivoMes).ToQueryString();
+
+            string clausulaWhere = sql.Substring(sql.IndexOf("WHERE", StringComparison.Ordinal));
+
+            Assert.DoesNotContain("status", clausulaWhere);
         }
     }
 }

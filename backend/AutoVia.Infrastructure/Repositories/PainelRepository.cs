@@ -287,5 +287,41 @@ namespace AutoVia.Infrastructure.Repositories
                 throw;
             }
         }
+
+        /// <summary>Veiculos cadastrados na janela: CreatedAt em [inicioMes, fimExclusivoMes), em qualquer status, DisabledAt nulo.</summary>
+        public IQueryable<Veiculo> ConsultaVeiculosCadastradosNoMes(DateTime inicioMes, DateTime fimExclusivoMes)
+        {
+            try
+            {
+                IQueryable<Veiculo> consulta = _db.Veiculos
+                    .AsNoTracking()
+                    .Where(x => x.DisabledAt == null
+                        && x.CreatedAt >= inicioMes
+                        && x.CreatedAt < fimExclusivoMes);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroCalcularIndicadores, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Quantidade de veiculos cadastrados no mes (COUNT no banco).</summary>
+        public async Task<int> ContarVeiculosCadastradosNoMesAsync(DateTime inicioMes, DateTime fimExclusivoMes)
+        {
+            try
+            {
+                int total = await ConsultaVeiculosCadastradosNoMes(inicioMes, fimExclusivoMes).CountAsync();
+
+                return total;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroCalcularIndicadores, GetType().ToString());
+                throw;
+            }
+        }
     }
 }
