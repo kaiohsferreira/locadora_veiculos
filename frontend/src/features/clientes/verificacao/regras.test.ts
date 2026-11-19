@@ -20,6 +20,7 @@ import {
   recusaHabilitada,
   requisicaoDecisao,
   situacaoDoSeletor,
+  ehLinkDocumentoSeguro,
   situacaoVisualDocumento,
   TAMANHO_MAXIMO_BUSCA_FILA,
   temFiltroFila,
@@ -242,5 +243,13 @@ describe('documentos no painel', () => {
     expect(situacaoVisualDocumento({ ...DOCUMENTO, tipoConteudo: 'application/pdf' })).toBe('pdf');
     expect(situacaoVisualDocumento({ ...DOCUMENTO, url: null, expiraEm: null })).toBe('sem-link');
     expect(situacaoVisualDocumento(undefined)).toBe('ausente');
+  });
+
+  it('link que não é http ou https (javascript:, data:, texto) vira sem link', () => {
+    expect(situacaoVisualDocumento({ ...DOCUMENTO, url: 'javascript:alert(1)' })).toBe('sem-link');
+    expect(situacaoVisualDocumento({ ...DOCUMENTO, url: 'data:image/png;base64,AAAA' })).toBe('sem-link');
+    expect(situacaoVisualDocumento({ ...DOCUMENTO, url: 'nao-e-url' })).toBe('sem-link');
+    expect(ehLinkDocumentoSeguro('http://localhost:5000/arquivo')).toBe(true);
+    expect(ehLinkDocumentoSeguro('https://armazenamento.exemplo/arquivo')).toBe(true);
   });
 });

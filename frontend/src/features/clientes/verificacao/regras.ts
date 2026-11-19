@@ -215,8 +215,18 @@ export function documentoDoTipo(
  */
 export type SituacaoVisualDocumento = 'ausente' | 'sem-link' | 'imagem' | 'pdf';
 
+/** Só link http ou https vai para a tela; javascript:, data: e texto que não é URL contam como sem link. */
+export function ehLinkDocumentoSeguro(url: string): boolean {
+  try {
+    const protocolo = new URL(url).protocol;
+    return protocolo === 'https:' || protocolo === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 export function situacaoVisualDocumento(documento: DocumentoVerificacao | undefined): SituacaoVisualDocumento {
   if (documento === undefined) return 'ausente';
-  if (documento.url === null) return 'sem-link';
+  if (documento.url === null || !ehLinkDocumentoSeguro(documento.url)) return 'sem-link';
   return ehImagemDocumento(documento.tipoConteudo) ? 'imagem' : 'pdf';
 }
