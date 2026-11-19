@@ -71,7 +71,8 @@ namespace AutoVia.Api.Extensions
                 });
 
                 // Politicas por empresa (v3): a regra le o IContextoEmpresa, preenchido com os dados do banco.
-                // Aplicadas em EquipeController (Administrador) e em CategoriaController (Operadora).
+                // Politicas por empresa em uso: Administrador (EquipeController), Operadora (CategoriaController),
+                // VerificadorCadastro (ClienteController) e GestorFrota (VeiculoController, troca manual de status).
                 options.AddPolicy(ConstantsValues.PoliticaAdministrador, policy =>
                 {
                     policy.RequireAuthenticatedUser();
@@ -94,6 +95,14 @@ namespace AutoVia.Api.Extensions
                     policy.AddRequirements(new RequisitoVerificadorCadastro());
                 });
 
+                // Troca manual de status do veiculo (P1-BE-04): GESTOR_FROTA ou ADMINISTRADOR da locadora do contexto.
+                options.AddPolicy(ConstantsValues.PoliticaGestorFrota, policy =>
+                {
+                    policy.RequireAuthenticatedUser();
+                    policy.RequireRole(nameof(PerfilUsuario.FUNCIONARIO));
+                    policy.AddRequirements(new RequisitoGestorFrota());
+                });
+
                 // Rota sem nenhuma declaracao exige usuario autenticado (o teste de guarda AutorizacaoRotasTests reprova rota sem declaracao).
                 options.FallbackPolicy = new AuthorizationPolicyBuilder()
                     .RequireAuthenticatedUser()
@@ -106,6 +115,7 @@ namespace AutoVia.Api.Extensions
             services.AddScoped<IAuthorizationHandler, AutorizacaoAdministradorHandler>();
             services.AddScoped<IAuthorizationHandler, AutorizacaoOperadoraHandler>();
             services.AddScoped<IAuthorizationHandler, AutorizacaoVerificadorCadastroHandler>();
+            services.AddScoped<IAuthorizationHandler, AutorizacaoGestorFrotaHandler>();
 
             return services;
         }

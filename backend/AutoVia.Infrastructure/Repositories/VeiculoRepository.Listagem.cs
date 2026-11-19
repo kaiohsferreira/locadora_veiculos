@@ -19,11 +19,11 @@ namespace AutoVia.Infrastructure.Repositories
         /// <summary>
         /// Lista os veiculos ativos que atendem aos filtros, ordenados por placa e id, na pagina pedida, com a categoria.
         /// </summary>
-        public async Task<List<Veiculo>> FindAllAsync(int? idCategoria, StatusVeiculo? status, string? placa, int deslocamento, int quantidade)
+        public async Task<List<Veiculo>> FindAllAsync(int? idCategoria, StatusVeiculo? status, string? placa, string? busca, int deslocamento, int quantidade)
         {
             try
             {
-                List<Veiculo> veiculos = await ConsultaFrotaPaginada(idCategoria, status, placa, deslocamento, quantidade)
+                List<Veiculo> veiculos = await ConsultaFrotaPaginada(idCategoria, status, placa, busca, deslocamento, quantidade)
                     .ToListAsync();
 
                 return veiculos;
@@ -40,11 +40,11 @@ namespace AutoVia.Infrastructure.Repositories
         /// menor ordem) por Include da colecao de fotos, ordenacao por placa e id, e a pagina. Sem bypass: o filtro Empresa vale.
         /// Monta so o IQueryable; quem executa e o FindAllAsync.
         /// </summary>
-        public IQueryable<Veiculo> ConsultaFrotaPaginada(int? idCategoria, StatusVeiculo? status, string? placa, int deslocamento, int quantidade)
+        public IQueryable<Veiculo> ConsultaFrotaPaginada(int? idCategoria, StatusVeiculo? status, string? placa, string? busca, int deslocamento, int quantidade)
         {
             try
             {
-                IQueryable<Veiculo> consulta = AplicarFiltros(idCategoria, status, placa)
+                IQueryable<Veiculo> consulta = AplicarFiltros(idCategoria, status, placa, busca)
                     .Include(x => x.Categoria)
                     .Include(x => x.Empresa)
                     .Include(x => x.Fotos.Where(foto => foto.DisabledAt == null).OrderBy(foto => foto.Ordem).ThenBy(foto => foto.IdVeiculoFoto).Take(ConstantsValues.QuantidadeFotoCapaPorVeiculo))
@@ -65,11 +65,11 @@ namespace AutoVia.Infrastructure.Repositories
         /// <summary>
         /// Conta os veiculos ativos que atendem aos mesmos filtros de FindAllAsync.
         /// </summary>
-        public async Task<int> CountAsync(int? idCategoria, StatusVeiculo? status, string? placa)
+        public async Task<int> CountAsync(int? idCategoria, StatusVeiculo? status, string? placa, string? busca)
         {
             try
             {
-                int total = await AplicarFiltros(idCategoria, status, placa).CountAsync();
+                int total = await AplicarFiltros(idCategoria, status, placa, busca).CountAsync();
 
                 return total;
             }
@@ -83,8 +83,10 @@ namespace AutoVia.Infrastructure.Repositories
         /// <summary>
         /// Monta a consulta dos veiculos ativos, sem rastreamento, com os filtros informados combinados por AND.
         /// A placa chega ja normalizada pelo servico; aqui ela e comparada por parte do texto (contem).
+        /// A busca chega aparada; placa, chassi, modelo e marca casam por contem, e os tres textos sem diferenciar maiusculas.
+        /// O grupo da busca (OR) entra por AND com os demais filtros.
         /// </summary>
-        private IQueryable<Veiculo> AplicarFiltros(int? idCategoria, StatusVeiculo? status, string? placa)
+        private IQueryable<Veiculo> AplicarFiltros(int? idCategoria, StatusVeiculo? status, string? placa, string? busca)
         {
             try
             {
@@ -108,6 +110,17 @@ namespace AutoVia.Infrastructure.Repositories
                 {
                     string termoPlaca = placa;
                     consulta = consulta.Where(x => x.Placa.Contains(termoPlaca));
+                }
+
+                if (!string.IsNullOrEmpty(busca))
+                {
+                    string termoBusca = busca.ToLowerInvariant();
+                    string termoBuscaPlaca = StaticMethods.NormalizePlaca(busca);
+                    bool temBuscaPlaca = termoBuscaPlaca.Length > 0;
+                    consulta = consulta.Where(x => x.Chassi.ToLower().Contains(termoBusca)
+                        || x.Modelo.ToLower().Contains(termoBusca)
+                        || x.Marca.ToLower().Contains(termoBusca)
+                        || (temBuscaPlaca && x.Placa.Contains(termoBuscaPlaca)));
                 }
 
                 return consulta;

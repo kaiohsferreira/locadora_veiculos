@@ -117,7 +117,7 @@ namespace AutoVia.Tests.Persistence
             using AutoViaDbContext db = CriarDbComContextoDeFuncionario(EmpresaDoTeste);
             VeiculoRepository repositorio = new VeiculoRepository(db, new FakeLogService());
 
-            string sql = repositorio.ConsultaFrotaPaginada(null, null, null, 0, 20).ToQueryString();
+            string sql = repositorio.ConsultaFrotaPaginada(null, null, null, null, 0, 20).ToQueryString();
 
             Assert.Contains($"{ParametroEmpresa}='{EmpresaDoTeste}'", sql);
             string subconsulta = TrechoDaSubconsultaDeFotos(sql);
@@ -130,7 +130,7 @@ namespace AutoVia.Tests.Persistence
             using AutoViaDbContext db = CriarDbComContextoDeFuncionario(EmpresaDoTeste);
             VeiculoRepository repositorio = new VeiculoRepository(db, new FakeLogService());
 
-            string sql = repositorio.ConsultaFrotaPaginada(null, null, null, 20, 10).ToQueryString();
+            string sql = repositorio.ConsultaFrotaPaginada(null, null, null, null, 20, 10).ToQueryString();
 
             int posicaoDoLimite = sql.IndexOf(Limite, StringComparison.Ordinal);
             int posicaoDaJuncao = sql.IndexOf(JuncaoDasFotos, StringComparison.Ordinal);
@@ -144,7 +144,7 @@ namespace AutoVia.Tests.Persistence
             using AutoViaDbContext db = CriarDbComContextoDeFuncionario(EmpresaDoTeste);
             VeiculoRepository repositorio = new VeiculoRepository(db, new FakeLogService());
 
-            string sql = repositorio.ConsultaFrotaPaginada(null, null, null, 0, 20).ToQueryString();
+            string sql = repositorio.ConsultaFrotaPaginada(null, null, null, null, 0, 20).ToQueryString();
 
             string subconsulta = TrechoDaSubconsultaDeFotos(sql);
             Assert.Contains(TabelaDeFotos, subconsulta);
@@ -160,7 +160,7 @@ namespace AutoVia.Tests.Persistence
             using AutoViaDbContext db = CriarDbSemContexto();
             VeiculoRepository repositorio = new VeiculoRepository(db, new FakeLogService());
 
-            string sql = repositorio.ConsultaFrotaPaginada(null, null, null, 0, 20).ToQueryString();
+            string sql = repositorio.ConsultaFrotaPaginada(null, null, null, null, 0, 20).ToQueryString();
 
             Assert.Contains($"{ParametroEmpresa}='0'", sql);
             Assert.Contains(GuardaFalso, sql);

@@ -1,5 +1,6 @@
 using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,14 +19,14 @@ namespace AutoVia.Tests.Fakes
         public Exception? ExcecaoAoListar { get; set; }
 
         /// <summary>Lista os veiculos ativos que atendem aos filtros, ordenados por placa e id, na pagina pedida.</summary>
-        public Task<List<Veiculo>> FindAllAsync(int? idCategoria, StatusVeiculo? status, string? placa, int deslocamento, int quantidade)
+        public Task<List<Veiculo>> FindAllAsync(int? idCategoria, StatusVeiculo? status, string? placa, string? busca, int deslocamento, int quantidade)
         {
             if (ExcecaoAoListar != null)
             {
                 throw ExcecaoAoListar;
             }
 
-            List<Veiculo> veiculos = FiltrarVeiculos(idCategoria, status, placa)
+            List<Veiculo> veiculos = FiltrarVeiculos(idCategoria, status, placa, busca)
                 .OrderBy(x => x.Placa)
                 .ThenBy(x => x.IdVeiculo)
                 .Skip(deslocamento)
@@ -37,20 +38,20 @@ namespace AutoVia.Tests.Fakes
         }
 
         /// <summary>Conta os veiculos ativos que atendem aos mesmos filtros de FindAllAsync.</summary>
-        public Task<int> CountAsync(int? idCategoria, StatusVeiculo? status, string? placa)
+        public Task<int> CountAsync(int? idCategoria, StatusVeiculo? status, string? placa, string? busca)
         {
             if (ExcecaoAoListar != null)
             {
                 throw ExcecaoAoListar;
             }
 
-            int total = FiltrarVeiculos(idCategoria, status, placa).Count();
+            int total = FiltrarVeiculos(idCategoria, status, placa, busca).Count();
 
             return Task.FromResult(total);
         }
 
-        /// <summary>Aplica os filtros (AND) sobre os veiculos ativos, sem copiar.</summary>
-        private IEnumerable<Veiculo> FiltrarVeiculos(int? idCategoria, StatusVeiculo? status, string? placa)
+        /// <summary>Aplica os filtros (AND) sobre os veiculos ativos, sem copiar. A busca casa por contem em placa, chassi, modelo ou marca.</summary>
+        private IEnumerable<Veiculo> FiltrarVeiculos(int? idCategoria, StatusVeiculo? status, string? placa, string? busca)
         {
             IEnumerable<Veiculo> consulta = _veiculos.Where(x => x.DisabledAt == null);
 
@@ -70,6 +71,17 @@ namespace AutoVia.Tests.Fakes
             {
                 string termoPlaca = placa;
                 consulta = consulta.Where(x => x.Placa.Contains(termoPlaca));
+            }
+
+            if (!string.IsNullOrEmpty(busca))
+            {
+                string termoBusca = busca.ToLowerInvariant();
+                string termoBuscaPlaca = StaticMethods.NormalizePlaca(busca);
+                bool temBuscaPlaca = termoBuscaPlaca.Length > 0;
+                consulta = consulta.Where(x => x.Chassi.ToLowerInvariant().Contains(termoBusca)
+                    || x.Modelo.ToLowerInvariant().Contains(termoBusca)
+                    || x.Marca.ToLowerInvariant().Contains(termoBusca)
+                    || (temBuscaPlaca && x.Placa.Contains(termoBuscaPlaca)));
             }
 
             return consulta;

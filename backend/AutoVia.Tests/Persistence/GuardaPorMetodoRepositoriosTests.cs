@@ -4,8 +4,8 @@ using System.Text.RegularExpressions;
 namespace AutoVia.Tests.Persistence
 {
     /// <summary>
-    /// Guarda POR METODO dos quatro repositorios desta entrega (ReservaRepository, VeiculoRepository.Disponibilidade,
-    /// VeiculoRepository.Catalogo e LocacaoRepository). Cada ocorrencia dos simbolos de bypass da lista de
+    /// Guarda POR METODO dos cinco repositorios desta entrega (ReservaRepository, VeiculoRepository.Disponibilidade,
+    /// VeiculoRepository.Catalogo, LocacaoRepository e VeiculoRepository.Status). Cada ocorrencia dos simbolos de bypass da lista de
     /// IsolamentoEmpresaGuardasTests (filtro desligado, SQL bruto, busca por chave, conexao crua) e atribuida ao metodo
     /// que a contem. O teste falha se um simbolo aparecer em metodo fora da lista fechada, se um metodo listado perder
     /// o simbolo, ou se a quantidade dentro de um metodo mudar. A contagem por arquivo continua em IsolamentoEmpresaGuardasTests.
@@ -17,6 +17,7 @@ namespace AutoVia.Tests.Persistence
         private const string CaminhoDisponibilidade = "AutoVia.Infrastructure/Repositories/VeiculoRepository.Disponibilidade.cs";
         private const string CaminhoCatalogo = "AutoVia.Infrastructure/Repositories/VeiculoRepository.Catalogo.cs";
         private const string CaminhoLocacaoRepository = "AutoVia.Infrastructure/Repositories/LocacaoRepository.cs";
+        private const string CaminhoStatusVeiculo = "AutoVia.Infrastructure/Repositories/VeiculoRepository.Status.cs";
         private const string SeparadorMetodoSimbolo = "|";
         private const string PadraoDeclaracaoDeMetodo = @"^        (public|private)\s[^=]*?\s(\w+)\(";
 
@@ -27,7 +28,8 @@ namespace AutoVia.Tests.Persistence
         /// metodo, simbolo ou quantidade reprova. Motivos: ReservaRepository (quatro consultas nomeadas fora do filtro Empresa
         /// e a trava do veiculo, que tem SQL bruto); VeiculoRepository.Disponibilidade e VeiculoRepository.Catalogo (leituras
         /// publicas entre locadoras, sempre com locadora ativa); LocacaoRepository (trava de linha pela conexao crua, so no
-        /// metodo que faz a trava).
+        /// metodo que faz a trava); VeiculoRepository.Status (trava FOR UPDATE da troca manual de status, no metodo
+        /// ConsultaTravaStatusVeiculo, com o id da locadora por parametro).
         /// </summary>
         private static readonly Dictionary<string, string[]> OcorrenciasEsperadas = new Dictionary<string, string[]>
         {
@@ -50,6 +52,10 @@ namespace AutoVia.Tests.Persistence
             [CaminhoLocacaoRepository] = new string[]
             {
                 "LockActiveRowAsync" + SeparadorMetodoSimbolo + "GetDbConnection("
+            },
+            [CaminhoStatusVeiculo] = new string[]
+            {
+                "ConsultaTravaStatusVeiculo" + SeparadorMetodoSimbolo + "FromSql"
             }
         };
 
@@ -105,6 +111,7 @@ namespace AutoVia.Tests.Persistence
         [InlineData(CaminhoDisponibilidade)]
         [InlineData(CaminhoCatalogo)]
         [InlineData(CaminhoLocacaoRepository)]
+        [InlineData(CaminhoStatusVeiculo)]
         public void Repositorio_SimbolosDeBypassSoNosMetodosNomeadosNaQuantidadeExata(string caminhoRelativo)
         {
             string conteudo = File.ReadAllText(Path.Combine(RaizDoBackend(), caminhoRelativo.Replace('/', Path.DirectorySeparatorChar)));

@@ -8,5 +8,7 @@ namespace AutoVia.Helpers
     {
         // --- Veiculo: listagem (P1-BE-03) ---
         public const int TamanhoMaximoBuscaPlacaVeiculo = 8;
+        /// <summary>Tamanho maximo da busca da listagem: o mesmo do modelo, que e o maior campo buscado.</summary>
+        public const int TamanhoMaximoBuscaVeiculo = TamanhoMaximoModeloVeiculo;
     }
 }

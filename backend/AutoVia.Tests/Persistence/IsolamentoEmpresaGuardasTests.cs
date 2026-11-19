@@ -14,9 +14,9 @@ namespace AutoVia.Tests.Persistence
     /// (2) o bypass do filtro e as formas de SQL e de busca que o contornam (IgnoreQueryFilters, SemEscopoEmpresa,
     /// FromSql, ExecuteSql, SqlQuery, ExecuteUpdate, ExecuteDelete, GetDbConnection, FindAsync e Find) so aparecem na lista
     /// fechada abaixo, com a QUANTIDADE de ocorrencias por arquivo. Um segundo bypass no mesmo arquivo reprova o teste ate a
-    /// lista ser atualizada de proposito. Arquivo novo fora da lista tambem reprova. Por METODO, nos quatro repositorios
-    /// desta entrega (ReservaRepository, VeiculoRepository.Disponibilidade, VeiculoRepository.Catalogo e LocacaoRepository),
-    /// a guarda esta em GuardaPorMetodoRepositoriosTests, que usa esta mesma lista de simbolos.
+    /// lista ser atualizada de proposito. Arquivo novo fora da lista tambem reprova. Por METODO, nos cinco repositorios
+    /// desta entrega (ReservaRepository, VeiculoRepository.Disponibilidade, VeiculoRepository.Catalogo, LocacaoRepository e
+    /// VeiculoRepository.Status), a guarda esta em GuardaPorMetodoRepositoriosTests, que usa esta mesma lista de simbolos.
     /// </summary>
     public class IsolamentoEmpresaGuardasTests
     {
@@ -69,7 +69,8 @@ namespace AutoVia.Tests.Persistence
         /// parenteses) na abertura da locacao; so trava a linha, e as leituras da locacao passam pelo filtro Empresa);
         /// VeiculoRepository.Disponibilidade e VeiculoRepository.Catalogo (leituras publicas entre locadoras: busca de
         /// disponiveis e catalogo de seminovos, um bypass nomeado por arquivo, sempre restrito a locadoras ativas, com o SQL
-        /// provado em VeiculoPublicoSqlTests).
+        /// provado em VeiculoPublicoSqlTests); VeiculoRepository.Status (trava FOR UPDATE da troca manual de status, com id_empresa
+        /// por parametro e o filtro ligado; SQL provado em VeiculoStatusConsultasSqlTests).
         /// </summary>
         private static readonly Dictionary<string, int> OcorrenciasPermitidas = new Dictionary<string, int>
         {
@@ -81,7 +82,8 @@ namespace AutoVia.Tests.Persistence
             ["AutoVia.Infrastructure/Repositories/ReservaRepository.cs"] = 5,
             ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Cadastro.cs"] = 3,
             ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Catalogo.cs"] = 1,
-            ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Disponibilidade.cs"] = 1
+            ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Disponibilidade.cs"] = 1,
+            ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Status.cs"] = 1
         };
 
         /// <summary>Sobe a partir da pasta do teste ate achar o AutoVia.sln (raiz do backend).</summary>

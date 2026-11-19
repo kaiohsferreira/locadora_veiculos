@@ -13,12 +13,13 @@ namespace AutoVia.Core.RepositoriesInterface
     {
         /// <summary>
         /// Lista os veiculos ativos que atendem aos filtros, ordenados por placa e id, na pagina pedida, com a categoria.
+        /// A busca (texto aparado, ou null) casa por contem em placa, chassi, modelo ou marca.
         /// </summary>
-        Task<List<Veiculo>> FindAllAsync(int? idCategoria, StatusVeiculo? status, string? placa, int deslocamento, int quantidade);
+        Task<List<Veiculo>> FindAllAsync(int? idCategoria, StatusVeiculo? status, string? placa, string? busca, int deslocamento, int quantidade);
 
         /// <summary>
         /// Conta os veiculos ativos que atendem aos mesmos filtros de FindAllAsync.
         /// </summary>
-        Task<int> CountAsync(int? idCategoria, StatusVeiculo? status, string? placa);
+        Task<int> CountAsync(int? idCategoria, StatusVeiculo? status, string? placa, string? busca);
     }
 }

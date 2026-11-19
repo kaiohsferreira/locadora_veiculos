@@ -10,7 +10,7 @@ namespace AutoVia.Core.ServicesInterface
     public partial interface IVeiculoService
     {
         /// <summary>
-        /// Lista os veiculos ativos, paginados e ordenados por placa, com filtros opcionais por categoria, status e placa.
+        /// Lista os veiculos ativos, paginados e ordenados por placa, com filtros opcionais por categoria, status, placa e busca (placa, chassi, modelo ou marca).
         /// </summary>
         Task<PaginaVO<ReturnVeiculoVO>> GetAllAsync(FiltroVeiculoVO filtro);
     }

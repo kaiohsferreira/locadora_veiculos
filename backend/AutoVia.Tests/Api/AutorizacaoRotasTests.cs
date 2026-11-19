@@ -97,6 +97,16 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public void Veiculo_TrocaDeStatusExigePoliticaGestorFrotaNaAcao()
+        {
+            MethodInfo acao = typeof(VeiculoController).GetMethod(nameof(VeiculoController.AlterarStatus))!;
+            AuthorizeAttribute? autorizacao = acao.GetCustomAttribute<AuthorizeAttribute>();
+
+            Assert.NotNull(autorizacao);
+            Assert.Equal(ConstantsValues.PoliticaGestorFrota, autorizacao!.Policy);
+        }
+
+        [Fact]
         public void Avaria_ExigeFuncionarioNaClasse()
         {
             AuthorizeAttribute? autorizacao = typeof(AvariaController).GetCustomAttribute<AuthorizeAttribute>();

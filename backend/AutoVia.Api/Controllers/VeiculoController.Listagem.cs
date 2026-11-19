@@ -17,7 +17,7 @@ namespace AutoVia.Api.Controllers
     public partial class VeiculoController
     {
         /// <summary>
-        /// GetAll - Lista os veiculos ativos, paginados e ordenados por placa, com filtros opcionais por categoria, status e placa.
+        /// GetAll - Lista os veiculos ativos, paginados e ordenados por placa, com filtros opcionais por categoria, status, placa e busca (placa, chassi, modelo ou marca).
         /// </summary>
         [HttpGet]
         [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]

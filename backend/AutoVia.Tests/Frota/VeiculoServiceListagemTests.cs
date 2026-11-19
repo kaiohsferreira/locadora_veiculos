@@ -261,6 +261,169 @@ namespace AutoVia.Tests.Frota
             Assert.True(registrou);
         }
 
+        [Theory]
+        [InlineData("")]
+        [InlineData("   ")]
+        [InlineData(null)]
+        public async Task BuscaVaziaOuSoEspacos_NaoFiltra(string? busca)
+        {
+            FakeVeiculoRepository repositorio = new FakeVeiculoRepository();
+            Categoria suv = new Categoria { IdCategoria = 1, Nome = "SUV", ValorDiariaBase = 200m };
+            repositorio.Adicionar(CriarVeiculo(suv, "AAA1A11", StatusVeiculo.DISPONIVEL));
+            repositorio.Adicionar(CriarVeiculo(suv, "BBB2B22", StatusVeiculo.LOCADO));
+            VeiculoService servico = CriarServico(repositorio);
+
+            PaginaVO<ReturnVeiculoVO> pagina = await servico.GetAllAsync(new FiltroVeiculoVO { Busca = busca });
+
+            Assert.Equal(2, pagina.Total);
+            Assert.Equal(new List<string> { "AAA1A11", "BBB2B22" }, PlacasDe(pagina));
+        }
+
+        [Fact]
+        public async Task BuscaAparada_CasaComOTermoSemOsEspacosDasPontas()
+        {
+            FakeVeiculoRepository repositorio = new FakeVeiculoRepository();
+            Categoria suv = new Categoria { IdCategoria = 1, Nome = "SUV", ValorDiariaBase = 200m };
+            repositorio.Adicionar(CriarVeiculo(suv, "AAA1A11", StatusVeiculo.DISPONIVEL));
+            repositorio.Adicionar(CriarVeiculo(suv, "BBB2B22", StatusVeiculo.DISPONIVEL));
+            VeiculoService servico = CriarServico(repositorio);
+
+            PaginaVO<ReturnVeiculoVO> pagina = await servico.GetAllAsync(new FiltroVeiculoVO { Busca = "  toro  " });
+
+            Assert.Equal(2, pagina.Total);
+        }
+
+        [Fact]
+        public async Task BuscaPorModelo_NaoDiferenciaMaiusculas()
+        {
+            FakeVeiculoRepository repositorio = new FakeVeiculoRepository();
+            Categoria suv = new Categoria { IdCategoria = 1, Nome = "SUV", ValorDiariaBase = 200m };
+            Veiculo corolla = CriarVeiculo(suv, "AAA1A11", StatusVeiculo.DISPONIVEL);
+            corolla.Modelo = "Corolla";
+            repositorio.Adicionar(corolla);
+            repositorio.Adicionar(CriarVeiculo(suv, "BBB2B22", StatusVeiculo.DISPONIVEL));
+            VeiculoService servico = CriarServico(repositorio);
+
+            PaginaVO<ReturnVeiculoVO> pagina = await servico.GetAllAsync(new FiltroVeiculoVO { Busca = "COROLLA" });
+
+            Assert.Equal(1, pagina.Total);
+            Assert.Equal(new List<string> { "AAA1A11" }, PlacasDe(pagina));
+        }
+
+        [Fact]
+        public async Task BuscaPorMarca_NaoDiferenciaMaiusculas()
+        {
+            FakeVeiculoRepository repositorio = new FakeVeiculoRepository();
+            Categoria suv = new Categoria { IdCategoria = 1, Nome = "SUV", ValorDiariaBase = 200m };
+            Veiculo toyota = CriarVeiculo(suv, "AAA1A11", StatusVeiculo.DISPONIVEL);
+            toyota.Marca = "Toyota";
+            repositorio.Adicionar(toyota);
+            repositorio.Adicionar(CriarVeiculo(suv, "BBB2B22", StatusVeiculo.DISPONIVEL));
+            VeiculoService servico = CriarServico(repositorio);
+
+            PaginaVO<ReturnVeiculoVO> pagina = await servico.GetAllAsync(new FiltroVeiculoVO { Busca = "toy" });
+
+            Assert.Equal(1, pagina.Total);
+            Assert.Equal(new List<string> { "AAA1A11" }, PlacasDe(pagina));
+        }
+
+        [Fact]
+        public async Task BuscaPorChassi_NaoDiferenciaMaiusculas()
+        {
+            FakeVeiculoRepository repositorio = new FakeVeiculoRepository();
+            Categoria suv = new Categoria { IdCategoria = 1, Nome = "SUV", ValorDiariaBase = 200m };
+            Veiculo comChassi = CriarVeiculo(suv, "AAA1A11", StatusVeiculo.DISPONIVEL);
+            comChassi.Chassi = "8AP1234567Q000111";
+            repositorio.Adicionar(comChassi);
+            repositorio.Adicionar(CriarVeiculo(suv, "BBB2B22", StatusVeiculo.DISPONIVEL));
+            VeiculoService servico = CriarServico(repositorio);
+
+            PaginaVO<ReturnVeiculoVO> pagina = await servico.GetAllAsync(new FiltroVeiculoVO { Busca = "4567q0" });
+
+            Assert.Equal(1, pagina.Total);
+            Assert.Equal(new List<string> { "AAA1A11" }, PlacasDe(pagina));
+        }
+
+        [Fact]
+        public async Task BuscaPorPlaca_UsaAPlacaNormalizadaComHifenESemCaixa()
+        {
+            FakeVeiculoRepository repositorio = new FakeVeiculoRepository();
+            Categoria suv = new Categoria { IdCategoria = 1, Nome = "SUV", ValorDiariaBase = 200m };
+            repositorio.Adicionar(CriarVeiculo(suv, "ABC1D23", StatusVeiculo.DISPONIVEL));
+            repositorio.Adicionar(CriarVeiculo(suv, "XYZ9A87", StatusVeiculo.DISPONIVEL));
+            VeiculoService servico = CriarServico(repositorio);
+
+            PaginaVO<ReturnVeiculoVO> pagina = await servico.GetAllAsync(new FiltroVeiculoVO { Busca = "abc-1" });
+
+            Assert.Equal(1, pagina.Total);
+            Assert.Equal(new List<string> { "ABC1D23" }, PlacasDe(pagina));
+        }
+
+        [Fact]
+        public async Task BuscaSoComHifen_NaoCasaPorPlaca()
+        {
+            FakeVeiculoRepository repositorio = new FakeVeiculoRepository();
+            Categoria suv = new Categoria { IdCategoria = 1, Nome = "SUV", ValorDiariaBase = 200m };
+            repositorio.Adicionar(CriarVeiculo(suv, "ABC1D23", StatusVeiculo.DISPONIVEL));
+            VeiculoService servico = CriarServico(repositorio);
+
+            PaginaVO<ReturnVeiculoVO> pagina = await servico.GetAllAsync(new FiltroVeiculoVO { Busca = "-" });
+
+            Assert.Equal(0, pagina.Total);
+        }
+
+        [Fact]
+        public async Task BuscaEntraPorMarcaOuPorModelo_QuandoUmDelesCasa()
+        {
+            FakeVeiculoRepository repositorio = new FakeVeiculoRepository();
+            Categoria suv = new Categoria { IdCategoria = 1, Nome = "SUV", ValorDiariaBase = 200m };
+            Veiculo casaSoPelaMarca = CriarVeiculo(suv, "AAA1A11", StatusVeiculo.DISPONIVEL);
+            casaSoPelaMarca.Marca = "Hyundai";
+            casaSoPelaMarca.Modelo = "Creta";
+            repositorio.Adicionar(casaSoPelaMarca);
+            Veiculo casaSoPeloModelo = CriarVeiculo(suv, "BBB2B22", StatusVeiculo.DISPONIVEL);
+            casaSoPeloModelo.Marca = "Jeep";
+            casaSoPeloModelo.Modelo = "Hyundai Ix";
+            repositorio.Adicionar(casaSoPeloModelo);
+            Veiculo naoCasa = CriarVeiculo(suv, "CCC3C33", StatusVeiculo.DISPONIVEL);
+            naoCasa.Marca = "Jeep";
+            naoCasa.Modelo = "Renegade";
+            repositorio.Adicionar(naoCasa);
+            VeiculoService servico = CriarServico(repositorio);
+
+            PaginaVO<ReturnVeiculoVO> pagina = await servico.GetAllAsync(new FiltroVeiculoVO { Busca = "hyundai" });
+
+            Assert.Equal(2, pagina.Total);
+            Assert.Equal(new List<string> { "AAA1A11", "BBB2B22" }, PlacasDe(pagina));
+        }
+
+        [Fact]
+        public async Task BuscaCombinadaComStatusECategoria_SaoAND()
+        {
+            FakeVeiculoRepository repositorio = new FakeVeiculoRepository();
+            Categoria suv = new Categoria { IdCategoria = 1, Nome = "SUV", ValorDiariaBase = 200m };
+            Categoria economico = new Categoria { IdCategoria = 2, Nome = "Economico", ValorDiariaBase = 80m };
+            repositorio.Adicionar(CriarVeiculo(suv, "AAA1A11", StatusVeiculo.DISPONIVEL));
+            repositorio.Adicionar(CriarVeiculo(suv, "AAA2B22", StatusVeiculo.LOCADO));
+            repositorio.Adicionar(CriarVeiculo(economico, "AAA3C33", StatusVeiculo.DISPONIVEL));
+            Veiculo passaStatusECategoriaMasNaoCasaABusca = CriarVeiculo(suv, "BBB4D44", StatusVeiculo.DISPONIVEL);
+            passaStatusECategoriaMasNaoCasaABusca.Marca = "Jeep";
+            passaStatusECategoriaMasNaoCasaABusca.Modelo = "Renegade";
+            repositorio.Adicionar(passaStatusECategoriaMasNaoCasaABusca);
+            VeiculoService servico = CriarServico(repositorio);
+            FiltroVeiculoVO filtro = new FiltroVeiculoVO
+            {
+                IdCategoria = suv.IdCategoria,
+                Status = StatusVeiculo.DISPONIVEL,
+                Busca = "fiat"
+            };
+
+            PaginaVO<ReturnVeiculoVO> pagina = await servico.GetAllAsync(filtro);
+
+            Assert.Equal(1, pagina.Total);
+            Assert.Equal(new List<string> { "AAA1A11" }, PlacasDe(pagina));
+        }
+
         private static List<string> PlacasDe(PaginaVO<ReturnVeiculoVO> pagina)
         {
             List<string> placas = pagina.Itens.Select(x => x.Placa).ToList();

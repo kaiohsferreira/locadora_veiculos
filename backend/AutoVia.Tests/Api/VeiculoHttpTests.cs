@@ -248,6 +248,80 @@ namespace AutoVia.Tests.Api
             Assert.Equal(string.Format(ConstantsMessage.ErroCampoInvalido, "Status"), corpo.GetProperty("errors").GetProperty("Status")[0].GetString());
         }
 
+        [Fact]
+        public async Task GetLista_BuscaPorChassiComCaixaDiferente_Devolve200SoOVeiculoQueCasa()
+        {
+            SemearVeiculo("AAA1A11", "9BWZZZ377VT004251", "12345678901", StatusVeiculo.DISPONIVEL);
+            SemearVeiculo("BBB2B22", "9BWZZZ377VT004252", "12345678902", StatusVeiculo.LOCADO);
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, $"{RotaVeiculos}?busca=vt004252", TokenDeFuncionario()));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(1, corpo.GetProperty("total").GetInt32());
+            Assert.Equal("BBB2B22", corpo.GetProperty("itens")[0].GetProperty("placa").GetString());
+        }
+
+        [Fact]
+        public async Task GetLista_BuscaComSessentaEUmCaracteres_Devolve400ProblemJson()
+        {
+            string buscaLonga = new string('a', ConstantsValues.TamanhoMaximoBuscaVeiculo + 1);
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, $"{RotaVeiculos}?busca={buscaLonga}", TokenDeFuncionario()));
+
+            Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+            Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(string.Format(ConstantsMessage.ErroVeiculoFiltroBuscaTamanho, ConstantsValues.TamanhoMaximoBuscaVeiculo), corpo.GetProperty("detail").GetString());
+        }
+
+        [Fact]
+        public async Task GetLista_BuscaComCaractereNulo_Devolve400ComCampoBusca()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, $"{RotaVeiculos}?busca=Coro%00lla", TokenDeFuncionario()));
+
+            Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+            Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(string.Format(ConstantsMessage.ErroCampoInvalido, "Busca"), corpo.GetProperty("detail").GetString());
+            Assert.Equal(string.Format(ConstantsMessage.ErroCampoInvalido, "Busca"), corpo.GetProperty("errors").GetProperty("busca")[0].GetString());
+        }
+
+        [Fact]
+        public async Task GetLista_BuscaCombinadaComStatusECategoria_Devolve200SoComOsTresFiltros()
+        {
+            SemearVeiculo("AAA1A11", "9BWZZZ377VT004251", "12345678901", StatusVeiculo.DISPONIVEL);
+            SemearVeiculo("BBB2B22", "9BWZZZ377VT004252", "12345678902", StatusVeiculo.LOCADO);
+            SemearVeiculo("CCC3C33", "9BWZZZ377VT004253", "12345678903", StatusVeiculo.DISPONIVEL, desativado: true);
+            Categoria economico = new Categoria { Nome = "Economico", ValorDiariaBase = 80m };
+            _fabrica.Categorias.Adicionar(economico);
+            SemearVeiculo("EEE5E55", "9BWZZZ377VT004255", "12345678905", StatusVeiculo.DISPONIVEL, categoria: economico);
+            Veiculo jeep = new Veiculo
+            {
+                IdCategoria = _fabrica.CategoriaSuv.IdCategoria,
+                Categoria = _fabrica.CategoriaSuv,
+                Placa = "FFF6F66",
+                Chassi = "9BWZZZ377VT004256",
+                Renavam = "12345678906",
+                Marca = "Jeep",
+                Modelo = "Renegade",
+                AnoFabricacao = 2022,
+                AnoModelo = 2023,
+                KmAtual = 1000,
+                ValorDiaria = 150m,
+                Status = StatusVeiculo.DISPONIVEL
+            };
+            _fabrica.Veiculos.Adicionar(jeep);
+            string rota = $"{RotaVeiculos}?busca=toro&status=DISPONIVEL&idCategoria={_fabrica.CategoriaSuv.IdCategoria}";
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, rota, TokenDeFuncionario()));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(1, corpo.GetProperty("total").GetInt32());
+            Assert.Equal("AAA1A11", corpo.GetProperty("itens")[0].GetProperty("placa").GetString());
+        }
+
         private string GerarToken(PerfilUsuario perfil, CargoFuncionario? cargo)
         {
             JwtOptions opcoes = new JwtOptions
@@ -269,12 +343,13 @@ namespace AutoVia.Tests.Api
             return GerarToken(PerfilUsuario.FUNCIONARIO, CargoFuncionario.ATENDENTE);
         }
 
-        private Veiculo SemearVeiculo(string placa, string chassi, string renavam, StatusVeiculo status, bool desativado = false)
+        private Veiculo SemearVeiculo(string placa, string chassi, string renavam, StatusVeiculo status, bool desativado = false, Categoria? categoria = null)
         {
+            Categoria categoriaDoVeiculo = categoria ?? _fabrica.CategoriaSuv;
             Veiculo veiculo = new Veiculo
             {
-                IdCategoria = _fabrica.CategoriaSuv.IdCategoria,
-                Categoria = _fabrica.CategoriaSuv,
+                IdCategoria = categoriaDoVeiculo.IdCategoria,
+                Categoria = categoriaDoVeiculo,
                 Placa = placa,
                 Chassi = chassi,
                 Renavam = renavam,
@@ -371,6 +446,9 @@ namespace AutoVia.Tests.Api
         /// <summary>Repositorio de categorias em memoria.</summary>
         public FakeCategoriaRepository Categorias { get; }
 
+        /// <summary>Conferencia de sessao simulada: os testes trocam a situacao (cargo e locadora) do funcionario.</summary>
+        public FakeSessaoService Sessao { get; } = new FakeSessaoService();
+
         /// <summary>Categoria "SUV" ativa, semeada no servidor de teste.</summary>
         public Categoria CategoriaSuv { get; }
 
@@ -402,7 +480,7 @@ namespace AutoVia.Tests.Api
                 services.AddSingleton<ICategoriaRepository>(Categorias);
                 // A conferencia de sessao (BE-2) fica sem banco: toda sessao e valida nestes testes.
                 services.RemoveAll<ISessaoService>();
-                services.AddSingleton<ISessaoService>(new FakeSessaoService());
+                services.AddSingleton<ISessaoService>(Sessao);
             });
         }
     }

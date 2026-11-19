@@ -11,5 +11,6 @@ namespace AutoVia.Helpers
         public const string ErroVeiculoStatusInvalido = "O status informado não é válido. Valores aceitos: {0}.";
         public const string ErroVeiculoFiltroCategoriaInvalida = "O filtro de categoria deve ser um número maior que zero.";
         public const string ErroVeiculoFiltroPlacaTamanho = "A busca por placa deve ter no máximo {0} caracteres.";
+        public const string ErroVeiculoFiltroBuscaTamanho = "A busca deve ter no máximo {0} caracteres.";
     }
 }

@@ -5,7 +5,7 @@ namespace AutoVia.Communication.ViewObjects.Frota
 {
     /// <summary>
     /// Filtros da listagem de veiculos (GET /api/veiculos). Herda pagina e tamanhoPagina de
-    /// FiltroPaginacaoVO. Todos os filtros sao opcionais e combinam com AND.
+    /// FiltroPaginacaoVO. Todos os filtros sao opcionais e combinam com AND (a busca vale como um grupo).
     /// Validado por FiltroVeiculoVOValidator.
     /// </summary>
     public class FiltroVeiculoVO : FiltroPaginacaoVO
@@ -18,5 +18,8 @@ namespace AutoVia.Communication.ViewObjects.Frota
 
         /// <summary>Busca parcial pela placa, sem diferenciar maiusculas, ignorando hifen e espacos. Opcional.</summary>
         public string? Placa { get; set; }
+
+        /// <summary>Termo de busca (placa, chassi, modelo ou marca), com ate ConstantsValues.TamanhoMaximoBuscaVeiculo caracteres. Opcional.</summary>
+        public string? Busca { get; set; }
     }
 }

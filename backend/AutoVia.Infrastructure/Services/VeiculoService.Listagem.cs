@@ -17,7 +17,7 @@ namespace AutoVia.Infrastructure.Services
     public partial class VeiculoService
     {
         /// <summary>
-        /// Lista os veiculos ativos, paginados e ordenados por placa, com filtros opcionais por categoria, status e placa.
+        /// Lista os veiculos ativos, paginados e ordenados por placa, com filtros opcionais por categoria, status, placa e busca.
         /// </summary>
         public async Task<PaginaVO<ReturnVeiculoVO>> GetAllAsync(FiltroVeiculoVO filtro)
         {
@@ -25,9 +25,11 @@ namespace AutoVia.Infrastructure.Services
             {
                 string placaNormalizada = StaticMethods.NormalizePlaca(filtro.Placa);
                 string? placaBusca = placaNormalizada.Length > 0 ? placaNormalizada : null;
+                string buscaAparada = (filtro.Busca ?? string.Empty).Trim();
+                string? termoBusca = buscaAparada.Length > 0 ? buscaAparada : null;
 
-                int total = await _veiculoRepository.CountAsync(filtro.IdCategoria, filtro.Status, placaBusca);
-                List<Veiculo> veiculos = await _veiculoRepository.FindAllAsync(filtro.IdCategoria, filtro.Status, placaBusca, filtro.Deslocamento, filtro.TamanhoPagina);
+                int total = await _veiculoRepository.CountAsync(filtro.IdCategoria, filtro.Status, placaBusca, termoBusca);
+                List<Veiculo> veiculos = await _veiculoRepository.FindAllAsync(filtro.IdCategoria, filtro.Status, placaBusca, termoBusca, filtro.Deslocamento, filtro.TamanhoPagina);
                 List<ReturnVeiculoVO> itens = _mapper.Map<List<ReturnVeiculoVO>>(veiculos);
                 await _fotoCapaVeiculoService.PreencherAsync(veiculos, itens);
                 PaginaVO<ReturnVeiculoVO> pagina = new PaginaVO<ReturnVeiculoVO>(itens, total, filtro.Pagina, filtro.TamanhoPagina);
