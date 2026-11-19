@@ -26,6 +26,7 @@ import {
   DetalheSinistroPagina,
   DetalheVeiculoPagina,
   EquipePagina,
+  ConfiguracoesCobrancasPagina,
   GestaoSegurosPagina,
   GestaoVendasPagina,
   InicioPagina,
@@ -169,7 +170,10 @@ export const rotas: RouteObject[] = [
           // Administração: só ADMINISTRADOR. O menu esconde o item, mas o servidor é a autoridade (P10-FE-03).
           {
             element: <RotaPorCargo cargosPermitidos={['ADMINISTRADOR']} />,
-            children: [{ path: CAMINHOS.equipe, element: <EquipePagina /> }],
+            children: [
+              { path: CAMINHOS.equipe, element: <EquipePagina /> },
+              { path: CAMINHOS.configuracoesCobrancasExtras, element: <ConfiguracoesCobrancasPagina /> },
+            ],
           },
 
           { path: '*', element: <PaginaNaoEncontrada /> },

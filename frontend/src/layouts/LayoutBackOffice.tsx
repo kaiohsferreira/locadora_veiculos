@@ -36,6 +36,7 @@ const MODULOS_SISTEMA: readonly ModuloMenu[] = [
  */
 const MODULOS_ADMINISTRACAO: readonly ModuloMenu[] = [
   { rotulo: 'Equipe', para: CAMINHOS.equipe, icone: 'badge', cargos: ['ADMINISTRADOR'] },
+  { rotulo: 'Cobranças extras', para: CAMINHOS.configuracoesCobrancasExtras, icone: 'payments', cargos: ['ADMINISTRADOR'] },
 ];
 
 /**

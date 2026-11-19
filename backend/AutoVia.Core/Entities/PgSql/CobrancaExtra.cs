@@ -26,6 +26,11 @@ namespace AutoVia.Core.Entities.PgSql
         [Column("data_lancamento")]
         public DateOnly DataLancamento { get; set; }
 
+        [Column("id_apuracao")]
+        public int? IdApuracao { get; set; }
+
+        public virtual ApuracaoCobrancaExtra? Apuracao { get; set; }
+
         // --- Navegacao ---
         public virtual Locacao Locacao { get; set; } = null!;
     }

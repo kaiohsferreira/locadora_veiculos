@@ -58,6 +58,7 @@ namespace AutoVia.Api.Extensions
 
             // --- Locacao ---
             services.AddScoped<ILocacaoService, LocacaoService>();
+            services.AddScoped<IVistoriaService, VistoriaService>();
             services.AddScoped<IAvariaService, AvariaService>();
 
             // --- Autenticacao ---
@@ -75,6 +76,11 @@ namespace AutoVia.Api.Extensions
             // --- Seguros (P9-BE-01) ---
             services.AddScoped<ISeguroService, SeguroService>();
 
+            services.AddScoped<IVistoriaSaidaService, VistoriaSaidaService>();
+            services.AddScoped<ICobrancasExtrasService, CobrancasExtrasService>();
+
+            services.AddScoped<IConfiguracoesCobrancasExtrasService, ConfiguracoesCobrancasExtrasService>();
+            services.AddScoped<IApuracaoCobrancasExtrasService, ApuracaoCobrancasExtrasService>();
             return services;
         }
     }

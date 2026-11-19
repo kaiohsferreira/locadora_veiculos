@@ -8,5 +8,6 @@ namespace AutoVia.Core.ServicesInterface
     {
         Task<ReturnLocacaoVO> StartFromReservaAsync(LocacaoVO locacaoVO, int idFuncionario);
         Task<ReturnLocacaoVO> GetByIdAsync(int idLocacao);
+        Task<ReturnRetiradaVO> GetRetiradaAsync(int idReserva);
     }
 }

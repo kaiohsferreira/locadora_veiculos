@@ -80,3 +80,17 @@ function acharRotaPorCaminho(lista: readonly RouteObject[] | undefined, caminho:
   }
   return undefined;
 }
+it('políticas de cobranças extras ficam sob proteção exclusiva de administrador', () => {
+  function localizar(lista: readonly RouteObject[] | undefined): RouteObject | undefined {
+    for (const rota of lista ?? []) {
+      if (rota.children?.some(filha => filha.path === CAMINHOS.configuracoesCobrancasExtras)) return rota;
+      const encontrada = localizar(rota.children); if (encontrada) return encontrada;
+    }
+    return undefined;
+  }
+  const pai = localizar(rotas);
+  expect(pai).toBeDefined();
+  if (!pai) throw new Error('rota administrativa de políticas não encontrada');
+  expect((pai.element as ReactElement<{ cargosPermitidos: string[] }>).props.cargosPermitidos).toEqual(['ADMINISTRADOR']);
+  expect(CAMINHOS.configuracoesCobrancasExtras).toBe('/back-office/configuracoes/cobrancas-extras');
+});

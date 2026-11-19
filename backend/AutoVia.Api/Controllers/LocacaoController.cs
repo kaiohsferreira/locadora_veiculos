@@ -27,6 +27,29 @@ namespace AutoVia.Api.Controllers
             _logService = logService;
         }
 
+        /// <summary>Consulta o contexto da retirada de uma reserva da locadora autenticada.</summary>
+        [HttpGet("retirada/{idReserva:int}")]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+        [ProducesResponseType(typeof(ReturnRetiradaVO), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetRetirada(int idReserva)
+        {
+            try
+            {
+                ReturnRetiradaVO retirada = await _locacaoService.GetRetiradaAsync(idReserva);
+                return Ok(retirada);
+            }
+            catch (BusinessException) { throw; }
+            catch (NotFoundException) { throw; }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
+        }
+
         /// <summary>Consulta uma locacao ativa pelo identificador.</summary>
         [HttpGet("{id:int}")]
         [ProducesResponseType(typeof(ReturnLocacaoVO), StatusCodes.Status200OK)]

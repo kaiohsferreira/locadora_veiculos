@@ -77,6 +77,10 @@ namespace AutoVia.Tests.Persistence
             ["AutoVia.Infrastructure/Repositories/AutenticacaoRepository.cs"] = 3,
             ["AutoVia.Infrastructure/Repositories/EmpresaRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/LocacaoRepository.cs"] = 1,
+            // Trava por locacao, precedida e seguida de consulta sob o filtro Empresa.
+            ["AutoVia.Infrastructure/Repositories/VistoriaRepository.cs"] = 1,
+            // RF-23: uma conexao crua compartilhada apenas pelos locks parametrizados, com escopo validado antes.
+            ["AutoVia.Infrastructure/Repositories/CobrancasExtrasRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/RedefinicaoSenhaRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/ReservaRepository.cs"] = 5,
             ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Cadastro.cs"] = 3,

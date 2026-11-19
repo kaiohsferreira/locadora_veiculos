@@ -67,6 +67,16 @@ namespace AutoVia.Tests.Fakes
             return reserva == null ? null : Copiar(reserva.Veiculo);
         }
 
+        public Task<Reserva?> FindReservaParaRetiradaAsync(int idReserva)
+        {
+            Reserva? reserva = _reservas.FirstOrDefault(x => x.IdReserva == idReserva && x.DisabledAt == null);
+            if (reserva != null)
+            {
+                reserva.Locacoes = _locacoes.Where(x => x.IdReserva == idReserva && x.DisabledAt == null).Select(Copiar).ToList();
+            }
+            return Task.FromResult(reserva);
+        }
+
         public Task<Reserva?> FindReservaByIdAsync(int idReserva)
         {
             Reserva? reserva = _reservas.FirstOrDefault(x => x.IdReserva == idReserva && x.DisabledAt == null);
@@ -141,6 +151,7 @@ namespace AutoVia.Tests.Fakes
             {
                 IdReserva = origem.IdReserva,
                 IdCliente = origem.IdCliente,
+                Cliente = origem.Cliente,
                 IdVeiculo = origem.IdVeiculo,
                 DataReserva = origem.DataReserva,
                 DataRetiradaPrevista = origem.DataRetiradaPrevista,
@@ -162,6 +173,10 @@ namespace AutoVia.Tests.Fakes
             {
                 IdVeiculo = origem.IdVeiculo,
                 IdCategoria = origem.IdCategoria,
+                IdEmpresa = origem.IdEmpresa,
+                Placa = origem.Placa,
+                Marca = origem.Marca,
+                Modelo = origem.Modelo,
                 KmAtual = origem.KmAtual,
                 ValorDiaria = origem.ValorDiaria,
                 Status = origem.Status,
@@ -201,6 +216,7 @@ namespace AutoVia.Tests.Fakes
                 IdLocacao = origem.IdLocacao,
                 IdReserva = origem.IdReserva,
                 IdCliente = origem.IdCliente,
+                Cliente = origem.Cliente,
                 IdVeiculo = origem.IdVeiculo,
                 IdFuncionario = origem.IdFuncionario,
                 DataRetirada = origem.DataRetirada,

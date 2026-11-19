@@ -7,6 +7,7 @@ namespace AutoVia.Core.RepositoriesInterface
     /// <summary>Persistencia e transicoes atomicas do fluxo de locacao.</summary>
     public interface ILocacaoRepository
     {
+        Task<Reserva?> FindReservaParaRetiradaAsync(int idReserva);
         Task<Reserva?> FindReservaByIdAsync(int idReserva);
         Task<Funcionario?> FindActiveFuncionarioByIdAsync(int idFuncionario);
         Task<bool> ExistsActiveByReservaAsync(int idReserva);

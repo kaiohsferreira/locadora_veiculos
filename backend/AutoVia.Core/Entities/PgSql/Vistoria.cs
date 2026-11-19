@@ -35,6 +35,9 @@ namespace AutoVia.Core.Entities.PgSql
         [Column("observacoes")]
         public string? Observacoes { get; set; }
 
+        [Column("comparacao_realizada")]
+        public bool ComparacaoRealizada { get; set; }
+
         // --- Navegacao ---
         public virtual Locacao Locacao { get; set; } = null!;
         public virtual Funcionario Funcionario { get; set; } = null!;

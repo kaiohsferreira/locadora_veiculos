@@ -196,3 +196,9 @@ describe('LayoutBackOffice: legenda do rodapé (cargo e locadora)', () => {
     expect(marcado).toContain('>Atendente</p>');
   });
 });
+describe('menu das políticas de cobranças extras', () => {
+  it('permite descoberta somente pelo administrador', () => {
+    expect(renderizarLayout(ADMINISTRADOR)).toContain(`href="${CAMINHOS.configuracoesCobrancasExtras}"`);
+    expect(renderizarLayout(ATENDENTE)).not.toContain(`href="${CAMINHOS.configuracoesCobrancasExtras}"`);
+  });
+});

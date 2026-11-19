@@ -49,5 +49,16 @@ namespace AutoVia.Helpers
         public const string ErroListarCategorias = "Não foi possível listar as categorias.";
         public const string ErroBuscarCategoria = "Não foi possível consultar a categoria.";
         public const string ErroSalvarCategoria = "Não foi possível salvar a categoria.";
+        public const string ErroBuscarVistoriaSaida = "Não foi possível consultar a vistoria de saída.";
+        public const string ErroSalvarVistoriaSaida = "Não foi possível registrar a vistoria de saída.";
+        public const string ErroVistoriaSaidaStatus = "A locação deve estar em andamento ou atrasada para registrar a saída.";
+        public const string ErroVistoriaSaidaNaoEncontrada = "A vistoria de saída não foi encontrada.";
+        public const string ErroVistoriaSaidaDuplicada = "Já existe uma vistoria de saída ativa nesta locação.";
+        public const string ErroVistoriaSaidaEntradaObrigatoria = "Registre a vistoria de entrada antes da saída.";
+        public const string ErroVistoriaSaidaKm = "A quilometragem de saída não pode ser inferior à retirada ou à entrada.";
+        public const string ErroVistoriaSaidaData = "A data de saída não pode ser anterior à retirada ou à entrada.";
+        public const string ErroVistoriaSaidaAvariasObrigatorias = "Informe as listas de avarias de entrada e novas avarias, mesmo que vazias.";
+        public const string ErroVistoriaSaidaIdsInvalidos = "Informe identificadores positivos e distintos para as avarias de entrada.";
+        public const string ErroVistoriaSaidaDescricaoInvalida = "A descrição da avaria não pode conter caractere nulo.";
     }
 }

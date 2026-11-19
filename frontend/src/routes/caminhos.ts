@@ -33,6 +33,7 @@ export const CAMINHOS = {
   backOffice: '/back-office',
   visaoGeral: '/back-office/visao-geral',
   equipe: '/back-office/equipe',
+  configuracoesCobrancasExtras: '/back-office/configuracoes/cobrancas-extras',
   frota: '/back-office/frota',
   frotaVeiculos: '/back-office/frota/veiculos',
   frotaNovoVeiculo: '/back-office/frota/veiculos/novo',

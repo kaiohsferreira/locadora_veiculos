@@ -32,6 +32,7 @@ export const CadastroLocadoraConfirmacaoPagina = lazy(() => import('@/features/l
 // Back office ---------------------------------------------------------------
 export const VisaoGeralPagina = lazy(() => import('@/features/visao-geral/pages/VisaoGeralPagina'));
 export const EquipePagina = lazy(() => import('@/features/equipe/pages/EquipePagina'));
+export const ConfiguracoesCobrancasPagina = lazy(() => import('@/features/configuracoes-cobrancas/ConfiguracoesCobrancasPagina'));
 export const PainelFrotaPagina = lazy(() => import('@/features/frota/pages/PainelFrotaPagina'));
 export const ListagemFrotaPagina = lazy(() => import('@/features/frota/pages/ListagemFrotaPagina'));
 export const CadastroVeiculoPagina = lazy(() => import('@/features/frota/pages/CadastroVeiculoPagina'));

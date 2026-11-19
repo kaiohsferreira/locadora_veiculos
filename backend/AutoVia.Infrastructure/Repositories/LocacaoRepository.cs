@@ -32,6 +32,42 @@ namespace AutoVia.Infrastructure.Repositories
             _logService = logService;
         }
 
+        /// <summary>Consulta apenas dados ativos da retirada, preservando os filtros de empresa.</summary>
+        public IQueryable<Reserva> ConsultaReservaParaRetirada(int idReserva)
+        {
+            try
+            {
+                IQueryable<Reserva> consulta = ConsultaReservaAtiva(idReserva)
+                    .AsNoTracking()
+                    .Where(x => x.Cliente.DisabledAt == null && x.Veiculo.DisabledAt == null)
+                    .Include(x => x.Veiculo)
+                    .Include(x => x.Cliente)
+                        .ThenInclude(x => x.Locadoras.Where(v => v.DisabledAt == null))
+                    .Include(x => x.Locacoes.Where(l => l.DisabledAt == null));
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Busca a reserva para retirada sem alterar seu estado.</summary>
+        public async Task<Reserva?> FindReservaParaRetiradaAsync(int idReserva)
+        {
+            try
+            {
+                Reserva? reserva = await ConsultaReservaParaRetirada(idReserva).FirstOrDefaultAsync();
+                return reserva;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
+        }
+
         /// <summary>Busca reserva ativa com veiculo para validacao das regras de inicio.</summary>
         public async Task<Reserva?> FindReservaByIdAsync(int idReserva)
         {
