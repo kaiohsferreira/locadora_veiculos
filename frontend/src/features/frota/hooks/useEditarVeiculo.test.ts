@@ -45,6 +45,14 @@ describe('useEditarVeiculo', () => {
     expect(editar).toHaveBeenCalledWith(7, REQUISICAO);
   });
 
+  it('ao dar certo, invalida também a visão geral (cartões e pílulas da tela 11)', async () => {
+    useEditarVeiculo();
+
+    await opcoesCapturadas().onSuccess();
+
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['painel-visao-geral'] });
+  });
+
   it('ao dar certo, invalida a família de veículos (detalhe, fotos e listas)', async () => {
     useEditarVeiculo();
 

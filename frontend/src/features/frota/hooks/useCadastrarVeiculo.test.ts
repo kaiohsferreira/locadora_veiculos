@@ -52,6 +52,14 @@ describe('useCadastrarVeiculo', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['veiculos'] });
   });
 
+  it('ao dar certo, invalida também a visão geral (cartões e pílulas da tela 11), sem esperar os 30 s do cache', async () => {
+    useCadastrarVeiculo();
+
+    await opcoesCapturadas().onSuccess(VEICULO_NOVO);
+
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['painel-visao-geral'] });
+  });
+
   it('ao dar certo, grava lista de fotos vazia na chave de fotos do veículo novo', async () => {
     useCadastrarVeiculo();
 

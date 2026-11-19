@@ -68,3 +68,4 @@ export * from './mensagensPainel';
 export * from './mensagensReservas';
 export * from './mensagensFotosVeiculo';
 export * from './mensagensVeiculos';
+export * from './mensagensFrota';

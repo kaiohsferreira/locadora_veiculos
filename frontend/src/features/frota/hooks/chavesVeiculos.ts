@@ -1,4 +1,5 @@
 import type { QueryKey } from '@tanstack/react-query';
+import type { FiltroListagemVeiculos } from '@/types/veiculos';
 
 /**
  * Família de chaves dos veículos na frota. As mutações de veículo (cadastro, edição, remoção de foto e fim de lote de
@@ -31,4 +32,12 @@ export function chaveFotosVeiculo(idVeiculo: number | null): QueryKey {
 /** Lista de categorias para o seletor. */
 export function chaveCategorias(): QueryKey {
   return [CHAVE_CATEGORIAS, 'lista'];
+}
+
+/**
+ * Listagem de veículos (tela 11 e, depois, tela 12) para um filtro. Cada combinação de página, tamanho, status,
+ * categoria e busca tem a sua chave; fica sob a raiz dos veículos, então as mutações também a atualizam.
+ */
+export function chaveListagemVeiculos(filtro: FiltroListagemVeiculos): QueryKey {
+  return [CHAVE_VEICULOS, 'lista', filtro];
 }

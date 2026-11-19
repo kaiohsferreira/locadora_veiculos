@@ -23,7 +23,7 @@ export function classesControle(temErro: boolean): string {
  * (campo branco sem borda aparente, sombra leve, 44px de altura e ícone inicial opcional); `desenho` é o campo do
  * back office do cadastro de veículo (tela 05): fundo azul claro sem borda, 40px de altura e cantos de 4px.
  */
-export type VarianteCampo = 'padrao' | 'portal' | 'cadastro' | 'cartao' | 'desenho';
+export type VarianteCampo = 'padrao' | 'portal' | 'cadastro' | 'cartao' | 'desenho' | 'frota';
 
 /**
  * Fonte do texto digitado na variante `desenho`: `corpo` (14/20), `dado` (número e código, 13/18), `placa` (16/22
@@ -167,6 +167,27 @@ export function classesControlePortal(temErro: boolean, comIcone: boolean): stri
     'disabled:cursor-not-allowed disabled:bg-offwhite disabled:text-texto-suave ' +
     (comIcone ? 'pl-11 pr-4' : 'px-4');
   return temErro ? `${base} ring-2 ring-status-perigo focus:ring-status-perigo` : `${base} focus:ring-steel`;
+}
+
+/**
+ * Controle `frota` (tela 11, Gestão de Frota): fundo azul claro, sombra leve, 40px e canto de 2px, como o desenho. Com
+ * prefixo (ícone de busca) reserva 36px à esquerda. O foco troca para fundo branco e mostra anel laranja (o desenho só
+ * troca o fundo; o anel fica para a navegação por teclado).
+ */
+export function classesControleFrota(temErro: boolean, comPrefixo: boolean): string {
+  const base =
+    'h-10 w-full rounded-sm bg-steel-fundo text-corpo-denso text-texto-desenho shadow-sm transition-all ' +
+    'placeholder:text-contorno focus:bg-branco focus:outline-none focus:ring-2 focus:ring-orange-acao ' +
+    (comPrefixo ? 'pl-9 pr-3' : 'pl-3 pr-3');
+  return temErro ? `${base} ring-2 ring-status-perigo focus:ring-status-perigo` : base;
+}
+
+/** Lista de seleção `frota` (tela 11): mesmo visual do campo, com recuo de 12px à esquerda e 32px para a seta. */
+export function classesSelectFrota(temErro: boolean): string {
+  const base =
+    'h-10 w-full appearance-none rounded-sm bg-steel-fundo pl-3 pr-8 text-corpo-denso text-texto-desenho shadow-sm transition-all ' +
+    'cursor-pointer focus:bg-branco focus:outline-none focus:ring-2 focus:ring-orange-acao';
+  return temErro ? `${base} ring-2 ring-status-perigo focus:ring-status-perigo` : base;
 }
 
 /** Monta o aria-describedby a partir dos ids de dica e erro presentes. */

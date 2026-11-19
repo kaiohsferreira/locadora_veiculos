@@ -8,6 +8,7 @@ import {
   classesEnvoltorioCampo,
   classesRotulo,
   classesSelectDesenho,
+  classesSelectFrota,
   idsDescricao,
   type VarianteCampo,
 } from './estilosCampo';
@@ -36,10 +37,10 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   /** Texto da primeira opção, de valor vazio. `false` remove essa opção. Padrão: "Selecione". */
   opcaoVazia?: string | false;
   /**
-   * `padrao` (visual de sempre), `cartao` (cartão-campo da etapa de documentos do cadastro) ou `desenho` (back office
-   * do cadastro de veículo, tela 05). Padrão: `padrao`.
+   * `padrao` (visual de sempre), `cartao` (cartão-campo da etapa de documentos do cadastro), `desenho` (back office
+   * do cadastro de veículo, tela 05) ou `frota` (filtros da tela 11, Gestão de Frota). Padrão: `padrao`.
    */
-  variante?: Extract<VarianteCampo, 'padrao' | 'cartao' | 'desenho'>;
+  variante?: Extract<VarianteCampo, 'padrao' | 'cartao' | 'desenho' | 'frota'>;
   /** Só na variante `desenho`: texto em destaque laranja e seminegrito (status do veículo). */
   destaque?: boolean;
 }
@@ -71,6 +72,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   const idErro = `${idCampo}-erro`;
   const idDica = `${idCampo}-dica`;
   const desenho = variante === 'desenho';
+  const frota = variante === 'frota';
 
   return (
     <div className={classesEnvoltorioCampo(variante)}>
@@ -93,7 +95,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           className={
             desenho
               ? `${classesSelectDesenho(Boolean(erro), destaque)} ${className}`
-              : `${variante === 'cartao' ? classesControleCartao(Boolean(erro)) : classesControle(Boolean(erro))} appearance-none pr-10 ${className}`
+              : frota
+                ? `${classesSelectFrota(Boolean(erro))} ${className}`
+                : `${variante === 'cartao' ? classesControleCartao(Boolean(erro)) : classesControle(Boolean(erro))} appearance-none pr-10 ${className}`
           }
         >
           {opcaoVazia !== false && <option value="">{opcaoVazia}</option>}
@@ -105,7 +109,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         </select>
         <Icone
           nome="expand_more"
-          className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 ${desenho ? 'text-contorno' : 'text-steel'}`}
+          tamanho={frota ? 18 : undefined}
+          className={
+            frota
+              ? 'pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-contorno'
+              : `pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 ${desenho ? 'text-contorno' : 'text-steel'}`
+          }
         />
       </div>
       {dica && !erro && (

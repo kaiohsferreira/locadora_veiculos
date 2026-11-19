@@ -3,13 +3,38 @@
  * hooks do TanStack Query, nunca direto. Só funcionário chega aqui: o servidor responde 403 para cliente.
  */
 import { api } from './client';
-import type { VeiculoRequisicao, VeiculoRetorno } from '@/types/veiculos';
+import type { Pagina } from '@/types/api';
+import type { FiltroListagemVeiculos, VeiculoRequisicao, VeiculoRetorno } from '@/types/veiculos';
 
 const CAMINHO_VEICULOS = '/api/veiculos';
 
 /** Caminho de um veículo pelo id. */
 function caminhoVeiculo(idVeiculo: number): string {
   return `${CAMINHO_VEICULOS}/${idVeiculo}`;
+}
+
+/** Parâmetros da query de GET /api/veiculos. Filtro ausente vira parâmetro ausente; busca vazia não é enviada. */
+export type ParametrosListagemVeiculos = Record<string, string | number>;
+
+/** Monta a query da listagem: busca aparada e só enviada quando sobra texto; status e categoria só quando definidos. */
+export function montarParametrosListagemVeiculos(filtro: FiltroListagemVeiculos): ParametrosListagemVeiculos {
+  const parametros: ParametrosListagemVeiculos = {
+    pagina: filtro.pagina,
+    tamanhoPagina: filtro.tamanhoPagina,
+  };
+  if (filtro.status !== undefined) parametros.status = filtro.status;
+  if (filtro.idCategoria !== undefined) parametros.idCategoria = filtro.idCategoria;
+  const busca = filtro.busca?.trim();
+  if (busca) parametros.busca = busca;
+  return parametros;
+}
+
+/** Lista paginada de veículos da locadora, com a capa de cada item (200 PaginaVO<ReturnVeiculoVO>). */
+export async function listarVeiculos(filtro: FiltroListagemVeiculos): Promise<Pagina<VeiculoRetorno>> {
+  const resposta = await api.get<Pagina<VeiculoRetorno>>(CAMINHO_VEICULOS, {
+    params: montarParametrosListagemVeiculos(filtro),
+  });
+  return resposta.data;
 }
 
 /** Consulta um veículo pelo id (200). Usada para carregar o formulário de edição. */

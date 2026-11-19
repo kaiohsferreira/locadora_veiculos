@@ -1,0 +1,198 @@
+import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { Esqueleto, ImagemVeiculo, Icone } from '@/components/ui';
+import { caminhoEditarVeiculo } from '@/routes/caminhos';
+import { formatarPlaca, formatarQuilometragem } from '@/lib/formatters';
+import {
+  MENSAGEM_FROTA_BOTAO_DETALHES,
+  MENSAGEM_FROTA_BRASIL,
+  MENSAGEM_FROTA_COLUNA_ACOES,
+  MENSAGEM_FROTA_COLUNA_CHASSI,
+  MENSAGEM_FROTA_COLUNA_KM,
+  MENSAGEM_FROTA_COLUNA_PLACA,
+  MENSAGEM_FROTA_COLUNA_STATUS,
+  MENSAGEM_FROTA_COLUNA_VEICULO,
+  MENSAGEM_FROTA_TABELA_LEGENDA,
+  mensagemFotoAlt,
+  mensagemFrotaDetalhesDoVeiculo,
+} from '@/lib/mensagens';
+import { urlDaImagem } from '@/lib/fotosVeiculo';
+import type { CategoriaVeiculo } from '@/types/categorias';
+import type { VeiculoRetorno } from '@/types/veiculos';
+import { EtiquetaStatusFrota } from './EtiquetaStatusFrota';
+
+/** Colunas da tabela da frota (cabeçalho e número de células). Sem câmbio, motor, pátio e caixas de seleção. */
+const COLUNAS = [
+  { chave: 'veiculo', titulo: MENSAGEM_FROTA_COLUNA_VEICULO, alinhamento: 'esquerda' },
+  { chave: 'placa', titulo: MENSAGEM_FROTA_COLUNA_PLACA, alinhamento: 'esquerda' },
+  { chave: 'chassi', titulo: MENSAGEM_FROTA_COLUNA_CHASSI, alinhamento: 'esquerda' },
+  { chave: 'km', titulo: MENSAGEM_FROTA_COLUNA_KM, alinhamento: 'esquerda' },
+  { chave: 'status', titulo: MENSAGEM_FROTA_COLUNA_STATUS, alinhamento: 'esquerda' },
+  { chave: 'acoes', titulo: MENSAGEM_FROTA_COLUNA_ACOES, alinhamento: 'direita' },
+] as const;
+
+const LINHAS_ESQUELETO = 5;
+
+export interface TabelaVeiculosProps {
+  /** Veículos da página atual. A paginação é do servidor. */
+  itens: readonly VeiculoRetorno[];
+  /** Mostra linhas de esqueleto no lugar dos dados (primeira carga). */
+  carregando: boolean;
+  /** Conteúdo quando não há linhas (ex.: estado vazio da tela). */
+  vazio: ReactNode;
+  /** Chamado quando a capa de um veículo falha ao abrir (a tela decide se refaz a consulta). */
+  aoFalharFotoCapa?: () => void;
+  /**
+   * Lista de categorias, para mostrar a descrição ao lado do grupo (ex.: "Hatch Econômico"). Sem a lista, ou sem a
+   * categoria nela, a linha mostra só o grupo.
+   */
+  categorias?: readonly CategoriaVeiculo[];
+}
+
+/**
+ * Tabela da frota (tela 11). Componente único, para a tela 12 reaproveitar: cada linha tem a capa (com ícone de carro
+ * quando não há foto ou ela falha), a placa, o chassi e ano, a quilometragem, a situação e o botão Detalhes, que abre
+ * o cadastro do veículo.
+ */
+export function TabelaVeiculos({ itens, carregando, vazio, aoFalharFotoCapa, categorias }: TabelaVeiculosProps) {
+  const descricaoPorCategoria = new Map<number, string | null>(
+    (categorias ?? []).map((categoria) => [categoria.idCategoria, categoria.descricao]),
+  );
+  return (
+    <div className="w-full overflow-x-auto">
+      <table className="min-w-full border-collapse text-corpo-denso" aria-busy={carregando || undefined}>
+        <caption className="sr-only">{MENSAGEM_FROTA_TABELA_LEGENDA}</caption>
+        <thead className="bg-steel-suave">
+          <tr>
+            {COLUNAS.map((coluna) => (
+              <th
+                key={coluna.chave}
+                scope="col"
+                className={`px-4 py-3 text-micro font-medium uppercase tracking-wider text-texto-apoio ${
+                  coluna.alinhamento === 'direita' ? 'text-right' : 'text-left'
+                }`}
+              >
+                {coluna.titulo}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {carregando &&
+            Array.from({ length: LINHAS_ESQUELETO }, (_, indice) => (
+              <tr key={`esqueleto-${indice}`}>
+                {COLUNAS.map((coluna) => (
+                  <td key={coluna.chave} className="px-4 py-3.5">
+                    <Esqueleto className="h-4 w-full" />
+                  </td>
+                ))}
+              </tr>
+            ))}
+
+          {!carregando && itens.length === 0 && (
+            <tr>
+              <td colSpan={COLUNAS.length}>{vazio}</td>
+            </tr>
+          )}
+
+          {!carregando &&
+            itens.map((veiculo) => (
+              <LinhaVeiculo
+                key={veiculo.idVeiculo}
+                veiculo={veiculo}
+                aoFalharFotoCapa={aoFalharFotoCapa}
+                descricaoCategoria={descricaoPorCategoria.get(veiculo.idCategoria) ?? null}
+              />
+            ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+interface LinhaVeiculoProps {
+  veiculo: VeiculoRetorno;
+  aoFalharFotoCapa?: () => void;
+  /** Descrição da categoria do veículo (vinda da lista de categorias), ou nula quando não há. */
+  descricaoCategoria: string | null;
+}
+
+function LinhaVeiculo({ veiculo, aoFalharFotoCapa, descricaoCategoria }: LinhaVeiculoProps) {
+  const nome = `${veiculo.marca} ${veiculo.modelo}`;
+  return (
+    <tr className="transition-colors hover:bg-steel-fundo/60">
+      <td className="px-4 py-3.5 align-middle">
+        <div className="flex items-center gap-2">
+          <ImagemVeiculo
+            url={veiculo.fotoCapa ? urlDaImagem(veiculo.fotoCapa) : null}
+            alt={mensagemFotoAlt(nome)}
+            className="h-9 w-12 shrink-0 rounded-sm shadow-sm"
+            tamanhoIcone={18}
+            aoFalhar={aoFalharFotoCapa}
+          />
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate text-corpo-denso font-semibold text-texto-desenho">{nome}</span>
+            <span className="flex items-center gap-1 text-micro text-texto-apoio">
+              <span className="rounded-sm bg-steel-suave px-1 font-semibold text-navy">{veiculo.categoriaNome}</span>
+              {descricaoCategoria && <span>{descricaoCategoria}</span>}
+            </span>
+          </div>
+        </div>
+      </td>
+
+      <td className="px-4 py-3.5 align-middle">
+        <PlacaMercosul placa={veiculo.placa} />
+      </td>
+
+      <td className="px-4 py-3.5 align-middle">
+        <ChassiEAno chassi={veiculo.chassi} anoFabricacao={veiculo.anoFabricacao} anoModelo={veiculo.anoModelo} />
+      </td>
+
+      <td className="px-4 py-3.5 align-middle">
+        <span className="whitespace-nowrap text-corpo-denso font-bold text-texto-desenho tabular-nums">
+          {formatarQuilometragem(veiculo.kmAtual)}
+        </span>
+      </td>
+
+      <td className="px-4 py-3.5 align-middle">
+        <EtiquetaStatusFrota status={veiculo.status} />
+      </td>
+
+      <td className="px-4 py-3.5 text-right align-middle">
+        <Link
+          to={caminhoEditarVeiculo(veiculo.idVeiculo)}
+          className="inline-flex h-8 items-center rounded-sm bg-steel-suave px-2.5 text-rotulo font-semibold text-texto-desenho transition-colors hover:bg-steel-alto"
+        >
+          {MENSAGEM_FROTA_BOTAO_DETALHES}
+          <span className="sr-only"> {mensagemFrotaDetalhesDoVeiculo(veiculo.placa)}</span>
+        </Link>
+      </td>
+    </tr>
+  );
+}
+
+/** Chassi em cima e os anos (fabricação / modelo) embaixo, como no desenho. */
+function ChassiEAno({ chassi, anoFabricacao, anoModelo }: { chassi: string; anoFabricacao: number; anoModelo: number }) {
+  return (
+    <span className="flex flex-col">
+      <span className="text-apoio font-medium text-texto-desenho">{chassi}</span>
+      <span className="text-micro text-texto-apoio">{`${anoFabricacao} / ${anoModelo}`}</span>
+    </span>
+  );
+}
+
+/** Placa no emblema do desenho: faixa azul com "BRASIL" e a placa embaixo, no padrão de `@/lib/formatters`. */
+function PlacaMercosul({ placa }: { placa: string }) {
+  return (
+    <div className="inline-flex flex-col overflow-hidden rounded-sm border border-contorno-suave bg-branco shadow-sm">
+      <div className="flex items-center justify-between gap-1 bg-navy-marinho px-2 py-0.5 leading-none text-branco">
+        <span className="inline-block h-1.5 w-2 rounded-sm bg-frota-disponivel-ponto" aria-hidden="true" />
+        <span className="text-emblema-brasil tracking-widest">{MENSAGEM_FROTA_BRASIL}</span>
+        <Icone nome="flag" tamanho={8} />
+      </div>
+      <div className="px-2 py-0.5 text-center text-corpo-denso font-bold leading-none tracking-wider text-texto-desenho">
+        {formatarPlaca(placa)}
+      </div>
+    </div>
+  );
+}

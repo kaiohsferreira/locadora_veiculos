@@ -44,4 +44,9 @@ export interface RespostaVisaoGeral {
   locacoesAtivas: number;
   devolucoesPrevistasHoje: number;
   frotaPorSituacao: FrotaPorSituacao[];
+  /**
+   * Veículos da locadora cadastrados no mês corrente (painel v2, aditivo, usado na tela 11). Ausente em servidor
+   * antigo: a tela não mostra a linha "novos neste mês" nesse caso, e não quebra.
+   */
+  veiculosNovosNoMes?: number;
 }

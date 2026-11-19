@@ -31,9 +31,15 @@ export interface BotaoProps extends ButtonHTMLAttributes<HTMLButtonElement>, Pro
   carregando?: boolean;
 }
 
-/** Link com a aparência do Botao: só as variantes gerais (as da tela 05 são de botão, não de link). */
+/**
+ * Variante do link da tela 11 (Gestão de Frota): o botão laranja "Cadastrar Novo Veículo" do desenho, com 40px, canto de
+ * 2px e hover em vermelho-ferrugem. As demais variantes de link seguem iguais.
+ */
+export type VarianteBotaoLinkDesenho = 'frota';
+
+/** Link com a aparência do Botao: as variantes gerais e a da tela 11 (as da tela 05 são de botão, não de link). */
 export interface BotaoLinkProps extends LinkProps, Omit<PropsVisuaisBotao, 'variante'> {
-  variante?: VarianteBotao;
+  variante?: VarianteBotao | VarianteBotaoLinkDesenho;
 }
 
 const CLASSES_BASE =
@@ -73,6 +79,11 @@ const TAMANHO_ICONE: Readonly<Record<TamanhoBotao, number>> = {
 const CLASSES_BASE_DESENHO =
   'inline-flex h-10 items-center justify-center gap-1 whitespace-nowrap rounded-sm text-corpo-denso font-semibold transition-colors ' +
   'disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-acao';
+
+/** Link da tela 11: 40px, canto de 2px, ícone e texto com 4px entre eles, sombra leve e hover em `frota-oficina`. */
+const CLASSES_LINK_FROTA =
+  'inline-flex h-10 items-center justify-center gap-1 whitespace-nowrap rounded-sm bg-orange-acao px-4 text-corpo-denso font-semibold text-branco shadow-sm transition-all ' +
+  'hover:bg-frota-oficina focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-acao active:scale-95';
 
 /** Estilo completo de cada variante do desenho (tela 05). Hover só com o botão habilitado, como nas demais variantes. */
 const CLASSES_DESENHO: Readonly<Record<VarianteBotaoDesenho, string>> = {
@@ -146,10 +157,14 @@ export const BotaoLink = forwardRef<HTMLAnchorElement, BotaoLinkProps>(function 
   },
   ref,
 ) {
+  const classesEstilo =
+    variante === 'frota'
+      ? CLASSES_LINK_FROTA
+      : `${CLASSES_BASE} ${CLASSES_VARIANTE_LINK[variante]} ${CLASSES_TAMANHO[tamanho]}`;
   return (
     <Link
       ref={ref}
-      className={`${CLASSES_BASE} ${CLASSES_VARIANTE_LINK[variante]} ${CLASSES_TAMANHO[tamanho]} ${larguraTotal ? 'w-full' : ''} ${className}`}
+      className={`${classesEstilo} ${larguraTotal ? 'w-full' : ''} ${className}`}
       {...props}
     >
       {icone && <Icone nome={icone} tamanho={TAMANHO_ICONE[tamanho]} />}

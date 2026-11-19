@@ -108,6 +108,21 @@ export default {
           fundo: '#EEF0F3',
         },
       },
+      /**
+       * Frota (tela 11, Gestão de Frota): verdes e laranja-escuro do desenho que não existiam no tema. Valores novos
+       * da tela 11 (listados para o Kaio antes do commit). As outras telas não usam estes tokens.
+       */
+      frota: {
+        disponivel: {
+          DEFAULT: '#15803D',
+          fundo: '#DCFCE7',
+          ponto: '#22C55E',
+        },
+        oficina: {
+          DEFAULT: '#AB3500',
+          fundo: '#FFDBD0',
+        },
+      },
     },
     extend: {
       fontFamily: {
@@ -144,6 +159,10 @@ export default {
         apoio: ['0.75rem', { lineHeight: '1rem', fontWeight: '400', letterSpacing: '0.01em' }],
         /** Cadastro de veículo (tela 05): emblema "BR" da placa (9px). Autorizado pelo Kaio em 16/11/2026. */
         emblema: ['0.5625rem', { lineHeight: '0.875rem', fontWeight: '700' }],
+        /** Frota (tela 11): chip de situação dentro do cartão (10/14, negrito). Valor novo da tela 11, listado para o Kaio. */
+        'chip-frota': ['0.625rem', { lineHeight: '0.875rem', fontWeight: '700' }],
+        /** Frota (tela 11): sigla "BRASIL" do emblema da placa (8/8, negrito). Valor novo da tela 11, listado para o Kaio. */
+        'emblema-brasil': ['0.5rem', { lineHeight: '0.5rem', fontWeight: '700' }],
       },
       borderRadius: {
         cartao: '8px',

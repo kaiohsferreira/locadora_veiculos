@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/api/client';
-import { buscarVeiculo, cadastrarVeiculo, editarVeiculo } from '@/api/veiculos';
+import { buscarVeiculo, cadastrarVeiculo, editarVeiculo, listarVeiculos, montarParametrosListagemVeiculos } from '@/api/veiculos';
 import type { VeiculoRequisicao } from '@/types/veiculos';
 
 vi.mock('@/api/client', () => ({
@@ -76,5 +76,40 @@ describe('editarVeiculo', () => {
 
     expect(putMock.mock.calls[0]).toEqual(['/api/veiculos/7', REQUISICAO]);
     expect(resultado).toBeUndefined();
+  });
+});
+
+describe('montarParametrosListagemVeiculos', () => {
+  it('leva página e tamanho; status, categoria e busca só quando definidos', () => {
+    expect(montarParametrosListagemVeiculos({ pagina: 2, tamanhoPagina: 25 })).toEqual({ pagina: 2, tamanhoPagina: 25 });
+    expect(
+      montarParametrosListagemVeiculos({ pagina: 1, tamanhoPagina: 10, status: 'LOCADO', idCategoria: 3, busca: 'Onix' }),
+    ).toEqual({ pagina: 1, tamanhoPagina: 10, status: 'LOCADO', idCategoria: 3, busca: 'Onix' });
+  });
+
+  it('busca vazia ou só com espaços não vai na query', () => {
+    expect(montarParametrosListagemVeiculos({ pagina: 1, tamanhoPagina: 10, busca: '' })).not.toHaveProperty('busca');
+    expect(montarParametrosListagemVeiculos({ pagina: 1, tamanhoPagina: 10, busca: '   ' })).not.toHaveProperty('busca');
+  });
+
+  it('a busca sai aparada', () => {
+    expect(montarParametrosListagemVeiculos({ pagina: 1, tamanhoPagina: 10, busca: '  Corolla ' }).busca).toBe('Corolla');
+  });
+});
+
+describe('listarVeiculos', () => {
+  beforeEach(() => {
+    getMock.mockReset();
+    getMock.mockResolvedValue({ data: { itens: [], total: 0, pagina: 1, tamanhoPagina: 10 } });
+  });
+
+  it('faz GET em /api/veiculos com os parâmetros montados e devolve a página', async () => {
+    const pagina = await listarVeiculos({ pagina: 1, tamanhoPagina: 10, status: 'MANUTENCAO', busca: 'Argo' });
+
+    expect(getMock.mock.calls[0][0]).toBe('/api/veiculos');
+    expect(getMock.mock.calls[0][1]).toEqual({
+      params: { pagina: 1, tamanhoPagina: 10, status: 'MANUTENCAO', busca: 'Argo' },
+    });
+    expect(pagina).toEqual({ itens: [], total: 0, pagina: 1, tamanhoPagina: 10 });
   });
 });

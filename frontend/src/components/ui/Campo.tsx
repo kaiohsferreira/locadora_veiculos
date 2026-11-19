@@ -9,6 +9,7 @@ import {
   classesControleCadastro,
   classesControleCartao,
   classesControleDesenho,
+  classesControleFrota,
   classesControlePortal,
   classesDica,
   classesEnvoltorioCampo,
@@ -73,6 +74,7 @@ function classesDoControle(
   if (variante === 'cadastro') return classesControleCadastro(temErro, comIcone);
   if (variante === 'cartao') return classesControleCartao(temErro);
   if (variante === 'desenho') return classesControleDesenho(temErro, desenho);
+  if (variante === 'frota') return classesControleFrota(temErro, desenho.recuoEsquerdo !== 'nenhum');
   return `${classesControle(temErro)}${comIcone ? ' pl-10' : ''}`;
 }
 
@@ -121,6 +123,7 @@ export const Campo = forwardRef<HTMLInputElement, CampoProps>(function Campo(
 
   const cadastro = variante === 'cadastro';
   const desenho = variante === 'desenho';
+  const frota = variante === 'frota';
   const recuoEsquerdo = prefixo === undefined ? 'nenhum' : prefixoLargo ? 'prefixoLargo' : 'prefixo';
   const classesInput = classesDoControle(variante, Boolean(erro), iconeInicial !== undefined, {
     recuoEsquerdo,
@@ -128,7 +131,7 @@ export const Campo = forwardRef<HTMLInputElement, CampoProps>(function Campo(
     tipografia,
   });
   const comEnvoltorio =
-    iconeInicial !== undefined || valido === true || (desenho && (prefixo !== undefined || sufixo !== undefined));
+    iconeInicial !== undefined || valido === true || ((desenho || frota) && (prefixo !== undefined || sufixo !== undefined));
 
   const input = (
     <input

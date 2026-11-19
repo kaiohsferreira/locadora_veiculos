@@ -3,6 +3,7 @@
  * Nomes em português como no contrato. O pedido não tem status nem empresa: o status nasce DISPONIVEL no servidor,
  * e a empresa vem do contexto de quem está logado.
  */
+import type { FotoCapaVeiculo } from '@/types/fotosVeiculo';
 
 /** Status do veículo (texto no banco). Só leitura no front: o cadastro e a edição não o enviam. */
 export const STATUS_VEICULO = [
@@ -44,9 +45,20 @@ export interface VeiculoRequisicao {
   numeroNotaFiscalCompra: string;
 }
 
+/** Filtros da listagem de GET /api/veiculos (contrato veiculo v4 e frota-tela11 v1). Ausente = sem filtro. */
+export interface FiltroListagemVeiculos {
+  pagina: number;
+  tamanhoPagina: number;
+  status?: StatusVeiculo;
+  idCategoria?: number;
+  /** Termo de busca (placa, chassi, modelo ou marca). Vazio ou só com espaços não vai à API. */
+  busca?: string;
+}
+
 /**
  * Veículo devolvido pela API (ReturnVeiculoVO): GET por id, retorno do POST (201) e base da edição.
  * Os textos formatados (`valorDiariaStr`, `valorVendaStr`, `dataAquisicaoStr`) vêm do servidor e não são usados na edição.
+ * `fotoCapa` e `erroFotoCapa` só vêm preenchidos na listagem (GET /api/veiculos); no GET por id e no 201 vêm nulos ou ausentes.
  */
 export interface VeiculoRetorno {
   idVeiculo: number;
@@ -74,4 +86,8 @@ export interface VeiculoRetorno {
   locadoraNomeFantasia: string;
   locadoraCidade: string;
   locadoraUf: string;
+  /** Capa do veículo (só na listagem). Nula quando não há foto ou quando o armazenamento falhou. */
+  fotoCapa?: FotoCapaVeiculo | null;
+  /** Texto pronto do servidor quando a capa não pôde ser carregada (só na listagem, com foto cadastrada). */
+  erroFotoCapa?: string | null;
 }

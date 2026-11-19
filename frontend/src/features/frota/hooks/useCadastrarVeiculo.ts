@@ -3,11 +3,12 @@ import { cadastrarVeiculo } from '@/api/veiculos';
 import type { FotoDoVeiculo } from '@/types/fotosVeiculo';
 import type { ErroApi } from '@/types/api';
 import type { VeiculoRequisicao, VeiculoRetorno } from '@/types/veiculos';
+import { chaveFamiliaVisaoGeral } from '@/features/visao-geral/chaveVisaoGeral';
 import { chaveFamiliaVeiculos, chaveFotosVeiculo } from './chavesVeiculos';
 
 /**
  * Cadastra um veículo (POST, 201). Ao dar certo:
- * - invalida a família de veículos (lista e detalhes);
+ * - invalida a família de veículos (lista e detalhes) e a visão geral (cartões e pílulas da tela 11);
  * - grava lista de fotos VAZIA na chave de fotos do veículo novo. Sem isso, o bloco de fotos mostraria a consulta
  *   pendente e esconderia contador e miniaturas enquanto as fotos da fila são enviadas.
  * O cadastro nunca é desfeito por falha de foto: isso é tratado pela fila de fotos.
@@ -19,6 +20,7 @@ export function useCadastrarVeiculo(): UseMutationResult<VeiculoRetorno, ErroApi
     gcTime: 0,
     onSuccess: (veiculo) => {
       const invalidacao = queryClient.invalidateQueries({ queryKey: chaveFamiliaVeiculos() });
+      void queryClient.invalidateQueries({ queryKey: chaveFamiliaVisaoGeral() });
       const fotosDoNovo: FotoDoVeiculo[] = [];
       queryClient.setQueryData<FotoDoVeiculo[]>(chaveFotosVeiculo(veiculo.idVeiculo), fotosDoNovo);
       return invalidacao;

@@ -2,9 +2,7 @@ import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react
 import { buscarVisaoGeral } from '@/api/painel';
 import type { ErroApi } from '@/types/api';
 import type { PeriodoVisaoGeral, RespostaVisaoGeral } from '@/types/painel';
-
-/** Família de chaves da visão geral. */
-export const CHAVE_VISAO_GERAL = 'painel-visao-geral';
+import { CHAVE_VISAO_GERAL } from '../chaveVisaoGeral';
 
 /**
  * Indicadores da visão geral para um período. Ao trocar de período, mantém os números anteriores na tela até chegar o

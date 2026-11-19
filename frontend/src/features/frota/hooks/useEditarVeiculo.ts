@@ -2,6 +2,7 @@ import { useMutation, useQueryClient, type UseMutationResult } from '@tanstack/r
 import { editarVeiculo } from '@/api/veiculos';
 import type { ErroApi } from '@/types/api';
 import type { VeiculoRequisicao } from '@/types/veiculos';
+import { chaveFamiliaVisaoGeral } from '@/features/visao-geral/chaveVisaoGeral';
 import { chaveFamiliaVeiculos } from './chavesVeiculos';
 
 /** Variáveis da edição: id do veículo e os 13 campos. */
@@ -11,14 +12,18 @@ export interface VariaveisEdicaoVeiculo {
 }
 
 /**
- * Altera um veículo (PUT, 204). Ao dar certo, invalida a família de veículos (detalhe, fotos e listas). O status não
- * muda por esta rota.
+ * Altera um veículo (PUT, 204). Ao dar certo, invalida a família de veículos (detalhe, fotos e listas) e a visão geral
+ * (cartões e pílulas da tela 11). O status não muda por esta rota.
  */
 export function useEditarVeiculo(): UseMutationResult<void, ErroApi | Error, VariaveisEdicaoVeiculo> {
   const queryClient = useQueryClient();
   return useMutation<void, ErroApi | Error, VariaveisEdicaoVeiculo>({
     mutationFn: ({ idVeiculo, requisicao }) => editarVeiculo(idVeiculo, requisicao),
     gcTime: 0,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: chaveFamiliaVeiculos() }),
+    onSuccess: () => {
+      const invalidacao = queryClient.invalidateQueries({ queryKey: chaveFamiliaVeiculos() });
+      void queryClient.invalidateQueries({ queryKey: chaveFamiliaVisaoGeral() });
+      return invalidacao;
+    },
   });
 }
