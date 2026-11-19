@@ -145,11 +145,78 @@ describe('TabelaVeiculos: botão Detalhes', () => {
     expect(marcado).toContain('do veículo BRA2E19');
   });
 
-  it('não tem menu de três pontos (é da etapa 2)', () => {
+  it('sem a propriedade acoesStatus (ex.: tela 12), não tem menu de três pontos e a coluna fica como antes', () => {
     const marcado = renderizar();
 
     expect(marcado).not.toContain('more_vert');
     expect(marcado).not.toContain('Menu Operacional');
+    expect(marcado).not.toContain('Menu operacional do veículo');
+    expect(marcado).toContain('>Detalhes<');
+  });
+});
+
+describe('TabelaVeiculos: menu de troca de status (etapa 2)', () => {
+  const ACOES_LIVRES = { idEmAndamento: null, aoEscolher: () => undefined };
+
+  /** Trecho de abertura do botão do menu da linha (a tag inteira). */
+  function botoesDoMenu(marcado: string): string[] {
+    return marcado.match(/<button[^>]*title="Menu Operacional"[^>]*>/g) ?? [];
+  }
+
+  it('com acoesStatus, cada linha tem o botão ao lado do Detalhes, com o título e o nome com a placa', () => {
+    const marcado = renderizar({ acoesStatus: ACOES_LIVRES });
+
+    expect(botoesDoMenu(marcado)).toHaveLength(1);
+    expect(marcado).toContain('aria-label="Menu operacional do veículo BRA2E19"');
+    expect(marcado).toContain('aria-haspopup="menu"');
+    expect(botoesDoMenu(marcado)[0]).toContain('h-8 w-8');
+    expect(marcado).toContain('more_vert');
+    expect(marcado).toContain('font-size:18px');
+    expect(marcado.indexOf('>Detalhes<')).toBeLessThan(marcado.indexOf('Menu Operacional'));
+  });
+
+  it('o botão aparece uma vez por linha (duas linhas, dois botões)', () => {
+    const marcado = renderizar({
+      itens: [VEICULO, { ...VEICULO, idVeiculo: 8, placa: 'ONX9A11', status: 'MANUTENCAO' }],
+      acoesStatus: ACOES_LIVRES,
+    });
+
+    expect(botoesDoMenu(marcado)).toHaveLength(2);
+    expect(marcado).toContain('aria-label="Menu operacional do veículo ONX9A11"');
+  });
+
+  it('a linha com troca em andamento fica com o botão em aria-disabled (sem disabled, para o foco não se perder)', () => {
+    const marcado = renderizar({ acoesStatus: { idEmAndamento: 7, aoEscolher: () => undefined } });
+
+    expect(botoesDoMenu(marcado)[0]).toContain('aria-disabled="true"');
+    expect(botoesDoMenu(marcado)[0]).not.toContain('disabled=""');
+  });
+
+  it('com um pedido em curso em outra linha, o botão desta linha também fica bloqueado (um pedido por vez)', () => {
+    const marcado = renderizar({ acoesStatus: { idEmAndamento: 99, aoEscolher: () => undefined } });
+
+    expect(botoesDoMenu(marcado)[0]).toContain('aria-disabled="true"');
+  });
+
+  it('sem pedido em curso, o botão está habilitado e fechado (aria-expanded false)', () => {
+    const marcado = renderizar({ acoesStatus: ACOES_LIVRES });
+
+    expect(botoesDoMenu(marcado)[0]).not.toContain('aria-disabled');
+    expect(botoesDoMenu(marcado)[0]).toContain('aria-expanded="false"');
+  });
+
+  it('o menu fechado não aparece no HTML (só abre por clique)', () => {
+    const marcado = renderizar({ acoesStatus: ACOES_LIVRES });
+
+    expect(marcado).not.toContain('role="menu"');
+    expect(marcado).not.toContain('Enviar para manutenção');
+  });
+
+  it('linha em RESERVADO ou LOCADO também tem o botão (o menu mostra a frase)', () => {
+    const marcado = renderizar({ itens: [{ ...VEICULO, status: 'LOCADO' }], acoesStatus: ACOES_LIVRES });
+
+    expect(botoesDoMenu(marcado)).toHaveLength(1);
+    expect(botoesDoMenu(marcado)[0]).not.toContain('aria-haspopup');
   });
 });
 

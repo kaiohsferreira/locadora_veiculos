@@ -1,19 +1,33 @@
-import { useEffect, useState } from 'react';
-import { Botao, BotaoLink, EstadoErro, Icone } from '@/components/ui';
+import { useEffect, useRef, useState } from 'react';
+import { Botao, BotaoLink, EstadoErro, Icone, Modal, useAviso } from '@/components/ui';
 import { useTituloDocumento } from '@/hooks/useTituloDocumento';
 import { obterMensagemErro } from '@/lib/erros';
 import { aoFalharFotoCapa, criarControleNovaConsultaFoto, primeiraMensagemErroFotoCapa } from '@/lib/fotosVeiculo';
 import {
+  MENSAGEM_FROTA_BAIXA_TEXTO,
   MENSAGEM_FROTA_BOTAO_CADASTRAR,
+  MENSAGEM_FROTA_CANCELAR,
   MENSAGEM_FROTA_DESCRICAO,
   MENSAGEM_FROTA_ERRO_LISTA,
   MENSAGEM_FROTA_ERRO_RESUMO,
+  MENSAGEM_FROTA_ITEM_BAIXA,
   MENSAGEM_FROTA_KICKER,
   MENSAGEM_FROTA_TENTAR_NOVAMENTE,
   MENSAGEM_FROTA_TITULO_PAGINA,
+  mensagemFrotaBaixaTitulo,
   mensagemVeiculoRotuloCategoria,
 } from '@/lib/mensagens';
 import { CAMINHOS } from '@/routes/caminhos';
+import { usePermissoes } from '@/routes/autenticacao/usePermissoes';
+import type { DestinoManualStatusVeiculo, VeiculoRetorno } from '@/types/veiculos';
+import { mensagemErroTrocaStatus } from '@/features/frota/status/mapeamentoErroTrocaStatus';
+import {
+  itemPedeConfirmacao,
+  mensagemSucessoTrocaStatus,
+  podeTrocarStatusVeiculo,
+  type ItemMenuOperacional,
+} from '@/features/frota/status/menuOperacional';
+import { useAlterarStatusVeiculo } from '@/features/frota/hooks/useAlterarStatusVeiculo';
 import { PERIODO_PADRAO_VISAO_GERAL } from '@/types/painel';
 import { usePainelVisaoGeral } from '@/features/visao-geral/hooks/usePainelVisaoGeral';
 import { contarPilulasFrota, montarCartoesFrota } from '@/features/frota/cartoes/cartoesFrota';
@@ -46,11 +60,32 @@ import { criarAgendadorBusca } from '@/features/frota/listagem/agendarBusca';
 
 /**
  * P1-FE-01 · Gestão de Frota (tela 11). Cartões com os números e os percentuais da frota em operação, pílulas de
- * situação com a contagem, busca e categoria, e a tabela paginada da frota. Etapa 1 (leitura): sem troca de status
- * e sem ações em lote.
+ * situação com a contagem, busca e categoria, e a tabela paginada da frota. Etapa 2: menu de três pontos em cada linha
+ * para trocar o status (só GESTOR_FROTA e ADMINISTRADOR; a baixa pede confirmação). Sem ações em lote.
  */
 export default function PainelFrotaPagina() {
   useTituloDocumento(MENSAGEM_FROTA_TITULO_PAGINA);
+  const aviso = useAviso();
+  const { cargo } = usePermissoes();
+  const trocaStatus = useAlterarStatusVeiculo();
+  /** Veículo cuja baixa espera a confirmação (o Modal fica aberto até a resposta). */
+  const [paraBaixa, setParaBaixa] = useState<VeiculoRetorno | null>(null);
+  /** Linha com troca em andamento: o botão dela fica bloqueado até a lista recarregar. */
+  const idEmAndamento = trocaStatus.isPending ? (trocaStatus.variables?.idVeiculo ?? null) : null;
+  /** Área da tabela (seção): destino do foco quando o botão de origem saiu da lista depois da troca. */
+  const refAreaTabela = useRef<HTMLElement>(null);
+  const trocaPendente = trocaStatus.isPending;
+  const trocaPendenteAntes = useRef(false);
+
+  // Terminou a troca e o foco ficou no body (a linha ou o botão saiu da lista, ou o Modal não achou o botão): o foco vai
+  // para a área da tabela. O efeito roda depois da limpeza do Modal, que já tentou devolver o foco ao botão.
+  useEffect(() => {
+    const terminou = trocaPendenteAntes.current && !trocaPendente;
+    trocaPendenteAntes.current = trocaPendente;
+    if (!terminou) return;
+    const foco = document.activeElement;
+    if (foco === null || foco === document.body) refAreaTabela.current?.focus();
+  }, [trocaPendente]);
 
   const [estado, setEstado] = useState<EstadoListagemFrota>(ESTADO_LISTAGEM_FROTA_INICIAL);
   /**
@@ -92,6 +127,8 @@ export default function PainelFrotaPagina() {
     setEstado((anterior) => ({ ...anterior, pagina: paginaCorrigida }));
   }
 
+  /** Só GESTOR_FROTA e ADMINISTRADOR veem o menu de três pontos (o servidor confere de novo). */
+  const podeTrocar = podeTrocarStatusVeiculo(cargo);
   const cartoes = painel.isPending ? undefined : montarCartoesFrota(painel.data);
   const contagens = contarPilulasFrota(painel.data?.frotaPorSituacao);
   const opcoesCategoria = (categorias.data?.itens ?? []).map((categoria) => ({
@@ -137,6 +174,42 @@ export default function PainelFrotaPagina() {
 
   function aoFalharFoto() {
     aoFalharFotoCapa(controleFoto, () => void consulta.refetch());
+  }
+
+  /** Escolha no menu: a baixa abre a confirmação; as outras trocas vão direto. */
+  function escolherItemMenu(veiculo: VeiculoRetorno, item: ItemMenuOperacional) {
+    if (itemPedeConfirmacao(item)) {
+      setParaBaixa(veiculo);
+      return;
+    }
+    trocarStatus(veiculo.idVeiculo, item.destino);
+  }
+
+  function trocarStatus(idVeiculo: number, status: DestinoManualStatusVeiculo) {
+    trocaStatus.mutate(
+      { idVeiculo, status },
+      {
+        onSuccess: () => aviso.sucesso(mensagemSucessoTrocaStatus(status)),
+        onError: (erro) => aviso.erro(mensagemErroTrocaStatus(erro)),
+      },
+    );
+  }
+
+  function confirmarBaixa() {
+    if (paraBaixa === null) return;
+    trocaStatus.mutate(
+      { idVeiculo: paraBaixa.idVeiculo, status: 'BAIXADO' },
+      {
+        onSuccess: () => {
+          aviso.sucesso(mensagemSucessoTrocaStatus('BAIXADO'));
+          setParaBaixa(null);
+        },
+        onError: (erro) => {
+          setParaBaixa(null);
+          aviso.erro(mensagemErroTrocaStatus(erro));
+        },
+      },
+    );
   }
 
   const erroCapa = primeiraMensagemErroFotoCapa(dados?.itens ?? []);
@@ -196,7 +269,11 @@ export default function PainelFrotaPagina() {
           />
         </section>
 
-        <section className="flex flex-col overflow-hidden rounded-cartao bg-branco shadow-sm">
+        <section
+          ref={refAreaTabela}
+          tabIndex={-1}
+          className="flex flex-col overflow-hidden rounded-cartao bg-branco shadow-sm focus:outline-none"
+        >
           {consulta.isError && !dados ? (
             <EstadoErro
               titulo={MENSAGEM_FROTA_ERRO_LISTA}
@@ -213,6 +290,7 @@ export default function PainelFrotaPagina() {
                 aoFalharFotoCapa={aoFalharFoto}
                 categorias={categorias.data?.itens}
                 vazio={<EstadoVazioFrota comFiltro={temFiltroNaLista} aoLimpar={limparFiltros} />}
+                acoesStatus={podeTrocar ? { idEmAndamento, aoEscolher: escolherItemMenu } : undefined}
               />
               {rodape && (
                 <RodapeListagemFrota
@@ -231,6 +309,29 @@ export default function PainelFrotaPagina() {
           )}
         </section>
       </div>
+
+      <Modal
+        aberto={paraBaixa !== null}
+        aoFechar={() => {
+          if (!trocaStatus.isPending) setParaBaixa(null);
+        }}
+        titulo={paraBaixa ? mensagemFrotaBaixaTitulo(paraBaixa.placa) : ''}
+        descricao={MENSAGEM_FROTA_BAIXA_TEXTO}
+        tamanho="pequeno"
+        fecharAoClicarFora={!trocaStatus.isPending}
+        rodape={
+          <>
+            <Botao variante="contorno" onClick={() => setParaBaixa(null)} disabled={trocaStatus.isPending}>
+              {MENSAGEM_FROTA_CANCELAR}
+            </Botao>
+            <Botao variante="perigo" onClick={confirmarBaixa} carregando={trocaStatus.isPending}>
+              {MENSAGEM_FROTA_ITEM_BAIXA}
+            </Botao>
+          </>
+        }
+      >
+        {null}
+      </Modal>
     </div>
   );
 }

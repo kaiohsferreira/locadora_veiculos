@@ -110,3 +110,36 @@ export const MENSAGEM_FROTA_ERRO_LISTA = 'Não foi possível carregar a frota.';
 export const MENSAGEM_FROTA_ERRO_RESUMO = 'Não foi possível carregar o resumo da frota.';
 /** Botão de repetir a consulta do resumo ou da lista. Texto de interface, igual ao do EstadoErro. */
 export const MENSAGEM_FROTA_TENTAR_NOVAMENTE = 'Tentar novamente';
+
+// Menu operacional (etapa 2: troca de status pela tela) ----------------------
+
+/** Dica do botão de três pontos (texto do desenho 11, título do botão). */
+export const MENSAGEM_FROTA_MENU_TITULO = 'Menu Operacional';
+/** Nome acessível do botão do menu: a placa diz de qual linha se trata (texto só para leitor de tela). */
+export function mensagemFrotaMenuDoVeiculo(placa: string): string {
+  return `Menu operacional do veículo ${placa}`;
+}
+/** Itens do menu (de interface: o desenho mostra só o ícone). */
+export const MENSAGEM_FROTA_ITEM_MANUTENCAO = 'Enviar para manutenção';
+export const MENSAGEM_FROTA_ITEM_DISPONIVEL = 'Voltar para disponível';
+export const MENSAGEM_FROTA_ITEM_BAIXA = 'Dar baixa';
+/** Frase do menu para RESERVADO e LOCADO (a mesma frase do servidor, já aprovada). */
+export const MENSAGEM_FROTA_FRASE_STATUS_POR_FLUXO = 'O status atual do veículo só muda pela reserva ou pela locação.';
+/** Frase do menu para VENDIDO e BAIXADO (a mesma frase do servidor, já aprovada). */
+export const MENSAGEM_FROTA_FRASE_VENDIDO_OU_BAIXADO = 'Veículo vendido ou baixado não pode ter o status alterado.';
+
+// Confirmação da baixa (de interface) ----------------------------------------
+
+/** Título da confirmação da baixa, com a placa do veículo. */
+export function mensagemFrotaBaixaTitulo(placa: string): string {
+  return `Dar baixa no veículo ${placa}?`;
+}
+export const MENSAGEM_FROTA_BAIXA_TEXTO =
+  'A baixa não pode ser desfeita pelo sistema. O veículo sai da frota em operação, e placa, chassi e renavam continuam ocupados.';
+export const MENSAGEM_FROTA_CANCELAR = 'Cancelar';
+
+// Avisos da troca de status (de interface) -----------------------------------
+
+export const MENSAGEM_FROTA_SUCESSO_MANUTENCAO = 'Veículo enviado para manutenção.';
+export const MENSAGEM_FROTA_SUCESSO_DISPONIVEL = 'Veículo de volta para disponível.';
+export const MENSAGEM_FROTA_SUCESSO_BAIXA = 'Baixa registrada.';

@@ -1,28 +1,34 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
+import { AvisoProvider } from '@/components/ui';
 import { ErroApi, type Pagina } from '@/types/api';
 import type { RespostaVisaoGeral } from '@/types/painel';
 import type { VeiculoRetorno } from '@/types/veiculos';
 import type { CategoriaVeiculo } from '@/types/categorias';
+import type { CargoFuncionario } from '@/types/enums';
+import { useAlterarStatusVeiculo } from '@/features/frota/hooks/useAlterarStatusVeiculo';
 import { useCategorias } from '@/features/frota/hooks/useCategorias';
 import { useListarVeiculos } from '@/features/frota/hooks/useListarVeiculos';
 import { usePainelVisaoGeral } from '@/features/visao-geral/hooks/usePainelVisaoGeral';
 import { EstadoVazioFrota } from '@/features/frota/componentes/EstadoVazioFrota';
 import { PilulasStatusFrota } from '@/features/frota/componentes/PilulasStatusFrota';
+import { AutenticacaoContexto, type AutenticacaoContextoValor } from '@/routes/autenticacao/AutenticacaoContexto';
 import PainelFrotaPagina from './PainelFrotaPagina';
 
 // Nenhum teste chama a API: as consultas viram dublês, como nas telas de equipe e de visão geral.
 vi.mock('@/api/client', () => ({
-  api: { get: vi.fn(), post: vi.fn(), put: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn() },
 }));
 vi.mock('@/features/frota/hooks/useListarVeiculos', () => ({ useListarVeiculos: vi.fn() }));
 vi.mock('@/features/frota/hooks/useCategorias', () => ({ useCategorias: vi.fn() }));
 vi.mock('@/features/visao-geral/hooks/usePainelVisaoGeral', () => ({ usePainelVisaoGeral: vi.fn() }));
+vi.mock('@/features/frota/hooks/useAlterarStatusVeiculo', () => ({ useAlterarStatusVeiculo: vi.fn() }));
 
 type ConsultaListagem = ReturnType<typeof useListarVeiculos>;
 type ConsultaPainel = ReturnType<typeof usePainelVisaoGeral>;
 type ConsultaCategorias = ReturnType<typeof useCategorias>;
+type TrocaStatus = ReturnType<typeof useAlterarStatusVeiculo>;
 
 const VEICULO: VeiculoRetorno = {
   idVeiculo: 7,
@@ -108,14 +114,39 @@ function consultaPainel(parcial: Partial<ConsultaPainel>): ConsultaPainel {
   return { data: PAINEL, isPending: false, isError: false, ...parcial } as unknown as ConsultaPainel;
 }
 
-function renderizar(listagem: Partial<ConsultaListagem>, painel: Partial<ConsultaPainel> = {}): string {
+/** Sessão de funcionário com o cargo dado (null = sessão sem cargo). */
+function autenticacaoCom(cargo: CargoFuncionario | null): AutenticacaoContextoValor {
+  return {
+    usuario: { nome: 'Marina Costa', perfil: 'funcionario', cargo: cargo ?? undefined, empresaNomeFantasia: 'Rota Sul Locadora' },
+    autenticado: true,
+    autenticacaoIgnorada: false,
+    entrar: () => undefined,
+    sair: () => undefined,
+    possuiPerfil: () => true,
+  };
+}
+
+function renderizar(
+  listagem: Partial<ConsultaListagem>,
+  painel: Partial<ConsultaPainel> = {},
+  cargo: CargoFuncionario | null = 'GESTOR_FROTA',
+): string {
   vi.mocked(useListarVeiculos).mockReturnValue(consultaListagem(listagem));
   vi.mocked(usePainelVisaoGeral).mockReturnValue(consultaPainel(painel));
   vi.mocked(useCategorias).mockReturnValue({ data: CATEGORIAS, isPending: false } as unknown as ConsultaCategorias);
+  vi.mocked(useAlterarStatusVeiculo).mockReturnValue({
+    mutate: vi.fn(),
+    isPending: false,
+    variables: undefined,
+  } as unknown as TrocaStatus);
   return renderToStaticMarkup(
-    <MemoryRouter>
-      <PainelFrotaPagina />
-    </MemoryRouter>,
+    <AutenticacaoContexto.Provider value={autenticacaoCom(cargo)}>
+      <AvisoProvider>
+        <MemoryRouter>
+          <PainelFrotaPagina />
+        </MemoryRouter>
+      </AvisoProvider>
+    </AutenticacaoContexto.Provider>,
   );
 }
 
@@ -296,6 +327,51 @@ describe('PainelFrotaPagina: estados da lista', () => {
     });
 
     expect(marcado).toContain('Não foi possível carregar a foto agora.');
+  });
+});
+
+describe('PainelFrotaPagina: menu de troca de status por cargo (etapa 2)', () => {
+  beforeEach(() => {
+    vi.mocked(useListarVeiculos).mockReset();
+    vi.mocked(usePainelVisaoGeral).mockReset();
+    vi.mocked(useCategorias).mockReset();
+  });
+
+  it('GESTOR_FROTA vê o botão de três pontos em cada linha, ao lado do Detalhes', () => {
+    const marcado = renderizar({ data: LISTA }, {}, 'GESTOR_FROTA');
+
+    expect(marcado).toContain('aria-label="Menu operacional do veículo BRA2E19"');
+    expect(marcado).toContain('title="Menu Operacional"');
+    expect(marcado.indexOf('>Detalhes<')).toBeLessThan(marcado.indexOf('Menu Operacional'));
+  });
+
+  it('ADMINISTRADOR também vê o botão', () => {
+    const marcado = renderizar({ data: LISTA }, {}, 'ADMINISTRADOR');
+
+    expect(marcado).toContain('aria-label="Menu operacional do veículo BRA2E19"');
+  });
+
+  it('os outros cargos não veem o botão (o servidor confere de qualquer forma)', () => {
+    for (const cargo of ['ATENDENTE', 'VENDEDOR', 'FINANCEIRO', 'ADMINISTRATIVO'] as const) {
+      const marcado = renderizar({ data: LISTA }, {}, cargo);
+
+      expect(marcado, cargo).not.toContain('Menu operacional do veículo');
+      expect(marcado, cargo).toContain('>Detalhes<');
+    }
+  });
+
+  it('sessão sem cargo não vê o botão', () => {
+    const marcado = renderizar({ data: LISTA }, {}, null);
+
+    expect(marcado).not.toContain('Menu operacional do veículo');
+  });
+
+  it('com o menu fechado, nenhum item de troca aparece no HTML', () => {
+    const marcado = renderizar({ data: LISTA }, {}, 'GESTOR_FROTA');
+
+    expect(marcado).not.toContain('Enviar para manutenção');
+    expect(marcado).not.toContain('Dar baixa');
+    expect(marcado).not.toContain('role="menu"');
   });
 });
 

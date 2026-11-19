@@ -4,8 +4,8 @@
  * Origem: responsabilidades de cada perfil na seção 2.2 de Especificacao_AutoVia_Requisitos.txt. O atendente bate com
  * as três marcas do desenho. Os demais saem da mesma tabela, pela ordem dos blocos de texto. Os dois textos do
  * Administrador foram passados pelo dono do produto. O servidor usa o cargo em poucas regras: os valores em reais da
- * visão geral (só ADMINISTRADOR e FINANCEIRO). A troca de status da frota ainda não existe; a partir da etapa 2 da tela
- * 11, ela vai usar GESTOR_FROTA e ADMINISTRADOR. Os demais textos descrevem a intenção do perfil, não uma regra já aplicada.
+ * visão geral (só ADMINISTRADOR e FINANCEIRO). A troca de status da frota (menu da tela 11, etapa 2) usa
+ * GESTOR_FROTA e ADMINISTRADOR. Os demais textos descrevem a intenção do perfil, não uma regra já aplicada.
  */
 import type { CargoFuncionario } from '@/types/enums';
 

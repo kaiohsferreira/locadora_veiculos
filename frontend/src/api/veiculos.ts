@@ -4,7 +4,13 @@
  */
 import { api } from './client';
 import type { Pagina } from '@/types/api';
-import type { FiltroListagemVeiculos, VeiculoRequisicao, VeiculoRetorno } from '@/types/veiculos';
+import type {
+  DestinoManualStatusVeiculo,
+  FiltroListagemVeiculos,
+  RequisicaoStatusVeiculo,
+  VeiculoRequisicao,
+  VeiculoRetorno,
+} from '@/types/veiculos';
 
 const CAMINHO_VEICULOS = '/api/veiculos';
 
@@ -52,4 +58,13 @@ export async function cadastrarVeiculo(requisicao: VeiculoRequisicao): Promise<V
 /** Altera os 13 campos do veículo (204, sem corpo). O status não muda por esta rota. */
 export async function editarVeiculo(idVeiculo: number, requisicao: VeiculoRequisicao): Promise<void> {
   await api.put(caminhoVeiculo(idVeiculo), requisicao);
+}
+
+/**
+ * Troca manual de status (PATCH /api/veiculos/{id}/status, 204 sem corpo). Só GESTOR_FROTA e ADMINISTRADOR: o servidor
+ * responde 403 para os demais, 404 para veículo de outra locadora ou desativado e 409 quando o fluxo não permite.
+ */
+export async function alterarStatusVeiculo(idVeiculo: number, status: DestinoManualStatusVeiculo): Promise<void> {
+  const requisicao: RequisicaoStatusVeiculo = { status };
+  await api.patch(`${caminhoVeiculo(idVeiculo)}/status`, requisicao);
 }

@@ -1,7 +1,9 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Esqueleto, ImagemVeiculo, Icone } from '@/components/ui';
 import { caminhoEditarVeiculo } from '@/routes/caminhos';
+import { MenuOperacionalVeiculo } from '@/features/frota/componentes/MenuOperacionalVeiculo';
+import { montarMenuOperacional, type ItemMenuOperacional } from '@/features/frota/status/menuOperacional';
 import { formatarPlaca, formatarQuilometragem } from '@/lib/formatters';
 import {
   MENSAGEM_FROTA_BOTAO_DETALHES,
@@ -33,6 +35,17 @@ const COLUNAS = [
 
 const LINHAS_ESQUELETO = 5;
 
+/**
+ * Ações de troca de status da linha (menu de três pontos, etapa 2 da tela 11). Só a tela 11 passa esta propriedade; sem
+ * ela (ex.: tela 12), a coluna fica como antes. A tela já confere o cargo antes de passar.
+ */
+export interface AcoesStatusTabelaVeiculos {
+  /** Veículo com troca em andamento: a linha dele fica bloqueada. Com um pedido em curso, todos os menus ficam bloqueados. */
+  idEmAndamento: number | null;
+  /** Chamado com o veículo e o item escolhido no menu. */
+  aoEscolher: (veiculo: VeiculoRetorno, item: ItemMenuOperacional) => void;
+}
+
 export interface TabelaVeiculosProps {
   /** Veículos da página atual. A paginação é do servidor. */
   itens: readonly VeiculoRetorno[];
@@ -47,17 +60,29 @@ export interface TabelaVeiculosProps {
    * categoria nela, a linha mostra só o grupo.
    */
   categorias?: readonly CategoriaVeiculo[];
+  /** Menu de troca de status em cada linha. Opcional: sem ela, a tabela fica igual à de antes. */
+  acoesStatus?: AcoesStatusTabelaVeiculos;
 }
 
 /**
  * Tabela da frota (tela 11). Componente único, para a tela 12 reaproveitar: cada linha tem a capa (com ícone de carro
  * quando não há foto ou ela falha), a placa, o chassi e ano, a quilometragem, a situação e o botão Detalhes, que abre
- * o cadastro do veículo.
+ * o cadastro do veículo. Com `acoesStatus`, o botão de três pontos fica ao lado do Detalhes.
  */
-export function TabelaVeiculos({ itens, carregando, vazio, aoFalharFotoCapa, categorias }: TabelaVeiculosProps) {
+export function TabelaVeiculos({
+  itens,
+  carregando,
+  vazio,
+  aoFalharFotoCapa,
+  categorias,
+  acoesStatus,
+}: TabelaVeiculosProps) {
   const descricaoPorCategoria = new Map<number, string | null>(
     (categorias ?? []).map((categoria) => [categoria.idCategoria, categoria.descricao]),
   );
+  /** Um menu aberto por vez: guarda o id da linha. Se a linha sumir da página, o menu fecha sozinho. */
+  const [idMenuAberto, setIdMenuAberto] = useState<number | null>(null);
+  const menuAbertoValido = itens.some((veiculo) => veiculo.idVeiculo === idMenuAberto) ? idMenuAberto : null;
   return (
     <div className="w-full overflow-x-auto">
       <table className="min-w-full border-collapse text-corpo-denso" aria-busy={carregando || undefined}>
@@ -102,6 +127,9 @@ export function TabelaVeiculos({ itens, carregando, vazio, aoFalharFotoCapa, cat
                 veiculo={veiculo}
                 aoFalharFotoCapa={aoFalharFotoCapa}
                 descricaoCategoria={descricaoPorCategoria.get(veiculo.idCategoria) ?? null}
+                acoesStatus={acoesStatus}
+                menuAberto={menuAbertoValido === veiculo.idVeiculo}
+                aoAbrirMenu={setIdMenuAberto}
               />
             ))}
         </tbody>
@@ -115,10 +143,31 @@ interface LinhaVeiculoProps {
   aoFalharFotoCapa?: () => void;
   /** Descrição da categoria do veículo (vinda da lista de categorias), ou nula quando não há. */
   descricaoCategoria: string | null;
+  acoesStatus?: AcoesStatusTabelaVeiculos;
+  /** Este é o menu aberto da tabela. */
+  menuAberto: boolean;
+  /** Abre o menu desta linha (id) ou fecha qualquer um (null). */
+  aoAbrirMenu: (idVeiculo: number | null) => void;
 }
 
-function LinhaVeiculo({ veiculo, aoFalharFotoCapa, descricaoCategoria }: LinhaVeiculoProps) {
+function LinhaVeiculo({
+  veiculo,
+  aoFalharFotoCapa,
+  descricaoCategoria,
+  acoesStatus,
+  menuAberto,
+  aoAbrirMenu,
+}: LinhaVeiculoProps) {
   const nome = `${veiculo.marca} ${veiculo.modelo}`;
+  const botaoDetalhes = (
+    <Link
+      to={caminhoEditarVeiculo(veiculo.idVeiculo)}
+      className="inline-flex h-8 items-center rounded-sm bg-steel-suave px-2.5 text-rotulo font-semibold text-texto-desenho transition-colors hover:bg-steel-alto"
+    >
+      {MENSAGEM_FROTA_BOTAO_DETALHES}
+      <span className="sr-only"> {mensagemFrotaDetalhesDoVeiculo(veiculo.placa)}</span>
+    </Link>
+  );
   return (
     <tr className="transition-colors hover:bg-steel-fundo/60">
       <td className="px-4 py-3.5 align-middle">
@@ -159,13 +208,22 @@ function LinhaVeiculo({ veiculo, aoFalharFotoCapa, descricaoCategoria }: LinhaVe
       </td>
 
       <td className="px-4 py-3.5 text-right align-middle">
-        <Link
-          to={caminhoEditarVeiculo(veiculo.idVeiculo)}
-          className="inline-flex h-8 items-center rounded-sm bg-steel-suave px-2.5 text-rotulo font-semibold text-texto-desenho transition-colors hover:bg-steel-alto"
-        >
-          {MENSAGEM_FROTA_BOTAO_DETALHES}
-          <span className="sr-only"> {mensagemFrotaDetalhesDoVeiculo(veiculo.placa)}</span>
-        </Link>
+        {acoesStatus ? (
+          <div className="inline-flex items-center justify-end gap-1">
+            {botaoDetalhes}
+            <MenuOperacionalVeiculo
+              placa={veiculo.placa}
+              menu={montarMenuOperacional(veiculo.status)}
+              aberto={menuAberto}
+              desabilitado={acoesStatus.idEmAndamento !== null}
+              aoAlternar={() => aoAbrirMenu(menuAberto ? null : veiculo.idVeiculo)}
+              aoFechar={() => aoAbrirMenu(null)}
+              aoEscolher={(item) => acoesStatus.aoEscolher(veiculo, item)}
+            />
+          </div>
+        ) : (
+          botaoDetalhes
+        )}
       </td>
     </tr>
   );

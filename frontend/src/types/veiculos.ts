@@ -45,6 +45,17 @@ export interface VeiculoRequisicao {
   numeroNotaFiscalCompra: string;
 }
 
+/**
+ * Destinos que a troca manual de status aceita (contrato veiculo-status v1). RESERVADO, LOCADO e VENDIDO só mudam por
+ * reserva, locação e venda: a tela não os oferece.
+ */
+export type DestinoManualStatusVeiculo = Extract<StatusVeiculo, 'DISPONIVEL' | 'MANUTENCAO' | 'BAIXADO'>;
+
+/** Corpo do PATCH de troca de status (AlterarStatusVeiculoVO). A resposta é 204, sem corpo. */
+export interface RequisicaoStatusVeiculo {
+  status: DestinoManualStatusVeiculo;
+}
+
 /** Filtros da listagem de GET /api/veiculos (contrato veiculo v4 e frota-tela11 v1). Ausente = sem filtro. */
 export interface FiltroListagemVeiculos {
   pagina: number;

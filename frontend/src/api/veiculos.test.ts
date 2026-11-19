@@ -1,15 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/api/client';
-import { buscarVeiculo, cadastrarVeiculo, editarVeiculo, listarVeiculos, montarParametrosListagemVeiculos } from '@/api/veiculos';
+import {
+  alterarStatusVeiculo,
+  buscarVeiculo,
+  cadastrarVeiculo,
+  editarVeiculo,
+  listarVeiculos,
+  montarParametrosListagemVeiculos,
+} from '@/api/veiculos';
 import type { VeiculoRequisicao } from '@/types/veiculos';
 
 vi.mock('@/api/client', () => ({
-  api: { get: vi.fn(), post: vi.fn(), put: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn() },
 }));
 
 const getMock = vi.mocked(api.get);
 const postMock = vi.mocked(api.post);
 const putMock = vi.mocked(api.put);
+const patchMock = vi.mocked(api.patch);
 
 const REQUISICAO: VeiculoRequisicao = {
   idCategoria: 2,
@@ -76,6 +84,27 @@ describe('editarVeiculo', () => {
 
     expect(putMock.mock.calls[0]).toEqual(['/api/veiculos/7', REQUISICAO]);
     expect(resultado).toBeUndefined();
+  });
+});
+
+describe('alterarStatusVeiculo', () => {
+  beforeEach(() => {
+    patchMock.mockReset();
+    patchMock.mockResolvedValue({ data: undefined });
+  });
+
+  it('faz PATCH em /api/veiculos/{id}/status com o corpo { status } e não devolve corpo (204)', async () => {
+    const resultado = await alterarStatusVeiculo(7, 'MANUTENCAO');
+
+    expect(patchMock.mock.calls[0]).toEqual(['/api/veiculos/7/status', { status: 'MANUTENCAO' }]);
+    expect(resultado).toBeUndefined();
+  });
+
+  it('o corpo leva só o status (sem id, sem empresa)', async () => {
+    await alterarStatusVeiculo(9, 'BAIXADO');
+
+    const [, corpo] = patchMock.mock.calls[0];
+    expect(corpo).toEqual({ status: 'BAIXADO' });
   });
 });
 
