@@ -69,3 +69,4 @@ export * from './mensagensReservas';
 export * from './mensagensFotosVeiculo';
 export * from './mensagensVeiculos';
 export * from './mensagensFrota';
+export * from './mensagensVerificacao';

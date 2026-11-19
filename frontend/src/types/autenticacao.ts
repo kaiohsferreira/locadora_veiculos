@@ -1,4 +1,4 @@
-import type { CargoFuncionario, StatusCadastroCliente } from '@/types/enums';
+import type { CargoFuncionario } from '@/types/enums';
 
 /** Perfis de acesso da aplicação. */
 export const PERFIS_USUARIO = ['cliente', 'funcionario'] as const;
@@ -26,8 +26,6 @@ export interface UsuarioSessao {
   expiraEm?: string;
   /** Cargo do funcionário (só para perfil funcionário). */
   cargo?: CargoFuncionario;
-  /** Status do cadastro do cliente (só para perfil cliente). */
-  statusCadastro?: StatusCadastroCliente;
   /** Id da locadora do funcionário (só para perfil funcionário; ausente em sessões antigas). */
   idEmpresa?: number;
   /** Nome fantasia da locadora do funcionário (só para perfil funcionário). */
@@ -57,7 +55,6 @@ export interface RespostaLogin {
   idUsuario: number;
   nome: string;
   cargo?: CargoFuncionario | null;
-  statusCadastro?: StatusCadastroCliente | null;
   /** Só para funcionário. Ausente nas respostas anteriores ao campo. */
   idEmpresa?: number | null;
   /** Só para funcionário. */

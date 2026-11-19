@@ -22,7 +22,7 @@ interface ModuloMenu {
 const MODULOS_SISTEMA: readonly ModuloMenu[] = [
   { rotulo: 'Visão geral', para: CAMINHOS.visaoGeral, icone: 'grid_view' },
   { rotulo: 'Frota', para: CAMINHOS.frota, icone: 'directions_car' },
-  { rotulo: 'Clientes', para: CAMINHOS.clientes, icone: 'group' },
+  { rotulo: 'Clientes', para: CAMINHOS.clientes, icone: 'group', cargos: ['ATENDENTE', 'ADMINISTRADOR'] },
   { rotulo: 'Reservas', para: CAMINHOS.reservas, icone: 'calendar_month' },
   { rotulo: 'Locações', para: CAMINHOS.locacoes, icone: 'key' },
   { rotulo: 'Vendas', para: CAMINHOS.vendas, icone: 'sell' },

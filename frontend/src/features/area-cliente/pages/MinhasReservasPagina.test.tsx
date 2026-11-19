@@ -31,7 +31,7 @@ vi.mock('@/features/area-cliente/hooks/useCancelarReserva', () => ({
 type ConsultaReservas = ReturnType<typeof useReservas>;
 
 const AUTENTICACAO: AutenticacaoContextoValor = {
-  usuario: { nome: 'Marina Costa', perfil: 'cliente', statusCadastro: 'APROVADO' },
+  usuario: { nome: 'Marina Costa', perfil: 'cliente' },
   autenticado: true,
   autenticacaoIgnorada: false,
   entrar: () => undefined,

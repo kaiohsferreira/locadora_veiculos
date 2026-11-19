@@ -253,7 +253,7 @@ describe('sessão sem vencimento', () => {
 });
 
 describe('campos opcionais do login', () => {
-  it('guarda e relê idUsuario, expiraEm, cargo e statusCadastro', async () => {
+  it('guarda e relê idUsuario, expiraEm e cargo', async () => {
     const usuario: UsuarioSessao = {
       nome: 'Bruno',
       perfil: 'funcionario',
@@ -269,7 +269,7 @@ describe('campos opcionais do login', () => {
     expect(relido.obterUsuarioSessao()).toEqual(usuario);
   });
 
-  it('descarta campo opcional com valor desconhecido sem invalidar a sessão', async () => {
+  it('descarta campo opcional com valor desconhecido sem invalidar a sessão (e ignora statusCadastro de versões antigas)', async () => {
     gravarSessaoCrua('token-3', {
       nome: 'Carla',
       perfil: 'funcionario',

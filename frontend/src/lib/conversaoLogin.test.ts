@@ -110,21 +110,21 @@ describe('converterRespostaLogin', () => {
 
     expect(usuario.perfil).toBe('funcionario');
     expect(usuario.cargo).toBe('GESTOR_FROTA');
-    expect(usuario).not.toHaveProperty('statusCadastro');
   });
 
-  it('leva o status do cadastro do cliente quando vier preenchido', () => {
-    const usuario = converterRespostaLogin({ ...RESPOSTA_BASE, statusCadastro: 'PENDENTE' });
+  it('não leva statusCadastro para a sessão, mesmo que o login o devolva', () => {
+    // Resposta antiga que ainda traz o campo: a variável evita o erro de propriedade em excesso.
+    const respostaAntiga = { ...RESPOSTA_BASE, statusCadastro: 'PENDENTE' };
+    const usuario = converterRespostaLogin(respostaAntiga);
 
-    expect(usuario.statusCadastro).toBe('PENDENTE');
+    expect(usuario).not.toHaveProperty('statusCadastro');
     expect(usuario).not.toHaveProperty('cargo');
   });
 
-  it('omite cargo e statusCadastro quando vêm null ou ausentes', () => {
+  it('omite cargo quando vem null ou ausente', () => {
     const comNull = converterRespostaLogin({
       ...RESPOSTA_BASE,
       cargo: null,
-      statusCadastro: null,
     });
     const semCampos = converterRespostaLogin(RESPOSTA_BASE);
 

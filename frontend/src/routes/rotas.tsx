@@ -140,9 +140,12 @@ export const rotas: RouteObject[] = [
           // Edição usa a mesma página até a tela de edição existir (P1-FE-03: o formulário é o mesmo).
           { path: CAMINHOS.frotaEditarVeiculo, element: <CadastroVeiculoPagina /> },
 
-          // Clientes
+          // Clientes: verificação de cadastros só para ATENDENTE e ADMINISTRADOR (o servidor também confere a política).
           { path: CAMINHOS.clientes, element: <Navigate to={CAMINHOS.verificacaoCadastros} replace /> },
-          { path: CAMINHOS.verificacaoCadastros, element: <VerificacaoCadastrosPagina /> },
+          {
+            element: <RotaPorCargo cargosPermitidos={['ATENDENTE', 'ADMINISTRADOR']} />,
+            children: [{ path: CAMINHOS.verificacaoCadastros, element: <VerificacaoCadastrosPagina /> }],
+          },
 
           // Reservas e locações: o painel P3-FE-06 é o mesmo nos dois itens do menu.
           { path: CAMINHOS.reservas, element: <PainelReservasPagina /> },

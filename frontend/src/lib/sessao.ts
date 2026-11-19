@@ -11,12 +11,7 @@
  * sessão no instante do vencimento.
  */
 import { PERFIS_USUARIO, type PerfilUsuario, type UsuarioSessao } from '@/types/autenticacao';
-import {
-  CARGO_FUNCIONARIO,
-  STATUS_CADASTRO_CLIENTE,
-  type CargoFuncionario,
-  type StatusCadastroCliente,
-} from '@/types/enums';
+import { CARGO_FUNCIONARIO, type CargoFuncionario } from '@/types/enums';
 
 const CHAVE_TOKEN = 'autovia:token';
 const CHAVE_USUARIO = 'autovia:usuario';
@@ -66,12 +61,6 @@ function ehCargoFuncionario(valor: unknown): valor is CargoFuncionario {
   return typeof valor === 'string' && (CARGO_FUNCIONARIO as readonly string[]).includes(valor);
 }
 
-function ehStatusCadastroCliente(valor: unknown): valor is StatusCadastroCliente {
-  return (
-    typeof valor === 'string' && (STATUS_CADASTRO_CLIENTE as readonly string[]).includes(valor)
-  );
-}
-
 function ehDataValida(valor: unknown): valor is string {
   return typeof valor === 'string' && !Number.isNaN(Date.parse(valor));
 }
@@ -88,7 +77,6 @@ function lerUsuarioArmazenado(valor: unknown): UsuarioSessao | null {
     idUsuario,
     expiraEm,
     cargo,
-    statusCadastro,
     idEmpresa,
     empresaNomeFantasia,
     empresaOperadora,
@@ -99,7 +87,6 @@ function lerUsuarioArmazenado(valor: unknown): UsuarioSessao | null {
   if (typeof idUsuario === 'number' && Number.isInteger(idUsuario)) usuario.idUsuario = idUsuario;
   if (ehDataValida(expiraEm)) usuario.expiraEm = expiraEm;
   if (ehCargoFuncionario(cargo)) usuario.cargo = cargo;
-  if (ehStatusCadastroCliente(statusCadastro)) usuario.statusCadastro = statusCadastro;
   if (typeof idEmpresa === 'number' && Number.isInteger(idEmpresa)) usuario.idEmpresa = idEmpresa;
   if (typeof empresaNomeFantasia === 'string') usuario.empresaNomeFantasia = empresaNomeFantasia;
   if (typeof empresaOperadora === 'boolean') usuario.empresaOperadora = empresaOperadora;
@@ -144,7 +131,6 @@ function copiarUsuario(usuario: UsuarioSessao): UsuarioSessao {
   // Vencimento que não é data válida é descartado: sem ele a sessão não vence por tempo.
   if (usuario.expiraEm !== undefined && ehDataValida(usuario.expiraEm)) copia.expiraEm = usuario.expiraEm;
   if (usuario.cargo !== undefined) copia.cargo = usuario.cargo;
-  if (usuario.statusCadastro !== undefined) copia.statusCadastro = usuario.statusCadastro;
   if (usuario.idEmpresa !== undefined) copia.idEmpresa = usuario.idEmpresa;
   if (usuario.empresaNomeFantasia !== undefined) copia.empresaNomeFantasia = usuario.empresaNomeFantasia;
   if (usuario.empresaOperadora !== undefined) copia.empresaOperadora = usuario.empresaOperadora;
