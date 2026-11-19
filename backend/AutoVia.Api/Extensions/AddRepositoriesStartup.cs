@@ -58,6 +58,9 @@ namespace AutoVia.Api.Extensions
             // --- Manutencao (P8-BE-01, P8-BE-02 e P8-BE-03) ---
             services.AddScoped<IManutencaoRepository, ManutencaoRepository>();
 
+            // --- Cobranca da locadora e do cliente (RF-31 e RF-36) ---
+            services.AddScoped<IPagamentoRepository, PagamentoRepository>();
+
             return services;
         }
     }

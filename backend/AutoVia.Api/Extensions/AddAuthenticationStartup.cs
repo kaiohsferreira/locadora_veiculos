@@ -103,6 +103,14 @@ namespace AutoVia.Api.Extensions
                     policy.AddRequirements(new RequisitoGestorFrota());
                 });
 
+                // Cobranca da locadora (RF-31): FINANCEIRO ou ADMINISTRADOR da locadora do contexto (IContextoEmpresa.PodeVerValores).
+                options.AddPolicy(ConstantsValues.PoliticaFinanceiro, policy =>
+                {
+                    policy.RequireAuthenticatedUser();
+                    policy.RequireRole(nameof(PerfilUsuario.FUNCIONARIO));
+                    policy.AddRequirements(new RequisitoFinanceiro());
+                });
+
                 // Rota sem nenhuma declaracao exige usuario autenticado (o teste de guarda AutorizacaoRotasTests reprova rota sem declaracao).
                 options.FallbackPolicy = new AuthorizationPolicyBuilder()
                     .RequireAuthenticatedUser()
@@ -116,6 +124,7 @@ namespace AutoVia.Api.Extensions
             services.AddScoped<IAuthorizationHandler, AutorizacaoOperadoraHandler>();
             services.AddScoped<IAuthorizationHandler, AutorizacaoVerificadorCadastroHandler>();
             services.AddScoped<IAuthorizationHandler, AutorizacaoGestorFrotaHandler>();
+            services.AddScoped<IAuthorizationHandler, AutorizacaoFinanceiroHandler>();
 
             return services;
         }

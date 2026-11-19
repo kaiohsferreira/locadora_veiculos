@@ -142,6 +142,27 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public void Pagamento_ExigePoliticaFinanceiroNaClasse()
+        {
+            AuthorizeAttribute? autorizacao = typeof(PagamentoController).GetCustomAttribute<AuthorizeAttribute>();
+
+            Assert.NotNull(autorizacao);
+            Assert.Equal(ConstantsValues.PoliticaFinanceiro, autorizacao!.Policy);
+        }
+
+        [Fact]
+        public void PagamentoCliente_ExigePoliticaClienteNaClasseERotasDoClienteNaoSaoAnonimas()
+        {
+            AuthorizeAttribute? autorizacao = typeof(PagamentoClienteController).GetCustomAttribute<AuthorizeAttribute>();
+
+            Assert.NotNull(autorizacao);
+            Assert.Equal(ConstantsValues.PoliticaCliente, autorizacao!.Policy);
+            Assert.False(Attribute.IsDefined(typeof(PagamentoClienteController), typeof(AllowAnonymousAttribute), true));
+            Assert.False(Attribute.IsDefined(typeof(PagamentoClienteController).GetMethod(nameof(PagamentoClienteController.ListarMeus))!, typeof(AllowAnonymousAttribute), true));
+            Assert.False(Attribute.IsDefined(typeof(PagamentoClienteController).GetMethod(nameof(PagamentoClienteController.ResumoMeus))!, typeof(AllowAnonymousAttribute), true));
+        }
+
+        [Fact]
         public void Seguro_ExigeFuncionarioNaClasse()
         {
             AuthorizeAttribute? autorizacao = typeof(SeguroController).GetCustomAttribute<AuthorizeAttribute>();

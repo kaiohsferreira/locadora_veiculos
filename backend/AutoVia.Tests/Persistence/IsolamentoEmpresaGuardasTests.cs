@@ -72,7 +72,9 @@ namespace AutoVia.Tests.Persistence
         /// provado em VeiculoPublicoSqlTests); VeiculoRepository.Status (trava FOR UPDATE da troca manual de status, com id_empresa
         /// por parametro e o filtro ligado; SQL provado em VeiculoStatusConsultasSqlTests); ManutencaoRepository (trava FOR UPDATE
         /// da abertura e do encerramento da ordem, o mesmo SQL da troca de status, com id_empresa por parametro e o filtro
-        /// ligado; SQL provado em ManutencaoConsultasSqlTests).
+        /// ligado; SQL provado em ManutencaoConsultasSqlTests). PagamentoRepository (duas ocorrencias: a consulta base do cliente,
+        /// com a posse pelo cliente do contexto, e a trava FOR UPDATE da baixa, com SQL bruto e o filtro ligado; SQL provado em
+        /// PagamentoConsultasSqlTests).
         /// </summary>
         private static readonly Dictionary<string, int> OcorrenciasPermitidas = new Dictionary<string, int>
         {
@@ -81,6 +83,7 @@ namespace AutoVia.Tests.Persistence
             ["AutoVia.Infrastructure/Repositories/EmpresaRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/LocacaoRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/ManutencaoRepository.cs"] = 1,
+            ["AutoVia.Infrastructure/Repositories/PagamentoRepository.cs"] = 2,
             ["AutoVia.Infrastructure/Repositories/RedefinicaoSenhaRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/ReservaRepository.cs"] = 5,
             ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Cadastro.cs"] = 3,

@@ -20,7 +20,9 @@ namespace AutoVia.Infrastructure.Persistence
     /// plataforma (cadastro publico de locadora e inclusao de funcionario); reservas do proprio cliente (posse pelo cliente do
     /// contexto); conflito de periodo (reservas do veiculo, para a checagem de sobreposicao); veiculo de locadora ativa para
     /// reserva; trava do veiculo e da locacao (bloqueio de linha FOR UPDATE, sem leitura de dados fora do filtro); busca publica
-    /// de disponiveis e catalogo publico de seminovos (so locadoras ativas e nao desativadas). Qualquer outro metodo que
+    /// de disponiveis e catalogo publico de seminovos (so locadoras ativas e nao desativadas); consulta base das cobrancas do
+    /// proprio cliente (posse pelo cliente do contexto, sem filtro de locadora) e trava de baixa de pagamento (bloqueio de
+    /// linha FOR UPDATE, com o filtro de locadora ligado). Qualquer outro metodo que
     /// desligue o filtro reprova a guarda. Os metodos e a quantidade de cada simbolo estao em GuardaPorMetodoRepositoriosTests
     /// e em IsolamentoEmpresaGuardasTests.
     /// </summary>
