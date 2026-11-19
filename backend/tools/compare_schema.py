@@ -1,10 +1,29 @@
 """Compara o SQL da especificacao (apendices A e B) com o SQL gerado pelo EF.
 
-Uso: python -I compare_schema.py <apendice_A.sql> <apendice_B.sql> <gerado.sql> [desvios_aprovados.json]
+Uso (modo literal, sem o 4o argumento):
+    python -I compare_schema.py <apendice_A.sql> <apendice_B.sql> <gerado.sql>
+    Compara literalmente contra os apendices. Codigo de saida 0.
 
-Com o 4o argumento, os desvios aprovados (colunas de auditoria, colunas de acesso e
-unique trocado por indice comum) sao aplicados a especificacao antes da comparacao, e o
-relatorio lista cada desvio aplicado. Sem ele, a comparacao e literal contra os apendices.
+Uso (modo com o arquivo de decisoes, 4o argumento):
+    python -I compare_schema.py <apendice_A.sql> <apendice_B.sql> <gerado.sql> <desvios_aprovados.json>
+    Aplica os desvios antigos (colunas de auditoria, colunas de acesso, unique trocado por
+    indice comum) e liga cada diferenca restante a um item 'cobre' de um bloco do JSON.
+    Codigo de saida 1 quando ha diferenca nao registrada, registro sem diferenca ou bloco sem
+    registro; 0 quando todos sao zero.
+
+Formato de cada item de 'cobre' (um texto por item; o nome vem da saida real do script):
+    tabela:<tabela>                    tabela nova (cobre a tabela; as colunas dela NAO sao comparadas)
+    coluna:<tabela>.<coluna>           coluna nova em tabela existente
+    coluna_alterada:<tabela>.<coluna>  coluna com tipo, nulidade ou DEFAULT diferente
+    check:<nome> / check_alterado:<nome>
+    fk:<nome> / fk_alterado:<nome>
+    unique:<nome> / unique_alterado:<nome>
+    indice:<nome> / indice_alterado:<nome>
+Bloco que nao muda esquema tem 'cobre': []. Linha 'TABELA DIFERENTE' nao conta: o que conta
+sao as colunas que diferem. Itens 'falta:' (algo que sumiu do gerado) nunca sao registrados.
+Limites: o casamento e so pelo nome; o conteudo (tipo, expressao, destino) NAO e comparado
+com o que o bloco descreve. Item repetido em 'cobre' conta como erro (REGISTRO SEM DIFERENCA).
+Bloco do JSON que nao e objeto (fora os campos de texto do topo) conta como BLOCO SEM REGISTRO.
 """
 import json
 import re
@@ -121,14 +140,29 @@ def parse(sql):
     return tables, checks, fks, uniques, indexes
 
 
-def compare(label, spec, gen, out):
+def compare(label, spec, gen, out, tipo, tipo_alterado, pai=None):
+    """Acrescenta a 'out' tuplas (chave, linha, nome). Chave None = linha que nao conta (tabela diferente)."""
     for k in sorted(set(spec) | set(gen)):
+        nome = k if pai is None else f"{pai}.{k}"
         if k not in gen:
-            out.append(f"FALTA no gerado  | {label} | {k}: {spec[k]}")
+            out.append((f"falta:{tipo}:{nome}", f"FALTA no gerado  | {label} | {k}: {spec[k]}", nome))
         elif k not in spec:
-            out.append(f"SOBRA no gerado  | {label} | {k}: {gen[k]}")
+            out.append((f"{tipo}:{nome}", f"SOBRA no gerado  | {label} | {k}: {gen[k]}", nome))
         elif spec[k] != gen[k]:
-            out.append(f"DIFERENTE        | {label} | {k}: especificacao={spec[k]} gerado={gen[k]}")
+            chave = f"{tipo_alterado}:{nome}" if tipo_alterado else None
+            out.append((chave, f"DIFERENTE        | {label} | {k}: especificacao={spec[k]} gerado={gen[k]}", nome))
+
+
+def comparar_tudo(s_tab, g_tab, s_chk, g_chk, s_fk, g_fk, s_uq, g_uq, s_idx, g_idx):
+    out = []
+    compare("tabela", {t: sorted(c) for t, c in s_tab.items()}, {t: sorted(c) for t, c in g_tab.items()}, out, "tabela", None)
+    for t in sorted(set(s_tab) & set(g_tab)):
+        compare(f"coluna {t}", s_tab[t], g_tab[t], out, "coluna", "coluna_alterada", pai=t)
+    compare("check", s_chk, g_chk, out, "check", "check_alterado")
+    compare("fk", s_fk, g_fk, out, "fk", "fk_alterado")
+    compare("unique", s_uq, g_uq, out, "unique", "unique_alterado")
+    compare("indice", s_idx, g_idx, out, "indice", "indice_alterado")
+    return out
 
 
 def parse_definicao_coluna(definicao):
@@ -170,26 +204,86 @@ def apply_deviations(path, tables, uniques, indexes):
     return applied
 
 
+ANTIGOS = ("colunas_auditoria", "colunas_acesso", "unique_para_indice")
+
+
+def classificar(out, caminho):
+    """Liga cada diferenca a um item 'cobre' de um bloco do JSON. Imprime e devolve o codigo de saida."""
+    dev = json.load(open(caminho, encoding="utf-8"))
+    blocos = {}
+    cobertura = {}
+    sem_registro = []
+    sem_diferenca = []
+    for nome, bloco in dev.items():
+        if nome in ANTIGOS or isinstance(bloco, str):
+            continue
+        if not isinstance(bloco, dict):
+            sem_registro.append(nome)
+            continue
+        blocos[nome] = bloco
+    for nome, bloco in blocos.items():
+        cobre = bloco.get("cobre")
+        if not isinstance(cobre, list):
+            sem_registro.append(nome)
+            continue
+        for item in cobre:
+            if not isinstance(item, str):
+                sem_diferenca.append((nome, repr(item)))
+            elif item in cobertura:
+                sem_diferenca.append((nome, f"{item} (repetido)"))
+                cobertura[item].append(nome)
+            else:
+                cobertura.setdefault(item, []).append(nome)
+    diferencas = [(chave, linha, nome) for chave, linha, nome in out if chave is not None]
+    cobriveis = {chave for chave, linha, nome in diferencas if not chave.startswith("falta:")}
+    for item, nomes in cobertura.items():
+        if item not in cobriveis:
+            for nome in nomes:
+                sem_diferenca.append((nome, item))
+
+    nao_registradas = 0
+    registradas = 0
+    for chave, linha, nome in diferencas:
+        if chave in cobriveis and chave in cobertura:
+            registradas += 1
+            print(f"REGISTRADA | {', '.join(cobertura[chave])} | {linha}")
+        else:
+            nao_registradas += 1
+            print(f"NAO REGISTRADA | {linha}")
+
+    for linha, tabela in [(linha, nome) for chave, linha, nome in out if chave is None]:
+        prefixos = (f"coluna:{tabela}.", f"coluna_alterada:{tabela}.", f"falta:coluna:{tabela}.")
+        colunas = [chave for chave, l2, n2 in diferencas if chave.startswith(prefixos)]
+        registrada = len(colunas) > 0 and all(chave in cobriveis and chave in cobertura for chave in colunas)
+        status = "REGISTRADA" if registrada else "NAO REGISTRADA"
+        print(f"TABELA DIFERENTE (nao conta) | {status} | {linha}")
+
+    for nome in sem_registro:
+        print(f"BLOCO SEM REGISTRO | {nome}")
+    for nome, item in sem_diferenca:
+        print(f"REGISTRO SEM DIFERENCA | {nome} | {item}")
+
+    print(f"Diferencas registradas: {registradas}")
+    print(f"Diferencas nao registradas: {nao_registradas}")
+    print(f"Registros sem diferenca: {len(sem_diferenca)}")
+    print(f"Blocos sem registro: {len(sem_registro)}")
+    return 1 if (nao_registradas > 0 or len(sem_diferenca) > 0 or len(sem_registro) > 0) else 0
+
+
 def main():
     spec_sql = open(sys.argv[1], encoding="utf-8").read() + "\n" + open(sys.argv[2], encoding="utf-8").read()
     gen_sql = open(sys.argv[3], encoding="utf-8-sig").read()
     s_tab, s_chk, s_fk, s_uq, s_idx = parse(spec_sql)
     g_tab, g_chk, g_fk, g_uq, g_idx = parse(gen_sql)
 
-    if len(sys.argv) > 4:
+    com_decisoes = len(sys.argv) > 4
+    if com_decisoes:
         applied = apply_deviations(sys.argv[4], s_tab, s_uq, s_idx)
         print(f"Desvios aprovados aplicados a especificacao: {len(applied)}")
         for line in applied:
             print(f"  {line}")
 
-    out = []
-    compare("tabela", {t: sorted(c) for t, c in s_tab.items()}, {t: sorted(c) for t, c in g_tab.items()}, out)
-    for t in sorted(set(s_tab) & set(g_tab)):
-        compare(f"coluna {t}", s_tab[t], g_tab[t], out)
-    compare("check", s_chk, g_chk, out)
-    compare("fk", s_fk, g_fk, out)
-    compare("unique", s_uq, g_uq, out)
-    compare("indice", s_idx, g_idx, out)
+    out = comparar_tudo(s_tab, g_tab, s_chk, g_chk, s_fk, g_fk, s_uq, g_uq, s_idx, g_idx)
 
     print(f"Tabelas:  especificacao={len(s_tab)} gerado={len(g_tab)}")
     print(f"Colunas:  especificacao={sum(len(c) for c in s_tab.values())} gerado={sum(len(c) for c in g_tab.values())}")
@@ -197,10 +291,14 @@ def main():
     print(f"FK:       especificacao={len(s_fk)} gerado={len(g_fk)}")
     print(f"UNIQUE:   especificacao={len(s_uq)} gerado={len(g_uq)}")
     print(f"Indices:  especificacao={len(s_idx)} gerado={len(g_idx)}")
-    print(f"Diferencas: {len(out)}")
-    for line in out:
-        print(line)
+
+    if not com_decisoes:
+        print(f"Diferencas: {len(out)}")
+        for chave, line, nome in out:
+            print(line)
+        return 0
+    return classificar(out, sys.argv[4])
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

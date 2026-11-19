@@ -37,6 +37,8 @@
     }
   },
   "recuperacao_senha_e_login_google": {
+    "migration": ["20261112050622_AdicionarRecuperacaoSenhaEVinculoGoogle", "20261112050640_AdicionarIntegracaoGoogleEChavesEmail"],
+    "cobre": ["tabela:redefinicao_senha", "coluna:cliente.google_sub", "check:ck_redefinicao_titular", "fk:fk_redefinicao_cliente", "fk:fk_redefinicao_funcionario", "indice:idx_redefinicao_token", "indice:idx_cliente_google_sub"],
     "aprovado_por": "Kaio Henrique dos Santos Ferreira",
     "data": "2026-11-12",
     "motivo": "RF-49 (recuperacao de senha por link) e RF-51 (login com Google), incluidos pelo Kaio em 12/11/2026 depois das 83 tarefas. A recuperacao precisa guardar o link (so o hash), a validade, o uso unico e o limite por conta; o login Google precisa lembrar qual conta Google pertence a qual cliente. N2 (lembrar de mim) nao muda o esquema.",
@@ -62,6 +64,8 @@
     "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico (unicidade no servico)"
   },
   "empresa_locadora": {
+    "migration": ["20261114021446_AdicionarEmpresaLocadora"],
+    "cobre": ["tabela:empresa", "check:ck_empresa_cnpj", "indice:idx_empresa_cnpj", "indice:idx_empresa_email", "coluna:funcionario.id_empresa", "coluna:veiculo.id_empresa", "fk:fk_funcionario_empresa", "fk:fk_veiculo_empresa", "indice:idx_funcionario_empresa", "indice:idx_veiculo_empresa", "check_alterado:ck_funcionario_cargo"],
     "aprovado_por": "Kaio Henrique dos Santos Ferreira",
     "data": "2026-11-13",
     "motivo": "A plataforma passa a atender varias locadoras: cada locadora se cadastra sozinha, tem equipe propria e so ve os seus dados. O responsavel recebe o cargo ADMINISTRADOR. O isolamento e feito por id_empresa em veiculo e funcionario; as demais tabelas herdam pelo veiculo.",
@@ -102,6 +106,8 @@
     "nao_muda": "demais tabelas e CHECKs; nenhum indice unico; categoria e cliente continuam globais; sem id_empresa nas tabelas operacionais"
   },
   "cliente_locadora": {
+    "migration": ["20261114202316_AdicionarClienteLocadora"],
+    "cobre": ["tabela:cliente_locadora", "check:ck_cliente_locadora_status", "fk:fk_cliente_locadora_cliente", "fk:fk_cliente_locadora_empresa", "fk:fk_cliente_locadora_funcionario", "indice:idx_cliente_locadora_empresa_cliente", "indice:idx_cliente_locadora_cliente"],
     "aprovado_por": "Kaio Henrique dos Santos Ferreira",
     "data": "2026-11-14",
     "motivo": "Aprovacao do cadastro do cliente por locadora (RF-74 a RF-83, decisao do Kaio de 14/11/2026): cada locadora aprova o cliente que negociou com ela. O status global do cadastro (cliente.status_cadastro) fica na tabela, congelado.",
@@ -127,6 +133,8 @@
     "nao_muda": "nenhum indice unico (a unicidade do vinculo ativo de menor id fica no servico); demais tabelas, colunas e CHECKs"
   },
   "sinistro_acompanhamento": {
+    "migration": ["20261116204240_SinistroHistorico", "20261116204317_SeguradoraProvedor"],
+    "cobre": ["coluna:sinistro.protocolo_seguradora", "tabela:sinistro_historico", "check:ck_sinistro_historico_status_anterior", "check:ck_sinistro_historico_status_novo", "check:ck_sinistro_historico_origem", "check:ck_sinistro_historico_funcionario", "fk:fk_sinistro_historico_sinistro", "fk:fk_sinistro_historico_funcionario", "indice:idx_sinistro_historico_sinistro"],
     "aprovado_por": "Kaio Henrique dos Santos Ferreira",
     "data": "2026-11-16",
     "observacao": "Registro original escrito pela Maria em 13/11/2026 (branch dela); aprovado por Kaio em 16/11/2026 (merge S1).",
@@ -162,6 +170,8 @@
     }
   },
   "seguro_apolice_por_locadora": {
+    "cobre": [],
+    "esquema": "Nao muda o esquema: so codigo (validacao no servico). Ver nao_muda.",
     "aprovado_por": "Kaio Henrique dos Santos Ferreira",
     "data": "2026-11-16",
     "tarefa": "P9-BE-01",
@@ -170,6 +180,8 @@
     "nao_muda": "tabela seguro, colunas, CHECK ck_seguro_vigencia e indice comum idx_seguro_numero_apolice; nenhum indice unico"
   },
   "veiculo_foto": {
+    "migration": ["20261116233935_AdicionarVeiculoFoto"],
+    "cobre": ["tabela:veiculo_foto", "check:ck_veiculo_foto_ordem", "fk:fk_veiculo_foto_veiculo", "fk:fk_veiculo_foto_funcionario_envio", "fk:fk_veiculo_foto_funcionario_remocao", "indice:idx_veiculo_foto_veiculo"],
     "aprovado_por": "Kaio Henrique dos Santos Ferreira",
     "data": "2026-11-16",
     "tarefa": "RF-94 a RF-101 e RF-105 (fotos do veiculo, fatia minima)",
@@ -198,6 +210,8 @@
     "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico; nenhuma migracao de dados"
   },
   "veiculo_fornecedor_nota_fiscal_compra": {
+    "migration": ["20261117025802_AdicionarFornecedorNotaFiscalCompraVeiculo"],
+    "cobre": ["coluna:veiculo.fornecedor", "coluna:veiculo.numero_nota_fiscal_compra", "coluna_alterada:veiculo.modelo"],
     "aprovado_por": "Kaio Henrique dos Santos Ferreira",
     "data": "2026-11-16",
     "tarefa": "BE-05 (cadastro de veiculo, tela 05 do P1-FE-03: perguntas 1 e 3, respondidas com \"Sim, as recomendadas\")",
@@ -213,6 +227,8 @@
     "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico; nenhum status inicial novo; nenhuma migracao de dados"
   },
   "cliente_documento": {
+    "migration": ["20261119142116_AdicionarClienteDocumento"],
+    "cobre": ["tabela:cliente_documento", "check:ck_cliente_documento_tipo", "fk:fk_cliente_documento_cliente", "indice:idx_cliente_documento_cliente_tipo"],
     "aprovado_por": "Kaio Henrique dos Santos Ferreira",
     "data": "2026-11-19",
     "tarefa": "P2-BE-03 (RF-08: documentos do cliente, CNH e comprovante de residencia; tela 21 do P2-FE-03)",
@@ -242,6 +258,8 @@
     "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico; status do cadastro segue PENDENTE; nenhuma migracao de dados"
   },
   "pagamento_id_transacao": {
+    "migration": ["20261119162522_AdicionarIdTransacaoPagamento"],
+    "cobre": ["coluna:pagamento.id_transacao"],
     "aprovado_por": "Kaio Henrique dos Santos Ferreira",
     "data": "2026-11-19",
     "tarefa": "P7-INT-01 (RF-20: pagamento, pendencia D3)",

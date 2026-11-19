@@ -10,7 +10,7 @@ Fundação gerada a partir do Prompt 1 do guia da equipe (tarefa **T-BE-01**). O
 
 - SDK do .NET 10
 - PostgreSQL 14 ou superior
-- Python 3, apenas para o script de conferência do esquema (opcional)
+- Python 3: obrigatório para quem gera migration, porque o script de conferência do esquema tem de rodar antes do commit (ver [`docs/CONFERENCIA_ESQUEMA.md`](docs/CONFERENCIA_ESQUEMA.md))
 
 ## Como rodar
 
@@ -36,7 +36,9 @@ Também funcionam a variável `ConnectionStrings__AutoViaConnection` e a `DATABA
 
 ### Banco: criado pelas migrations
 
-O banco **não** é criado rodando SQL à mão. Quem cria o esquema são as migrations:
+O banco **não** é criado rodando SQL à mão. Quem cria o esquema são as migrations.
+
+Hoje são **18 migrations** (scripts 01 a 08 e 11 a 20 em `backend/docs/sql`; os números 09 e 10 não existem). A lista completa e a conferência estão em [`docs/CONFERENCIA_ESQUEMA.md`](docs/CONFERENCIA_ESQUEMA.md). A tabela abaixo mostra só as duas primeiras:
 
 | Migration | O que faz |
 |---|---|
@@ -57,7 +59,8 @@ dotnet dotnet-ef migrations script 0 Inicial --project AutoVia.Infrastructure --
 Regras:
 - Migration já aplicada **nunca** é editada. Uma correção vira migration nova.
 - Depois de gerar, procure e remova qualquer `.Annotation("Npgsql:IdentitySequenceOptions", ...)`. Com `UseSerialColumns()`, normalmente não aparece nenhuma.
-- A conferência contra a especificação está em [`docs/CONFERENCIA_ESQUEMA.md`](docs/CONFERENCIA_ESQUEMA.md). Resultado atual: **0 diferenças**.
+- Conferência contra a especificação: [`docs/CONFERENCIA_ESQUEMA.md`](docs/CONFERENCIA_ESQUEMA.md). A primeira migration é igual ao Apêndice A (0 diferenças). O esquema atual é o Apêndice A mais as diferenças aprovadas e registradas; o comando de conferência acusa erro se aparecer diferença sem decisão registrada. Nada disso é prova em banco de verdade.
+- Regra das próximas migrations: toda migration nova que muda o esquema entra, no mesmo commit, em `docs/especificacao/desvios_aprovados.json` (com os campos `migration` e `cobre`) e no quadro de `docs/CONFERENCIA_ESQUEMA.md`. Rode o comando de conferência antes de commitar: ele tem de terminar sem diferença não registrada.
 
 ## Estrutura
 
@@ -70,7 +73,7 @@ backend/
 │  ├─ Validators/<Modulo>/   um AbstractValidator por VO de entrada
 │  └─ CustomExceptions/      BusinessException (409), NotFoundException (404), IntegrationException (502)
 ├─ AutoVia.Core/             centro da solução, SEM EF Core
-│  ├─ Entities/PgSql/        as 14 entidades de negócio (todas herdam BaseEntities: auditoria e exclusão lógica)
+│  ├─ Entities/PgSql/        as 20 entidades de negócio (todas herdam BaseEntities: auditoria e exclusão lógica)
 │  ├─ Enums/                 valores fixos (status, tipo...), gravados como texto
 │  ├─ RepositoriesInterface/ contratos dos repositórios
 │  ├─ ServicesInterface/     contratos dos serviços (+ ILogService)
@@ -88,7 +91,7 @@ backend/
 │  ├─ Persistence/           AutoViaDbContext + Configurations/ (uma por entidade)
 │  ├─ Repositories/          implementação dos repositórios
 │  ├─ Services/              implementação dos serviços
-│  └─ Migrations/            Inicial, SeedIntegracoes
+│  └─ Migrations/            18 migrations (lista em docs/CONFERENCIA_ESQUEMA.md)
 ├─ AutoVia.Api/              controllers, Extensions/Add*Startup.cs, Filters/, Middleware/
 ├─ AutoVia.Tests/            xUnit (sem PostgreSQL real)
 ├─ docs/                     especificação, SQL exportado e conferência
