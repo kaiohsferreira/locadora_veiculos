@@ -20,6 +20,7 @@ namespace AutoVia.Tests.Persistence
         private const string CaminhoLocacaoRepository = "AutoVia.Infrastructure/Repositories/LocacaoRepository.cs";
         private const string CaminhoStatusVeiculo = "AutoVia.Infrastructure/Repositories/VeiculoRepository.Status.cs";
         private const string CaminhoClienteDocumento = "AutoVia.Infrastructure/Repositories/ClienteDocumentoRepository.cs";
+        private const string CaminhoManutencao = "AutoVia.Infrastructure/Repositories/ManutencaoRepository.cs";
         private const string SeparadorMetodoSimbolo = "|";
         private const string PadraoDeclaracaoDeMetodo = @"^        (public|private)\s[^=]*?\s(\w+)\(";
 
@@ -59,7 +60,11 @@ namespace AutoVia.Tests.Persistence
             {
                 "ConsultaTravaStatusVeiculo" + SeparadorMetodoSimbolo + "FromSql"
             },
-            [CaminhoClienteDocumento] = new string[] { }
+            [CaminhoClienteDocumento] = new string[] { },
+            [CaminhoManutencao] = new string[]
+            {
+                "ConsultaTravaVeiculo" + SeparadorMetodoSimbolo + "FromSql"
+            }
         };
 
         /// <summary>Sobe a partir da pasta do teste ate achar o AutoVia.sln (raiz do backend).</summary>
@@ -116,6 +121,7 @@ namespace AutoVia.Tests.Persistence
         [InlineData(CaminhoLocacaoRepository)]
         [InlineData(CaminhoStatusVeiculo)]
         [InlineData(CaminhoClienteDocumento)]
+        [InlineData(CaminhoManutencao)]
         public void Repositorio_SimbolosDeBypassSoNosMetodosNomeadosNaQuantidadeExata(string caminhoRelativo)
         {
             string conteudo = File.ReadAllText(Path.Combine(RaizDoBackend(), caminhoRelativo.Replace('/', Path.DirectorySeparatorChar)));

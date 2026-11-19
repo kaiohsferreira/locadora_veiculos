@@ -19,7 +19,11 @@ namespace AutoVia.Infrastructure.Repositories
     /// </summary>
     public partial class VeiculoRepository
     {
-        private const string SqlTravaStatusVeiculo = "SELECT * FROM veiculo WHERE id_veiculo = {0} AND id_empresa = {1} AND disabled_at IS NULL FOR UPDATE";
+        /// <summary>
+        /// Trava (FOR UPDATE) do veiculo pela id e pela locadora. Interna: a manutencao (ManutencaoRepository) usa o mesmo texto,
+        /// para a trava ser a mesma consulta nos dois lados.
+        /// </summary>
+        internal const string SqlTravaStatusVeiculo = "SELECT * FROM veiculo WHERE id_veiculo = {0} AND id_empresa = {1} AND disabled_at IS NULL FOR UPDATE";
 
         /// <summary>
         /// Troca o status do veiculo em transacao. Devolve se alterou e o status anterior. Sem alteracao (mesmo status manual)
@@ -56,6 +60,14 @@ namespace AutoVia.Infrastructure.Repositories
                     if (!resultado.Permitida)
                     {
                         throw new BusinessException(resultado.MensagemRecusa ?? ConstantsMessage.ErroAlterarStatusVeiculo);
+                    }
+
+                    // Volta da manutencao com ordem aberta: a ordem libera o veiculo (decisao 1 de 19/11/2026). Depois da regra e na mesma transacao.
+                    bool voltaDaManutencao = statusAnterior == StatusVeiculo.MANUTENCAO && destino == StatusVeiculo.DISPONIVEL;
+
+                    if (voltaDaManutencao && await ConsultaManutencoesAbertasDoVeiculo(idVeiculo).AnyAsync())
+                    {
+                        throw new BusinessException(ConstantsMessage.ErroVeiculoStatusComOrdemAberta);
                     }
 
                     veiculo.Status = destino;
@@ -136,6 +148,26 @@ namespace AutoVia.Infrastructure.Repositories
 
                 IQueryable<Locacao> consulta = _db.Locacoes
                     .Where(x => x.IdVeiculo == idVeiculo && x.DisabledAt == null && statusAbertos.Contains(x.Status));
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroAlterarStatusVeiculo, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta nomeada: ordens de manutencao abertas do veiculo (data de saida nula e nao desativadas), com o filtro
+        /// "Empresa" ligado. Lida depois da trava, pela troca manual de MANUTENCAO para DISPONIVEL.
+        /// </summary>
+        public IQueryable<Manutencao> ConsultaManutencoesAbertasDoVeiculo(int idVeiculo)
+        {
+            try
+            {
+                IQueryable<Manutencao> consulta = _db.Manutencoes
+                    .Where(x => x.IdVeiculo == idVeiculo && x.DisabledAt == null && x.DataSaida == null);
 
                 return consulta;
             }

@@ -70,7 +70,9 @@ namespace AutoVia.Tests.Persistence
         /// VeiculoRepository.Disponibilidade e VeiculoRepository.Catalogo (leituras publicas entre locadoras: busca de
         /// disponiveis e catalogo de seminovos, um bypass nomeado por arquivo, sempre restrito a locadoras ativas, com o SQL
         /// provado em VeiculoPublicoSqlTests); VeiculoRepository.Status (trava FOR UPDATE da troca manual de status, com id_empresa
-        /// por parametro e o filtro ligado; SQL provado em VeiculoStatusConsultasSqlTests).
+        /// por parametro e o filtro ligado; SQL provado em VeiculoStatusConsultasSqlTests); ManutencaoRepository (trava FOR UPDATE
+        /// da abertura e do encerramento da ordem, o mesmo SQL da troca de status, com id_empresa por parametro e o filtro
+        /// ligado; SQL provado em ManutencaoConsultasSqlTests).
         /// </summary>
         private static readonly Dictionary<string, int> OcorrenciasPermitidas = new Dictionary<string, int>
         {
@@ -78,6 +80,7 @@ namespace AutoVia.Tests.Persistence
             ["AutoVia.Infrastructure/Repositories/AutenticacaoRepository.cs"] = 3,
             ["AutoVia.Infrastructure/Repositories/EmpresaRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/LocacaoRepository.cs"] = 1,
+            ["AutoVia.Infrastructure/Repositories/ManutencaoRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/RedefinicaoSenhaRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/ReservaRepository.cs"] = 5,
             ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Cadastro.cs"] = 3,

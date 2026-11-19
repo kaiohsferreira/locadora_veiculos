@@ -217,6 +217,40 @@ namespace AutoVia.Tests.Frota
             Assert.StartsWith(ConstantsMessage.ErroAlterarStatusVeiculo, entradas[0]);
         }
 
+        /// <summary>
+        /// Volta da manutencao (MANUTENCAO para DISPONIVEL) com ordem aberta: 409 com a mensagem nova, sem gravar e sem log
+        /// (recusa de negocio relancada). A ordem libera o veiculo pelo encerramento (decisao 1 de 19/11/2026).
+        /// </summary>
+        [Fact]
+        public async Task VoltaDaManutencaoComOrdemAberta_Recusa409SemGravarESemLog()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository { IdEmpresaDoContexto = IdEmpresaDoContexto };
+            Veiculo veiculo = CriarVeiculo(veiculos, StatusVeiculo.MANUTENCAO, IdEmpresaDoContexto);
+            veiculos.ManutencoesDoVeiculo.Add(new Manutencao { IdVeiculo = veiculo.IdVeiculo, DataSaida = null });
+            FakeLogService log = new FakeLogService();
+            VeiculoService servico = CriarServico(veiculos, log);
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => servico.AlterarStatusAsync(veiculo.IdVeiculo, Pedido("DISPONIVEL")));
+
+            Assert.Equal(ConstantsMessage.ErroVeiculoStatusComOrdemAberta, excecao.Message);
+            Assert.Equal(StatusVeiculo.MANUTENCAO, Assert.Single(veiculos.Veiculos).Status);
+            Assert.Empty(log.Snapshot());
+        }
+
+        /// <summary>Volta da manutencao sem ordem aberta (ordem encerrada nao conta): segue e grava DISPONIVEL.</summary>
+        [Fact]
+        public async Task VoltaDaManutencaoSemOrdemAberta_GravaDisponivel()
+        {
+            FakeVeiculoRepository veiculos = new FakeVeiculoRepository { IdEmpresaDoContexto = IdEmpresaDoContexto };
+            Veiculo veiculo = CriarVeiculo(veiculos, StatusVeiculo.MANUTENCAO, IdEmpresaDoContexto);
+            veiculos.ManutencoesDoVeiculo.Add(new Manutencao { IdVeiculo = veiculo.IdVeiculo, DataSaida = DateOnly.FromDateTime(MomentoDeCriacao) });
+            VeiculoService servico = CriarServico(veiculos, new FakeLogService());
+
+            await servico.AlterarStatusAsync(veiculo.IdVeiculo, Pedido("DISPONIVEL"));
+
+            Assert.Equal(StatusVeiculo.DISPONIVEL, Assert.Single(veiculos.Veiculos).Status);
+        }
+
         [Fact]
         public async Task FalhaInesperada_LogaOErroEhRelancada()
         {

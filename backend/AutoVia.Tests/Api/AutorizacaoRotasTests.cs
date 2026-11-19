@@ -124,6 +124,24 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public void Manutencao_ExigePoliticaGestorFrotaNaClasse()
+        {
+            AuthorizeAttribute? autorizacao = typeof(ManutencaoController).GetCustomAttribute<AuthorizeAttribute>();
+
+            Assert.NotNull(autorizacao);
+            Assert.Equal(ConstantsValues.PoliticaGestorFrota, autorizacao!.Policy);
+        }
+
+        [Fact]
+        public void Manutencao_AberturaEncerramentoEAlertasNaoSaoAnonimas()
+        {
+            Assert.False(Attribute.IsDefined(typeof(ManutencaoController), typeof(AllowAnonymousAttribute), true));
+            Assert.False(Attribute.IsDefined(typeof(ManutencaoController).GetMethod(nameof(ManutencaoController.Abrir))!, typeof(AllowAnonymousAttribute), true));
+            Assert.False(Attribute.IsDefined(typeof(ManutencaoController).GetMethod(nameof(ManutencaoController.Encerrar))!, typeof(AllowAnonymousAttribute), true));
+            Assert.False(Attribute.IsDefined(typeof(ManutencaoController).GetMethod(nameof(ManutencaoController.Alertas))!, typeof(AllowAnonymousAttribute), true));
+        }
+
+        [Fact]
         public void Seguro_ExigeFuncionarioNaClasse()
         {
             AuthorizeAttribute? autorizacao = typeof(SeguroController).GetCustomAttribute<AuthorizeAttribute>();

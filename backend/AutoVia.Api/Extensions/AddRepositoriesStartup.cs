@@ -55,6 +55,9 @@ namespace AutoVia.Api.Extensions
             // --- Seguros (P9-BE-01) ---
             services.AddScoped<ISeguroRepository, SeguroRepository>();
 
+            // --- Manutencao (P8-BE-01, P8-BE-02 e P8-BE-03) ---
+            services.AddScoped<IManutencaoRepository, ManutencaoRepository>();
+
             return services;
         }
     }

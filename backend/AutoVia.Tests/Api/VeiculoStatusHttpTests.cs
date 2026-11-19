@@ -164,6 +164,37 @@ namespace AutoVia.Tests.Api
             Assert.DoesNotContain("falha tecnica de teste", texto);
         }
 
+        /// <summary>
+        /// Volta da manutencao (MANUTENCAO para DISPONIVEL) com ordem aberta: 409 com ErroVeiculoStatusComOrdemAberta, e o
+        /// status segue MANUTENCAO (decisao 1 de 19/11/2026: quem libera o veiculo e o encerramento da ordem).
+        /// </summary>
+        [Fact]
+        public async Task VoltaDaManutencaoComOrdemAberta_Devolve409ComAMensagemNova()
+        {
+            Veiculo veiculo = SemearVeiculo(StatusVeiculo.MANUTENCAO, IdEmpresaDoTeste);
+            _fabrica.Veiculos.ManutencoesDoVeiculo.Add(new Manutencao { IdVeiculo = veiculo.IdVeiculo, DataSaida = null });
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(veiculo.IdVeiculo, TokenDeFuncionario(), "{\"status\":\"DISPONIVEL\"}"));
+
+            Assert.Equal(HttpStatusCode.Conflict, resposta.StatusCode);
+            Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(ConstantsMessage.ErroVeiculoStatusComOrdemAberta, corpo.GetProperty("detail").GetString());
+            Assert.Equal(StatusVeiculo.MANUTENCAO, _fabrica.Veiculos.Veiculos.Single(x => x.IdVeiculo == veiculo.IdVeiculo).Status);
+        }
+
+        /// <summary>Volta da manutencao sem ordem aberta: 204 e grava DISPONIVEL.</summary>
+        [Fact]
+        public async Task VoltaDaManutencaoSemOrdemAberta_Devolve204EGravaDisponivel()
+        {
+            Veiculo veiculo = SemearVeiculo(StatusVeiculo.MANUTENCAO, IdEmpresaDoTeste);
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(veiculo.IdVeiculo, TokenDeFuncionario(), "{\"status\":\"DISPONIVEL\"}"));
+
+            Assert.Equal(HttpStatusCode.NoContent, resposta.StatusCode);
+            Assert.Equal(StatusVeiculo.DISPONIVEL, _fabrica.Veiculos.Veiculos.Single(x => x.IdVeiculo == veiculo.IdVeiculo).Status);
+        }
+
         [Fact]
         public async Task TextoQueNaoEUmNome_Devolve400ComOsSeisNomes()
         {

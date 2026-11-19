@@ -22,6 +22,9 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Locacoes do veiculo que a leitura de locacoes em aberto enxerga.</summary>
         public List<Locacao> LocacoesDoVeiculo { get; } = new List<Locacao>();
 
+        /// <summary>Ordens de manutencao do veiculo que a leitura de ordens abertas enxerga (volta da manutencao, P8-BE-01).</summary>
+        public List<Manutencao> ManutencoesDoVeiculo { get; } = new List<Manutencao>();
+
         /// <summary>Quando nao for null, AlterarStatusAtomicamenteAsync lanca esta excecao (simula falha inesperada do banco).</summary>
         public Exception? ExcecaoAoAlterarStatus { get; set; }
 
@@ -63,6 +66,14 @@ namespace AutoVia.Tests.Fakes
             if (!resultado.Permitida)
             {
                 throw new BusinessException(resultado.MensagemRecusa ?? ConstantsMessage.ErroAlterarStatusVeiculo);
+            }
+
+            bool voltaDaManutencao = statusAnterior == StatusVeiculo.MANUTENCAO && destino == StatusVeiculo.DISPONIVEL;
+            bool temOrdemAberta = ManutencoesDoVeiculo.Any(x => x.IdVeiculo == idVeiculo && x.DisabledAt == null && x.DataSaida == null);
+
+            if (voltaDaManutencao && temOrdemAberta)
+            {
+                throw new BusinessException(ConstantsMessage.ErroVeiculoStatusComOrdemAberta);
             }
 
             veiculo.Status = destino;
