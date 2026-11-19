@@ -24,7 +24,8 @@ namespace AutoVia.Infrastructure.Services
     /// Documentos do cliente (RF-08). Ordem do envio: dono (sessao e rota, 404 sem armazenamento); cliente ativo; teto de envios
     /// em 24 horas (429, nada gravado); tipo pelo nome e tipo do conteudo pelos primeiros bytes; arquivo guardado como veio no
     /// armazenamento; uma gravacao no banco que desativa o ativo do mesmo tipo; arquivos das linhas desativadas removidos
-    /// (falha so vai para o log). Falha da gravacao remove o arquivo novo e relanca.
+    /// (falha so vai para o log). Falha da gravacao remove o arquivo novo e relanca. A listagem da equipe (P2-BE-05) usa a mesma
+    /// montagem da listagem do dono; quem chama confere o vinculo com a locadora antes.
     /// </summary>
     public sealed class ClienteDocumentoService : IClienteDocumentoService
     {
@@ -140,50 +141,7 @@ namespace AutoVia.Infrastructure.Services
                     throw new NotFoundException(ConstantsMessage.ErroClienteNaoEncontrada);
                 }
 
-                List<ClienteDocumento> ativos = await _clienteDocumentoRepository.FindAtivosDoClienteAsync(idClienteSessao, cancellationToken);
-                List<ClienteDocumento> escolhidos = new List<ClienteDocumento>();
-
-                foreach (TipoDocumentoCliente tipo in Enum.GetValues<TipoDocumentoCliente>())
-                {
-                    ClienteDocumento? escolhido = RegrasClienteDocumento.EscolherAtivoPorTipo(ativos, tipo);
-                    if (escolhido != null)
-                    {
-                        escolhidos.Add(escolhido);
-                    }
-                }
-
-                if (escolhidos.Count == 0)
-                {
-                    return new List<ReturnClienteDocumentoVO>();
-                }
-
-                List<string> chaves = escolhidos.Select(documento => documento.ChaveObjeto).ToList();
-                IReadOnlyDictionary<string, ArquivoArmazenado> assinados = await _armazenamentoGateway.AssinarUrlsAsync(chaves, cancellationToken);
-
-                List<ReturnClienteDocumentoVO> lista = new List<ReturnClienteDocumentoVO>(escolhidos.Count);
-                int semLink = 0;
-
-                foreach (ClienteDocumento documento in escolhidos)
-                {
-                    if (assinados.TryGetValue(documento.ChaveObjeto, out ArquivoArmazenado? arquivo) && arquivo != null)
-                    {
-                        lista.Add(MontarRetorno(documento, arquivo.Url, arquivo.ExpiraEm));
-                        continue;
-                    }
-
-                    semLink++;
-                    lista.Add(MontarRetorno(documento, null, null));
-                }
-
-                if (semLink > 0)
-                {
-                    _logService.Write(
-                        string.Format(CultureInfo.InvariantCulture, ConstantsMessage.ErroClienteDocumentoSemUrlAssinada, semLink),
-                        ConstantsMessage.ErroListarClienteDocumento,
-                        GetType().ToString());
-                }
-
-                return lista;
+                return await MontarListaAtivosAsync(idClienteSessao, cancellationToken);
             }
             catch (BusinessException)
             {
@@ -202,6 +160,75 @@ namespace AutoVia.Infrastructure.Services
                 _logService.Write(ex, ConstantsMessage.ErroListarClienteDocumento, GetType().ToString());
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Lista os documentos ativos de um cliente para a equipe da locadora. O acesso (vinculo ativo com a locadora) ja foi
+        /// conferido por quem chama; aqui so se monta a lista, com a mesma regra da listagem do dono.
+        /// </summary>
+        public async Task<List<ReturnClienteDocumentoVO>> ListarDaEquipeAsync(int idCliente, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await MontarListaAtivosAsync(idCliente, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroListarClienteDocumento, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Monta a lista dos documentos ativos de um cliente: no maximo um por tipo (CNH antes do comprovante), com URL temporaria
+        /// nova. Sem documento nao chama o armazenamento. Item sem link assinado vem com url e expiraEm nulos e so registra no log.
+        /// </summary>
+        private async Task<List<ReturnClienteDocumentoVO>> MontarListaAtivosAsync(int idCliente, CancellationToken cancellationToken)
+        {
+            List<ClienteDocumento> ativos = await _clienteDocumentoRepository.FindAtivosDoClienteAsync(idCliente, cancellationToken);
+            List<ClienteDocumento> escolhidos = new List<ClienteDocumento>();
+
+            foreach (TipoDocumentoCliente tipo in Enum.GetValues<TipoDocumentoCliente>())
+            {
+                ClienteDocumento? escolhido = RegrasClienteDocumento.EscolherAtivoPorTipo(ativos, tipo);
+                if (escolhido != null)
+                {
+                    escolhidos.Add(escolhido);
+                }
+            }
+
+            if (escolhidos.Count == 0)
+            {
+                return new List<ReturnClienteDocumentoVO>();
+            }
+
+            List<string> chaves = escolhidos.Select(documento => documento.ChaveObjeto).ToList();
+            IReadOnlyDictionary<string, ArquivoArmazenado> assinados = await _armazenamentoGateway.AssinarUrlsAsync(chaves, cancellationToken);
+
+            List<ReturnClienteDocumentoVO> lista = new List<ReturnClienteDocumentoVO>(escolhidos.Count);
+            int semLink = 0;
+
+            foreach (ClienteDocumento documento in escolhidos)
+            {
+                if (assinados.TryGetValue(documento.ChaveObjeto, out ArquivoArmazenado? arquivo) && arquivo != null)
+                {
+                    lista.Add(MontarRetorno(documento, arquivo.Url, arquivo.ExpiraEm));
+                    continue;
+                }
+
+                semLink++;
+                lista.Add(MontarRetorno(documento, null, null));
+            }
+
+            if (semLink > 0)
+            {
+                _logService.Write(
+                    string.Format(CultureInfo.InvariantCulture, ConstantsMessage.ErroClienteDocumentoSemUrlAssinada, semLink),
+                    ConstantsMessage.ErroListarClienteDocumento,
+                    GetType().ToString());
+            }
+
+            return lista;
         }
 
         /// <summary>Dono: sessao sem cliente responde 401; id da rota ausente ou diferente do da sessao responde 404 (antes de qualquer armazenamento).</summary>

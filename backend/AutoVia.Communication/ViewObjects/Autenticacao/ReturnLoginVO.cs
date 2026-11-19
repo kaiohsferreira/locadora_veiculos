@@ -32,9 +32,6 @@ namespace AutoVia.Communication.ViewObjects.Autenticacao
         /// <summary>Cargo do funcionario; nulo para cliente.</summary>
         public CargoFuncionario? Cargo { get; set; }
 
-        /// <summary>Status do cadastro do cliente (PENDENTE, APROVADO, RECUSADO); nulo para funcionario.</summary>
-        public StatusCadastroCliente? StatusCadastro { get; set; }
-
         /// <summary>Empresa (locadora) do funcionario; nulo para cliente.</summary>
         public int? IdEmpresa { get; set; }
 

@@ -57,7 +57,7 @@ namespace AutoVia.Tests.Api
             OkObjectResult ok = Assert.IsType<OkObjectResult>(resultado);
             ReturnLoginVO retorno = Assert.IsType<ReturnLoginVO>(ok.Value);
             Assert.False(string.IsNullOrWhiteSpace(retorno.Token));
-            Assert.Equal(StatusCadastroCliente.APROVADO, retorno.StatusCadastro);
+            Assert.Equal(PerfilUsuario.CLIENTE, retorno.Perfil);
         }
 
         [Fact]

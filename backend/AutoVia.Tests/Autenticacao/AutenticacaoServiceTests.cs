@@ -9,6 +9,7 @@ using AutoVia.Infrastructure.Services;
 using AutoVia.Tests.Fakes;
 using Microsoft.IdentityModel.JsonWebTokens;
 using System.Linq;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
 
@@ -56,7 +57,7 @@ namespace AutoVia.Tests.Autenticacao
         }
 
         [Fact]
-        public async Task Cliente_CredenciaisValidasComCpfMascarado_DevolveTokenEStatusDoCadastro()
+        public async Task Cliente_CredenciaisValidasComCpfMascarado_DevolveTokenEPerfilDoCliente()
         {
             FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
             Cliente cliente = new Cliente { Nome = "Maria Cliente", Cpf = CpfCliente, SenhaHash = GerarHash(SenhaCliente), StatusCadastro = StatusCadastroCliente.PENDENTE };
@@ -71,7 +72,6 @@ namespace AutoVia.Tests.Autenticacao
             Assert.Equal(PerfilUsuario.CLIENTE, retorno.Perfil);
             Assert.Equal(cliente.IdCliente, retorno.IdUsuario);
             Assert.Equal("Maria Cliente", retorno.Nome);
-            Assert.Equal(StatusCadastroCliente.PENDENTE, retorno.StatusCadastro);
             Assert.Null(retorno.Cargo);
             Assert.False(string.IsNullOrWhiteSpace(retorno.ExpiraEmStr));
         }
@@ -94,7 +94,7 @@ namespace AutoVia.Tests.Autenticacao
         }
 
         [Fact]
-        public async Task Cliente_CadastroRecusado_AindaEntraComStatusInformado()
+        public async Task Cliente_CadastroRecusado_AindaEntraSemStatusCadastro()
         {
             FakeAutenticacaoRepository repositorio = new FakeAutenticacaoRepository();
             repositorio.AdicionarCliente(new Cliente { Nome = "Joao", Cpf = CpfCliente, SenhaHash = GerarHash(SenhaCliente), StatusCadastro = StatusCadastroCliente.RECUSADO });
@@ -103,7 +103,16 @@ namespace AutoVia.Tests.Autenticacao
 
             ReturnLoginVO retorno = await servico.LoginAsync(Login(PerfilUsuario.CLIENTE, CpfCliente, SenhaCliente));
 
-            Assert.Equal(StatusCadastroCliente.RECUSADO, retorno.StatusCadastro);
+            Assert.False(string.IsNullOrWhiteSpace(retorno.Token));
+            Assert.Equal(PerfilUsuario.CLIENTE, retorno.Perfil);
+        }
+
+        [Fact]
+        public void ReturnLoginVO_NaoTemStatusCadastro()
+        {
+            PropertyInfo? statusCadastro = typeof(ReturnLoginVO).GetProperty("StatusCadastro");
+
+            Assert.Null(statusCadastro);
         }
 
         [Fact]
@@ -120,7 +129,6 @@ namespace AutoVia.Tests.Autenticacao
             Assert.Equal(PerfilUsuario.FUNCIONARIO, retorno.Perfil);
             Assert.Equal(funcionario.IdFuncionario, retorno.IdUsuario);
             Assert.Equal(CargoFuncionario.VENDEDOR, retorno.Cargo);
-            Assert.Null(retorno.StatusCadastro);
         }
 
         [Fact]
@@ -337,7 +345,7 @@ namespace AutoVia.Tests.Autenticacao
         }
 
         [Fact]
-        public void EmitirSessaoCliente_ComLembrar_ExpiraEm30DiasEMantemStatusDoCadastro()
+        public void EmitirSessaoCliente_ComLembrar_ExpiraEm30Dias()
         {
             FakeLogService log = new FakeLogService();
             AutenticacaoService servico = CriarServico(new FakeAutenticacaoRepository(), new SenhaHasher(log), log);
@@ -349,7 +357,6 @@ namespace AutoVia.Tests.Autenticacao
 
             Assert.Equal(PerfilUsuario.CLIENTE, retorno.Perfil);
             Assert.Equal(5, retorno.IdUsuario);
-            Assert.Equal(StatusCadastroCliente.PENDENTE, retorno.StatusCadastro);
             Assert.InRange(retorno.ExpiraEm, antes.AddDays(30).AddSeconds(-5), depois.AddDays(30).AddSeconds(5));
         }
 

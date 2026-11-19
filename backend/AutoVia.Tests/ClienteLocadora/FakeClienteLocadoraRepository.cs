@@ -24,6 +24,9 @@ namespace AutoVia.Tests.ClienteLocadora
         /// <summary>Ids de clientes desativados (DisabledAt). Qualquer outro id conta como ativo no fake.</summary>
         public HashSet<int> ClientesDesativados { get; } = new HashSet<int>();
 
+        /// <summary>Clientes semeados com os dados que a fila e o detalhe mostram. Vinculo de cliente fora desta lista nao aparece na fila.</summary>
+        public List<Cliente> Clientes { get; } = new List<Cliente>();
+
         /// <summary>Semeia uma locadora sem passar pelo servico.</summary>
         public void AdicionarEmpresa(Empresa empresa)
         {
@@ -219,6 +222,108 @@ namespace AutoVia.Tests.ClienteLocadora
                 .ToList();
 
             return Task.FromResult(pagina);
+        }
+
+        public Task<int> CountFilaAsync(StatusCadastroCliente? status, string? busca, string? digitosCpf)
+        {
+            int total = Fila(status, busca, digitosCpf).Count();
+
+            return Task.FromResult(total);
+        }
+
+        public Task<List<VinculoClienteLocadora>> FindFilaAsync(StatusCadastroCliente? status, string? busca, string? digitosCpf, int deslocamento, int quantidade)
+        {
+            List<VinculoClienteLocadora> pagina = Fila(status, busca, digitosCpf)
+                .OrderBy(x => x.DataSolicitacao)
+                .ThenBy(x => x.IdCliente)
+                .Skip(deslocamento)
+                .Take(quantidade)
+                .ToList();
+
+            return Task.FromResult(pagina);
+        }
+
+        public Task<VinculoClienteLocadora?> FindVinculoComClienteAsync(int idCliente, int idEmpresa)
+        {
+            VinculoClienteLocadora? vinculo = VisiveisAtivos()
+                .Where(x => x.IdCliente == idCliente && x.IdEmpresa == idEmpresa)
+                .OrderBy(x => x.IdClienteLocadora)
+                .FirstOrDefault();
+
+            if (vinculo == null || ClienteAtivoDoArmazenamento(idCliente) == null)
+            {
+                return Task.FromResult<VinculoClienteLocadora?>(null);
+            }
+
+            return Task.FromResult<VinculoClienteLocadora?>(CopiarComCliente(vinculo));
+        }
+
+        /// <summary>
+        /// Fila como a consulta real: clientes ativos (cadastrados no armazenamento e nao desativados) com a linha que vale do par
+        /// (a ativa de menor id do par cliente x locadora), filtradas por status e busca. Cada item sai com o cliente anexado.
+        /// </summary>
+        private List<VinculoClienteLocadora> Fila(StatusCadastroCliente? status, string? busca, string? digitosCpf)
+        {
+            List<VinculoClienteLocadora> ativos = VisiveisAtivos().ToList();
+            List<VinculoClienteLocadora> resultado = new List<VinculoClienteLocadora>();
+
+            foreach (VinculoClienteLocadora vinculo in ativos)
+            {
+                int menorId = ativos
+                    .Where(y => y.IdCliente == vinculo.IdCliente && y.IdEmpresa == vinculo.IdEmpresa)
+                    .Min(y => y.IdClienteLocadora);
+
+                if (menorId != vinculo.IdClienteLocadora)
+                {
+                    continue;
+                }
+
+                Cliente? cliente = ClienteAtivoDoArmazenamento(vinculo.IdCliente);
+
+                if (cliente == null)
+                {
+                    continue;
+                }
+
+                if (status.HasValue && vinculo.Status != status.Value)
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(busca) && !CasaBusca(cliente, busca, digitosCpf))
+                {
+                    continue;
+                }
+
+                resultado.Add(CopiarComCliente(vinculo));
+            }
+
+            return resultado;
+        }
+
+        /// <summary>Cliente semeado e nao desativado; nulo quando nao esta no armazenamento.</summary>
+        private Cliente? ClienteAtivoDoArmazenamento(int idCliente)
+        {
+            return _armazenamento.Clientes.FirstOrDefault(x => x.IdCliente == idCliente && x.DisabledAt == null && !_armazenamento.ClientesDesativados.Contains(idCliente));
+        }
+
+        /// <summary>Busca como a consulta real: nome e e-mail contem o termo sem diferenciar maiusculas; CPF so com digitos no termo.</summary>
+        private static bool CasaBusca(Cliente cliente, string busca, string? digitosCpf)
+        {
+            string termo = busca.ToLowerInvariant();
+            bool casaNomeOuEmail = cliente.Nome.ToLowerInvariant().Contains(termo) || cliente.Email.ToLowerInvariant().Contains(termo);
+            bool casaCpf = !string.IsNullOrEmpty(digitosCpf) && cliente.Cpf.Contains(digitosCpf);
+
+            return casaNomeOuEmail || casaCpf;
+        }
+
+        /// <summary>Copia do vinculo com a locadora e o cliente anexados, como o Include do repositorio real.</summary>
+        private VinculoClienteLocadora CopiarComCliente(VinculoClienteLocadora origem)
+        {
+            VinculoClienteLocadora copia = Copiar(origem);
+            copia.Cliente = ClienteAtivoDoArmazenamento(origem.IdCliente)!;
+
+            return copia;
         }
 
         /// <summary>Vinculos ativos que o contexto enxerga (o filtro "Empresa"): da locadora do contexto OU do cliente do contexto.</summary>

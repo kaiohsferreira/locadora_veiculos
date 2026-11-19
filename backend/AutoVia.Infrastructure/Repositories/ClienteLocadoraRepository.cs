@@ -303,5 +303,126 @@ namespace AutoVia.Infrastructure.Repositories
 
             return consulta;
         }
+
+        /// <summary>Conta os cadastros da fila de verificacao com os filtros (uma linha por cliente, a que vale do par).</summary>
+        public async Task<int> CountFilaAsync(StatusCadastroCliente? status, string? busca, string? digitosCpf)
+        {
+            try
+            {
+                int total = await ConsultaFila(status, busca, digitosCpf).CountAsync();
+
+                return total;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroListarFilaVerificacao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Pagina da fila de verificacao, com o cliente, ordenada pela data do pedido e pelo id do cliente.</summary>
+        public async Task<List<ClienteLocadora>> FindFilaAsync(StatusCadastroCliente? status, string? busca, string? digitosCpf, int deslocamento, int quantidade)
+        {
+            try
+            {
+                List<ClienteLocadora> pagina = await ConsultaFilaPaginada(status, busca, digitosCpf, deslocamento, quantidade).ToListAsync();
+
+                return pagina;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroListarFilaVerificacao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta nomeada: a pagina da fila (ConsultaFila) com o cliente anexado, ordenada pela data do pedido e pelo id do
+        /// cliente, com deslocamento e quantidade por parametro. So monta a consulta (teste de SQL por ToQueryString); quem
+        /// executa e FindFilaAsync.
+        /// </summary>
+        public IQueryable<ClienteLocadora> ConsultaFilaPaginada(StatusCadastroCliente? status, string? busca, string? digitosCpf, int deslocamento, int quantidade)
+        {
+            try
+            {
+                IQueryable<ClienteLocadora> consulta = ConsultaFila(status, busca, digitosCpf)
+                    .Include(x => x.Cliente)
+                    .OrderBy(x => x.DataSolicitacao)
+                    .ThenBy(x => x.IdCliente)
+                    .Skip(deslocamento)
+                    .Take(quantidade);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroListarFilaVerificacao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Linha que vale do par cliente x locadora, com o cliente anexado; nulo se o cliente estiver desativado ou sem vinculo ativo.</summary>
+        public async Task<ClienteLocadora?> FindVinculoComClienteAsync(int idCliente, int idEmpresa)
+        {
+            try
+            {
+                ClienteLocadora? vinculo = await ConsultaVinculoAtivoMaisAntigo(idCliente, idEmpresa)
+                    .Where(x => x.Cliente.DisabledAt == null)
+                    .Include(x => x.Cliente)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync();
+
+                return vinculo;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroObterVerificacaoCliente, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta da fila de verificacao: vinculos ativos de clientes ativos, na linha que vale do par (a ativa de menor id do
+        /// par cliente x locadora), com filtro de status e busca. A busca casa nome e e-mail (contem, sem diferenciar maiusculas)
+        /// e o CPF so quando ha digitos; o EF escapa % e _ no Contains. O filtro "Empresa" vale na consulta e na subconsulta.
+        /// So monta a consulta (teste de SQL por ToQueryString); quem executa e CountFilaAsync ou FindFilaAsync.
+        /// </summary>
+        public IQueryable<ClienteLocadora> ConsultaFila(StatusCadastroCliente? status, string? busca, string? digitosCpf)
+        {
+            try
+            {
+                IQueryable<ClienteLocadora> consulta = _db.ClientesLocadoras
+                    .AsNoTracking()
+                    .Where(x => x.DisabledAt == null
+                        && x.Cliente.DisabledAt == null
+                        && x.IdClienteLocadora == _db.ClientesLocadoras
+                            .Where(y => y.DisabledAt == null && y.IdCliente == x.IdCliente && y.IdEmpresa == x.IdEmpresa)
+                            .Min(y => y.IdClienteLocadora));
+
+                if (status.HasValue)
+                {
+                    StatusCadastroCliente statusFiltro = status.Value;
+                    consulta = consulta.Where(x => x.Status == statusFiltro);
+                }
+
+                if (!string.IsNullOrEmpty(busca))
+                {
+                    string termoBusca = busca.ToLowerInvariant();
+                    bool temDigitos = !string.IsNullOrEmpty(digitosCpf);
+                    string termoDigitos = digitosCpf ?? string.Empty;
+
+                    consulta = consulta.Where(x => x.Cliente.Nome.ToLower().Contains(termoBusca)
+                        || x.Cliente.Email.ToLower().Contains(termoBusca)
+                        || (temDigitos && x.Cliente.Cpf.Contains(termoDigitos)));
+                }
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroListarFilaVerificacao, GetType().ToString());
+                throw;
+            }
+        }
     }
 }

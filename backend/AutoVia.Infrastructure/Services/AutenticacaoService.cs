@@ -80,7 +80,6 @@ namespace AutoVia.Infrastructure.Services
             try
             {
                 ReturnLoginVO retorno = EmitirSessao(PerfilUsuario.CLIENTE, cliente.IdCliente, cliente.Nome, null, cliente.SenhaHash, lembrar, null);
-                retorno.StatusCadastro = cliente.StatusCadastro;
 
                 return retorno;
             }
@@ -121,7 +120,6 @@ namespace AutoVia.Infrastructure.Services
             }
 
             ReturnLoginVO retorno = EmitirSessao(PerfilUsuario.CLIENTE, cliente.IdCliente, cliente.Nome, null, cliente.SenhaHash, lembrar, null);
-            retorno.StatusCadastro = cliente.StatusCadastro;
 
             return retorno;
         }

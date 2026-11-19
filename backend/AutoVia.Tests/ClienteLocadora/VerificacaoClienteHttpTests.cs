@@ -5,7 +5,9 @@ using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
+using AutoVia.Integrations.Interfaces;
 using AutoVia.Tests.Api;
+using AutoVia.Tests.DocumentosCliente;
 using AutoVia.Tests.Fakes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -258,14 +260,17 @@ namespace AutoVia.Tests.ClienteLocadora
 
     /// <summary>
     /// Servidor de teste da verificacao: a fabrica base (login e sessao reais) mais o armazenamento de vinculos compartilhado
-    /// e um repositorio de vinculos por requisicao (com o contexto da requisicao). Semeia uma locadora operadora, um
-    /// ADMINISTRADOR, um ATENDENTE e um FINANCEIRO nela.
+    /// e um repositorio de vinculos por requisicao (com o contexto da requisicao). Semeia uma locadora operadora e um
+    /// funcionario de cada cargo nela (ADMINISTRADOR, ATENDENTE, FINANCEIRO, GESTOR_FROTA, VENDEDOR e ADMINISTRATIVO).
     /// </summary>
     public sealed class VerificacaoWebFactory : AutenticacaoWebFactory
     {
         private const string CpfAdminSemente = "12345678909";
         private const string CpfAtendenteSemente = "86288366757";
         private const string CpfFinanceiroSemente = "71428793860";
+        private const string CpfGestorFrotaSemente = "11144477735";
+        private const string CpfVendedorSemente = "52998224725";
+        private const string CpfAdministrativoSemente = "98765432100";
         private const string SenhaTeste = "SenhaEquipe1";
 
         public VerificacaoWebFactory()
@@ -277,6 +282,9 @@ namespace AutoVia.Tests.ClienteLocadora
             Administrador = Semear("Admin Verificador", CpfAdminSemente, "A-001", CargoFuncionario.ADMINISTRADOR, hash);
             Atendente = Semear("Atendente Verificador", CpfAtendenteSemente, "A-002", CargoFuncionario.ATENDENTE, hash);
             Financeiro = Semear("Financeiro", CpfFinanceiroSemente, "A-003", CargoFuncionario.FINANCEIRO, hash);
+            GestorFrota = Semear("Gestor Frota", CpfGestorFrotaSemente, "A-004", CargoFuncionario.GESTOR_FROTA, hash);
+            Vendedor = Semear("Vendedor", CpfVendedorSemente, "A-005", CargoFuncionario.VENDEDOR, hash);
+            Administrativo = Semear("Administrativo", CpfAdministrativoSemente, "A-006", CargoFuncionario.ADMINISTRATIVO, hash);
             OutraLocadora = new Empresa
             {
                 RazaoSocial = "Locadora Outra Ltda",
@@ -290,7 +298,18 @@ namespace AutoVia.Tests.ClienteLocadora
             Armazenamento = new ArmazenamentoClienteLocadora();
             Armazenamento.AdicionarEmpresa(Operadora);
             Armazenamento.AdicionarEmpresa(OutraLocadora);
+
+            foreach (Cliente cliente in Repositorio.Clientes)
+            {
+                Armazenamento.Clientes.Add(cliente);
+            }
         }
+
+        /// <summary>Repositorio de documentos em memoria usado pelo servidor de teste (leitura da equipe).</summary>
+        public FakeClienteDocumentoRepository DocumentosRepositorio { get; } = new FakeClienteDocumentoRepository();
+
+        /// <summary>Armazenamento de arquivos em memoria do servidor de teste (conta assinaturas e remocoes).</summary>
+        public FakeArmazenamentoGateway ArmazenamentoDocumentos { get; } = new FakeArmazenamentoGateway();
 
         /// <summary>Locadora operadora da semente (a empresa do contexto dos funcionarios).</summary>
         public Empresa Operadora { get; }
@@ -307,6 +326,12 @@ namespace AutoVia.Tests.ClienteLocadora
 
         public Funcionario Financeiro { get; }
 
+        public Funcionario GestorFrota { get; }
+
+        public Funcionario Vendedor { get; }
+
+        public Funcionario Administrativo { get; }
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             base.ConfigureWebHost(builder);
@@ -315,6 +340,10 @@ namespace AutoVia.Tests.ClienteLocadora
             {
                 services.RemoveAll<IClienteLocadoraRepository>();
                 services.AddScoped<IClienteLocadoraRepository>(provedor => new FakeClienteLocadoraRepository(provedor.GetRequiredService<IContextoEmpresa>(), Armazenamento));
+                services.RemoveAll<IClienteDocumentoRepository>();
+                services.AddSingleton<IClienteDocumentoRepository>(DocumentosRepositorio);
+                services.RemoveAll<IArmazenamentoGateway>();
+                services.AddSingleton<IArmazenamentoGateway>(ArmazenamentoDocumentos);
             });
         }
 

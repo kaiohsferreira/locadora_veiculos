@@ -10,10 +10,10 @@ namespace AutoVia.Helpers
         // --- Reserva: status do cadastro na locadora (409) ---
 
         /// <summary>409: cadastro pendente nesta locadora. {0} = nome fantasia da locadora.</summary>
-        public const string ErroReservaCadastroEmAnalise = "Seu cadastro está em análise pela locadora {0}. Seus dados de cadastro foram compartilhados com ela para a verificação. A reserva fica disponível após a aprovação.";
+        public const string ErroReservaCadastroEmAnalise = "Seu cadastro está em análise pela locadora {0}. Seus dados de cadastro foram compartilhados com ela para a verificação. A reserva fica disponível após a aprovação. (RP-02)";
 
         /// <summary>409: cadastro recusado nesta locadora. {0} = nome fantasia da locadora.</summary>
-        public const string ErroReservaCadastroRecusado = "Seu cadastro foi recusado pela locadora {0}. Entre em contato com ela para regularizar.";
+        public const string ErroReservaCadastroRecusado = "Seu cadastro foi recusado pela locadora {0}. Entre em contato com ela para regularizar. (RP-02)";
 
         /// <summary>409: o cliente nao tem vinculo aprovado com a locadora e quem chama nao e o proprio cliente (nada e criado).</summary>
         public const string ErroReservaCadastroNaoAprovado = "Este cliente ainda não tem cadastro aprovado nesta locadora.";

@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 namespace AutoVia.Api.Extensions
 {
     /// <summary>
-    /// Limite de requisicoes das rotas publicas: janela fixa por IP. Cinco politicas independentes, cada uma
+    /// Limite de requisicoes das rotas publicas: janela fixa por IP. Politicas independentes, cada uma
     /// com o seu contador: AutoViaPublico (login, cadastro, recuperacao e Google; um minuto; numero em
     /// Autenticacao:LimitePublicoPorMinuto), AutoViaVerificacaoCadastro (verificacao de cadastro; um minuto;
     /// numero em Clientes:LimiteVerificacaoCadastroPorMinuto), AutoViaCadastroEmpresa (cadastro publico de
@@ -49,6 +49,7 @@ namespace AutoVia.Api.Extensions
                 int limiteLeituraArquivo = LerLimite(configuration, ConstantsValues.ChaveLimiteLeituraArquivo, ConstantsValues.LimiteLeituraArquivoPorMinutoPadrao);
                 int limiteEnvioDocumento = LerLimite(configuration, ConstantsValues.ChaveLimiteEnvioDocumentoCliente, ConstantsValues.LimiteEnvioDocumentoClientePorMinutoPadrao);
                 int limiteListaDocumento = LerLimite(configuration, ConstantsValues.ChaveLimiteListaDocumentoCliente, ConstantsValues.LimiteListaDocumentoClientePorMinutoPadrao);
+                int limiteListaDocumentoEquipe = LerLimite(configuration, ConstantsValues.ChaveLimiteListaDocumentoEquipe, ConstantsValues.LimiteListaDocumentoEquipePorMinutoPadrao);
 
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
@@ -60,6 +61,7 @@ namespace AutoVia.Api.Extensions
                 RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteLeituraArquivo, limiteLeituraArquivo, TimeSpan.FromMinutes(1));
                 RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteEnvioDocumentoCliente, limiteEnvioDocumento, TimeSpan.FromMinutes(1));
                 RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteListaDocumentoCliente, limiteListaDocumento, TimeSpan.FromMinutes(1));
+                RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteListaDocumentoEquipe, limiteListaDocumentoEquipe, TimeSpan.FromMinutes(1));
 
                 options.OnRejected = async (context, cancellationToken) =>
                 {

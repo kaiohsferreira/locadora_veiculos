@@ -17,5 +17,11 @@ namespace AutoVia.Core.ServicesInterface
 
         /// <summary>Lista os documentos ativos do cliente, no maximo um por tipo (CNH antes do comprovante), com URL temporaria nova.</summary>
         Task<List<ReturnClienteDocumentoVO>> ListarAsync(int idClienteRota, int idClienteSessao, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Lista os documentos ativos de um cliente para a equipe da locadora (o acesso ja foi conferido por quem chama, pelo
+        /// vinculo ativo). Mesma regra da listagem do dono: no maximo um por tipo, CNH antes do comprovante, URL nova.
+        /// </summary>
+        Task<List<ReturnClienteDocumentoVO>> ListarDaEquipeAsync(int idCliente, CancellationToken cancellationToken = default);
     }
 }

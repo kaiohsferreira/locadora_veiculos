@@ -42,5 +42,23 @@ namespace AutoVia.Core.RepositoriesInterface
         /// desativadas, contando id_empresa distinto). Base do teto de pedidos de aprovacao por cliente.
         /// </summary>
         Task<int> CountEmpresasSolicitadasDesdeAsync(int idCliente, DateTime desde);
+
+        /// <summary>
+        /// Conta os cadastros da fila de verificacao da locadora do contexto: clientes ativos com vinculo ativo, uma linha por
+        /// cliente (a que vale do par), filtrados por status e busca. Busca ja sem espacos; digitosCpf vazio ou nulo nao busca CPF.
+        /// </summary>
+        Task<int> CountFilaAsync(StatusCadastroCliente? status, string? busca, string? digitosCpf);
+
+        /// <summary>
+        /// Pagina da fila de verificacao da locadora do contexto, com o cliente anexado, ordenada pela data do pedido e pelo
+        /// id do cliente (desempate). Mesmos filtros de CountFilaAsync.
+        /// </summary>
+        Task<List<ClienteLocadora>> FindFilaAsync(StatusCadastroCliente? status, string? busca, string? digitosCpf, int deslocamento, int quantidade);
+
+        /// <summary>
+        /// Linha que vale do par cliente x locadora da locadora do contexto (vinculo ativo de menor id), com o cliente anexado.
+        /// Nulo se nao houver vinculo ativo ou se o cliente estiver desativado.
+        /// </summary>
+        Task<ClienteLocadora?> FindVinculoComClienteAsync(int idCliente, int idEmpresa);
     }
 }
