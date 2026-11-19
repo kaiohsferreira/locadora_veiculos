@@ -284,6 +284,75 @@ namespace AutoVia.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.ClienteDocumento", b =>
+                {
+                    b.Property<int>("IdClienteDocumento")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id_cliente_documento");
+
+                    NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdClienteDocumento"));
+
+                    b.Property<string>("ChaveObjeto")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("chave_objeto");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
+
+                    b.Property<int>("IdCliente")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_cliente");
+
+                    b.Property<string>("NomeArquivo")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("nome_arquivo");
+
+                    b.Property<int>("TamanhoBytes")
+                        .HasColumnType("integer")
+                        .HasColumnName("tamanho_bytes");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("tipo");
+
+                    b.Property<string>("TipoConteudo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("tipo_conteudo");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("IdClienteDocumento")
+                        .HasName("cliente_documento_pkey");
+
+                    b.HasIndex("IdCliente", "Tipo")
+                        .HasDatabaseName("idx_cliente_documento_cliente_tipo");
+
+                    b.ToTable("cliente_documento", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_cliente_documento_tipo", "tipo IN ('CNH', 'COMPROVANTE_RESIDENCIA')");
+                        });
+                });
+
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.ClienteLocadora", b =>
                 {
                     b.Property<int>("IdClienteLocadora")
@@ -1793,6 +1862,18 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasConstraintName("fk_avaria_vistoria");
 
                     b.Navigation("Vistoria");
+                });
+
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.ClienteDocumento", b =>
+                {
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Cliente", "Cliente")
+                        .WithMany()
+                        .HasForeignKey("IdCliente")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_cliente_documento_cliente");
+
+                    b.Navigation("Cliente");
                 });
 
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.ClienteLocadora", b =>

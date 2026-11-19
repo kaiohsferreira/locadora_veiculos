@@ -19,6 +19,7 @@ namespace AutoVia.Tests.Integrations.Armazenamento
     public sealed class ArmazenamentoLeituraServiceTests : IDisposable
     {
         private const string Chave = "veiculos/12/fotos/0f8fad5bd9cb469fa16570867728950e.jpg";
+        private const string ChaveDocumentoDoCliente = "clientes/7/documentos/cnh-teste.pdf";
         private const string ChaveComQuebraDeLinha = Chave + "\n";
         private const string ChaveComTravessia = "veiculos/../segredo/assinatura.key";
         private const string NomeDaPastaDePublicacao = "publicacao";
@@ -185,6 +186,47 @@ namespace AutoVia.Tests.Integrations.Armazenamento
             await Assert.ThrowsAsync<NotFoundException>(() => servico.AbrirAsync(Chave, exp, Assinatura(Chave, exp), new List<string>()));
 
             Assert.True(RegistroContem(ConstantsMessage.LogArmazenamentoLeituraArquivoAusente));
+        }
+
+        [Fact]
+        public async Task PdfComAssinatura_EhLidoComOTipoPdfEMarcaDocumentoDoCliente()
+        {
+            byte[] pdf = ConstantsValues.AssinaturaPdf.Concat(new byte[] { 1, 2, 3, 4 }).ToArray();
+            GravarArquivo(ChaveDocumentoDoCliente, pdf);
+            ArmazenamentoLeituraService servico = CriarServico();
+            long exp = Expiracao();
+
+            ArquivoParaLeitura leitura = await servico.AbrirAsync(ChaveDocumentoDoCliente, exp, Assinatura(ChaveDocumentoDoCliente, exp), new List<string>());
+
+            Assert.Equal(ConstantsValues.TipoConteudoPdf, leitura.ContentType);
+            Assert.Equal(pdf, leitura.Conteudo);
+            Assert.True(leitura.DocumentoDoCliente);
+        }
+
+        [Fact]
+        public async Task ChaveDeFoto_NaoEMarcadaComoDocumentoDoCliente()
+        {
+            GravarArquivo(Chave, ConteudoJpeg(TamanhoDoJpegDeTeste));
+            ArmazenamentoLeituraService servico = CriarServico();
+            long exp = Expiracao();
+
+            ArquivoParaLeitura leitura = await servico.AbrirAsync(Chave, exp, Assinatura(Chave, exp), new List<string>());
+
+            Assert.False(leitura.DocumentoDoCliente);
+        }
+
+        [Fact]
+        public async Task EtagDeDocumentoDoCliente_DevolveNaoModificadoComAMarcaDeDocumento()
+        {
+            GravarArquivo(ChaveDocumentoDoCliente, ConteudoJpeg(TamanhoDoJpegDeTeste));
+            ArmazenamentoLeituraService servico = CriarServico();
+            long exp = Expiracao();
+            ArquivoParaLeitura primeira = await servico.AbrirAsync(ChaveDocumentoDoCliente, exp, Assinatura(ChaveDocumentoDoCliente, exp), new List<string>());
+
+            ArquivoParaLeitura segunda = await servico.AbrirAsync(ChaveDocumentoDoCliente, exp, Assinatura(ChaveDocumentoDoCliente, exp), new List<string> { primeira.ETag });
+
+            Assert.True(segunda.NaoModificado);
+            Assert.True(segunda.DocumentoDoCliente);
         }
 
         [Fact]

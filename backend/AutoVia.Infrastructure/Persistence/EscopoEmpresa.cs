@@ -13,7 +13,7 @@ namespace AutoVia.Infrastructure.Persistence
     /// Sinistro pelo Veiculo; SinistroHistorico pelo Sinistro; VeiculoFoto pelo Veiculo; Vistoria e CobrancaExtra pela Locacao; Avaria pela Vistoria; Pagamento
     /// pela Locacao ou pela Venda; ClienteLocadora pelo proprio id_empresa OU pelo id_cliente do contexto.
     /// Fail-closed: sem contexto de empresa (id 0) nada volta.
-    /// Globais sem filtro: Cliente, Categoria, RedefinicaoSenha, Integration*, Empresa.
+    /// Globais sem filtro: Cliente, ClienteDocumento (documentos do cliente, RF-08), Categoria, RedefinicaoSenha, Integration*, Empresa.
     /// Lista fechada de quem pode desligar o filtro "Empresa" (bypass nomeado, por metodo, conferida pela guarda de testes),
     /// e o motivo de cada um: autenticacao (login, sessao e administrador inicial, antes de haver contexto); redefinicao de
     /// senha (titular do link, sem contexto); unicidade do veiculo (placa, chassi e renavam na plataforma inteira); CPF na

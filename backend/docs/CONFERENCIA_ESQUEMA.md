@@ -217,3 +217,25 @@ Indices:  36 (inalterado)
 ```
 
 Como o `compare_schema.py` não lê as entradas `colunas_novas` nem `alteracao_de_tamanho` dos blocos de desvio, ele lista as duas colunas e o tamanho do modelo como diferença. A conferência é feita pelo diff do `00_ModeloAtual.sql` e por `dotnet ef migrations has-pending-model-changes`, que responde "No changes have been made to the model since the last migration".
+
+## Desvio de 19/11/2026: documentos do cliente (RF-08, P2-BE-03)
+
+Aprovado pelo Kaio em 19/11/2026 (bloco `cliente_documento` em `especificacao/desvios_aprovados.json`). O cliente envia a CNH e o comprovante de residência; o arquivo fica no armazenamento externo e o banco guarda só a chave do objeto, o nome limpo para a tela, o tipo do conteúdo e o tamanho.
+- Tabela nova `cliente_documento` (10 colunas: 7 de negócio e 3 de auditoria do `BaseEntities`): `id_cliente_documento` (SERIAL, PK `cliente_documento_pkey`), `id_cliente`, `tipo` VARCHAR(30) com CHECK, `chave_objeto` VARCHAR(200), `nome_arquivo` VARCHAR(120), `tipo_conteudo` VARCHAR(50) e `tamanho_bytes`.
+- CHECK `ck_cliente_documento_tipo` (`tipo IN ('CNH', 'COMPROVANTE_RESIDENCIA')`).
+- FK NO ACTION: `fk_cliente_documento_cliente`.
+- Índice comum `idx_cliente_documento_cliente_tipo (id_cliente, tipo)`. Nenhum índice único: um documento ativo por cliente e tipo fica no serviço.
+- Migration `20261119142116_AdicionarClienteDocumento`: só gerada, não aplicada. Script `sql/19_AdicionarClienteDocumento.sql`, conferido linha a linha contra a migration gerada em 19/11/2026 (tabela, colunas, CHECK, chave estrangeira e índice iguais).
+
+Contagens depois do desvio (`sql/00_ModeloAtual.sql` ajustado à mão em 19/11/2026):
+
+```text
+Tabelas:  21 -> 22 (+ cliente_documento)
+Colunas:  +10 (cliente_documento: 7 de negócio e 3 de auditoria)
+CHECK:    40 -> 41 (+1, ck_cliente_documento_tipo)
+FK:       34 -> 35 (+1, fk_cliente_documento_cliente)
+UNIQUE:   0 (inalterado)
+Indices:  36 -> 37 (+1: idx_cliente_documento_cliente_tipo)
+```
+
+Como o `compare_schema.py` não lê as entradas `tabelas_novas`, a conferência é feita pelas contagens acima, pelo diff do `00_ModeloAtual.sql` e por `dotnet ef migrations has-pending-model-changes` depois de gerada a migration.

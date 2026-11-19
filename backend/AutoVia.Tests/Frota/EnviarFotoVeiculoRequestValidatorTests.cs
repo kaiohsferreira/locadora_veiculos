@@ -104,6 +104,18 @@ namespace AutoVia.Tests.Frota
         }
 
         [Fact]
+        public async Task PdfDeclaradoComoJpeg_RecusaComMensagemDeFormato()
+        {
+            await AssertUmaMensagemAsync(CriarArquivo(ConstantsValues.AssinaturaPdf, ConstantsArmazenamento.MimeJpeg), ConstantsMessage.ErroVeiculoFotoFormatoInvalido);
+        }
+
+        [Fact]
+        public async Task PdfComTipoPdf_RecusaComMensagemDeFormato()
+        {
+            await AssertUmaMensagemAsync(CriarArquivo(ConstantsValues.AssinaturaPdf, ConstantsValues.TipoConteudoPdf), ConstantsMessage.ErroVeiculoFotoFormatoInvalido);
+        }
+
+        [Fact]
         public async Task JpegValido_Passa()
         {
             ValidationResult resultado = await ValidarAsync(CriarArquivo(AssinaturaJpeg, ConstantsArmazenamento.MimeJpeg));

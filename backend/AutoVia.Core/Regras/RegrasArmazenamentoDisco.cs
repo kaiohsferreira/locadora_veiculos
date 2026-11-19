@@ -169,8 +169,8 @@ namespace AutoVia.Core.Regras
         }
 
         /// <summary>
-        /// Tipo do conteudo pelos primeiros bytes, conforme a tabela tipos_aceitos (JPEG e PNG), ou null quando nao e aceito.
-        /// E a unica decisao de tipo do provedor de disco.
+        /// Tipo do conteudo pelos primeiros bytes, conforme a tabela tipos_aceitos (JPEG, PNG e PDF), ou null quando nao e aceito.
+        /// E a unica decisao de tipo do provedor de disco. O cabecalho lido precisa cobrir a maior assinatura (a do PNG).
         /// </summary>
         public static string? TipoPeloConteudo(ReadOnlySpan<byte> primeirosBytes)
         {
@@ -182,6 +182,11 @@ namespace AutoVia.Core.Regras
             if (ComecaCom(primeirosBytes, ConstantsValues.AssinaturaPng))
             {
                 return ConstantsValues.TipoConteudoPng;
+            }
+
+            if (ComecaCom(primeirosBytes, ConstantsValues.AssinaturaPdf))
+            {
+                return ConstantsValues.TipoConteudoPdf;
             }
 
             return null;

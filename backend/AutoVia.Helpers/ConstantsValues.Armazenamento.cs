@@ -152,6 +152,33 @@ namespace AutoVia.Helpers
         /// <summary>Cache-Control da resposta de arquivo: o navegador confere a cada uso.</summary>
         public const string CacheControlLeituraArquivo = "private, no-cache";
 
+        /// <summary>Cache-Control da resposta de arquivo de documento do cliente: nada e guardado em cache.</summary>
+        public const string CacheControlSemArmazenamento = "no-store";
+
+        /// <summary>Prefixo das chaves dos documentos do cliente (CNH e comprovante). Essas respostas usam CacheControlSemArmazenamento.</summary>
+        public const string PrefixoChaveDocumentoCliente = "clientes/";
+
+        /// <summary>Nome do cabecalho Referrer-Policy, que vai em toda resposta da rota de leitura.</summary>
+        public const string NomeCabecalhoReferrerPolicy = "Referrer-Policy";
+
+        /// <summary>Valor do Referrer-Policy da rota de leitura: o link assinado nunca vai no cabecalho Referer.</summary>
+        public const string ValorReferrerPolicySemReferencia = "no-referrer";
+
+        /// <summary>Tipo de disposicao que manda o navegador baixar o arquivo, em vez de mostra-lo na pagina.</summary>
+        public const string ContentDispositionAnexo = "attachment";
+
+        /// <summary>Nome fixo do PDF baixado pela rota de leitura (nunca o nome original do arquivo).</summary>
+        public const string NomeArquivoDownloadPdf = "documento.pdf";
+
+        /// <summary>Separador entre a disposicao e o nome do arquivo no Content-Disposition.</summary>
+        public const string SeparadorNomeContentDisposition = "; filename=\"";
+
+        /// <summary>Aspa dupla que fecha o nome do arquivo no Content-Disposition.</summary>
+        public const string FechamentoNomeContentDisposition = "\"";
+
+        /// <summary>Content-Disposition do PDF: anexo com o nome fixo de NomeArquivoDownloadPdf.</summary>
+        public const string ContentDispositionAnexoPdf = ContentDispositionAnexo + SeparadorNomeContentDisposition + NomeArquivoDownloadPdf + FechamentoNomeContentDisposition;
+
         /// <summary>Valor de X-Content-Type-Options da resposta de arquivo.</summary>
         public const string ValorNaoFarejarTipo = "nosniff";
 
@@ -171,6 +198,12 @@ namespace AutoVia.Helpers
 
         /// <summary>Primeiros bytes de um PNG (89 50 4E 47 0D 0A 1A 0A).</summary>
         public static readonly byte[] AssinaturaPng = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+
+        /// <summary>Tipo PDF aceito pelo provedor de disco (so para documento do cliente; os envios de foto e de avaria recusam).</summary>
+        public const string TipoConteudoPdf = "application/pdf";
+
+        /// <summary>Primeiros bytes de um PDF ("%PDF-", 25 50 44 46 2D). Cabe no cabecalho lido de AssinaturaPng.</summary>
+        public static readonly byte[] AssinaturaPdf = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D };
 
         // --- Disposicao das constantes movidas das classes do armazenamento (mesmos valores) ---
 

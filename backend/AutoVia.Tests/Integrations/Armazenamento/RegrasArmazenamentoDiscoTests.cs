@@ -206,28 +206,45 @@ namespace AutoVia.Tests.Integrations.Armazenamento
         }
 
         [Fact]
-        public void TipoPeloConteudo_JpegEPngPelosPrimeirosBytes()
+        public void TipoPeloConteudo_JpegPngEPdfPelosPrimeirosBytes()
         {
             byte[] jpeg = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00 };
             byte[] png = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00 };
+            byte[] pdf = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34 };
 
             Assert.Equal(ConstantsValues.TipoConteudoJpeg, RegrasArmazenamentoDisco.TipoPeloConteudo(jpeg));
             Assert.Equal(ConstantsValues.TipoConteudoPng, RegrasArmazenamentoDisco.TipoPeloConteudo(png));
+            Assert.Equal(ConstantsValues.TipoConteudoPdf, RegrasArmazenamentoDisco.TipoPeloConteudo(pdf));
+        }
+
+        [Fact]
+        public void TipoPeloConteudo_PdfSoComOsQuatroPrimeirosBytesOuSemHifenNaoEPdf()
+        {
+            byte[] pdfCurto = new byte[] { 0x25, 0x50, 0x44, 0x46 };
+            byte[] pdfSemHifen = new byte[] { 0x25, 0x50, 0x44, 0x46, 0x31, 0x2E, 0x34 };
+
+            Assert.Null(RegrasArmazenamentoDisco.TipoPeloConteudo(pdfCurto));
+            Assert.Null(RegrasArmazenamentoDisco.TipoPeloConteudo(pdfSemHifen));
         }
 
         [Fact]
         public void TipoPeloConteudo_FormatosNaoAceitosEVetorCurtoDevolvemNull()
         {
-            byte[] pdf = new byte[] { 0x25, 0x50, 0x44, 0x46 };
             byte[] gif = new byte[] { 0x47, 0x49, 0x46, 0x38 };
             byte[] texto = Encoding.UTF8.GetBytes("<html>");
             byte[] curto = new byte[] { 0xFF, 0xD8 };
 
-            Assert.Null(RegrasArmazenamentoDisco.TipoPeloConteudo(pdf));
             Assert.Null(RegrasArmazenamentoDisco.TipoPeloConteudo(gif));
             Assert.Null(RegrasArmazenamentoDisco.TipoPeloConteudo(texto));
             Assert.Null(RegrasArmazenamentoDisco.TipoPeloConteudo(curto));
             Assert.Null(RegrasArmazenamentoDisco.TipoPeloConteudo(Array.Empty<byte>()));
+        }
+
+        [Fact]
+        public void CabecalhoLidoCobreAsTresAssinaturas()
+        {
+            Assert.True(ConstantsValues.AssinaturaPng.Length >= ConstantsValues.AssinaturaJpeg.Length);
+            Assert.True(ConstantsValues.AssinaturaPng.Length >= ConstantsValues.AssinaturaPdf.Length);
         }
 
         [Fact]

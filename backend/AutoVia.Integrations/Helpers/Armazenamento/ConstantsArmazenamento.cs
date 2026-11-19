@@ -19,6 +19,7 @@ namespace AutoVia.Integrations.Helpers.Armazenamento
         public const int ExpiracaoMaximaSegundos = 900;
         public const string MimeJpeg = ConstantsValues.TipoConteudoJpeg;
         public const string MimePng = ConstantsValues.TipoConteudoPng;
+        public const string MimePdf = ConstantsValues.TipoConteudoPdf;
         public const int TamanhoMaximoFotoBytes = 10485760;
         public const int DimensaoMaximaFotoPixels = 8192;
         public const long TotalMaximoPixelsFoto = 16777216;

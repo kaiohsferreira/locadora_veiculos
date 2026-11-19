@@ -211,5 +211,34 @@
     },
     "regra_no_servico": "os dois campos sao gravados e sobrescritos pelo PUT (vazio limpa); nenhuma unicidade; nenhuma conferencia de formato de NF-e",
     "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico; nenhum status inicial novo; nenhuma migracao de dados"
+  },
+  "cliente_documento": {
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "data": "2026-11-19",
+    "tarefa": "P2-BE-03 (RF-08: documentos do cliente, CNH e comprovante de residencia; tela 21 do P2-FE-03)",
+    "motivo": "O cliente envia a CNH e o comprovante de residencia, guardados no armazenamento externo e recuperaveis por URL temporaria. A especificacao nao tem tabela para isso. Decisao 9 do plano aprovado em 19/11/2026 (frase do Kaio: \"Aprovo 1 a 16\").",
+    "tabelas_novas": {
+      "cliente_documento": {
+        "colunas": {
+          "id_cliente_documento": "SERIAL PK",
+          "id_cliente": "INT NOT NULL, fk_cliente_documento_cliente (NO ACTION)",
+          "tipo": "VARCHAR(30) NOT NULL (enum TipoDocumentoCliente gravado como texto; CHECK ck_cliente_documento_tipo)",
+          "chave_objeto": "VARCHAR(200) NOT NULL (clientes/{idCliente}/documentos/{guid}.{jpg|png|pdf}; sem CPF e sem nome original)",
+          "nome_arquivo": "VARCHAR(120) NOT NULL (nome original limpo; so para a tela mostrar)",
+          "tipo_conteudo": "VARCHAR(50) NOT NULL (image/jpeg, image/png ou application/pdf, decidido pelo conteudo)",
+          "tamanho_bytes": "INT NOT NULL"
+        },
+        "checks": {
+          "ck_cliente_documento_tipo": "tipo IN ('CNH', 'COMPROVANTE_RESIDENCIA')"
+        },
+        "indices": [
+          "idx_cliente_documento_cliente_tipo (id_cliente, tipo) (comum)"
+        ],
+        "auditoria": "created_at, updated_at, disabled_at (BaseEntities)"
+      }
+    },
+    "regra_no_servico": "um documento ativo por cliente e tipo: o servico desativa o anterior numa gravacao so; teto de 20 envios por cliente em 24 horas, contando ativos e desativados; sem indice unico",
+    "remocao_do_arquivo": "substituir apaga o arquivo antigo no armazenamento (remocao fisica so do arquivo, decisao 10 do plano); a linha fica desativada",
+    "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico; status do cadastro segue PENDENTE; nenhuma migracao de dados"
   }
 }

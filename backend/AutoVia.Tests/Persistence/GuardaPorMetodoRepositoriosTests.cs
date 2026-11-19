@@ -4,8 +4,9 @@ using System.Text.RegularExpressions;
 namespace AutoVia.Tests.Persistence
 {
     /// <summary>
-    /// Guarda POR METODO dos cinco repositorios desta entrega (ReservaRepository, VeiculoRepository.Disponibilidade,
-    /// VeiculoRepository.Catalogo, LocacaoRepository e VeiculoRepository.Status). Cada ocorrencia dos simbolos de bypass da lista de
+    /// Guarda POR METODO dos seis repositorios desta entrega (ReservaRepository, VeiculoRepository.Disponibilidade,
+    /// VeiculoRepository.Catalogo, LocacaoRepository, VeiculoRepository.Status e ClienteDocumentoRepository, que nao tem nenhum
+    /// simbolo: a lista vazia prova isso). Cada ocorrencia dos simbolos de bypass da lista de
     /// IsolamentoEmpresaGuardasTests (filtro desligado, SQL bruto, busca por chave, conexao crua) e atribuida ao metodo
     /// que a contem. O teste falha se um simbolo aparecer em metodo fora da lista fechada, se um metodo listado perder
     /// o simbolo, ou se a quantidade dentro de um metodo mudar. A contagem por arquivo continua em IsolamentoEmpresaGuardasTests.
@@ -18,6 +19,7 @@ namespace AutoVia.Tests.Persistence
         private const string CaminhoCatalogo = "AutoVia.Infrastructure/Repositories/VeiculoRepository.Catalogo.cs";
         private const string CaminhoLocacaoRepository = "AutoVia.Infrastructure/Repositories/LocacaoRepository.cs";
         private const string CaminhoStatusVeiculo = "AutoVia.Infrastructure/Repositories/VeiculoRepository.Status.cs";
+        private const string CaminhoClienteDocumento = "AutoVia.Infrastructure/Repositories/ClienteDocumentoRepository.cs";
         private const string SeparadorMetodoSimbolo = "|";
         private const string PadraoDeclaracaoDeMetodo = @"^        (public|private)\s[^=]*?\s(\w+)\(";
 
@@ -56,7 +58,8 @@ namespace AutoVia.Tests.Persistence
             [CaminhoStatusVeiculo] = new string[]
             {
                 "ConsultaTravaStatusVeiculo" + SeparadorMetodoSimbolo + "FromSql"
-            }
+            },
+            [CaminhoClienteDocumento] = new string[] { }
         };
 
         /// <summary>Sobe a partir da pasta do teste ate achar o AutoVia.sln (raiz do backend).</summary>
@@ -112,6 +115,7 @@ namespace AutoVia.Tests.Persistence
         [InlineData(CaminhoCatalogo)]
         [InlineData(CaminhoLocacaoRepository)]
         [InlineData(CaminhoStatusVeiculo)]
+        [InlineData(CaminhoClienteDocumento)]
         public void Repositorio_SimbolosDeBypassSoNosMetodosNomeadosNaQuantidadeExata(string caminhoRelativo)
         {
             string conteudo = File.ReadAllText(Path.Combine(RaizDoBackend(), caminhoRelativo.Replace('/', Path.DirectorySeparatorChar)));

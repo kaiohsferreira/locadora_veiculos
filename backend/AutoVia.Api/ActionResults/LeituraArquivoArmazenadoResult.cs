@@ -39,7 +39,9 @@ namespace AutoVia.Api.ActionResults
             try
             {
                 resposta.Headers[HeaderNames.ETag] = ConstantsValues.CaractereAspasEtag + _arquivo.ETag + ConstantsValues.CaractereAspasEtag;
-                resposta.Headers[HeaderNames.CacheControl] = ConstantsValues.CacheControlLeituraArquivo;
+                resposta.Headers[HeaderNames.CacheControl] = _arquivo.DocumentoDoCliente
+                    ? ConstantsValues.CacheControlSemArmazenamento
+                    : ConstantsValues.CacheControlLeituraArquivo;
 
                 if (_arquivo.NaoModificado)
                 {
@@ -52,7 +54,9 @@ namespace AutoVia.Api.ActionResults
                 resposta.ContentLength = _arquivo.Conteudo.Length;
                 resposta.Headers[ConstantsValues.NomeCabecalhoXContentTypeOptions] = ConstantsValues.ValorNaoFarejarTipo;
                 resposta.Headers[ConstantsValues.NomeCabecalhoContentSecurityPolicy] = ConstantsValues.PoliticaConteudoLeituraArquivo;
-                resposta.Headers[HeaderNames.ContentDisposition] = ConstantsArmazenamento.ContentDispositionInline;
+                resposta.Headers[HeaderNames.ContentDisposition] = string.Equals(_arquivo.ContentType, ConstantsValues.TipoConteudoPdf, StringComparison.Ordinal)
+                    ? ConstantsValues.ContentDispositionAnexoPdf
+                    : ConstantsArmazenamento.ContentDispositionInline;
 
                 await resposta.Body.WriteAsync(_arquivo.Conteudo, cancelamento);
             }

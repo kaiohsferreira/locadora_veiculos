@@ -187,6 +187,7 @@ namespace AutoVia.Tests.Persistence
             Assert.Contains(typeof(CriarAvariaRequest), formularios);
             Assert.Contains(typeof(RetryAvariaFotoRequest), formularios);
             Assert.Contains(typeof(EnviarFotoVeiculoRequest), formularios);
+            Assert.Contains(typeof(AutoVia.Api.Requests.ClienteDocumento.EnviarDocumentoClienteRequest), formularios);
 
             AssertSemPropriedadeEmpresa(formularios);
         }

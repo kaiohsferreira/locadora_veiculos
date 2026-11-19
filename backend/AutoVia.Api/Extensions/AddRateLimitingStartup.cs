@@ -1,3 +1,4 @@
+using AutoVia.Api.ActionResults;
 using AutoVia.Api.Middleware;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -46,6 +47,8 @@ namespace AutoVia.Api.Extensions
                 int limiteLeituraPublica = LerLimite(configuration, ConstantsValues.ChaveLimiteLeituraPublica, ConstantsValues.LimiteLeituraPublicaPorMinutoPadrao);
                 int limiteEnvioFoto = LerLimite(configuration, ConstantsValues.ChaveLimiteEnvioFotoVeiculo, ConstantsValues.LimiteEnvioFotoVeiculoPorMinutoPadrao);
                 int limiteLeituraArquivo = LerLimite(configuration, ConstantsValues.ChaveLimiteLeituraArquivo, ConstantsValues.LimiteLeituraArquivoPorMinutoPadrao);
+                int limiteEnvioDocumento = LerLimite(configuration, ConstantsValues.ChaveLimiteEnvioDocumentoCliente, ConstantsValues.LimiteEnvioDocumentoClientePorMinutoPadrao);
+                int limiteListaDocumento = LerLimite(configuration, ConstantsValues.ChaveLimiteListaDocumentoCliente, ConstantsValues.LimiteListaDocumentoClientePorMinutoPadrao);
 
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
@@ -55,6 +58,8 @@ namespace AutoVia.Api.Extensions
                 RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteLeituraPublica, limiteLeituraPublica, TimeSpan.FromMinutes(1));
                 RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteEnvioFotoVeiculo, limiteEnvioFoto, TimeSpan.FromMinutes(1));
                 RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteLeituraArquivo, limiteLeituraArquivo, TimeSpan.FromMinutes(1));
+                RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteEnvioDocumentoCliente, limiteEnvioDocumento, TimeSpan.FromMinutes(1));
+                RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteListaDocumentoCliente, limiteListaDocumento, TimeSpan.FromMinutes(1));
 
                 options.OnRejected = async (context, cancellationToken) =>
                 {
@@ -63,6 +68,8 @@ namespace AutoVia.Api.Extensions
                         // Registro agregado do 429 desta rota (no maximo um por minuto). As outras politicas continuam sem registro.
                         RegistroRecusasLimiteLeitura? registro = context.HttpContext.RequestServices.GetService<RegistroRecusasLimiteLeitura>();
                         registro?.RegistrarPorIp();
+                        // Referrer-Policy tambem no 429 da rota de leitura (o 429 nao passa pela acao).
+                        CabecalhoReferrerLeituraArquivo.Registrar(context.HttpContext.Response);
                     }
 
                     await ProblemDetailsWriter.WriteAsync(

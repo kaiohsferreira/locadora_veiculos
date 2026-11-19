@@ -243,6 +243,23 @@ CREATE TABLE seguro (
 );
 
 
+CREATE TABLE cliente_documento (
+    id_cliente_documento serial NOT NULL,
+    id_cliente integer NOT NULL,
+    tipo character varying(30) NOT NULL,
+    chave_objeto character varying(200) NOT NULL,
+    nome_arquivo character varying(120) NOT NULL,
+    tipo_conteudo character varying(50) NOT NULL,
+    tamanho_bytes integer NOT NULL,
+    created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    disabled_at timestamp without time zone,
+    CONSTRAINT cliente_documento_pkey PRIMARY KEY (id_cliente_documento),
+    CONSTRAINT ck_cliente_documento_tipo CHECK (tipo IN ('CNH', 'COMPROVANTE_RESIDENCIA')),
+    CONSTRAINT fk_cliente_documento_cliente FOREIGN KEY (id_cliente) REFERENCES cliente (id_cliente)
+);
+
+
 CREATE TABLE veiculo_foto (
     id_veiculo_foto serial NOT NULL,
     id_veiculo integer NOT NULL,
@@ -441,6 +458,9 @@ CREATE INDEX idx_cliente_cnh_numero ON cliente (cnh_numero);
 
 
 CREATE INDEX idx_cliente_cpf ON cliente (cpf);
+
+
+CREATE INDEX idx_cliente_documento_cliente_tipo ON cliente_documento (id_cliente, tipo);
 
 
 CREATE INDEX idx_cliente_google_sub ON cliente (google_sub);

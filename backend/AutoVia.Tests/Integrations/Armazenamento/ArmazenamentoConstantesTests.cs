@@ -22,6 +22,26 @@ namespace AutoVia.Tests.Integrations.Armazenamento
         }
 
         [Fact]
+        public void PdfTemTipoAssinaturaENomeFixoDoContrato()
+        {
+            Assert.Equal("application/pdf", ConstantsValues.TipoConteudoPdf);
+            Assert.Equal(ConstantsArmazenamento.MimePdf, ConstantsValues.TipoConteudoPdf);
+            Assert.Equal(new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D }, ConstantsValues.AssinaturaPdf);
+            Assert.Equal("attachment; filename=\"documento.pdf\"", ConstantsValues.ContentDispositionAnexoPdf);
+            Assert.Equal(ConstantsArmazenamento.ContentDispositionInline, "inline");
+        }
+
+        [Fact]
+        public void CabecalhosDaLeituraTemOsValoresDoContrato()
+        {
+            Assert.Equal("no-store", ConstantsValues.CacheControlSemArmazenamento);
+            Assert.Equal("private, no-cache", ConstantsValues.CacheControlLeituraArquivo);
+            Assert.Equal("Referrer-Policy", ConstantsValues.NomeCabecalhoReferrerPolicy);
+            Assert.Equal("no-referrer", ConstantsValues.ValorReferrerPolicySemReferencia);
+            Assert.Equal("clientes/", ConstantsValues.PrefixoChaveDocumentoCliente);
+        }
+
+        [Fact]
         public void LimitesDaRotaEPrazoDoLinkTemOsValoresDoContrato()
         {
             Assert.Equal(600, ConstantsValues.LimiteLeituraArquivoPorMinutoPadrao);

@@ -52,6 +52,8 @@ namespace AutoVia.Tests.Api
     public sealed class ArmazenamentoDiscoHttpTests
     {
         private const string ChaveFoto = "veiculos/1/fotos/capa-d5.jpg";
+        private const string ChaveDocumentoCliente = "clientes/1/documentos/cnh-d5.pdf";
+        private const string CabecalhoReferrerPolicy = "Referrer-Policy";
         private const string ChaveOutraFoto = "veiculos/1/fotos/outra-d5.jpg";
         private const string ChaveAvariaJpeg = "vistorias/3/avarias/5/foto";
         private const string ChaveAvariaPng = "vistorias/3/avarias/6/foto";
@@ -436,6 +438,87 @@ namespace AutoVia.Tests.Api
             Assert.Equal(ConstantsArmazenamento.ContentDispositionInline, ValorDoCabecalho(resposta, CabecalhoContentDisposition));
             Assert.True(resposta.Headers.CacheControl?.Private);
             Assert.True(resposta.Headers.CacheControl?.NoCache);
+            Assert.Equal(ConstantsValues.ValorReferrerPolicySemReferencia, ValorDoCabecalho(resposta, CabecalhoReferrerPolicy));
+        }
+
+        [Fact]
+        public async Task PDF01_DocumentoDoClienteBaixaComNomeFixoENoStore()
+        {
+            using FabricaArmazenamentoDisco fabrica = new FabricaArmazenamentoDisco();
+            using HttpClient cliente = fabrica.CreateClient();
+            await EnviarAsync(fabrica, ChaveDocumentoCliente, ConteudoComCabecalho(ConstantsValues.AssinaturaPdf, TamanhoFoto), ConstantsValues.TipoConteudoPdf);
+            string url = (await ObterUrlAsync(fabrica, ChaveDocumentoCliente))!.Url;
+
+            using HttpResponseMessage resposta = await cliente.GetAsync(CaminhoDe(url));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            Assert.Equal(ConstantsValues.TipoConteudoPdf, resposta.Content.Headers.ContentType?.MediaType);
+            Assert.Equal(ConstantsValues.ContentDispositionAnexoPdf, ValorDoCabecalho(resposta, CabecalhoContentDisposition));
+            Assert.Equal(ConstantsValues.ValorNaoFarejarTipo, ValorDoCabecalho(resposta, CabecalhoXContentTypeOptions));
+            Assert.Equal(ConstantsValues.ValorReferrerPolicySemReferencia, ValorDoCabecalho(resposta, CabecalhoReferrerPolicy));
+            Assert.True(resposta.Headers.CacheControl?.NoStore);
+            Assert.Equal(ConteudoComCabecalho(ConstantsValues.AssinaturaPdf, TamanhoFoto), await resposta.Content.ReadAsByteArrayAsync());
+        }
+
+        [Fact]
+        public async Task PDF02_DocumentoDoClienteComEtagDa304ComNoStoreEReferrer()
+        {
+            using FabricaArmazenamentoDisco fabrica = new FabricaArmazenamentoDisco();
+            using HttpClient cliente = fabrica.CreateClient();
+            await EnviarAsync(fabrica, ChaveDocumentoCliente, ConteudoComCabecalho(ConstantsValues.AssinaturaPdf, TamanhoFoto), ConstantsValues.TipoConteudoPdf);
+            string url = (await ObterUrlAsync(fabrica, ChaveDocumentoCliente))!.Url;
+            using HttpResponseMessage primeira = await cliente.GetAsync(CaminhoDe(url));
+            System.Net.Http.Headers.EntityTagHeaderValue etag = primeira.Headers.ETag!;
+
+            using HttpRequestMessage condicional = new HttpRequestMessage(HttpMethod.Get, CaminhoDe(url));
+            condicional.Headers.IfNoneMatch.Add(etag);
+            using HttpResponseMessage naoModificado = await cliente.SendAsync(condicional);
+
+            Assert.Equal(HttpStatusCode.NotModified, naoModificado.StatusCode);
+            Assert.True(naoModificado.Headers.CacheControl?.NoStore);
+            Assert.Equal(ConstantsValues.ValorReferrerPolicySemReferencia, ValorDoCabecalho(naoModificado, CabecalhoReferrerPolicy));
+        }
+
+        [Fact]
+        public async Task PDF03_FotoDeVeiculoNaoGanhaNoStoreEA304ComPrivateNoCache()
+        {
+            using FabricaArmazenamentoDisco fabrica = new FabricaArmazenamentoDisco();
+            using HttpClient cliente = fabrica.CreateClient();
+            await EnviarAsync(fabrica, ChaveFoto, ConteudoJpeg(TamanhoFoto), ConstantsArmazenamento.MimeJpeg);
+            string url = (await ObterUrlAsync(fabrica, ChaveFoto))!.Url;
+            using HttpResponseMessage primeira = await cliente.GetAsync(CaminhoDe(url));
+
+            Assert.False(primeira.Headers.CacheControl?.NoStore ?? false);
+            Assert.True(primeira.Headers.CacheControl?.Private);
+            Assert.True(primeira.Headers.CacheControl?.NoCache);
+
+            using HttpRequestMessage condicional = new HttpRequestMessage(HttpMethod.Get, CaminhoDe(url));
+            condicional.Headers.IfNoneMatch.Add(primeira.Headers.ETag!);
+            using HttpResponseMessage naoModificado = await cliente.SendAsync(condicional);
+
+            Assert.Equal(HttpStatusCode.NotModified, naoModificado.StatusCode);
+            Assert.True(naoModificado.Headers.CacheControl?.Private);
+            Assert.True(naoModificado.Headers.CacheControl?.NoCache);
+            Assert.False(naoModificado.Headers.CacheControl?.NoStore ?? false);
+        }
+
+        [Fact]
+        public async Task PDF04_RespostasDeErroDaRotaTambemTemReferrerPolicy()
+        {
+            using FabricaArmazenamentoDisco fabrica = new FabricaArmazenamentoDisco();
+            using HttpClient cliente = fabrica.CreateClient();
+            await EnviarAsync(fabrica, ChaveFoto, ConteudoJpeg(TamanhoFoto), ConstantsArmazenamento.MimeJpeg);
+            byte[] segredo = LerSegredo(fabrica.Raiz);
+            long exp = UnixDe(fabrica.Relogio.GetUtcNow()) + SegundosDeFolga;
+            string sigInvalida = new string(SigSubstituto[0], CaracteresDaAssinatura);
+
+            using HttpResponseMessage malformado = await cliente.GetAsync(PedidoMalformado(CasoExpComZeroAEsquerda, segredo, exp));
+            using HttpResponseMessage naoEncontrado = await cliente.GetAsync(LinkDe(ChaveFoto, exp, sigInvalida));
+
+            Assert.Equal(HttpStatusCode.BadRequest, malformado.StatusCode);
+            Assert.Equal(ConstantsValues.ValorReferrerPolicySemReferencia, ValorDoCabecalho(malformado, CabecalhoReferrerPolicy));
+            Assert.Equal(HttpStatusCode.NotFound, naoEncontrado.StatusCode);
+            Assert.Equal(ConstantsValues.ValorReferrerPolicySemReferencia, ValorDoCabecalho(naoEncontrado, CabecalhoReferrerPolicy));
         }
 
         // ---------------------------------------------------------------------------------------------------------------------

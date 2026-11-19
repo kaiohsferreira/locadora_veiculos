@@ -33,7 +33,9 @@ namespace AutoVia.Tests.Persistence
             // Desvio aprovado por Kaio em 16/11/2026 (P9-INT-01; registro original de 13/11/2026): linha do tempo do sinistro.
             "sinistro_historico",
             // Desvio aprovado por Kaio em 16/11/2026 (fotos do veiculo, RF-94 a RF-101 e RF-105): tabela veiculo_foto.
-            "veiculo_foto"
+            "veiculo_foto",
+            // Desvio aprovado por Kaio em 19/11/2026 (documentos do cliente, RF-08): tabela cliente_documento.
+            "cliente_documento"
         };
 
         private static readonly string[] TabelasIntegracao = new string[] { "integration", "integration_setting" };
@@ -60,7 +62,9 @@ namespace AutoVia.Tests.Persistence
             // Desvio aprovado por Kaio em 16/11/2026 (P9-INT-01): indice comum, sem UNIQUE.
             "idx_sinistro_historico_sinistro",
             // Desvio aprovado por Kaio em 16/11/2026 (fotos do veiculo): indice comum, sem UNIQUE.
-            "idx_veiculo_foto_veiculo"
+            "idx_veiculo_foto_veiculo",
+            // Desvio aprovado por Kaio em 19/11/2026 (documentos do cliente): indice comum, sem UNIQUE.
+            "idx_cliente_documento_cliente_tipo"
         };
 
         /// <summary>
@@ -69,7 +73,7 @@ namespace AutoVia.Tests.Persistence
         /// </summary>
         private static readonly string[] EntidadesGlobais = new string[]
         {
-            nameof(Cliente), nameof(Categoria), nameof(RedefinicaoSenha), nameof(Empresa), nameof(Integration), nameof(IntegrationSetting)
+            nameof(Cliente), nameof(Categoria), nameof(RedefinicaoSenha), nameof(Empresa), nameof(Integration), nameof(IntegrationSetting), nameof(ClienteDocumento)
         };
 
         private static IModel BuildModel()
@@ -87,7 +91,7 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
-        public void Modelo_TemExatamenteAs21TabelasDaEspecificacaoMaisODesvios()
+        public void Modelo_TemExatamenteAs22TabelasDaEspecificacaoMaisODesvios()
         {
             IModel model = BuildModel();
 
@@ -172,14 +176,15 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
-        public void Modelo_TemAs40RestricoesCheckDaEspecificacaoMaisODesvios()
+        public void Modelo_TemAs41RestricoesCheckDaEspecificacaoMaisODesvios()
         {
             IModel model = BuildModel();
 
             int totalChecks = model.GetEntityTypes().SelectMany(x => x.GetCheckConstraints()).Count();
 
-            // 35 anteriores + 4 da sinistro_historico (desvio aprovado por Kaio em 16/11/2026) + 1 da veiculo_foto (mesmo desvio de fotos).
-            Assert.Equal(40, totalChecks);
+            // 35 anteriores + 4 da sinistro_historico (desvio aprovado por Kaio em 16/11/2026) + 1 da veiculo_foto (mesmo desvio de fotos)
+            // + 1 da cliente_documento (desvio aprovado por Kaio em 19/11/2026).
+            Assert.Equal(41, totalChecks);
         }
 
         [Fact]

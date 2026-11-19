@@ -24,6 +24,8 @@ namespace AutoVia.Api.Extensions
             // --- Cliente ---
             services.AddScoped<IClienteRepository, ClienteRepository>();
             services.AddScoped<IClienteLocadoraRepository, ClienteLocadoraRepository>();
+            // Documentos do cliente (RF-08): Scoped, junto com o DbContext.
+            services.AddScoped<IClienteDocumentoRepository, ClienteDocumentoRepository>();
 
             // --- Locadora (cadastro publico, P10-BE-01) ---
             services.AddScoped<IEmpresaRepository, EmpresaRepository>();

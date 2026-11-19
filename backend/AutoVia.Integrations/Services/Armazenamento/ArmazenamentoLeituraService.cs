@@ -77,7 +77,8 @@ namespace AutoVia.Integrations.Services.Armazenamento
                     throw RecusarLink(ConstantsMessage.LogArmazenamentoLeituraArquivoAusente);
                 }
 
-                return await LerArquivoAsync(caminho, etagsDoCliente, cancellationToken);
+                bool documentoDoCliente = chave.StartsWith(ConstantsValues.PrefixoChaveDocumentoCliente, StringComparison.Ordinal);
+                return await LerArquivoAsync(caminho, etagsDoCliente, documentoDoCliente, cancellationToken);
             }
             catch (NotFoundException)
             {
@@ -103,7 +104,7 @@ namespace AutoVia.Integrations.Services.Armazenamento
         /// Abre o arquivo, confere tamanho e tipo pelos primeiros bytes, monta o ETag com os metadados do mesmo identificador e
         /// decide: NaoModificado sem ler os bytes, ou leitura inteira. O arquivo fecha antes de a funcao devolver.
         /// </summary>
-        private async Task<ArquivoParaLeitura> LerArquivoAsync(string caminho, IReadOnlyCollection<string> etagsDoCliente, CancellationToken cancellationToken)
+        private async Task<ArquivoParaLeitura> LerArquivoAsync(string caminho, IReadOnlyCollection<string> etagsDoCliente, bool documentoDoCliente, CancellationToken cancellationToken)
         {
             using FileStream fluxo = new FileStream(caminho, new FileStreamOptions
             {
@@ -135,7 +136,7 @@ namespace AutoVia.Integrations.Services.Armazenamento
                 + ultimaGravacao.Ticks.ToString(ConstantsValues.FormatoHexadecimalEtag, CultureInfo.InvariantCulture);
             if (etagsDoCliente.Any(valor => string.Equals(valor, etag, StringComparison.Ordinal)))
             {
-                return new ArquivoParaLeitura(Array.Empty<byte>(), tipo, etag, true);
+                return new ArquivoParaLeitura(Array.Empty<byte>(), tipo, etag, true, documentoDoCliente);
             }
 
             int tamanhoInteiro = (int)tamanho;
@@ -146,7 +147,7 @@ namespace AutoVia.Integrations.Services.Armazenamento
                 throw new IOException();
             }
 
-            return new ArquivoParaLeitura(conteudo, tipo, etag, false);
+            return new ArquivoParaLeitura(conteudo, tipo, etag, false, documentoDoCliente);
         }
 
         /// <summary>Le ate a quantidade pedida a partir do inicio do arquivo; para no fim do arquivo.</summary>

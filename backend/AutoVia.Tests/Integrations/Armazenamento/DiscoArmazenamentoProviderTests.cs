@@ -13,6 +13,7 @@ using AutoVia.Tests.Fakes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using System.Globalization;
+using System.Text;
 
 namespace AutoVia.Tests.Integrations.Armazenamento
 {
@@ -20,6 +21,7 @@ namespace AutoVia.Tests.Integrations.Armazenamento
     public sealed class DiscoArmazenamentoProviderTests : IDisposable
     {
         private const string Chave = "veiculos/12/fotos/0f8fad5bd9cb469fa16570867728950e.jpg";
+        private const string ChavePdf = "clientes/7/documentos/cnh-teste.pdf";
         private const string ChaveDeOutroVeiculo = "veiculos/9/fotos/outro.jpg";
         private const string ChaveInsegura = "../segredo/assinatura.key";
         private const string ChaveDeAvariaSemPasta = "vistorias/3/avarias/5/foto";
@@ -45,10 +47,6 @@ namespace AutoVia.Tests.Integrations.Armazenamento
         private const byte MarcaJpeg1 = 0xFF;
         private const byte MarcaJpeg2 = 0xD8;
         private const byte MarcaJpeg3 = 0xFF;
-        private const byte MarcaPdf1 = 0x25;
-        private const byte MarcaPdf2 = 0x50;
-        private const byte MarcaPdf3 = 0x44;
-        private const byte MarcaPdf4 = 0x46;
         private const byte ValorAlternativoDoCorpo = 0x42;
         private const int RodadasSubstituirERemover = 10;
         private const int IntervaloDeVerificacaoMs = 5;
@@ -107,16 +105,54 @@ namespace AutoVia.Tests.Integrations.Armazenamento
         }
 
         [Fact]
-        public async Task EnviarAsync_Pdf_RecusaED08ComMotivoNoLogESemGravar()
+        public async Task EnviarAsync_Pdf_EhAceitoEGravaOsMesmosBytes()
         {
             DiscoArmazenamentoProvider provedor = CriarProvedor();
-            byte[] pdf = new byte[] { MarcaPdf1, MarcaPdf2, MarcaPdf3, MarcaPdf4, 1, 2, 3, 4 };
+            byte[] pdf = ConstantsValues.AssinaturaPdf.Concat(new byte[] { 1, 2, 3 }).ToArray();
 
-            IntegrationException ex = await Assert.ThrowsAsync<IntegrationException>(() => provedor.EnviarAsync(CriarConfiguracao(), NomeDoBucket, Chave, pdf, TipoPdf, Expiracao));
+            ArquivoArmazenado arquivo = await provedor.EnviarAsync(CriarConfiguracao(), NomeDoBucket, ChavePdf, pdf, TipoPdf, Expiracao);
+
+            Assert.Equal(pdf, File.ReadAllBytes(Path.Combine(_raiz, NomeDaPastaDeArquivos, ChavePdf)));
+            Assert.StartsWith(UrlPublicaDeTeste, arquivo.Url);
+            Assert.Empty(_log.Entries);
+        }
+
+        [Theory]
+        [InlineData("GIF89a conteudo", "image/gif")]
+        [InlineData("<html>conteudo", "text/plain")]
+        [InlineData("%PDF conteudo sem o hifen", TipoPdf)]
+        public async Task EnviarAsync_FormatoNaoAceito_RecusaED08ComMotivoNoLogESemGravar(string conteudo, string tipo)
+        {
+            DiscoArmazenamentoProvider provedor = CriarProvedor();
+
+            IntegrationException ex = await Assert.ThrowsAsync<IntegrationException>(() => provedor.EnviarAsync(CriarConfiguracao(), NomeDoBucket, Chave, Encoding.UTF8.GetBytes(conteudo), tipo, Expiracao));
 
             Assert.Equal(ConstantsMessage.ErroArmazenamentoEnviar, ex.Message);
             Assert.True(RegistroContem(ConstantsMessage.LogArmazenamentoDiscoTipoNaoSuportado));
             Assert.False(File.Exists(Path.Combine(_raiz, NomeDaPastaDeArquivos, Chave)));
+        }
+
+        [Fact]
+        public async Task EnviarAsync_PdfDeclaradoComoJpeg_RecusaED08()
+        {
+            DiscoArmazenamentoProvider provedor = CriarProvedor();
+            byte[] pdf = ConstantsValues.AssinaturaPdf.Concat(new byte[] { 1, 2, 3 }).ToArray();
+
+            IntegrationException ex = await Assert.ThrowsAsync<IntegrationException>(() => provedor.EnviarAsync(CriarConfiguracao(), NomeDoBucket, ChavePdf, pdf, TipoJpeg, Expiracao));
+
+            Assert.Equal(ConstantsMessage.ErroArmazenamentoEnviar, ex.Message);
+            Assert.True(RegistroContem(ConstantsMessage.LogArmazenamentoDiscoTipoNaoSuportado));
+        }
+
+        [Fact]
+        public async Task EnviarAsync_JpegDeclaradoComoPdf_RecusaED08()
+        {
+            DiscoArmazenamentoProvider provedor = CriarProvedor();
+
+            IntegrationException ex = await Assert.ThrowsAsync<IntegrationException>(() => provedor.EnviarAsync(CriarConfiguracao(), NomeDoBucket, ChavePdf, ConteudoJpeg(), TipoPdf, Expiracao));
+
+            Assert.Equal(ConstantsMessage.ErroArmazenamentoEnviar, ex.Message);
+            Assert.True(RegistroContem(ConstantsMessage.LogArmazenamentoDiscoTipoNaoSuportado));
         }
 
         [Fact]

@@ -113,6 +113,22 @@ namespace AutoVia.Tests.Avarias
             Assert.Contains(resultado.Errors, x => x.ErrorMessage == ConstantsMessage.ErroAvariaFotoFormatoInvalido);
         }
 
+        [Theory]
+        [InlineData("application/pdf")]
+        [InlineData("image/jpeg")]
+        public async Task PdfNaFotoDaAvaria_EReprovadoComAMensagemDeFormato(string contentType)
+        {
+            CriarAvariaRequestValidator validator = new CriarAvariaRequestValidator();
+            FluentValidation.Results.ValidationResult resultado = await validator.ValidateAsync(new CriarAvariaRequest
+            {
+                Descricao = "Dano",
+                Gravidade = "LEVE",
+                Foto = CriarFoto(contentType, ConstantsValues.AssinaturaPdf)
+            });
+
+            Assert.Contains(resultado.Errors, x => x.ErrorMessage == ConstantsMessage.ErroAvariaFotoFormatoInvalido);
+        }
+
         private static CriarAvariaRequest CriarRequest(string contentType, byte[] bytes)
         {
             return new CriarAvariaRequest

@@ -56,6 +56,9 @@ namespace AutoVia.Infrastructure.Persistence
         // --- Aprovacao do cadastro do cliente por locadora (cliente_locadora, T-BE-05) ---
         public DbSet<ClienteLocadora> ClientesLocadoras { get; set; } = null!;
 
+        /// <summary>Documentos do cliente (cliente_documento, RF-08; desvio aprovado por Kaio em 19/11/2026). Global: sem filtro "Empresa".</summary>
+        public DbSet<ClienteDocumento> ClientesDocumentos { get; set; } = null!;
+
         // --- Acesso: recuperacao de senha (RF-49) ---
         public DbSet<RedefinicaoSenha> RedefinicaoSenhas { get; set; } = null!;
 

@@ -23,6 +23,8 @@ namespace AutoVia.Api.Extensions
             // --- Cliente ---
             services.AddScoped<IClienteService, ClienteService>();
             services.AddScoped<IClienteLocadoraService, ClienteLocadoraService>();
+            // Documentos do cliente (RF-08): Scoped, usa o gateway de armazenamento da requisicao.
+            services.AddScoped<IClienteDocumentoService, ClienteDocumentoService>();
 
             // --- Locadora (cadastro publico, P10-BE-01) ---
             services.AddScoped<IEmpresaService, EmpresaService>();

@@ -139,6 +139,53 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public async Task Pdf_SaiComoAnexoComNomeFixoECacheDeFoto()
+        {
+            byte[] bytes = ConstantsValues.AssinaturaPdf.Concat(new byte[] { 0x31, 0x0A }).ToArray();
+            DefaultHttpContext contexto = CriarHttpContext(new MemoryStream());
+            LogCapturado log = new LogCapturado();
+            LeituraArquivoArmazenadoResult resultado = new LeituraArquivoArmazenadoResult(new ArquivoParaLeitura(bytes, ConstantsValues.TipoConteudoPdf, EtagAtual, false), log);
+
+            await resultado.ExecuteResultAsync(CriarContexto(contexto));
+
+            Assert.Equal(StatusCodes.Status200OK, contexto.Response.StatusCode);
+            Assert.Equal(ConstantsValues.TipoConteudoPdf, contexto.Response.ContentType);
+            Assert.Equal(ConstantsValues.ContentDispositionAnexoPdf, contexto.Response.Headers[HeaderNames.ContentDisposition].ToString());
+            Assert.Equal(ConstantsValues.CacheControlLeituraArquivo, contexto.Response.Headers[HeaderNames.CacheControl].ToString());
+            Assert.Equal(bytes, ((MemoryStream)contexto.Response.Body).ToArray());
+        }
+
+        [Fact]
+        public async Task Imagem_SaiComoInlineSemAnexo()
+        {
+            DefaultHttpContext contexto = CriarHttpContext(new MemoryStream());
+            LeituraArquivoArmazenadoResult resultado = new LeituraArquivoArmazenadoResult(new ArquivoParaLeitura(new byte[] { 1, 2 }, ConstantsArmazenamento.MimePng, EtagAtual, false), new LogCapturado());
+
+            await resultado.ExecuteResultAsync(CriarContexto(contexto));
+
+            Assert.Equal(ConstantsArmazenamento.ContentDispositionInline, contexto.Response.Headers[HeaderNames.ContentDisposition].ToString());
+        }
+
+        [Fact]
+        public async Task DocumentoDoCliente_200ETer304ComNoStore()
+        {
+            DefaultHttpContext contexto = CriarHttpContext(new MemoryStream());
+            LeituraArquivoArmazenadoResult resultado = new LeituraArquivoArmazenadoResult(new ArquivoParaLeitura(new byte[] { 1, 2 }, ConstantsValues.TipoConteudoPdf, EtagAtual, false, true), new LogCapturado());
+
+            await resultado.ExecuteResultAsync(CriarContexto(contexto));
+
+            Assert.Equal(ConstantsValues.CacheControlSemArmazenamento, contexto.Response.Headers[HeaderNames.CacheControl].ToString());
+
+            DefaultHttpContext naoModificado = CriarHttpContext(new MemoryStream());
+            LeituraArquivoArmazenadoResult condicional = new LeituraArquivoArmazenadoResult(new ArquivoParaLeitura(Array.Empty<byte>(), ConstantsValues.TipoConteudoPdf, EtagAtual, true, true), new LogCapturado());
+
+            await condicional.ExecuteResultAsync(CriarContexto(naoModificado));
+
+            Assert.Equal(StatusCodes.Status304NotModified, naoModificado.Response.StatusCode);
+            Assert.Equal(ConstantsValues.CacheControlSemArmazenamento, naoModificado.Response.Headers[HeaderNames.CacheControl].ToString());
+        }
+
+        [Fact]
         public async Task ClienteEncerraNoMeioDoEnvio_NaoSaiExcecaoERegistraSoInformativo()
         {
             using CancellationTokenSource cancelamento = new CancellationTokenSource();

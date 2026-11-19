@@ -205,6 +205,16 @@ namespace AutoVia.Tests.Frota
         }
 
         [Fact]
+        public async Task PdfDeclaradoComoJpeg_EFormatoInvalido()
+        {
+            ProcessadorFotoService processador = new ProcessadorFotoService(new FakeLogService());
+
+            ValidationException excecao = await Assert.ThrowsAsync<ValidationException>(() => processador.ProcessarAsync(ConstantsValues.AssinaturaPdf, ConstantsArmazenamento.MimeJpeg, CancellationToken.None));
+
+            AfirmarRecusa(excecao, ConstantsMessage.ErroVeiculoFotoFormatoInvalido);
+        }
+
+        [Fact]
         public async Task TipoDeclaradoDiferenteDaAssinatura_EFormatoInvalido()
         {
             ProcessadorFotoService processador = new ProcessadorFotoService(new FakeLogService());

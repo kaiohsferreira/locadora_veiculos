@@ -69,6 +69,7 @@ namespace AutoVia.Api.Controllers
             [FromQuery] string? exp,
             [FromQuery] string? sig)
         {
+            CabecalhoReferrerLeituraArquivo.Registrar(HttpContext.Response);
             try
             {
                 if (!_tetoLeitura.TentarEntrar())
