@@ -708,5 +708,21 @@ namespace AutoVia.Tests.Persistence
                 Assert.False(indice.IsUnique);
             }
         }
+
+        [Fact]
+        public void Pagamento_IdTransacaoEAnulavelComAte40CaracteresESemIndice()
+        {
+            IModel model = BuildModel();
+            StoreObjectIdentifier table = StoreObjectIdentifier.Table("pagamento", null);
+            IEntityType entity = model.GetEntityTypes().Single(x => x.GetTableName() == "pagamento");
+
+            IProperty idTransacao = entity.FindProperty(nameof(Pagamento.IdTransacao))!;
+
+            Assert.Equal("id_transacao", idTransacao.GetColumnName(table));
+            Assert.Equal("character varying(40)", idTransacao.GetColumnType(table));
+            Assert.Equal(40, idTransacao.GetMaxLength());
+            Assert.True(idTransacao.IsNullable);
+            Assert.DoesNotContain(entity.GetIndexes(), indice => indice.Properties.Contains(idTransacao));
+        }
     }
 }

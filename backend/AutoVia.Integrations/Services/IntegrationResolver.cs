@@ -65,12 +65,11 @@ namespace AutoVia.Integrations.Services
                         string.Format(ConstantsMessageIntegration.ErroBaseUrlInvalida, codigoNormalizado));
                 }
 
-                Dictionary<string, IntegrationSettingValue> settings = integration.Settings
-                    .GroupBy(x => x.Chave, StringComparer.OrdinalIgnoreCase)
-                    .ToDictionary(
-                        group => group.Key,
-                        group => new IntegrationSettingValue(group.First().Valor, group.First().Protegido),
-                        StringComparer.OrdinalIgnoreCase);
+                List<IntegrationSetting> settingsAtivos = integration.Settings
+                    .Where(x => x.DisabledAt == null)
+                    .ToList();
+
+                Dictionary<string, IntegrationSettingValue> settings = MontarSettings(settingsAtivos);
 
                 ConfiguracaoIntegracao configuration = new ConfiguracaoIntegracao(
                     integration.Codigo,
@@ -115,6 +114,22 @@ namespace AutoVia.Integrations.Services
         private static string BuildCacheKey(string codigoNormalizado)
         {
             return ConstantsIntegration.PrefixoCache + codigoNormalizado;
+        }
+
+        /// <summary>
+        /// Monta o dicionario so com os settings ativos. Com a mesma chave ativa mais de uma vez, vale a de maior id
+        /// (a mais nova): os settings entram em ordem crescente de id e cada um sobrescreve o anterior.
+        /// </summary>
+        private static Dictionary<string, IntegrationSettingValue> MontarSettings(List<IntegrationSetting> settingsAtivos)
+        {
+            Dictionary<string, IntegrationSettingValue> settings = new Dictionary<string, IntegrationSettingValue>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (IntegrationSetting setting in settingsAtivos.OrderBy(x => x.IdSetting))
+            {
+                settings[setting.Chave] = new IntegrationSettingValue(setting.Valor, setting.Protegido);
+            }
+
+            return settings;
         }
     }
 }

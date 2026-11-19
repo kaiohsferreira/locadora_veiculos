@@ -1,3 +1,4 @@
+using AutoVia.Communication.Enums;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using System;
@@ -57,14 +58,20 @@ namespace AutoVia.Tests.Fakes
             LancarSeConfigurado();
             ChamadasSomaAReceber++;
 
-            return Task.FromResult(DadosDaEmpresa().AReceber);
+            DadosPainelFake dados = DadosDaEmpresa();
+            decimal somaCobrancas = dados.Cobrancas.Where(x => EhAReceber(x, hoje)).Sum(x => x.Valor);
+
+            return Task.FromResult(dados.AReceber + somaCobrancas);
         }
 
         public Task<int> ContarAReceberAsync(DateOnly hoje)
         {
             LancarSeConfigurado();
 
-            return Task.FromResult(DadosDaEmpresa().QuantidadeAReceber);
+            DadosPainelFake dados = DadosDaEmpresa();
+            int quantidadeCobrancas = dados.Cobrancas.Count(x => EhAReceber(x, hoje));
+
+            return Task.FromResult(dados.QuantidadeAReceber + quantidadeCobrancas);
         }
 
         public Task<decimal> SomarEmAtrasoAsync(DateOnly hoje)
@@ -72,14 +79,36 @@ namespace AutoVia.Tests.Fakes
             LancarSeConfigurado();
             ChamadasSomaEmAtraso++;
 
-            return Task.FromResult(DadosDaEmpresa().EmAtraso);
+            DadosPainelFake dados = DadosDaEmpresa();
+            decimal somaCobrancas = dados.Cobrancas.Where(x => EhEmAtraso(x, hoje)).Sum(x => x.Valor);
+
+            return Task.FromResult(dados.EmAtraso + somaCobrancas);
         }
 
         public Task<int> ContarEmAtrasoAsync(DateOnly hoje)
         {
             LancarSeConfigurado();
 
-            return Task.FromResult(DadosDaEmpresa().QuantidadeEmAtraso);
+            DadosPainelFake dados = DadosDaEmpresa();
+            int quantidadeCobrancas = dados.Cobrancas.Count(x => EhEmAtraso(x, hoje));
+
+            return Task.FromResult(dados.QuantidadeEmAtraso + quantidadeCobrancas);
+        }
+
+        /// <summary>A receber, como no repositorio: PENDENTE a vencer (hoje ou depois) e tipo diferente de CAUCAO.</summary>
+        private static bool EhAReceber(CobrancaAbertaFake cobranca, DateOnly hoje)
+        {
+            return cobranca.Tipo != TipoPagamento.CAUCAO
+                && cobranca.Status == StatusPagamento.PENDENTE
+                && cobranca.Vencimento >= hoje;
+        }
+
+        /// <summary>Em atraso, como no repositorio: ATRASADO, ou PENDENTE vencido; tipo diferente de CAUCAO nos dois casos.</summary>
+        private static bool EhEmAtraso(CobrancaAbertaFake cobranca, DateOnly hoje)
+        {
+            return cobranca.Tipo != TipoPagamento.CAUCAO
+                && (cobranca.Status == StatusPagamento.ATRASADO
+                    || (cobranca.Status == StatusPagamento.PENDENTE && cobranca.Vencimento < hoje));
         }
 
         public Task<List<FrotaSituacaoContagem>> ContarVeiculosPorSituacaoAsync()
@@ -162,8 +191,14 @@ namespace AutoVia.Tests.Fakes
 
         /// <summary>Veiculos cadastrados da locadora, com a data de cadastro (CreatedAt) e se estao ativos (DisabledAt nulo).</summary>
         public List<CadastroVeiculoFake> VeiculosCadastrados { get; set; } = new List<CadastroVeiculoFake>();
+
+        /// <summary>Cobrancas abertas (pagamentos) da locadora. O fake aplica a mesma regra do repositorio: a caucao nunca entra em a receber nem em atraso.</summary>
+        public List<CobrancaAbertaFake> Cobrancas { get; set; } = new List<CobrancaAbertaFake>();
     }
 
     /// <summary>Um veiculo no fake do painel: data de cadastro e se esta ativo. Desativado nao conta nos novos do mes.</summary>
     public sealed record CadastroVeiculoFake(DateTime CriadoEm, bool Ativo);
+
+    /// <summary>Um pagamento no fake do painel: tipo, status, valor e vencimento (a regra de a receber e de atraso usa os quatro).</summary>
+    public sealed record CobrancaAbertaFake(TipoPagamento Tipo, StatusPagamento Status, decimal Valor, DateOnly Vencimento);
 }

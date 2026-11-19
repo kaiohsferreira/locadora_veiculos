@@ -1,5 +1,6 @@
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Communication.Enums;
+using AutoVia.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -37,6 +38,8 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .HasConversion<string>()
                 .HasMaxLength(15)
                 .HasDefaultValue(StatusPagamento.PENDENTE);
+
+            builder.Property(x => x.IdTransacao).IsRequired(false).HasMaxLength(ConstantsValues.TamanhoMaximoIdTransacaoPagamento);
 
             builder.HasIndex(x => new { x.Status, x.DataVencimento }).HasDatabaseName("idx_pagamento_status");
 

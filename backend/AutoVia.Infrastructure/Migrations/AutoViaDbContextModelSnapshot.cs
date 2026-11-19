@@ -931,6 +931,11 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("id_locacao");
 
+                    b.Property<string>("IdTransacao")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("id_transacao");
+
                     b.Property<int?>("IdVenda")
                         .HasColumnType("integer")
                         .HasColumnName("id_venda");

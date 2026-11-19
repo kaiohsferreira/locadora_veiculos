@@ -240,5 +240,16 @@
     "regra_no_servico": "um documento ativo por cliente e tipo: o servico desativa o anterior numa gravacao so; teto de 20 envios por cliente em 24 horas, contando ativos e desativados; sem indice unico",
     "remocao_do_arquivo": "substituir apaga o arquivo antigo no armazenamento (remocao fisica so do arquivo, decisao 10 do plano); a linha fica desativada",
     "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico; status do cadastro segue PENDENTE; nenhuma migracao de dados"
+  },
+  "pagamento_id_transacao": {
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "data": "2026-11-19",
+    "tarefa": "P7-INT-01 (RF-20: pagamento, pendencia D3)",
+    "motivo": "Sem o id da transacao no provedor, a caucao nao pode ser capturada nem cancelada depois. A especificacao nao tem essa coluna. Decisao 4 do plano aprovado em 19/11/2026 (frase do Kaio: \"Aprovo 1 a 10\").",
+    "colunas_novas": {
+      "pagamento.id_transacao": "VARCHAR(40) NULL, sem indice e sem CHECK; identificador da transacao no provedor, preenchido por quem grava a caucao ou a cobranca (P4-BE-04 e P7-BE-02); nesta entrega nada grava a coluna"
+    },
+    "regra_no_servico": "o id nunca sai em resposta de API para o cliente; nenhum VO muda nesta entrega",
+    "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico; nenhuma migracao de dados aplicada"
   }
 }

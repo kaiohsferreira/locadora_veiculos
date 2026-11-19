@@ -358,6 +358,7 @@ CREATE TABLE pagamento (
     data_pagamento date,
     forma character varying(20),
     status character varying(15) NOT NULL DEFAULT 'PENDENTE',
+    id_transacao character varying(40),
     created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     disabled_at timestamp without time zone,

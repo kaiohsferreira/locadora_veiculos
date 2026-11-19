@@ -239,3 +239,20 @@ Indices:  36 -> 37 (+1: idx_cliente_documento_cliente_tipo)
 ```
 
 Como o `compare_schema.py` não lê as entradas `tabelas_novas`, a conferência é feita pelas contagens acima, pelo diff do `00_ModeloAtual.sql` e por `dotnet ef migrations has-pending-model-changes` depois de gerada a migration.
+
+## Desvio de 19/11/2026: id da transação no pagamento (P7-INT-01, RF-20)
+
+Aprovado pelo Kaio em 19/11/2026 (bloco `pagamento_id_transacao` em `especificacao/desvios_aprovados.json`). Sem o id da transação no provedor, a caucao não pode ser capturada nem cancelada depois. A coluna guarda esse identificador; nesta entrega nada a grava.
+- Coluna nova `pagamento.id_transacao` VARCHAR(40) NULL, sem CHECK e sem índice.
+- Migration `20261119162522_AdicionarIdTransacaoPagamento`: só gerada, não aplicada. Script `sql/20_AdicionarIdTransacaoPagamento.sql`, conferido contra a migration gerada em 19/11/2026 (uma coluna nova, `id_transacao`, texto de 40, anulável; sem índice e sem CHECK).
+
+Contagens depois do desvio (`sql/00_ModeloAtual.sql` ajustado à mão em 19/11/2026):
+
+```text
+Tabelas:  inalterado
+Colunas:  +1 (pagamento.id_transacao)
+CHECK:    inalterado
+FK:       inalterado
+UNIQUE:   0 (inalterado)
+Indices:  inalterado
+```

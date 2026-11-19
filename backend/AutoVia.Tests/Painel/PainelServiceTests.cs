@@ -524,5 +524,48 @@ namespace AutoVia.Tests.Painel
 
             Assert.Contains(log.Entries, entrada => entrada.Contains(ConstantsMessage.ErroConsultarVisaoGeral));
         }
+
+        // Cobertura: estes testes provam a regra no FakePainelRepository, nao no PainelRepository.
+        // A exclusao da caucao no SQL real e provada em PainelRepositorySqlTests (AReceber_ExcluiACaucao).
+        [Fact]
+        public async Task CaucaoPendenteAVencer_NaoEntraEmAReceber_OutroTipoEntra()
+        {
+            DadosPainelFake dados = new DadosPainelFake
+            {
+                Cobrancas = new List<CobrancaAbertaFake>
+                {
+                    new CobrancaAbertaFake(TipoPagamento.CAUCAO, StatusPagamento.PENDENTE, 500m, new DateOnly(2026, 11, 20)),
+                    new CobrancaAbertaFake(TipoPagamento.DIARIA, StatusPagamento.PENDENTE, 200m, new DateOnly(2026, 11, 20))
+                }
+            };
+            (PainelService servico, _, _) = Criar(ContextoEmpresaDeTeste.Criar(EmpresaA, CargoFuncionario.ADMINISTRADOR), DadosPorEmpresa(dados));
+
+            ReturnVisaoGeralVO visao = await servico.ObterVisaoGeralAsync(PeriodoVisaoGeral.TRINTA_DIAS);
+
+            Assert.Equal((decimal?)200m, visao.AReceber);
+            Assert.Equal(1, visao.QuantidadeCobrancasEmAberto);
+        }
+
+        // Cobertura: como no teste acima, a regra do repositorio e provada em PainelRepositorySqlTests (EmAtraso_ExcluiACaucaoNosDoisRamosDoOu).
+        [Fact]
+        public async Task CaucaoPendenteVencidaOuAtrasada_NaoEntraEmAtraso_OutrosTiposEntram()
+        {
+            DadosPainelFake dados = new DadosPainelFake
+            {
+                Cobrancas = new List<CobrancaAbertaFake>
+                {
+                    new CobrancaAbertaFake(TipoPagamento.CAUCAO, StatusPagamento.PENDENTE, 500m, new DateOnly(2026, 11, 1)),
+                    new CobrancaAbertaFake(TipoPagamento.CAUCAO, StatusPagamento.ATRASADO, 300m, new DateOnly(2026, 11, 1)),
+                    new CobrancaAbertaFake(TipoPagamento.DIARIA, StatusPagamento.PENDENTE, 100m, new DateOnly(2026, 11, 1)),
+                    new CobrancaAbertaFake(TipoPagamento.COBRANCA_EXTRA, StatusPagamento.ATRASADO, 50m, new DateOnly(2026, 11, 1))
+                }
+            };
+            (PainelService servico, _, _) = Criar(ContextoEmpresaDeTeste.Criar(EmpresaA, CargoFuncionario.ADMINISTRADOR), DadosPorEmpresa(dados));
+
+            ReturnVisaoGeralVO visao = await servico.ObterVisaoGeralAsync(PeriodoVisaoGeral.TRINTA_DIAS);
+
+            Assert.Equal((decimal?)150m, visao.EmAtraso);
+            Assert.Equal(2, visao.QuantidadeCobrancasVencidas);
+        }
     }
 }

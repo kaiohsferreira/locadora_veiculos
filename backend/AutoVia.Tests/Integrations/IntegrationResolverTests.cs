@@ -126,5 +126,93 @@ namespace AutoVia.Tests.Integrations
 
             Assert.Equal(2, repository.QueryCount);
         }
+
+        [Fact]
+        public async Task ResolveAsync_ChaveDesativadaEOutraAtivaComOMesmoNome_ValeAAtiva()
+        {
+            FakeIntegrationRepository repository = new FakeIntegrationRepository();
+            Integration integration = CriarIntegracao(ConstantsIntegration.Pagamento);
+            integration.Settings.Clear();
+            IntegrationSetting desativada = new IntegrationSetting { IdSetting = 1, Chave = "client_id", Valor = "cliente-antigo", Protegido = false };
+            desativada.Disable();
+            integration.Settings.Add(desativada);
+            integration.Settings.Add(new IntegrationSetting { IdSetting = 2, Chave = "client_id", Valor = "cliente-novo", Protegido = false });
+            repository.Add(integration);
+            IntegrationResolver resolver = CriarResolver(repository);
+
+            ConfiguracaoIntegracao configuracao = await resolver.ResolveAsync(ConstantsIntegration.Pagamento);
+
+            Assert.Equal("cliente-novo", configuracao.GetRequired("client_id"));
+        }
+
+        [Fact]
+        public async Task ResolveAsync_SoChaveDesativada_ChaveFicaAusenteEGetRequiredAcusaAFalta()
+        {
+            FakeIntegrationRepository repository = new FakeIntegrationRepository();
+            Integration integration = CriarIntegracao(ConstantsIntegration.Pagamento);
+            integration.Settings.Clear();
+            IntegrationSetting desativada = new IntegrationSetting { IdSetting = 1, Chave = "client_id", Valor = "cliente-antigo", Protegido = false };
+            desativada.Disable();
+            integration.Settings.Add(desativada);
+            repository.Add(integration);
+            IntegrationResolver resolver = CriarResolver(repository);
+
+            ConfiguracaoIntegracao configuracao = await resolver.ResolveAsync(ConstantsIntegration.Pagamento);
+
+            Assert.DoesNotContain("client_id", configuracao.Chaves);
+            IntegrationException exception = Assert.Throws<IntegrationException>(() => configuracao.GetRequired("client_id"));
+            Assert.Contains("client_id", exception.Message);
+        }
+
+        [Fact]
+        public async Task ResolveAsync_DuasAtivasComAMesmaChave_ValeADeMaiorId()
+        {
+            FakeIntegrationRepository repository = new FakeIntegrationRepository();
+            Integration integration = CriarIntegracao(ConstantsIntegration.Pagamento);
+            integration.Settings.Clear();
+            integration.Settings.Add(new IntegrationSetting { IdSetting = 5, Chave = "client_id", Valor = "cliente-menor-id", Protegido = false });
+            integration.Settings.Add(new IntegrationSetting { IdSetting = 9, Chave = "client_id", Valor = "cliente-maior-id", Protegido = false });
+            repository.Add(integration);
+            IntegrationResolver resolver = CriarResolver(repository);
+
+            ConfiguracaoIntegracao configuracao = await resolver.ResolveAsync(ConstantsIntegration.Pagamento);
+
+            Assert.Equal("cliente-maior-id", configuracao.GetRequired("client_id"));
+        }
+
+        [Fact]
+        public async Task ResolveAsync_ChavesDiferentesAtivas_TodasContinuamPresentes()
+        {
+            FakeIntegrationRepository repository = new FakeIntegrationRepository();
+            Integration integration = CriarIntegracao(ConstantsIntegration.Pagamento);
+            integration.Settings.Clear();
+            integration.Settings.Add(new IntegrationSetting { IdSetting = 1, Chave = "client_id", Valor = "cliente-123", Protegido = false });
+            integration.Settings.Add(new IntegrationSetting { IdSetting = 2, Chave = "client_secret", Valor = "segredo-super-secreto", Protegido = true });
+            repository.Add(integration);
+            IntegrationResolver resolver = CriarResolver(repository);
+
+            ConfiguracaoIntegracao configuracao = await resolver.ResolveAsync(ConstantsIntegration.Pagamento);
+
+            Assert.Equal(2, configuracao.Chaves.Count);
+            Assert.Equal("cliente-123", configuracao.GetRequired("client_id"));
+            Assert.Equal("segredo-super-secreto", configuracao.GetRequired("client_secret"));
+            Assert.True(configuracao.IsProtected("client_secret"));
+        }
+
+        [Fact]
+        public async Task ResolveAsync_SemNenhumaChaveDesativada_ResultadoIgualAoDeHoje()
+        {
+            FakeIntegrationRepository repository = new FakeIntegrationRepository();
+            repository.Add(CriarIntegracao(ConstantsIntegration.Pagamento));
+            IntegrationResolver resolver = CriarResolver(repository);
+
+            ConfiguracaoIntegracao configuracao = await resolver.ResolveAsync(ConstantsIntegration.Pagamento);
+
+            Assert.Equal(2, configuracao.Chaves.Count);
+            Assert.Equal("cliente-123", configuracao.GetRequired("client_id"));
+            Assert.Equal("segredo-super-secreto", configuracao.GetRequired("client_secret"));
+            Assert.True(configuracao.IsProtected("client_secret"));
+            Assert.False(configuracao.IsProtected("client_id"));
+        }
     }
 }

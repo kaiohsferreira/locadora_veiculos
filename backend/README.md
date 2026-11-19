@@ -148,6 +148,10 @@ URL, timeout e credenciais **nunca** vêm de appsettings, de variável de ambien
 - Valor com `protegido = true` nunca vai para log nem para resposta da API. Use `ConfiguracaoIntegracao.ProtectedValues` em `RequestInfo.SensitiveValues`.
 - Toda chamada externa passa pelo `IComunicacaoService`. Ele aplica o timeout da tabela e só tenta de novo em falha de rede ou erro 5xx (no máximo 3 vezes, com espera progressiva). POST e PATCH só são repetidos com `IdempotencyKey`.
 
+### Escopo da P7-INT-01 (pagamento)
+
+P7-INT-01 (integração PAGAMENTO): entregue pelo RF-20, com PIX e pré-autorização de caução. Boleto pertence ao RF-32 (P7-BE-02) e webhook ao RF-33 (P7-BE-03, opcional). O registro da caução em pagamento é feito pela P4-BE-04.
+
 ## Observações
 
 - **AutoMapper 16:** a partir da versão 15, o AutoMapper exige uma chave de licença; sem ela, só registra um aviso no log e continua funcionando. A licença *Community* é gratuita para uso educacional (luckypennysoftware.com). Ficamos na 16 porque a 14, a última gratuita sem chave, tem uma vulnerabilidade alta (GHSA-rvv3-g6hj-g44x) sem correção.

@@ -216,5 +216,23 @@ namespace AutoVia.Tests.Painel
 
             Assert.DoesNotContain("status", clausulaWhere);
         }
+
+        [Fact]
+        public void AReceber_ExcluiACaucao()
+        {
+            string sql = CriarRepositorio(EmpresaA).ConsultaAReceber(Hoje).ToQueryString();
+
+            Assert.Contains("p.tipo <> 'CAUCAO'", sql);
+        }
+
+        [Fact]
+        public void EmAtraso_ExcluiACaucaoNosDoisRamosDoOu()
+        {
+            string sql = CriarRepositorio(EmpresaA).ConsultaEmAtraso(Hoje).ToQueryString();
+
+            Assert.Contains("p.tipo <> 'CAUCAO' AND (", sql);
+            Assert.Contains("'ATRASADO'", sql);
+            Assert.Contains("'PENDENTE'", sql);
+        }
     }
 }

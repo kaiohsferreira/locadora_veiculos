@@ -42,6 +42,13 @@ namespace AutoVia.Core.Entities.PgSql
         [Column("status")]
         public StatusPagamento Status { get; set; } = StatusPagamento.PENDENTE;
 
+        /// <summary>
+        /// VARCHAR(40), anulavel: identificador da transacao no provedor de pagamento, preenchido por quem grava a caucao ou a
+        /// cobranca. Sem indice e sem CHECK. Nunca sai em resposta de API para o cliente.
+        /// </summary>
+        [Column("id_transacao")]
+        public string? IdTransacao { get; set; }
+
         // --- Navegacao ---
         public virtual Locacao? Locacao { get; set; }
         public virtual Venda? Venda { get; set; }

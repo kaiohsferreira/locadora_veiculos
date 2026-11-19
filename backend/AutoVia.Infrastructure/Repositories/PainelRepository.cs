@@ -51,7 +51,7 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        /// <summary>Pagamentos a receber: PENDENTE com vencimento em hoje ou depois (nao vencidos).</summary>
+        /// <summary>Pagamentos a receber: PENDENTE com vencimento em hoje ou depois (nao vencidos), sem a caucao (tipo CAUCAO nao e divida).</summary>
         public IQueryable<Pagamento> ConsultaAReceber(DateOnly hoje)
         {
             try
@@ -59,6 +59,7 @@ namespace AutoVia.Infrastructure.Repositories
                 IQueryable<Pagamento> consulta = _db.Pagamentos
                     .AsNoTracking()
                     .Where(x => x.DisabledAt == null
+                        && x.Tipo != TipoPagamento.CAUCAO
                         && x.Status == StatusPagamento.PENDENTE
                         && x.DataVencimento >= hoje);
 
@@ -71,7 +72,7 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        /// <summary>Pagamentos em atraso: ATRASADO, ou PENDENTE com vencimento anterior a hoje.</summary>
+        /// <summary>Pagamentos em atraso: ATRASADO, ou PENDENTE com vencimento anterior a hoje; a caucao (tipo CAUCAO) nunca entra.</summary>
         public IQueryable<Pagamento> ConsultaEmAtraso(DateOnly hoje)
         {
             try
@@ -79,6 +80,7 @@ namespace AutoVia.Infrastructure.Repositories
                 IQueryable<Pagamento> consulta = _db.Pagamentos
                     .AsNoTracking()
                     .Where(x => x.DisabledAt == null
+                        && x.Tipo != TipoPagamento.CAUCAO
                         && (x.Status == StatusPagamento.ATRASADO
                             || (x.Status == StatusPagamento.PENDENTE && x.DataVencimento < hoje)));
 
