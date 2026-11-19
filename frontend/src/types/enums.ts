@@ -177,6 +177,17 @@ export const ROTULO_STATUS_PAGAMENTO: Readonly<Record<StatusPagamento, string>> 
   CANCELADO: 'Cancelado',
 };
 
+/** Formas da baixa (contrato pagamento, lista fechada). Rótulos novos da tela 30, listados para o Kaio. */
+export const FORMA_PAGAMENTO = ['PIX', 'CARTAO', 'BOLETO', 'DINHEIRO', 'TRANSFERENCIA'] as const;
+export type FormaPagamento = (typeof FORMA_PAGAMENTO)[number];
+export const ROTULO_FORMA_PAGAMENTO: Readonly<Record<FormaPagamento, string>> = {
+  PIX: 'PIX',
+  CARTAO: 'Cartão',
+  BOLETO: 'Boleto',
+  DINHEIRO: 'Dinheiro',
+  TRANSFERENCIA: 'Transferência',
+};
+
 // Manutenção -----------------------------------------------------------------
 
 export const TIPO_MANUTENCAO = ['PREVENTIVA', 'CORRETIVA'] as const;

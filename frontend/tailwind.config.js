@@ -109,8 +109,8 @@ export default {
         },
       },
       /**
-       * Frota (tela 11, Gestão de Frota): verdes e laranja-escuro do desenho que não existiam no tema. Valores novos
-       * da tela 11 (listados para o Kaio antes do commit). As outras telas não usam estes tokens.
+       * Frota (telas 11 e 12, Gestão de Frota): verdes e laranja-escuro do desenho que não existiam no tema. Valores novos
+       * da tela 11 (listados para o Kaio antes do commit). A tela 30 usa frota-oficina e frota-oficina-fundo.
        */
       frota: {
         disponivel: {
@@ -130,6 +130,20 @@ export default {
       documento: {
         DEFAULT: '#065F46',
         fundo: '#D1FAE5',
+      },
+      /**
+       * Pagamentos do cliente (tela 30): cores do desenho que não existiam no tema. Valores novos da tela 30, listados
+       * para o Kaio antes do commit. As outras telas não usam estes tokens.
+       */
+      pagamento: {
+        /** Texto do selo "Pendente" (on-secondary-fixed do desenho). */
+        'texto-pendente': '#390C00',
+        /** Texto do selo "Compensado" (on-primary-fixed do desenho). */
+        'texto-compensado': '#061C36',
+        /** Ícone de confirmado (emerald-600 do desenho). */
+        sucesso: '#059669',
+        /** Ponto do cartão de quitadas (emerald-500 do desenho). */
+        'sucesso-ponto': '#10B981',
       },
     },
     extend: {
@@ -173,6 +187,8 @@ export default {
         'emblema-brasil': ['0.5rem', { lineHeight: '0.5rem', fontWeight: '700' }],
         /** Documentos do cliente (tela 21): título da página (30/38, seminegrito). Valor novo da tela 21, listado para o Kaio. */
         'titulo-documentos': ['1.875rem', { lineHeight: '2.375rem', fontWeight: '600', letterSpacing: '-0.015em' }],
+        /** Pagamentos do cliente (tela 30): valor da cobrança e do cartão (18/24, bold). Valor novo da tela 30, listado para o Kaio. */
+        'valor-destaque': ['1.125rem', { lineHeight: '1.5rem', fontWeight: '700', letterSpacing: '-0.005em' }],
       },
       borderRadius: {
         cartao: '8px',

@@ -19,6 +19,7 @@ const LINKS_NAVEGACAO: readonly LinkNavegacao[] = [
   { rotulo: 'Início', para: CAMINHOS.inicio, exato: true },
   { rotulo: 'Seminovos', para: CAMINHOS.seminovos },
   { rotulo: 'Minhas reservas', para: CAMINHOS.minhasReservas },
+  { rotulo: 'Pagamentos', para: CAMINHOS.meusPagamentos },
 ];
 
 /** Ano exibido no rodapé (calculado uma vez, ao carregar a aplicação). */
