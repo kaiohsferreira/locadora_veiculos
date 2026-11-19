@@ -3,6 +3,9 @@ node_modules
 dist
 dist-ssr
 
+# Vercel (configuração local da CLI)
+.vercel
+
 # Variáveis de ambiente (o modelo versionado é o .env.example)
 .env
 .env.local

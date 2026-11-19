@@ -36,6 +36,7 @@ secrets.json
 node_modules/
 dist/
 dist-ssr/
+.vercel/
 *.local
 .env
 .env.local

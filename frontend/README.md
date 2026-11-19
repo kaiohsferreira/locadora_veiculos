@@ -15,7 +15,7 @@ Fonte Inter e ícones Material Symbols (os mesmos dos protótipos), via Google F
 
 ## Como rodar
 
-Pré-requisito: Node 20.19+ (testado com Node 24 e npm 11).
+Pré-requisito: Node 24.x, o mesmo fixado em `engines` no `package.json` e usado no Vercel (testado com Node 24 e npm 11).
 
 ```bash
 cd frontend
@@ -36,8 +36,46 @@ npm run dev               # http://localhost:5173
 
 | Variável                    | Exemplo                 | Uso                                                                                                                                  |
 | --------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `VITE_API_URL`              | `http://localhost:5000` | URL base da API (ASP.NET Core)                                                                                                       |
+| `VITE_API_URL`              | `http://localhost:5000` | URL base da API (ASP.NET Core). Se a variável faltar, o código usa **vazio** (não `localhost:5000`): as chamadas vão para a própria origem do site e a API não é alcançada. O `.env.example` traz `http://localhost:5000` só para o desenvolvimento local. Em produção (Vercel) é **obrigatória**: URL `https`, sem barra no fim; sem ela o build do Vercel falha de propósito. |
 | `VITE_IGNORAR_AUTENTICACAO` | `false`                 | `true` libera as rotas protegidas sem passar pela API de login, só para navegar no `npm run dev` com o backend parado. **Só vale no `npm run dev`**: no build a proteção sempre é aplicada. |
+
+## Publicar no Vercel
+
+O front vai para o Vercel; a API continua no Railway. Configuração do projeto no Vercel:
+
+- **Root Directory:** `frontend` (a pasta do front dentro do repositório).
+- **Framework:** Vite (o Vercel deve detectar sozinho; confira na tela de configuração).
+- **Install Command:** `npm install` (padrão; usa o `package-lock.json`).
+- **Build Command:** `npm run build` (checagem de tipos e build de produção).
+- **Output Directory:** `dist`.
+- **Production Branch:** `main` (Project Settings > Git). Só a `main` publica; as demais branches não geram deploy (regra `**` no `vercel.json`).
+- **Versão do Node:** 24.x, definida em `engines.node` no `package.json`.
+- **Variável de ambiente:** `VITE_API_URL`, em Production, com a URL `https` da API no Railway, sem barra no fim. Não defina `VITE_IGNORAR_AUTENTICACAO` no Vercel. Lembre que tudo que começa com `VITE_` vai para o navegador: nunca coloque segredo nelas.
+
+Se `VITE_API_URL` faltar ou não for uma URL `https` válida, o build no Vercel para com uma mensagem dizendo o que definir. Na sua máquina nada muda: o build local funciona sem a variável.
+
+Depois de alterar `VITE_API_URL` no Vercel, faça **Redeploy**: a variável entra no build, não em tempo de execução.
+
+### O que o `vercel.json` faz
+
+- **Rotas:** todo endereço abre o `index.html`, para que links diretos e o F5 em telas como `/back-office/frota` funcionem. As exceções são os caminhos que começam com `/api/` e com `/assets/`: se a URL da API estiver errada, a chamada cai em 404 em vez de receber a página do site, e um arquivo de `/assets/` que não existe também dá 404 (não recebe a página do site com cache longo).
+- **Cabeçalhos de segurança:** `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options: DENY`, `Permissions-Policy` (câmera, microfone e geolocalização desligados, pois o front não usa esses recursos) e `Content-Security-Policy`, que só deixa carregar script do próprio site e do login do Google.
+- **Cache:** os arquivos de `/assets/` têm nome com hash, então recebem cache longo.
+- **Branches:** só a `main` publica (Production Branch). Todas as outras branches, inclusive as `branch_*`, não geram deploy.
+
+### O que ajustar na API e no Google
+
+- **Railway (API):** os nomes das chaves são `Cors__Origens__0` (endereço do site, sem barra no fim) e `Autenticacao__Recuperacao__UrlPublicaFront` (endereço do site, em `https`). Os valores ficam só no painel do Railway.
+- **Google (login):** adicione a origem do site em "Authorized JavaScript origins" do Client ID.
+
+### Como conferir depois de publicar
+
+1. Abra uma rota funda direto na barra de endereço (por exemplo, `/back-office/frota`). A página deve abrir, sem "página não encontrada".
+2. Recarregue (F5) nessa mesma página. Deve continuar funcionando.
+3. Entre com uma conta de teste. O login deve chegar à API sem erro de rede.
+4. Abra o console do navegador (F12). Não deve haver erro de "Content Security Policy" nem erro de CORS nas telas testadas.
+
+Esta seção descreve o que está no repositório. O primeiro deploy real no Vercel ainda não foi feito e precisa ser conferido com os passos acima.
 
 ## Estrutura de pastas
 
