@@ -9,10 +9,15 @@ namespace AutoVia.Core.Regras
     /// </summary>
     public static class RegrasVistoria
     {
-        /// <summary>Verdadeiro quando a locacao aceita vistoria de entrada: somente EM_ANDAMENTO ou ATRASADA (o mesmo par da saida e da apuracao).</summary>
+        /// <summary>
+        /// Verdadeiro quando a locacao esta em aberto, pela fonte unica RegrasStatusVeiculo.StatusLocacoesEmAberto (EM_ANDAMENTO ou
+        /// ATRASADA). Usado pela vistoria de entrada, pela vistoria de saida e pela apuracao das cobrancas extras.
+        /// </summary>
         public static bool LocacaoAceitaVistoria(StatusLocacao status)
         {
-            bool aceita = status == StatusLocacao.EM_ANDAMENTO || status == StatusLocacao.ATRASADA;
+            StatusLocacao[] statusAbertos = RegrasStatusVeiculo.StatusLocacoesEmAberto();
+
+            bool aceita = statusAbertos.Contains(status);
 
             return aceita;
         }

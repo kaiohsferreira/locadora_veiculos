@@ -4,6 +4,7 @@ using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Locacoes;
 using AutoVia.Communication.ViewObjects.Vistorias;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Regras;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -103,7 +104,7 @@ public sealed class VistoriaSaidaService : IVistoriaSaidaService
             Locacao locacao = await ObterLocacaoAsync(idLocacao);
             Funcionario? funcionario = await _locacaoRepository.FindActiveFuncionarioByIdAsync(idFuncionario);
             if (funcionario == null) throw new BusinessException(ConstantsMessage.ErroVistoriaFuncionarioInativo);
-            if (locacao.Status != StatusLocacao.EM_ANDAMENTO && locacao.Status != StatusLocacao.ATRASADA)
+            if (!RegrasVistoria.LocacaoAceitaVistoria(locacao.Status))
                 throw new BusinessException(ConstantsMessage.ErroVistoriaSaidaStatus);
             Vistoria? existente = await _saidaRepository.FindSaidaByLocacaoAsync(idLocacao);
             if (existente != null) throw new BusinessException(ConstantsMessage.ErroVistoriaSaidaDuplicada);

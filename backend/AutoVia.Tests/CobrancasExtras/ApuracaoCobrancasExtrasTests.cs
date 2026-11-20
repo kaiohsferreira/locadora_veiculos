@@ -126,6 +126,15 @@ public sealed class ApuracaoCobrancasExtrasTests
     }
 
     [Fact]
+    public async Task StatusAtrasadaAceitaApuracao()
+    {
+        _locacao.Status = StatusLocacao.ATRASADA;
+        ResultadoRegistroApuracaoVO registro = await _service.RegistrarAsync(10, Pedido());
+        Assert.True(registro.Criada);
+        Assert.Equal(StatusLocacao.ATRASADA, _locacao.Status);
+    }
+
+    [Fact]
     public async Task FalhaNaSegundaGravacaoReverteApuracaoECobrancasNoContratoDoFake()
     {
         _repository.FalharSnapshot = true;

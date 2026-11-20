@@ -9,8 +9,8 @@ namespace AutoVia.Infrastructure.Persistence
     /// <summary>
     /// Isolamento por locadora (multi-locadora, T-BE-03b): o filtro global nomeado "Empresa" e
     /// registrado UMA vez, pelo AutoViaDbContext.OnModelCreating (metodo abaixo). Caminhos: Veiculo e
-    /// Funcionario pela propria coluna id_empresa; Reserva, Locacao, Venda, Manutencao, Seguro e
-    /// Sinistro pelo Veiculo; SinistroHistorico pelo Sinistro; VeiculoFoto pelo Veiculo; Vistoria e CobrancaExtra pela Locacao; Avaria pela Vistoria; Pagamento
+    /// Funcionario e ConfiguracaoCobrancaExtra pela propria coluna id_empresa; Reserva, Locacao, Venda, Manutencao, Seguro e
+    /// Sinistro pelo Veiculo; SinistroHistorico pelo Sinistro; VeiculoFoto pelo Veiculo; Vistoria, CobrancaExtra e ApuracaoCobrancaExtra pela Locacao; Avaria pela Vistoria; Pagamento
     /// pela Locacao ou pela Venda; ClienteLocadora pelo proprio id_empresa OU pelo id_cliente do contexto.
     /// Fail-closed: sem contexto de empresa (id 0) nada volta.
     /// Globais sem filtro: Cliente, ClienteDocumento (documentos do cliente, RF-08), Categoria, RedefinicaoSenha, Integration*, Empresa.
@@ -22,14 +22,16 @@ namespace AutoVia.Infrastructure.Persistence
     /// reserva; trava do veiculo e da locacao (bloqueio de linha FOR UPDATE, sem leitura de dados fora do filtro); busca publica
     /// de disponiveis e catalogo publico de seminovos (so locadoras ativas e nao desativadas); consulta base das cobrancas do
     /// proprio cliente (posse pelo cliente do contexto, sem filtro de locadora) e trava de baixa de pagamento (bloqueio de
-    /// linha FOR UPDATE, com o filtro de locadora ligado). Qualquer outro metodo que
+    /// linha FOR UPDATE, com o filtro de locadora ligado); trava da locacao na vistoria de saida (bloqueio de linha FOR UPDATE da locacao,
+    /// pela conexao crua do contexto, com consulta sob o filtro antes e depois da trava); locks parametrizados de empresa e locacao
+    /// das cobrancas extras (conexao crua, com o escopo validado antes da trava). Qualquer outro metodo que
     /// desligue o filtro reprova a guarda. Os metodos e a quantidade de cada simbolo estao em GuardaPorMetodoRepositoriosTests
     /// e em IsolamentoEmpresaGuardasTests.
     /// </summary>
     public partial class AutoViaDbContext
     {
         /// <summary>
-        /// Registra o filtro "Empresa" nas 15 entidades que pertencem a uma locadora (ClienteLocadora tem a condicao dupla: locadora ou cliente). As expressoes leem
+        /// Registra o filtro "Empresa" nas 17 entidades que pertencem a uma locadora (ClienteLocadora tem a condicao dupla: locadora ou cliente). As expressoes leem
         /// IdEmpresaContexto de ESTA instancia (this): o EF troca o this pelo contexto que executa a consulta,
         /// por isso o filtro nao pode capturar outra instancia nem uma variavel local.
         /// </summary>

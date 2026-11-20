@@ -14,9 +14,11 @@ namespace AutoVia.Tests.Persistence
     /// (2) o bypass do filtro e as formas de SQL e de busca que o contornam (IgnoreQueryFilters, SemEscopoEmpresa,
     /// FromSql, ExecuteSql, SqlQuery, ExecuteUpdate, ExecuteDelete, GetDbConnection, FindAsync e Find) so aparecem na lista
     /// fechada abaixo, com a QUANTIDADE de ocorrencias por arquivo. Um segundo bypass no mesmo arquivo reprova o teste ate a
-    /// lista ser atualizada de proposito. Arquivo novo fora da lista tambem reprova. Por METODO, nos cinco repositorios
-    /// desta entrega (ReservaRepository, VeiculoRepository.Disponibilidade, VeiculoRepository.Catalogo, LocacaoRepository e
-    /// VeiculoRepository.Status), a guarda esta em GuardaPorMetodoRepositoriosTests, que usa esta mesma lista de simbolos.
+    /// lista ser atualizada de proposito. Arquivo novo fora da lista tambem reprova. Por METODO, nos oito arquivos de repositorio cobertos
+    /// (ReservaRepository, VeiculoRepository.Disponibilidade, VeiculoRepository.Catalogo, LocacaoRepository,
+    /// VeiculoRepository.Status, ClienteDocumentoRepository, ManutencaoRepository e PagamentoRepository), a guarda
+    /// esta em GuardaPorMetodoRepositoriosTests, que usa esta mesma lista de simbolos. VistoriaRepository e CobrancasExtrasRepository
+    /// nao tem guarda por metodo: so a contagem por arquivo, nesta classe.
     /// </summary>
     public class IsolamentoEmpresaGuardasTests
     {

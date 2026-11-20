@@ -4,9 +4,9 @@ using System.Text.RegularExpressions;
 namespace AutoVia.Tests.Persistence
 {
     /// <summary>
-    /// Guarda POR METODO dos seis repositorios desta entrega (ReservaRepository, VeiculoRepository.Disponibilidade,
-    /// VeiculoRepository.Catalogo, LocacaoRepository, VeiculoRepository.Status e ClienteDocumentoRepository, que nao tem nenhum
-    /// simbolo: a lista vazia prova isso). Cada ocorrencia dos simbolos de bypass da lista de
+    /// Guarda POR METODO dos oito repositorios desta entrega (ReservaRepository, VeiculoRepository.Disponibilidade,
+    /// VeiculoRepository.Catalogo, LocacaoRepository, VeiculoRepository.Status, ClienteDocumentoRepository, ManutencaoRepository e PagamentoRepository (ClienteDocumentoRepository nao tem nenhum
+    /// simbolo: a lista vazia prova isso)). Cada ocorrencia dos simbolos de bypass da lista de
     /// IsolamentoEmpresaGuardasTests (filtro desligado, SQL bruto, busca por chave, conexao crua) e atribuida ao metodo
     /// que a contem. O teste falha se um simbolo aparecer em metodo fora da lista fechada, se um metodo listado perder
     /// o simbolo, ou se a quantidade dentro de um metodo mudar. A contagem por arquivo continua em IsolamentoEmpresaGuardasTests.

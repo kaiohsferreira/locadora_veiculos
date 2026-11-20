@@ -119,6 +119,14 @@ public class VistoriaSaidaServiceTests
     }
 
     [Fact]
+    public async Task StatusAtrasadaAceitaSaida()
+    {
+        FakeVistoriaSaidaRepository saidas = Preparar();
+        await Criar(saidas, StatusLocacao.ATRASADA).RegistrarSaidaAsync(10, Payload(), 20);
+        Assert.Contains(saidas.Vistorias.Vistorias, x => x.Tipo == TipoVistoria.SAIDA);
+    }
+
+    [Fact]
     public async Task SemEntradaOuKmInferiorRejeita409()
     {
         FakeVistoriaSaidaRepository saidas = Preparar();

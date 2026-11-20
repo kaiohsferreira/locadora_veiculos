@@ -4,6 +4,7 @@ using AutoVia.Communication.Enums;
 using AutoVia.Communication.Validators.CobrancasExtras;
 using AutoVia.Communication.ViewObjects.CobrancasExtras;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Regras;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -75,7 +76,7 @@ public sealed class ApuracaoCobrancasExtrasService : IApuracaoCobrancasExtrasSer
                 Funcionario? funcionario = await _locacoes.FindActiveFuncionarioByIdAsync(_contexto.IdFuncionario);
                 if (funcionario == null || _contexto.IdFuncionario <= 0 || _contexto.IdEmpresa <= 0)
                     throw new BusinessException(ConstantsMessage.ErroVistoriaFuncionarioInativo);
-                if (locacao.Status != StatusLocacao.EM_ANDAMENTO && locacao.Status != StatusLocacao.ATRASADA)
+                if (!RegrasVistoria.LocacaoAceitaVistoria(locacao.Status))
                     throw new BusinessException(ConstantsMessage.ErroApuracaoCobrancasExtrasStatus);
                 ConfiguracaoCobrancaExtra configuracao = await ObterConfiguracaoAsync(locacao);
                 if (configuracao.IdConfiguracao != model.IdConfiguracao || configuracao.Versao != model.VersaoEsperada)

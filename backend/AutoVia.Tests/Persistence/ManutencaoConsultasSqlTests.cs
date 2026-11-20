@@ -39,6 +39,9 @@ namespace AutoVia.Tests.Persistence
         private const string FiltroDisabledAtNulo = "disabled_at IS NULL";
         private const string FiltroDataSaidaNula = "data_saida IS NULL";
         private const string ColunaDataSaida = "data_saida";
+        private const string ValorDosStatusDeLocacaoEmAbertoNoSql = "'EM_ANDAMENTO', 'ATRASADA'";
+        private const string StatusFinalizadaNoSql = "FINALIZADA";
+        private const string StatusCanceladaNoSql = "CANCELADA";
 
         private static readonly DbContextOptions<AutoViaDbContext> Opcoes = new DbContextOptionsBuilder<AutoViaDbContext>()
             .UseNpgsql("Host=localhost;Database=autovia_modelo_teste")
@@ -146,6 +149,16 @@ namespace AutoVia.Tests.Persistence
             string sqlTroca = CriarRepositorioDeVeiculo().ConsultaLocacoesEmAbertoDoVeiculo(IdVeiculoDoTeste).ToQueryString();
 
             Assert.Equal(sqlTroca, sqlManutencao);
+        }
+
+        [Fact]
+        public void LocacoesEmAberto_TraduzOsDoisStatusAbertosENaoOsFechados()
+        {
+            string sql = CriarRepositorioDeManutencao().ConsultaLocacoesEmAbertoDoVeiculo(IdVeiculoDoTeste).ToQueryString();
+
+            Assert.Contains(ValorDosStatusDeLocacaoEmAbertoNoSql, sql);
+            Assert.DoesNotContain(StatusFinalizadaNoSql, sql);
+            Assert.DoesNotContain(StatusCanceladaNoSql, sql);
         }
 
         [Fact]

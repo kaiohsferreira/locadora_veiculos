@@ -17,7 +17,7 @@ namespace AutoVia.Tests.Persistence
     /// aprovados em 04/11/2026 (docs/especificacao/desvios_aprovados.json): toda tabela
     /// com created_at/updated_at/disabled_at e nenhum indice unico no banco. Roda sem
     /// conexao com o PostgreSQL: o modelo e montado em memoria a partir das configuracoes.
-    /// Os desvios posteriores (12/11 a 19/11/2026) e a conferencia contra os apendices estao em
+    /// Os desvios posteriores (12/11 a 20/11/2026) e a conferencia contra os apendices estao em
     /// docs/CONFERENCIA_ESQUEMA.md.
     /// </summary>
     public class SchemaModelTests
