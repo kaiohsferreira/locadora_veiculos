@@ -41,8 +41,16 @@ namespace AutoVia.Api.Controllers
                 ReturnRetiradaVO retirada = await _locacaoService.GetRetiradaAsync(idReserva);
                 return Ok(retirada);
             }
-            catch (BusinessException) { throw; }
-            catch (NotFoundException) { throw; }
+            catch (BusinessException ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
+            catch (NotFoundException ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
             catch (Exception ex)
             {
                 _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());

@@ -1,7 +1,7 @@
 import type { CategoriaCnh, StatusCadastroCliente, StatusLocacao, StatusReserva, StatusVeiculo } from './enums';
 export interface ContextoRetirada {
   idReserva: number; codigoReserva: string; statusReserva: StatusReserva;
-  idCliente: number; clienteNome: string; clienteCpfStr: string;
+  idCliente: number; clienteNome: string; /** CPF já mascarado pelo servidor (ex.: 123.***.***-09). */ clienteCpfMascarado: string;
   cnhNumero: string; cnhCategoria: CategoriaCnh; cnhValidadeStr: string;
   statusCadastroLocadora: StatusCadastroCliente | null;
   idVeiculo: number; marca: string; modelo: string; placa: string; kmAtual: number; statusVeiculo: StatusVeiculo;

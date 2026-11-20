@@ -72,7 +72,7 @@ namespace AutoVia.Tests.Locacoes
             JsonElement dados = await LerJson(resposta);
             Assert.Equal(10, dados.GetProperty("idReserva").GetInt32());
             Assert.Equal(NomeCliente, dados.GetProperty("clienteNome").GetString());
-            Assert.Equal("123.456.789-09", dados.GetProperty("clienteCpfStr").GetString());
+            Assert.Equal("123.***.***-09", dados.GetProperty("clienteCpfMascarado").GetString());
             Assert.Equal("18/11/2026 09:30", dados.GetProperty("dataRetiradaPrevistaStr").GetString());
             Assert.Equal("19/11/2026 09:30", dados.GetProperty("dataDevolucaoPrevistaStr").GetString());
             Assert.Equal("01/01/2030", dados.GetProperty("cnhValidadeStr").GetString());
@@ -107,6 +107,28 @@ namespace AutoVia.Tests.Locacoes
             Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
             JsonElement dados = await LerJson(resposta);
             Assert.Equal(esperada, dados.GetProperty("cnhNumero").GetString());
+        }
+
+        [Theory]
+        [InlineData(CargoFuncionario.ATENDENTE)]
+        [InlineData(CargoFuncionario.ADMINISTRADOR)]
+        [InlineData(CargoFuncionario.VENDEDOR)]
+        [InlineData(CargoFuncionario.GESTOR_FROTA)]
+        [InlineData(CargoFuncionario.FINANCEIRO)]
+        [InlineData(CargoFuncionario.ADMINISTRATIVO)]
+        public async Task CpfSempreMascaradoParaQualquerCargo(CargoFuncionario cargo)
+        {
+            using RetiradaWebFactory fabrica = new RetiradaWebFactory();
+            fabrica.Sessao.Situacao.Cargo = cargo;
+            using HttpClient cliente = fabrica.CreateClient();
+            using HttpResponseMessage resposta = await Enviar(cliente, Rota, Token(fabrica));
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            string corpo = await resposta.Content.ReadAsStringAsync();
+            using JsonDocument documento = JsonDocument.Parse(corpo);
+            Assert.Equal("123.***.***-09", documento.RootElement.GetProperty("clienteCpfMascarado").GetString());
+            Assert.False(documento.RootElement.TryGetProperty("clienteCpfStr", out JsonElement _));
+            Assert.DoesNotContain("12345678909", corpo);
+            Assert.DoesNotContain("123.456.789-09", corpo);
         }
 
         [Fact]

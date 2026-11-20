@@ -87,7 +87,7 @@ export default function RetiradaVeiculoPagina() {
           <Cartao titulo="Cliente e documentação">
             <dl className="grid gap-4 text-sm sm:grid-cols-2">
               <div className="sm:col-span-2"><dt className="text-texto-suave">Nome do cliente</dt><dd className="break-words font-semibold">{contexto.clienteNome}</dd></div>
-              <div><dt className="text-texto-suave">CPF</dt><dd>{contexto.clienteCpfStr}</dd></div>
+              <div><dt className="text-texto-suave">CPF</dt><dd>{contexto.clienteCpfMascarado}</dd></div>
               <div><dt className="text-texto-suave">CNH</dt><dd>{contexto.cnhNumero}</dd></div>
               <div><dt className="text-texto-suave">Categoria da CNH</dt><dd>{contexto.cnhCategoria}</dd></div>
               <div><dt className="text-texto-suave">Validade da CNH</dt><dd>{contexto.cnhValidadeStr}</dd></div>

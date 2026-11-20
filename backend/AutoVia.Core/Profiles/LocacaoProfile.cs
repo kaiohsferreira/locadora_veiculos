@@ -21,7 +21,7 @@ namespace AutoVia.Core.Profiles
                 .ForMember(d => d.DataDevolucaoPrevistaStr, o => o.MapFrom(s => StaticMethods.FormateDateTimeToPTBR(s.DataDevolucaoPrevista)))
                 .ForMember(d => d.ValorEstimadoStr, o => o.MapFrom(s => StaticMethods.FormateToMonetary(s.ValorEstimado)))
                 .ForMember(d => d.ClienteNome, o => o.MapFrom(s => s.Cliente.Nome))
-                .ForMember(d => d.ClienteCpfStr, o => o.MapFrom(s => StaticMethods.FormateCpf(s.Cliente.Cpf)))
+                .ForMember(d => d.ClienteCpfMascarado, o => o.MapFrom(s => StaticMethods.MascararCpf(s.Cliente.Cpf)))
                 .ForMember(d => d.CnhNumero, o => o.MapFrom(s => s.Cliente.CnhNumero))
                 .ForMember(d => d.CnhCategoria, o => o.MapFrom(s => s.Cliente.CnhCategoria))
                 .ForMember(d => d.CnhValidadeStr, o => o.MapFrom(s => StaticMethods.FormateDateToPTBR(s.Cliente.CnhValidade)))

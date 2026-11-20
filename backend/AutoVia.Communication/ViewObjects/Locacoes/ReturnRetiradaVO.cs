@@ -13,7 +13,7 @@ namespace AutoVia.Communication.ViewObjects.Locacoes
         public string ValorEstimadoStr { get; set; } = string.Empty;
         public int IdCliente { get; set; }
         public string ClienteNome { get; set; } = string.Empty;
-        public string ClienteCpfStr { get; set; } = string.Empty;
+        public string ClienteCpfMascarado { get; set; } = string.Empty;
         public string CnhNumero { get; set; } = string.Empty;
         public CategoriaCnh CnhCategoria { get; set; }
         public string CnhValidadeStr { get; set; } = string.Empty;

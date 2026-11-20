@@ -110,8 +110,16 @@ namespace AutoVia.Infrastructure.Services
                 }
                 return retorno;
             }
-            catch (BusinessException) { throw; }
-            catch (NotFoundException) { throw; }
+            catch (BusinessException ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
+            catch (NotFoundException ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
             catch (Exception ex)
             {
                 _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
