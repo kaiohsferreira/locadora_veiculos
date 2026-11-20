@@ -12,6 +12,7 @@ using AutoVia.Infrastructure.Services;
 using AutoVia.Tests.Fakes;
 using FluentValidation;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Threading;
 using VinculoClienteLocadora = AutoVia.Core.Entities.PgSql.ClienteLocadora;
 
 namespace AutoVia.Tests.ClienteLocadora
@@ -202,6 +203,24 @@ namespace AutoVia.Tests.ClienteLocadora
             await Assert.ThrowsAsync<NotFoundException>(() => cenario.Servico.ExigirCadastroAprovadoAsync(ClienteCinco, idEmpresa));
 
             Assert.Empty(cenario.Repositorio.Armazenados);
+        }
+
+        /// <summary>
+        /// Cliente desativado (ou inexistente, que o banco trata do mesmo jeito) sem vinculo: a trava do teto responde 404 com a
+        /// mensagem de cliente inexistente, antes de contar e sem gravar nada. A trava do cliente e liberada no finally.
+        /// </summary>
+        [Fact]
+        public async Task Exigir_ClienteDesativadoSemVinculo_Devolve404SemContarNemGravar()
+        {
+            Cenario cenario = CriarCenario(ContextoCliente(ClienteCinco));
+            cenario.Armazenamento.ClientesDesativados.Add(ClienteCinco);
+
+            NotFoundException excecao = await Assert.ThrowsAsync<NotFoundException>(() => cenario.Servico.ExigirCadastroAprovadoAsync(ClienteCinco, EmpresaUm));
+
+            Assert.Equal(ConstantsMessage.ErroClienteNaoEncontrada, excecao.Message);
+            Assert.Empty(cenario.Repositorio.Armazenados);
+            Assert.Equal(0, cenario.Repositorio.ChamadasDeContagem);
+            Assert.Equal(1, cenario.Armazenamento.TravasDoCliente[ClienteCinco].CurrentCount);
         }
 
         // --- Corrida do INSERT: duplicata usa o menor id e a mais nova se desativa ---
@@ -616,6 +635,152 @@ namespace AutoVia.Tests.ClienteLocadora
 
             Assert.Equal(string.Format(ConstantsMessage.ErroReservaCadastroEmAnalise, "Locadora 6"), excecao.Message);
             Assert.Equal(6, cenario.Repositorio.Armazenados.Count);
+        }
+
+        // --- Corrida do teto (item 6, 20/11): a trava do cliente serializa os pedidos simultaneos do mesmo cliente ---
+
+        private const int LocadoraCinco = 5;
+        private const int LocadoraSeis = 6;
+        private const int PedidosAntesDaCorrida = 4;
+        private static readonly TimeSpan TempoLimiteDaCorrida = TimeSpan.FromSeconds(10);
+
+        /// <summary>Cenario da corrida: cliente cinco com quatro pedidos recentes (locadoras 1 a 4) e locadoras de 1 a 6 cadastradas.</summary>
+        private static Cenario CriarCenarioComQuatroPedidos()
+        {
+            Cenario cenario = CriarCenario(ContextoCliente(ClienteCinco));
+            AdicionarLocadoras(cenario, LocadoraSeis);
+            SemearPedidos(cenario, ClienteCinco, new int[] { 1, 2, 3, 4 }, AgoraFixo.AddHours(-1));
+
+            return cenario;
+        }
+
+        /// <summary>Pede aprovacao do cliente cinco na locadora informada (o contexto e o proprio cliente).</summary>
+        private static Task ExigirAprovacaoDoClienteCinco(Cenario cenario, int idEmpresa)
+        {
+            return cenario.Servico.ExigirCadastroAprovadoAsync(ClienteCinco, idEmpresa);
+        }
+
+        /// <summary>Roda a chamada e devolve a excecao que ela lancou (nulo se nao lancou), para os dois pedidos sempre terminarem.</summary>
+        private static async Task<Exception?> CapturarExcecao(Func<Task> chamada)
+        {
+            try
+            {
+                await chamada();
+
+                return null;
+            }
+            catch (Exception excecao)
+            {
+                return excecao;
+            }
+        }
+
+        /// <summary>Barreira de duas chegadas: cada pedido so segue depois que o outro chegou ao mesmo ponto (a janela da corrida). Serve para dois pedidos.</summary>
+        private static Func<Task> BarreiraDeDuasChegadas()
+        {
+            TaskCompletionSource<bool> ambosChegaram = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            int chegadas = 0;
+
+            return () =>
+            {
+                if (Interlocked.Increment(ref chegadas) == 2)
+                {
+                    ambosChegaram.TrySetResult(true);
+                }
+
+                return ambosChegaram.Task;
+            };
+        }
+
+        /// <summary>
+        /// Controle do proprio teste: com a trava desligada, dois pedidos simultaneos a locadoras diferentes passam juntos (quatro
+        /// pedidos mais dois, seis linhas: o teto furou). Prova que a barreira reproduz a corrida de verdade.
+        /// </summary>
+        [Fact]
+        public async Task Teto_Corrida_ControleSemTrava_DoisPedidosPassamJuntosEFuramOTeto()
+        {
+            Cenario cenario = CriarCenarioComQuatroPedidos();
+            cenario.Repositorio.SemTrava = true;
+            cenario.Repositorio.AposContar = BarreiraDeDuasChegadas();
+
+            Task<Exception?> primeiro = CapturarExcecao(() => ExigirAprovacaoDoClienteCinco(cenario, LocadoraCinco));
+            Task<Exception?> segundo = CapturarExcecao(() => ExigirAprovacaoDoClienteCinco(cenario, LocadoraSeis));
+
+            Exception?[] resultados = await Task.WhenAll(primeiro, segundo).WaitAsync(TempoLimiteDaCorrida);
+
+            Assert.All(resultados, excecao => Assert.IsType<BusinessException>(excecao));
+            Assert.Equal(PedidosAntesDaCorrida + 2, cenario.Repositorio.Armazenados.Count);
+        }
+
+        /// <summary>
+        /// Com a trava do cliente: o pedido que pega a trava primeiro grava o quinto pedido; o segundo re-le a contagem ja com o quinto
+        /// e recebe 429, sem gravar. Um 409 em analise e um 429; o teto fica exato (cinco locadoras distintas).
+        /// </summary>
+        [Fact]
+        public async Task Teto_Corrida_ComTrava_UmPedidoGravaOQuintoOutroRecebe429()
+        {
+            Cenario cenario = CriarCenarioComQuatroPedidos();
+            cenario.Repositorio.AposContar = async () => await Task.Yield();
+
+            Task<Exception?> primeiro = CapturarExcecao(() => ExigirAprovacaoDoClienteCinco(cenario, LocadoraCinco));
+            Task<Exception?> segundo = CapturarExcecao(() => ExigirAprovacaoDoClienteCinco(cenario, LocadoraSeis));
+
+            Exception?[] resultados = await Task.WhenAll(primeiro, segundo).WaitAsync(TempoLimiteDaCorrida);
+            List<Exception> erros = resultados.Where(excecao => excecao != null).Select(excecao => excecao!).ToList();
+
+            Assert.Equal(2, erros.Count);
+            Assert.Single(erros.OfType<BusinessException>());
+            Assert.Single(erros.OfType<LimiteExcedidoException>());
+            Assert.Equal(PedidosAntesDaCorrida + 1, cenario.Repositorio.Armazenados.Count);
+            Assert.Equal(PedidosAntesDaCorrida + 1, cenario.Repositorio.Armazenados.Select(x => x.IdEmpresa).Distinct().Count());
+        }
+
+        /// <summary>
+        /// Mesmo par em paralelo: o segundo pedido acha a linha que o primeiro acabou de gravar e nao conta no teto. Resultado: uma
+        /// linha ativa, nenhuma desativada e dois 409 em analise (a mensagem da mesma locadora).
+        /// </summary>
+        [Fact]
+        public async Task Teto_Corrida_MesmoPar_UmaLinhaAtivaEDoisEmAnalise()
+        {
+            Cenario cenario = CriarCenario(ContextoCliente(ClienteCinco));
+            AdicionarLocadoras(cenario, LocadoraSeis);
+            cenario.Repositorio.AposContar = async () => await Task.Yield();
+
+            Task<Exception?> primeiro = CapturarExcecao(() => ExigirAprovacaoDoClienteCinco(cenario, LocadoraCinco));
+            Task<Exception?> segundo = CapturarExcecao(() => ExigirAprovacaoDoClienteCinco(cenario, LocadoraCinco));
+
+            Exception?[] resultados = await Task.WhenAll(primeiro, segundo).WaitAsync(TempoLimiteDaCorrida);
+            string mensagemEsperada = string.Format(ConstantsMessage.ErroReservaCadastroEmAnalise, "Locadora 5");
+
+            Assert.All(resultados, excecao => Assert.IsType<BusinessException>(excecao));
+            Assert.All(resultados, excecao => Assert.Equal(mensagemEsperada, excecao!.Message));
+            Assert.Single(cenario.Repositorio.Armazenados);
+            Assert.Null(cenario.Repositorio.Armazenados[0].DisabledAt);
+            Assert.Equal(0, cenario.Repositorio.ChamadasDeDesativar);
+            Assert.Equal(1, cenario.Repositorio.ChamadasDeContagem);
+        }
+
+        /// <summary>O metodo atomico recebe a janela de 24 horas pelo IRelogio e o limite padrao (5).</summary>
+        [Fact]
+        public async Task Teto_PassaAJanelaDoRelogioELimitePadrao()
+        {
+            Cenario cenario = CriarCenario(ContextoCliente(ClienteCinco));
+
+            await Assert.ThrowsAsync<BusinessException>(() => ExigirAprovacaoDoClienteCinco(cenario, EmpresaUm));
+
+            Assert.Equal(AgoraFixo.AddHours(-24), cenario.Repositorio.UltimoDesde);
+            Assert.Equal(5, cenario.Repositorio.UltimoLimite);
+        }
+
+        /// <summary>O metodo atomico recebe o limite configurado na opcao Clientes (3 neste teste).</summary>
+        [Fact]
+        public async Task Teto_PassaOLimiteConfiguradoNaOpcao()
+        {
+            Cenario cenario = CriarCenario(ContextoCliente(ClienteCinco), 3);
+
+            await Assert.ThrowsAsync<BusinessException>(() => ExigirAprovacaoDoClienteCinco(cenario, EmpresaUm));
+
+            Assert.Equal(3, cenario.Repositorio.UltimoLimite);
         }
     }
 }

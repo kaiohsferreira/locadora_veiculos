@@ -5,6 +5,7 @@ using AutoVia.Communication.ViewObjects.Clientes;
 using AutoVia.Communication.ViewObjects.Utils;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Options;
+using AutoVia.Core.Regras;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -21,7 +22,8 @@ namespace AutoVia.Infrastructure.Services
     /// vinculo e chamado pelo proprio cliente, grava PENDENTE e responde 409; PENDENTE e RECUSADO respondem 409. Decidir
     /// (ATENDENTE ou ADMINISTRADOR) grava em todas as linhas ativas do par; APROVADO e final. Corrida sem indice unico:
     /// vale a linha ativa de menor id do par e quem nao for a menor se desativa logo apos o INSERT. Teto (v2): o cliente
-    /// nao pede aprovacao em mais de N locadoras novas na janela de 24 horas (429, nada gravado).
+    /// nao pede aprovacao em mais de N locadoras novas na janela de 24 horas (429, nada gravado). Teto e criacao do PENDENTE sao
+    /// uma operacao atomica no repositorio (item 6, 20/11): a trava da linha do cliente serializa os pedidos simultaneos.
     /// </summary>
     public class ClienteLocadoraService : IClienteLocadoraService
     {
@@ -51,7 +53,7 @@ namespace AutoVia.Infrastructure.Services
         /// <summary>
         /// Exige o cadastro APROVADO do cliente na locadora. Ordem: locadora ativa (404); vinculo ativo do par (o teto NAO
         /// vale para quem ja tem vinculo); sem vinculo e nao sendo o proprio cliente, 409 sem contar; sem vinculo e proprio
-        /// cliente, teto de pedidos na janela (429, nada gravado); depois cria o PENDENTE (gravado antes do 409). Status
+        /// cliente, teto de pedidos na janela (429, nada gravado); depois cria o PENDENTE numa operacao atomica com o teto (item 6; gravado antes do 409). Status
         /// PENDENTE ou RECUSADO geram 409 com a mensagem da locadora; APROVADO segue sem excecao.
         /// </summary>
         public async Task ExigirCadastroAprovadoAsync(int idCliente, int idEmpresa)
@@ -75,8 +77,6 @@ namespace AutoVia.Infrastructure.Services
                     {
                         throw new BusinessException(ConstantsMessage.ErroReservaCadastroNaoAprovado);
                     }
-
-                    await ValidarTetoPedidosAsync(idCliente);
 
                     vinculo = await CriarPendenteAsync(idCliente, idEmpresa);
                 }
@@ -228,23 +228,9 @@ namespace AutoVia.Infrastructure.Services
         }
 
         /// <summary>
-        /// Teto de pedidos de aprovacao (v2): conta as locadoras distintas com pedido do cliente na janela de 24 horas (pelo
-        /// IRelogio), ativas ou desativadas. Chegando ao limite, lanca 429 antes de qualquer gravacao.
-        /// </summary>
-        private async Task ValidarTetoPedidosAsync(int idCliente)
-        {
-            DateTime desde = _relogio.Agora.AddHours(-ConstantsValues.JanelaPedidosAprovacaoHoras);
-            int locadorasPedidas = await _clienteLocadoraRepository.CountEmpresasSolicitadasDesdeAsync(idCliente, desde);
-
-            if (locadorasPedidas >= _clientesOptions.LimitePedidosAprovacaoPorDia)
-            {
-                throw new LimiteExcedidoException(ConstantsMessage.ErroLimitePedidosAprovacao);
-            }
-        }
-
-        /// <summary>
         /// Cria o pedido PENDENTE do proprio cliente e aplica a regra da corrida: se a linha gravada nao for a de menor id ativa
-        /// do par, ela se desativa e vale a linha mais antiga. A gravacao ja foi confirmada no repositorio antes do 409.
+        /// do par, ela se desativa e vale a linha mais antiga (defesa para escrita fora da trava). O teto e a criacao do PENDENTE sao
+        /// atomicos no repositorio (item 6): a gravacao ja foi confirmada antes do 409. A janela vem do IRelogio.
         /// </summary>
         private async Task<ClienteLocadora> CriarPendenteAsync(int idCliente, int idEmpresa)
         {
@@ -256,7 +242,8 @@ namespace AutoVia.Infrastructure.Services
                 DataSolicitacao = _relogio.Agora
             };
 
-            ClienteLocadora gravado = await _clienteLocadoraRepository.InsertAsync(novo);
+            DateTime desde = RegrasPedidoAprovacao.JanelaDesde(_relogio.Agora);
+            ClienteLocadora gravado = await _clienteLocadoraRepository.InsertPendenteComTetoAtomicallyAsync(novo, desde, _clientesOptions.LimitePedidosAprovacaoPorDia);
             ClienteLocadora? maisAntigo = await _clienteLocadoraRepository.FindAtivoMaisAntigoAsync(idCliente, idEmpresa);
 
             if (maisAntigo == null)

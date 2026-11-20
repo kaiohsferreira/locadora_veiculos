@@ -5,6 +5,7 @@ using AutoVia.Infrastructure.Repositories;
 using AutoVia.Infrastructure.Services;
 using AutoVia.Tests.Fakes;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 
 namespace AutoVia.Tests.ClienteLocadora
 {
@@ -136,6 +137,37 @@ namespace AutoVia.Tests.ClienteLocadora
             Assert.DoesNotContain(DisabledAtNulo, sql);
             Assert.DoesNotContain("disabled_at", sql);
             Assert.Equal(1, CountOcorrencias(sql, "FROM cliente_locadora"));
+        }
+
+        /// <summary>
+        /// Valor do parametro no cabecalho do ToQueryString. Os argumentos do SQL bruto (FromSqlRaw) aparecem como "-- nome='valor'",
+        /// sem o arroba. Falha se o parametro nao aparecer.
+        /// </summary>
+        private static string ValorDoParametro(string sql, string nome)
+        {
+            Match valor = Regex.Match(sql, @"-- @?" + Regex.Escape(nome) + @"='([^']*)'");
+
+            Assert.True(valor.Success, $"O parametro {nome} deveria aparecer no ToQueryString.");
+
+            return valor.Groups[1].Value;
+        }
+
+        /// <summary>
+        /// Trava do cliente (item 6, 20/11): SELECT FOR UPDATE da linha ativa do cliente, com o id como PARAMETRO e o valor conferido.
+        /// A tabela cliente nao tem filtro "Empresa", entao nao ha parametro de filtro na consulta.
+        /// </summary>
+        [Fact]
+        public void TravaDoCliente_TemForUpdateDisabledAtNuloEIdComoParametroComOValorDoTeste()
+        {
+            using AutoViaDbContext db = CriarDbComContextoDeCliente(IdClienteDoTeste);
+            ClienteLocadoraRepository repositorio = new ClienteLocadoraRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaTravaCliente(IdClienteDoTeste).ToQueryString();
+            Match casamento = Regex.Match(sql, @"id_cliente = @(\w+) AND disabled_at IS NULL FOR UPDATE");
+
+            Assert.True(casamento.Success, "A trava do cliente deveria ter FOR UPDATE com disabled_at nulo.");
+            Assert.Equal(IdClienteDoTeste.ToString(), ValorDoParametro(sql, casamento.Groups[1].Value));
+            Assert.DoesNotContain("ef_filter__", sql);
         }
     }
 }

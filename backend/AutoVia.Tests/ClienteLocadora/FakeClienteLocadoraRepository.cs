@@ -1,7 +1,12 @@
+using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Regras;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
+using AutoVia.Helpers;
+using System.Collections.Concurrent;
+using System.Threading;
 using VinculoClienteLocadora = AutoVia.Core.Entities.PgSql.ClienteLocadora;
 
 namespace AutoVia.Tests.ClienteLocadora
@@ -27,6 +32,12 @@ namespace AutoVia.Tests.ClienteLocadora
         /// <summary>Clientes semeados com os dados que a fila e o detalhe mostram. Vinculo de cliente fora desta lista nao aparece na fila.</summary>
         public List<Cliente> Clientes { get; } = new List<Cliente>();
 
+        /// <summary>
+        /// Trava por cliente do fake (simula o SELECT FOR UPDATE da linha do cliente no banco). Fica no armazenamento, como os
+        /// vinculos, para o teste HTTP (um repositorio por requisicao) disputar a mesma trava.
+        /// </summary>
+        public ConcurrentDictionary<int, SemaphoreSlim> TravasDoCliente { get; } = new ConcurrentDictionary<int, SemaphoreSlim>();
+
         /// <summary>Semeia uma locadora sem passar pelo servico.</summary>
         public void AdicionarEmpresa(Empresa empresa)
         {
@@ -36,28 +47,37 @@ namespace AutoVia.Tests.ClienteLocadora
         /// <summary>Data de solicitacao padrao: fixa e antiga (fora de qualquer janela de 24 horas), para o resultado nao depender do dia da execucao.</summary>
         public static readonly DateTime DataSolicitacaoPadrao = new DateTime(2020, 1, 1, 10, 0, 0);
 
+        /// <summary>
+        /// Trava da lista de vinculos e do proximo id. Toda leitura e gravacao de Vinculos e ProximoId passa por ela: sem isso, o
+        /// controle sem trava (duas threads gravando) quebra a enumeracao da lista com InvalidOperationException (teste instavel).
+        /// </summary>
+        public object TrancaDosVinculos { get; } = new object();
+
         /// <summary>Semeia um vinculo (ativo, ou desativado quando desativadoEm for informado), com id gerado. Sem dataSolicitacao, a data e fixa e antiga (DataSolicitacaoPadrao menos o id, em dias).</summary>
         public VinculoClienteLocadora Semear(int idCliente, int idEmpresa, StatusCadastroCliente status, DateTime? desativadoEm = null, string? justificativa = null, DateTime? dataSolicitacao = null)
         {
             DateTime agora = DateTime.Now;
 
-            VinculoClienteLocadora vinculo = new VinculoClienteLocadora
+            lock (TrancaDosVinculos)
             {
-                IdClienteLocadora = ProximoId,
-                IdCliente = idCliente,
-                IdEmpresa = idEmpresa,
-                Status = status,
-                JustificativaRecusa = justificativa,
-                DataSolicitacao = dataSolicitacao ?? DataSolicitacaoPadrao.AddDays(-ProximoId),
-                CreatedAt = agora,
-                UpdatedAt = agora,
-                DisabledAt = desativadoEm
-            };
+                VinculoClienteLocadora vinculo = new VinculoClienteLocadora
+                {
+                    IdClienteLocadora = ProximoId,
+                    IdCliente = idCliente,
+                    IdEmpresa = idEmpresa,
+                    Status = status,
+                    JustificativaRecusa = justificativa,
+                    DataSolicitacao = dataSolicitacao ?? DataSolicitacaoPadrao.AddDays(-ProximoId),
+                    CreatedAt = agora,
+                    UpdatedAt = agora,
+                    DisabledAt = desativadoEm
+                };
 
-            ProximoId++;
-            Vinculos.Add(vinculo);
+                ProximoId++;
+                Vinculos.Add(vinculo);
 
-            return vinculo;
+                return vinculo;
+            }
         }
     }
 
@@ -81,18 +101,49 @@ namespace AutoVia.Tests.ClienteLocadora
         /// <summary>Quando nao for null, roda antes de cada INSERT (simula outro pedido gravado primeiro).</summary>
         public Action<ArmazenamentoClienteLocadora>? AoInserir { get; set; }
 
+        private int _chamadasDeDesativar;
+
+        private int _chamadasDeContagem;
+
         /// <summary>Quantas vezes DesativarAsync foi chamado (conferir a regra da corrida).</summary>
-        public int ChamadasDeDesativar { get; private set; }
+        public int ChamadasDeDesativar
+        {
+            get
+            {
+                return _chamadasDeDesativar;
+            }
+        }
 
         /// <summary>Quantas vezes a contagem de pedidos do teto foi consultada (zero prova que o teto nao rodou).</summary>
-        public int ChamadasDeContagem { get; private set; }
+        public int ChamadasDeContagem
+        {
+            get
+            {
+                return _chamadasDeContagem;
+            }
+        }
+
+        /// <summary>Quando verdadeiro, a trava do cliente e ignorada: reproduz a corrida do teto de antes do item 6 (controle dos testes).</summary>
+        public bool SemTrava { get; set; }
+
+        /// <summary>Gancho apos a contagem do teto e antes do INSERT: abre a janela da corrida nos testes simultaneos.</summary>
+        public Func<Task>? AposContar { get; set; }
+
+        /// <summary>Ultima data de corte (janela de 24 horas) recebida pelo metodo atomico do teto.</summary>
+        public DateTime UltimoDesde { get; private set; }
+
+        /// <summary>Ultimo limite recebido pelo metodo atomico do teto (a opcao Clientes:LimitePedidosAprovacaoPorDia, ja normalizada).</summary>
+        public int UltimoLimite { get; private set; }
 
         /// <summary>Copias de todos os vinculos gravados (ativos e desativados), para conferir o que foi gravado.</summary>
         public IReadOnlyList<VinculoClienteLocadora> Armazenados
         {
             get
             {
-                return _armazenamento.Vinculos.Select(Copiar).ToList();
+                lock (_armazenamento.TrancaDosVinculos)
+                {
+                    return _armazenamento.Vinculos.Select(Copiar).ToList();
+                }
             }
         }
 
@@ -130,30 +181,35 @@ namespace AutoVia.Tests.ClienteLocadora
 
             DateTime agora = DateTime.Now;
 
-            VinculoClienteLocadora novo = new VinculoClienteLocadora
-            {
-                IdClienteLocadora = _armazenamento.ProximoId,
-                IdCliente = vinculo.IdCliente,
-                IdEmpresa = vinculo.IdEmpresa,
-                Status = StatusCadastroCliente.PENDENTE,
-                JustificativaRecusa = null,
-                IdFuncionarioVerificador = null,
-                DataSolicitacao = vinculo.DataSolicitacao,
-                DataVerificacao = null,
-                CreatedAt = agora,
-                UpdatedAt = agora,
-                DisabledAt = null
-            };
+            VinculoClienteLocadora novo;
 
-            _armazenamento.ProximoId++;
-            _armazenamento.Vinculos.Add(novo);
+            lock (_armazenamento.TrancaDosVinculos)
+            {
+                novo = new VinculoClienteLocadora
+                {
+                    IdClienteLocadora = _armazenamento.ProximoId,
+                    IdCliente = vinculo.IdCliente,
+                    IdEmpresa = vinculo.IdEmpresa,
+                    Status = StatusCadastroCliente.PENDENTE,
+                    JustificativaRecusa = null,
+                    IdFuncionarioVerificador = null,
+                    DataSolicitacao = vinculo.DataSolicitacao,
+                    DataVerificacao = null,
+                    CreatedAt = agora,
+                    UpdatedAt = agora,
+                    DisabledAt = null
+                };
+
+                _armazenamento.ProximoId++;
+                _armazenamento.Vinculos.Add(novo);
+            }
 
             return Task.FromResult(Copiar(novo));
         }
 
         public Task<bool> DesativarAsync(int idClienteLocadora)
         {
-            ChamadasDeDesativar++;
+            Interlocked.Increment(ref _chamadasDeDesativar);
 
             VinculoClienteLocadora? vinculo = VisiveisAtivos().FirstOrDefault(x => x.IdClienteLocadora == idClienteLocadora);
 
@@ -190,6 +246,70 @@ namespace AutoVia.Tests.ClienteLocadora
             return Task.FromResult(true);
         }
 
+        /// <summary>
+        /// Metodo atomico do teto, como o real: trava do cliente (semaforo por cliente, salvo SemTrava), re-leitura do par (se ja
+        /// existe, devolve sem gravar e sem contar), contagem das locadoras distintas na janela, regra pura (LimiteExcedidoException
+        /// com nada gravado), gancho AposContar, INSERT (pelo InsertAsync, que roda o gancho AoInserir) e liberacao da trava.
+        /// </summary>
+        public async Task<VinculoClienteLocadora> InsertPendenteComTetoAtomicallyAsync(VinculoClienteLocadora vinculo, DateTime desde, int limite)
+        {
+            UltimoDesde = desde;
+            UltimoLimite = limite;
+
+            SemaphoreSlim? trava = null;
+
+            if (!SemTrava)
+            {
+                trava = _armazenamento.TravasDoCliente.GetOrAdd(vinculo.IdCliente, _ => new SemaphoreSlim(1, 1));
+                await trava.WaitAsync();
+            }
+
+            try
+            {
+                bool clienteAtivo = !_armazenamento.ClientesDesativados.Contains(vinculo.IdCliente);
+
+                if (!clienteAtivo)
+                {
+                    throw new NotFoundException(ConstantsMessage.ErroClienteNaoEncontrada);
+                }
+
+                VinculoClienteLocadora? existente = VisiveisAtivos()
+                    .Where(x => x.IdCliente == vinculo.IdCliente && x.IdEmpresa == vinculo.IdEmpresa)
+                    .OrderBy(x => x.IdClienteLocadora)
+                    .Select(Copiar)
+                    .FirstOrDefault();
+
+                if (existente != null)
+                {
+                    return existente;
+                }
+
+                Interlocked.Increment(ref _chamadasDeContagem);
+
+                int locadorasPedidas = VisiveisTodos()
+                    .Where(x => x.IdCliente == vinculo.IdCliente && x.DataSolicitacao >= desde)
+                    .Select(x => x.IdEmpresa)
+                    .Distinct()
+                    .Count();
+
+                if (RegrasPedidoAprovacao.AtingiuLimite(locadorasPedidas, limite))
+                {
+                    throw new LimiteExcedidoException(ConstantsMessage.ErroLimitePedidosAprovacao);
+                }
+
+                if (AposContar != null)
+                {
+                    await AposContar();
+                }
+
+                return await InsertAsync(vinculo);
+            }
+            finally
+            {
+                trava?.Release();
+            }
+        }
+
         public Task<int> CountMinhasAsync(int idCliente)
         {
             int total = MinhasPorLocadora(idCliente).Count();
@@ -199,7 +319,7 @@ namespace AutoVia.Tests.ClienteLocadora
 
         public Task<int> CountEmpresasSolicitadasDesdeAsync(int idCliente, DateTime desde)
         {
-            ChamadasDeContagem++;
+            Interlocked.Increment(ref _chamadasDeContagem);
 
             // Ativas e desativadas contam (como a consulta real, sem filtro de DisabledAt), uma vez por locadora.
             int total = VisiveisTodos()
@@ -338,8 +458,11 @@ namespace AutoVia.Tests.ClienteLocadora
             bool temEmpresa = _contexto.IdEmpresa > 0;
             bool temCliente = _contexto.IdCliente > 0;
 
-            return _armazenamento.Vinculos.Where(x =>
-                (temEmpresa && x.IdEmpresa == _contexto.IdEmpresa) || (temCliente && x.IdCliente == _contexto.IdCliente));
+            lock (_armazenamento.TrancaDosVinculos)
+            {
+                return _armazenamento.Vinculos.Where(x =>
+                    (temEmpresa && x.IdEmpresa == _contexto.IdEmpresa) || (temCliente && x.IdCliente == _contexto.IdCliente)).ToList();
+            }
         }
 
         /// <summary>Uma linha por locadora do cliente: a de menor id ativa do par, como a consulta real.</summary>

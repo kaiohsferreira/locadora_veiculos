@@ -1,13 +1,17 @@
+using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Regras;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Data;
 using System.Threading.Tasks;
 
 namespace AutoVia.Infrastructure.Repositories
@@ -23,6 +27,12 @@ namespace AutoVia.Infrastructure.Repositories
     {
         private readonly AutoViaDbContext _db;
         private readonly ILogService _logService;
+
+        /// <summary>
+        /// Trava da linha do cliente no teto de pedidos (item 6, 20/11): FOR UPDATE da linha ativa, com o id como parametro. Fica
+        /// como texto constante, sem interpolacao, e so e usada pela consulta ConsultaTravaCliente.
+        /// </summary>
+        private const string SqlTravaCliente = "SELECT * FROM cliente WHERE id_cliente = {0} AND disabled_at IS NULL FOR UPDATE";
 
         public ClienteLocadoraRepository(AutoViaDbContext db, ILogService logService)
         {
@@ -190,6 +200,94 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
+        /// <summary>
+        /// Caminho atomico do pedido PENDENTE do proprio cliente (item 6, 20/11). Na mesma transacao READ COMMITTED: guarda (sem
+        /// transacao aberta), trava da linha do cliente (ConsultaTravaCliente), re-leitura do vinculo ativo do par (se existe, commit
+        /// e devolve sem gravar nem contar), contagem das locadoras distintas com pedido desde a data, regra do limite
+        /// (LimiteExcedidoException, nada gravado) e INSERT do PENDENTE com commit. Trava do cliente = folha: nunca tomar outra trava
+        /// explicita (veiculo, reserva, locacao, empresa, pagamento) com ela segurada, e nunca chamar de dentro de outra transacao.
+        /// Se um dia o cliente for travado junto com outro recurso, a ordem e cliente ANTES de veiculo, reserva ou locacao.
+        /// Erros, inclusive 404 e 429, sao registrados no log (regra do repositorio).
+        /// </summary>
+        public async Task<ClienteLocadora> InsertPendenteComTetoAtomicallyAsync(ClienteLocadora vinculo, DateTime desde, int limite)
+        {
+            try
+            {
+                ValidarSemTransacaoAberta(_db.Database.CurrentTransaction != null);
+
+                IDbContextTransaction transacao = await _db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+
+                try
+                {
+                    Cliente? cliente = await ConsultaTravaCliente(vinculo.IdCliente).FirstOrDefaultAsync();
+
+                    if (cliente == null)
+                    {
+                        throw new NotFoundException(ConstantsMessage.ErroClienteNaoEncontrada);
+                    }
+
+                    ClienteLocadora? existente = await ConsultaVinculoAtivoMaisAntigo(vinculo.IdCliente, vinculo.IdEmpresa)
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync();
+
+                    if (existente != null)
+                    {
+                        await transacao.CommitAsync();
+
+                        return existente;
+                    }
+
+                    int locadorasPedidas = await ConsultaEmpresasSolicitadasDesde(vinculo.IdCliente, desde).CountAsync();
+
+                    if (RegrasPedidoAprovacao.AtingiuLimite(locadorasPedidas, limite))
+                    {
+                        throw new LimiteExcedidoException(ConstantsMessage.ErroLimitePedidosAprovacao);
+                    }
+
+                    DateTime agora = DateTime.Now;
+
+                    vinculo.IdClienteLocadora = 0;
+                    vinculo.Status = StatusCadastroCliente.PENDENTE;
+                    vinculo.JustificativaRecusa = null;
+                    vinculo.IdFuncionarioVerificador = null;
+                    vinculo.DataVerificacao = null;
+                    vinculo.CreatedAt = agora;
+                    vinculo.UpdatedAt = agora;
+                    vinculo.DisabledAt = null;
+
+                    _db.ClientesLocadoras.Add(vinculo);
+                    await _db.SaveChangesAsync();
+                    await transacao.CommitAsync();
+
+                    return vinculo;
+                }
+                catch
+                {
+                    await transacao.RollbackAsync();
+                    throw;
+                }
+                finally
+                {
+                    await transacao.DisposeAsync();
+                }
+            }
+            catch (NotFoundException ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroClienteNaoEncontrada, GetType().ToString());
+                throw;
+            }
+            catch (LimiteExcedidoException ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroLimitePedidosAprovacao, GetType().ToString());
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroSalvarVinculoClienteLocadora, GetType().ToString());
+                throw;
+            }
+        }
+
         /// <summary>Conta os vinculos ativos do cliente: uma linha por locadora (a de menor id de cada par).</summary>
         public async Task<int> CountMinhasAsync(int idCliente)
         {
@@ -263,6 +361,27 @@ namespace AutoVia.Infrastructure.Repositories
                 .Where(x => x.DisabledAt == null && x.IdCliente == idCliente && x.IdEmpresa == idEmpresa);
 
             return consulta;
+        }
+
+        /// <summary>
+        /// Consulta nomeada da trava do cliente (item 6, 20/11): SELECT FOR UPDATE da linha ativa do cliente, pelo id. So monta a
+        /// consulta; quem a executa e InsertPendenteComTetoAtomicallyAsync, dentro da propria transacao. O id vai como parametro.
+        /// </summary>
+        public IQueryable<Cliente> ConsultaTravaCliente(int idCliente)
+        {
+            try
+            {
+                IQueryable<Cliente> consulta = _db.Clientes
+                    .FromSqlRaw(SqlTravaCliente, idCliente)
+                    .AsNoTracking();
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroSalvarVinculoClienteLocadora, GetType().ToString());
+                throw;
+            }
         }
 
         /// <summary>Linha que vale do par: a ativa de menor id.</summary>

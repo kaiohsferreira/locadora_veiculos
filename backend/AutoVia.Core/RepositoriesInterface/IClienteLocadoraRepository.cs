@@ -25,6 +25,15 @@ namespace AutoVia.Core.RepositoriesInterface
         /// <summary>Grava um vinculo PENDENTE novo (id gerado, datas com DateTime.Now, DisabledAt nulo) e confirma no banco.</summary>
         Task<ClienteLocadora> InsertAsync(ClienteLocadora vinculo);
 
+        /// <summary>
+        /// Caminho do pedido PENDENTE do proprio cliente (item 6, 20/11). Numa transacao propria, READ COMMITTED: trava a linha
+        /// ativa do cliente (FOR UPDATE), re-le o vinculo ativo do par (se ja existe, devolve sem gravar e sem contar), conta as
+        /// locadoras distintas com pedido desde a data (ativas e desativadas), lanca LimiteExcedidoException se o limite foi
+        /// atingido (nada gravado), grava o PENDENTE e confirma. Ordem: trava, releitura, contagem, regra, insert. Recusa chamada
+        /// com transacao aberta (InvalidOperationException). O 409 em analise vem do servico, depois do commit.
+        /// </summary>
+        Task<ClienteLocadora> InsertPendenteComTetoAtomicallyAsync(ClienteLocadora vinculo, DateTime desde, int limite);
+
         /// <summary>Exclusao logica de um vinculo (DisabledAt). Falso se nao achou o vinculo ativo visivel no contexto.</summary>
         Task<bool> DesativarAsync(int idClienteLocadora);
 

@@ -14,9 +14,9 @@ namespace AutoVia.Tests.Persistence
     /// (2) o bypass do filtro e as formas de SQL e de busca que o contornam (IgnoreQueryFilters, SemEscopoEmpresa,
     /// FromSql, ExecuteSql, SqlQuery, ExecuteUpdate, ExecuteDelete, GetDbConnection, FindAsync e Find) so aparecem na lista
     /// fechada abaixo, com a QUANTIDADE de ocorrencias por arquivo. Um segundo bypass no mesmo arquivo reprova o teste ate a
-    /// lista ser atualizada de proposito. Arquivo novo fora da lista tambem reprova. Por METODO, nos oito arquivos de repositorio cobertos
+    /// lista ser atualizada de proposito. Arquivo novo fora da lista tambem reprova. Por METODO, nos nove arquivos de repositorio cobertos
     /// (ReservaRepository, VeiculoRepository.Disponibilidade, VeiculoRepository.Catalogo, LocacaoRepository,
-    /// VeiculoRepository.Status, ClienteDocumentoRepository, ManutencaoRepository e PagamentoRepository), a guarda
+    /// VeiculoRepository.Status, ClienteDocumentoRepository, ManutencaoRepository, PagamentoRepository e ClienteLocadoraRepository), a guarda
     /// esta em GuardaPorMetodoRepositoriosTests, que usa esta mesma lista de simbolos. VistoriaRepository e CobrancasExtrasRepository
     /// nao tem guarda por metodo: so a contagem por arquivo, nesta classe.
     /// </summary>
@@ -80,6 +80,8 @@ namespace AutoVia.Tests.Persistence
         /// conexao crua do contexto (GetDbConnection), com consulta sob o filtro Empresa antes e depois da trava; so trava a linha).
         /// CobrancasExtrasRepository (conexao crua do contexto (GetDbConnection) apenas para os locks FOR UPDATE parametrizados
         /// (empresa e locacao), com o escopo validado antes da trava).
+        /// ClienteLocadoraRepository (trava FOR UPDATE da linha do cliente no teto de pedidos, item 6 de 20/11; SQL provado em
+        /// ClienteLocadoraConsultasSqlTests; a tabela cliente nao tem filtro Empresa, e as demais consultas do repositorio seguem pelo DbSet).
         /// </summary>
         private static readonly Dictionary<string, int> OcorrenciasPermitidas = new Dictionary<string, int>
         {
@@ -93,6 +95,8 @@ namespace AutoVia.Tests.Persistence
             ["AutoVia.Infrastructure/Repositories/VistoriaRepository.cs"] = 1,
             // RF-23: uma conexao crua compartilhada apenas pelos locks parametrizados, com escopo validado antes.
             ["AutoVia.Infrastructure/Repositories/CobrancasExtrasRepository.cs"] = 1,
+            // Trava do cliente no teto de pedidos de aprovacao (item 6, 20/11): FOR UPDATE da linha do cliente, com o id por parametro.
+            ["AutoVia.Infrastructure/Repositories/ClienteLocadoraRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/RedefinicaoSenhaRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/ReservaRepository.cs"] = 5,
             ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Cadastro.cs"] = 3,
