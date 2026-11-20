@@ -132,6 +132,26 @@ export default {
         fundo: '#D1FAE5',
       },
       /**
+       * Manutenção da frota (tela 14): cores do desenho que não existiam no tema. Valores novos da tela 14, aprovados
+       * pelo Kaio em 20/11/2026 ("Aprovo como está"). As outras telas não usam estes tokens.
+       */
+      manutencao: {
+        /** Vermelho do alerta de revisão (iminente ou vencida): selo, barra, km na foto, botão Bloquear e "Crítico". */
+        alerta: '#BA1A1A',
+        /** Trilho da barra do alerta vermelho. */
+        'alerta-trilho': '#FFDAD6',
+        /** Hover do botão Bloquear p/ Oficina. */
+        'alerta-escuro': '#93000A',
+        /** Texto da etiqueta "Em Execução". */
+        'execucao-texto': '#832600',
+        /** Fundo da etiqueta "Concluída". */
+        'concluida-fundo': '#D5E3FF',
+        /** Barra superior e de progresso do cartão de alerta azul-cinza (neutro). */
+        neutro: '#4D5F7C',
+        /** Ícone de km do cartão de alerta azul-cinza (neutro). */
+        'neutro-icone': '#A5CAF5',
+      },
+      /**
        * Pagamentos do cliente (tela 30): cores do desenho que não existiam no tema. Valores novos da tela 30, listados
        * para o Kaio antes do commit. As outras telas não usam estes tokens.
        */

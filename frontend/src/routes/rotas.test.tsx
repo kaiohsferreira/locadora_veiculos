@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { RouteObject } from 'react-router-dom';
 import { ProvedorFiltrosFrota } from '@/features/frota/listagem/ProvedorFiltrosFrota';
 import { CAMINHOS } from './caminhos';
-import { CadastroVeiculoPagina, ListagemFrotaPagina, PainelFrotaPagina } from './paginas';
+import { CadastroVeiculoPagina, ListagemFrotaPagina, ManutencaoFrotaPagina, PainelFrotaPagina } from './paginas';
+import { RotaPorCargo } from './RotaPorCargo';
 import { rotas } from './rotas';
 
 // A árvore de rotas é lida como dado: o roteador do navegador não é criado nos testes (não há janela aqui).
@@ -98,6 +99,32 @@ describe('rotas: frota com filtros compartilhados (Painel e Lista)', () => {
     expect(acharRotaPorCaminho(provedor?.children, CAMINHOS.frotaNovoVeiculo)).toBeUndefined();
     expect(acharRotaPorCaminho(provedor?.children, CAMINHOS.frotaEditarVeiculo)).toBeUndefined();
     expect(acharRotaPorCaminho(rotaBackOffice().children, CAMINHOS.frotaNovoVeiculo)).toBeDefined();
+  });
+});
+
+describe('rotas: manutenção só para gestor de frota e administrador (P13)', () => {
+  /** Rota pai (a que tem os filhos) que contém o caminho, em profundidade. */
+  function acharPai(lista: readonly RouteObject[] | undefined, caminho: string): RouteObject | undefined {
+    for (const rota of lista ?? []) {
+      if ((rota.children ?? []).some((filha) => filha.path === caminho)) return rota;
+      const dentro = acharPai(rota.children, caminho);
+      if (dentro) return dentro;
+    }
+    return undefined;
+  }
+
+  it('a rota da manutenção fica atrás de RotaPorCargo com os dois cargos', () => {
+    const pai = acharPai(rotaBackOffice().children, CAMINHOS.manutencao);
+    const protecao = pai?.element as ReactElement<{ cargosPermitidos: string[] }> | undefined;
+
+    expect(protecao?.type).toBe(RotaPorCargo);
+    expect(protecao?.props.cargosPermitidos).toEqual(['GESTOR_FROTA', 'ADMINISTRADOR']);
+  });
+
+  it('a rota da manutenção segue apontando para a página nova (tela 14)', () => {
+    const rota = acharRotaPorCaminho(rotaBackOffice().children, CAMINHOS.manutencao);
+
+    expect((rota?.element as ReactElement | undefined)?.type).toBe(ManutencaoFrotaPagina);
   });
 });
 

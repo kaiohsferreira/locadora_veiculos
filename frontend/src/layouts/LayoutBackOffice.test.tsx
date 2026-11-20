@@ -196,6 +196,29 @@ describe('LayoutBackOffice: legenda do rodapé (cargo e locadora)', () => {
     expect(marcado).toContain('>Atendente</p>');
   });
 });
+describe('menu da manutenção (P13: só gestor de frota e administrador)', () => {
+  const ROTULO_MANUTENCAO = `href="${CAMINHOS.manutencao}"`;
+  const GESTOR_FROTA: UsuarioSessao = { nome: 'Lia Rocha', perfil: 'funcionario', cargo: 'GESTOR_FROTA' };
+  const FINANCEIRO: UsuarioSessao = { nome: 'Bia Lima', perfil: 'funcionario', cargo: 'FINANCEIRO' };
+
+  it('aparece para o gestor de frota e para o administrador', () => {
+    expect(renderizarLayout(GESTOR_FROTA)).toContain(ROTULO_MANUTENCAO);
+    expect(renderizarLayout(ADMINISTRADOR)).toContain(ROTULO_MANUTENCAO);
+  });
+
+  it('some para os demais cargos (atendente e financeiro)', () => {
+    expect(renderizarLayout(ATENDENTE)).not.toContain(ROTULO_MANUTENCAO);
+    expect(renderizarLayout(FINANCEIRO)).not.toContain(ROTULO_MANUTENCAO);
+  });
+
+  it('o resto do menu segue igual para o atendente (Frota e Visão geral)', () => {
+    const marcado = renderizarLayout(ATENDENTE);
+
+    expect(marcado).toContain(`href="${CAMINHOS.frota}"`);
+    expect(marcado).toContain(`href="${CAMINHOS.visaoGeral}"`);
+  });
+});
+
 describe('menu das políticas de cobranças extras', () => {
   it('permite descoberta somente pelo administrador', () => {
     expect(renderizarLayout(ADMINISTRADOR)).toContain(`href="${CAMINHOS.configuracoesCobrancasExtras}"`);

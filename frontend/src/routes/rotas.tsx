@@ -7,6 +7,7 @@ import { ExigirCadastroConcluido } from '@/features/locadoras/cadastro/ExigirCad
 import { ExigirDadosEmpresa } from '@/features/locadoras/cadastro/ExigirDadosEmpresa';
 import { ProvedorCadastroLocadora } from '@/features/locadoras/cadastro/ProvedorCadastroLocadora';
 import { ProvedorFiltrosFrota } from '@/features/frota/listagem/ProvedorFiltrosFrota';
+import { CARGOS_OPERAR_MANUTENCAO } from '@/features/manutencao/permissoes';
 import { CAMINHOS } from './caminhos';
 import { ErroInesperado } from './ErroInesperado';
 import { PaginaNaoEncontrada } from './PaginaNaoEncontrada';
@@ -168,8 +169,11 @@ export const rotas: RouteObject[] = [
           // Financeiro
           { path: CAMINHOS.financeiro, element: <PainelFinanceiroPagina /> },
 
-          // Manutenção
-          { path: CAMINHOS.manutencao, element: <ManutencaoFrotaPagina /> },
+          // Manutenção: abrir e encerrar ordem só GESTOR_FROTA e ADMINISTRADOR (P13). O servidor confere de novo.
+          {
+            element: <RotaPorCargo cargosPermitidos={CARGOS_OPERAR_MANUTENCAO} />,
+            children: [{ path: CAMINHOS.manutencao, element: <ManutencaoFrotaPagina /> }],
+          },
           { path: CAMINHOS.custoResultadoFrota, element: <CustoResultadoFrotaPagina /> },
 
           // Seguros

@@ -71,3 +71,4 @@ export * from './mensagensVeiculos';
 export * from './mensagensFrota';
 export * from './mensagensVerificacao';
 export * from './mensagensPagamentosCliente';
+export * from './mensagensManutencao';

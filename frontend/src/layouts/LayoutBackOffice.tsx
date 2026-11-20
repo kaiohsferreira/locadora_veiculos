@@ -6,6 +6,7 @@ import { Logotipo } from '@/components/Logotipo';
 import { Icone } from '@/components/ui/Icone';
 import { useAutenticacao } from '@/routes/autenticacao/useAutenticacao';
 import { cargoPermitido, usePermissoes } from '@/routes/autenticacao/usePermissoes';
+import { CARGOS_OPERAR_MANUTENCAO } from '@/features/manutencao/permissoes';
 import { CAMINHOS } from '@/routes/caminhos';
 import { ROTULO_CARGO_FUNCIONARIO, type CargoFuncionario } from '@/types/enums';
 
@@ -27,7 +28,7 @@ const MODULOS_SISTEMA: readonly ModuloMenu[] = [
   { rotulo: 'Locações', para: CAMINHOS.locacoes, icone: 'key' },
   { rotulo: 'Vendas', para: CAMINHOS.vendas, icone: 'sell' },
   { rotulo: 'Financeiro', para: CAMINHOS.financeiro, icone: 'payments' },
-  { rotulo: 'Manutenção', para: CAMINHOS.manutencao, icone: 'build' },
+  { rotulo: 'Manutenção', para: CAMINHOS.manutencao, icone: 'build', cargos: CARGOS_OPERAR_MANUTENCAO },
   { rotulo: 'Seguros', para: CAMINHOS.seguros, icone: 'shield' },
 ];
 

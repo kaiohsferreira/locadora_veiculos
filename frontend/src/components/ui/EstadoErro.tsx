@@ -11,6 +11,8 @@ export interface EstadoErroProps {
   aoTentarNovamente?: () => void;
   /** Indica que a nova tentativa está em andamento. */
   tentando?: boolean;
+  /** Texto do botão de tentar de novo. Padrão: "Tentar novamente". */
+  rotuloTentarNovamente?: string;
 }
 
 /** Estado de erro ao carregar dados, com opção de tentar de novo. */
@@ -19,6 +21,7 @@ export function EstadoErro({
   mensagem,
   aoTentarNovamente,
   tentando = false,
+  rotuloTentarNovamente = 'Tentar novamente',
 }: EstadoErroProps) {
   return (
     <div role="alert" className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center">
@@ -29,7 +32,7 @@ export function EstadoErro({
       {mensagem && <p className="max-w-md text-corpo-denso text-texto-suave">{mensagem}</p>}
       {aoTentarNovamente && (
         <Botao variante="contorno" icone="refresh" className="mt-4" carregando={tentando} onClick={aoTentarNovamente}>
-          Tentar novamente
+          {rotuloTentarNovamente}
         </Botao>
       )}
     </div>
