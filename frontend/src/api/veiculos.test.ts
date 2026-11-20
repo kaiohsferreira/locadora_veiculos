@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/api/client';
-import { buscarVeiculo, cadastrarVeiculo, editarVeiculo } from '@/api/veiculos';
+import { buscarVeiculo, buscarVeiculosDisponiveis, cadastrarVeiculo, editarVeiculo } from '@/api/veiculos';
 import type { VeiculoRequisicao } from '@/types/veiculos';
 
 vi.mock('@/api/client', () => ({
@@ -40,6 +40,31 @@ describe('buscarVeiculo', () => {
 
     expect(getMock.mock.calls[0][0]).toBe('/api/veiculos/7');
     expect(veiculo).toEqual({ idVeiculo: 7 });
+  });
+});
+
+describe('buscarVeiculosDisponiveis', () => {
+  beforeEach(() => {
+    getMock.mockReset();
+    getMock.mockResolvedValue({ data: { itens: [], total: 0, pagina: 1, tamanhoPagina: 12 } });
+  });
+
+  it('consulta a rota pública com período, filtros e paginação e repassa cancelamento', async () => {
+    const signal = new AbortController().signal;
+    const filtro = {
+      dataRetirada: '2026-12-12',
+      dataDevolucao: '2026-12-14',
+      idCategoria: 3,
+      valorDiariaMin: 100,
+      valorDiariaMax: 250,
+      pagina: 2,
+      tamanhoPagina: 12,
+    };
+
+    const pagina = await buscarVeiculosDisponiveis(filtro, signal);
+
+    expect(getMock.mock.calls[0]).toEqual(['/api/veiculos/disponiveis', { params: filtro, signal }]);
+    expect(pagina).toMatchObject({ itens: [], total: 0, pagina: 1 });
   });
 });
 

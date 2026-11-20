@@ -1,3 +1,5 @@
+import type { FotoCapaVeiculo } from './fotosVeiculo';
+
 /**
  * Veículo da frota (contrato veiculo.contract.json v3: VeiculoVO de entrada e ReturnVeiculoVO de saída).
  * Nomes em português como no contrato. O pedido não tem status nem empresa: o status nasce DISPONIVEL no servidor,
@@ -74,4 +76,33 @@ export interface VeiculoRetorno {
   locadoraNomeFantasia: string;
   locadoraCidade: string;
   locadoraUf: string;
+}
+
+/** Filtros da consulta pública de disponibilidade (P3-BE-01 / RF-11). */
+export interface FiltroVeiculosDisponiveis {
+  dataRetirada: string;
+  dataDevolucao: string;
+  idCategoria?: number;
+  valorDiariaMin?: number;
+  valorDiariaMax?: number;
+  pagina: number;
+  tamanhoPagina: number;
+}
+
+/** Veículo elegível para locação no período solicitado, conforme ReturnVeiculoDisponivelVO. */
+export interface VeiculoDisponivel {
+  idVeiculo: number;
+  idCategoria: number;
+  categoriaNome: string;
+  marca: string;
+  modelo: string;
+  anoModelo: number;
+  cor: string | null;
+  valorDiaria: number;
+  valorDiariaStr: string;
+  locadoraNomeFantasia: string;
+  locadoraCidade: string;
+  locadoraUf: string;
+  fotoCapa?: FotoCapaVeiculo | null;
+  erroFotoCapa?: string | null;
 }
