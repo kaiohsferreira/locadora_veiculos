@@ -1,3 +1,4 @@
+using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
 using System;
 using System.Collections.Generic;
@@ -31,5 +32,21 @@ namespace AutoVia.Core.RepositoriesInterface
         /// total sem o teto. A base de cada veiculo sai por subconsulta no banco.
         /// </summary>
         Task<(List<VeiculoRevisaoRegistro> Itens, int Total)> ListarAlertasRevisaoAsync();
+
+        /// <summary>
+        /// Lista as ordens da locadora com os filtros (busca ja normalizada: texto em minusculas, placa sem hifen e codigo da
+        /// ordem; tipo, situacao (aberta = sem data de saida) e veiculo) e devolve a pagina e o total sem a pagina. Ordena por
+        /// data de entrada e id decrescentes. A capa vem por Include. Duas consultas nomeadas.
+        /// </summary>
+        Task<(List<Manutencao> Itens, int Total)> ListarManutencoesAsync(string? textoBusca, string? placaBusca, int? idOsBusca, TipoManutencao? tipo, bool? aberta, int? idVeiculo, int deslocamento, int quantidade);
+
+        /// <summary>Conta as ordens abertas (sem data de saida, nao desativadas) da locadora, sem periodo.</summary>
+        Task<int> ContarOrdensAbertasAsync();
+
+        /// <summary>Soma o custo das ordens encerradas da locadora cuja data de saida cai no periodo (inclusive). Custo nulo nao soma; sem ordem, zero.</summary>
+        Task<decimal> SomarCustoEncerradasAsync(DateOnly dataInicio, DateOnly dataFim);
+
+        /// <summary>Veiculos da locadora, nao desativados, com os ids pedidos e a capa (fotos ativas), para montar a foto dos alertas.</summary>
+        Task<List<Veiculo>> ListarVeiculosDosAlertasAsync(IReadOnlyCollection<int> idsVeiculos);
     }
 }

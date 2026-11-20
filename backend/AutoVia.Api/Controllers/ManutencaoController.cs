@@ -1,5 +1,6 @@
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.ViewObjects.Manutencao;
+using AutoVia.Communication.ViewObjects.Utils;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using FluentValidation;
@@ -134,6 +135,74 @@ namespace AutoVia.Api.Controllers
             catch (Exception ex)
             {
                 _logService.Write(ex, ConstantsMessage.ErroListarAlertasRevisao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Listar - Lista paginada das ordens de manutencao da locadora (1 a 100 por pagina, padrao 20), com busca (placa, marca,
+        /// modelo ou codigo da ordem), tipo, situacao (ABERTA ou ENCERRADA) e veiculo, e a foto de capa de cada veiculo. Mais
+        /// recente primeiro. Devolve 200 com a pagina e o total.
+        /// </summary>
+        [HttpGet]
+        [ProducesResponseType(typeof(PaginaVO<ReturnManutencaoListaVO>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> Listar([FromQuery] FiltroManutencaoVO filtro)
+        {
+            try
+            {
+                PaginaVO<ReturnManutencaoListaVO> pagina = await _manutencaoService.ListarAsync(filtro);
+
+                return Ok(pagina);
+            }
+            catch (BusinessException)
+            {
+                throw;
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (ValidationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroListarManutencoes, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Resumo - Resumo da manutencao da locadora: ordens abertas (sem periodo) e custo das ordens encerradas com data de saida
+        /// no mes corrente. Sem parametros. Devolve 200 com o resumo.
+        /// </summary>
+        [HttpGet("resumo")]
+        [ProducesResponseType(typeof(ReturnResumoManutencaoVO), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> Resumo()
+        {
+            try
+            {
+                ReturnResumoManutencaoVO resumo = await _manutencaoService.ResumoAsync();
+
+                return Ok(resumo);
+            }
+            catch (BusinessException)
+            {
+                throw;
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroResumoManutencao, GetType().ToString());
                 throw;
             }
         }

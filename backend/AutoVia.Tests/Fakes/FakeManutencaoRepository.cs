@@ -190,6 +190,145 @@ namespace AutoVia.Tests.Fakes
             return Task.FromResult<(List<VeiculoRevisaoRegistro> Itens, int Total)>((new List<VeiculoRevisaoRegistro>(ItensAlertas), TotalAlertas));
         }
 
+        /// <summary>
+        /// Lista as ordens com os mesmos filtros do repositorio real: locadora do contexto (pelo veiculo da ordem, sem olhar a
+        /// desativacao do veiculo, como o filtro real), ordem nao desativada, tipo, situacao (aberta = sem data de saida),
+        /// veiculo, texto da busca (marca ou modelo, sem diferenciar maiusculas), placa (contem, sem diferenciar) e codigo da
+        /// ordem. Ordena por entrada e id decrescentes e pagina depois do total.
+        /// </summary>
+        public Task<(List<Manutencao> Itens, int Total)> ListarManutencoesAsync(string? textoBusca, string? placaBusca, int? idOsBusca, TipoManutencao? tipo, bool? aberta, int? idVeiculo, int deslocamento, int quantidade)
+        {
+            if (ExcecaoAoOperar != null)
+            {
+                throw ExcecaoAoOperar;
+            }
+
+            List<Manutencao> filtradas = FiltrarOrdens(textoBusca, placaBusca, idOsBusca, tipo, aberta, idVeiculo)
+                .OrderByDescending(x => x.DataEntrada)
+                .ThenByDescending(x => x.IdManutencao)
+                .ToList();
+
+            List<Manutencao> pagina = filtradas.Skip(deslocamento).Take(quantidade).ToList();
+
+            return Task.FromResult<(List<Manutencao> Itens, int Total)>((pagina, filtradas.Count));
+        }
+
+        /// <summary>Conta as ordens abertas (sem data de saida, nao desativadas) da locadora do contexto, sem periodo.</summary>
+        public Task<int> ContarOrdensAbertasAsync()
+        {
+            if (ExcecaoAoOperar != null)
+            {
+                throw ExcecaoAoOperar;
+            }
+
+            int total = Manutencoes.Count(x => x.DisabledAt == null && x.DataSaida == null && VeiculoDaLocadoraDoContexto(x.IdVeiculo) != null);
+
+            return Task.FromResult(total);
+        }
+
+        /// <summary>Soma o custo das ordens encerradas da locadora do contexto cuja data de saida cai no periodo (inclusive). Custo nulo nao soma.</summary>
+        public Task<decimal> SomarCustoEncerradasAsync(DateOnly dataInicio, DateOnly dataFim)
+        {
+            if (ExcecaoAoOperar != null)
+            {
+                throw ExcecaoAoOperar;
+            }
+
+            decimal soma = 0m;
+
+            foreach (Manutencao ordem in Manutencoes)
+            {
+                if (ordem.DisabledAt != null || ordem.DataSaida == null || ordem.Custo == null)
+                {
+                    continue;
+                }
+
+                DateOnly saida = ordem.DataSaida.Value;
+
+                if (saida < dataInicio || saida > dataFim || VeiculoDaLocadoraDoContexto(ordem.IdVeiculo) == null)
+                {
+                    continue;
+                }
+
+                soma += ordem.Custo.Value;
+            }
+
+            return Task.FromResult(soma);
+        }
+
+        /// <summary>Veiculos da locadora do contexto, nao desativados, com os ids pedidos (a capa vem com os veiculos).</summary>
+        public Task<List<Veiculo>> ListarVeiculosDosAlertasAsync(IReadOnlyCollection<int> idsVeiculos)
+        {
+            if (ExcecaoAoOperar != null)
+            {
+                throw ExcecaoAoOperar;
+            }
+
+            List<Veiculo> veiculos = Veiculos
+                .Where(x => x.DisabledAt == null && idsVeiculos.Contains(x.IdVeiculo) && IdEmpresaDoContexto > 0 && x.IdEmpresa == IdEmpresaDoContexto)
+                .ToList();
+
+            return Task.FromResult(veiculos);
+        }
+
+        /// <summary>Ordens que passam nos filtros, na ordem em que foram gravadas (a ordenacao e feita por quem chama).</summary>
+        private List<Manutencao> FiltrarOrdens(string? textoBusca, string? placaBusca, int? idOsBusca, TipoManutencao? tipo, bool? aberta, int? idVeiculo)
+        {
+            List<Manutencao> filtradas = new List<Manutencao>();
+
+            foreach (Manutencao ordem in Manutencoes)
+            {
+                Veiculo? veiculo = VeiculoDaLocadoraDoContexto(ordem.IdVeiculo);
+
+                if (ordem.DisabledAt != null || veiculo == null)
+                {
+                    continue;
+                }
+
+                if (tipo.HasValue && ordem.Tipo != tipo.Value)
+                {
+                    continue;
+                }
+
+                if (aberta.HasValue && (ordem.DataSaida == null) != aberta.Value)
+                {
+                    continue;
+                }
+
+                if (idVeiculo.HasValue && ordem.IdVeiculo != idVeiculo.Value)
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(textoBusca) && !CasaBusca(ordem, veiculo, textoBusca, placaBusca, idOsBusca))
+                {
+                    continue;
+                }
+
+                ordem.Veiculo = veiculo;
+                filtradas.Add(ordem);
+            }
+
+            return filtradas;
+        }
+
+        /// <summary>Busca: marca ou modelo com o texto (sem diferenciar maiusculas), placa com a placa normalizada (contem, como o SQL) ou o codigo da ordem.</summary>
+        private static bool CasaBusca(Manutencao ordem, Veiculo veiculo, string textoBusca, string? placaBusca, int? idOsBusca)
+        {
+            string termo = textoBusca.ToLowerInvariant();
+            bool casaMarcaOuModelo = veiculo.Marca.ToLowerInvariant().Contains(termo) || veiculo.Modelo.ToLowerInvariant().Contains(termo);
+            bool casaPlaca = !string.IsNullOrEmpty(placaBusca) && veiculo.Placa.Contains(placaBusca, StringComparison.Ordinal);
+            bool casaCodigo = idOsBusca.HasValue && ordem.IdManutencao == idOsBusca.Value;
+
+            return casaMarcaOuModelo || casaPlaca || casaCodigo;
+        }
+
+        /// <summary>Veiculo da locadora do contexto pelo id, sem olhar a desativacao (o filtro real so olha a locadora).</summary>
+        private Veiculo? VeiculoDaLocadoraDoContexto(int idVeiculo)
+        {
+            return Veiculos.FirstOrDefault(x => x.IdVeiculo == idVeiculo && IdEmpresaDoContexto > 0 && x.IdEmpresa == IdEmpresaDoContexto);
+        }
+
         /// <summary>Monta a excecao de validacao de um campo, com a falha na lista de erros (como o repositorio real).</summary>
         private static FluentValidation.ValidationException CriarRecusaDeCampo(string campo, string mensagem)
         {

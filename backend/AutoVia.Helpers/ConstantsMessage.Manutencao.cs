@@ -35,5 +35,12 @@ namespace AutoVia.Helpers
         public const string ErroListarAlertasRevisao = "Não foi possível listar os alertas de revisão.";
         public const string InfoManutencaoAberta = "Ordem de manutenção {0} aberta para o veículo {1} pelo funcionário {2}.";
         public const string InfoManutencaoEncerrada = "Ordem de manutenção {0} encerrada para o veículo {1} pelo funcionário {2}.";
+
+        // --- Manutencao: lista e resumo (semana 4; textos aprovados pelo Kaio em 20/11/2026, contrato manutencao v2) ---
+        public const string ErroManutencaoBuscaTamanho = "A busca deve ter no máximo {0} caracteres.";
+        public const string ErroManutencaoSituacaoInvalida = "Situação inválida. Use ABERTA ou ENCERRADA.";
+        public const string ErroManutencaoVeiculoFiltroInvalido = "O veículo do filtro deve ser um número maior que zero.";
+        public const string ErroListarManutencoes = "Não foi possível listar as ordens de manutenção.";
+        public const string ErroResumoManutencao = "Não foi possível calcular o resumo da manutenção.";
     }
 }

@@ -387,6 +387,252 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
+        /// <summary>
+        /// Lista paginada das ordens da locadora: a pagina (consulta nomeada ConsultaManutencoesFiltradas) e o total (consulta
+        /// ConsultaManutencoesFiltradasSemPaginar, com os mesmos filtros). Registra e relanca qualquer falha.
+        /// </summary>
+        public async Task<(List<Manutencao> Itens, int Total)> ListarManutencoesAsync(string? textoBusca, string? placaBusca, int? idOsBusca, TipoManutencao? tipo, bool? aberta, int? idVeiculo, int deslocamento, int quantidade)
+        {
+            try
+            {
+                int total = await ConsultaManutencoesFiltradasSemPaginar(textoBusca, placaBusca, idOsBusca, tipo, aberta, idVeiculo).CountAsync();
+                List<Manutencao> itens = await ConsultaManutencoesFiltradas(textoBusca, placaBusca, idOsBusca, tipo, aberta, idVeiculo, deslocamento, quantidade).ToListAsync();
+
+                return (itens, total);
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroListarManutencoes, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta nomeada da pagina da lista: os filtros, a capa do veiculo (primeira foto ativa, por Include do veiculo), a
+        /// ordenacao por data de entrada e id decrescentes, e a pagina. O filtro "Empresa" vale pelo veiculo. Monta so o
+        /// IQueryable; quem executa e ListarManutencoesAsync.
+        /// </summary>
+        public IQueryable<Manutencao> ConsultaManutencoesFiltradas(string? textoBusca, string? placaBusca, int? idOsBusca, TipoManutencao? tipo, bool? aberta, int? idVeiculo, int deslocamento, int quantidade)
+        {
+            try
+            {
+                IQueryable<Manutencao> consulta = AplicarFiltrosDaListagem(textoBusca, placaBusca, idOsBusca, tipo, aberta, idVeiculo)
+                    .Include(x => x.Veiculo)
+                        .ThenInclude(v => v.Empresa)
+                    .Include(x => x.Veiculo)
+                        .ThenInclude(v => v.Fotos.Where(foto => foto.DisabledAt == null).OrderBy(foto => foto.Ordem).ThenBy(foto => foto.IdVeiculoFoto).Take(ConstantsValues.QuantidadeFotoCapaPorVeiculo))
+                    .OrderByDescending(x => x.DataEntrada)
+                    .ThenByDescending(x => x.IdManutencao)
+                    .Skip(deslocamento)
+                    .Take(quantidade);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarManutencao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta nomeada do total da lista: os mesmos filtros de ConsultaManutencoesFiltradas, sem pagina, sem capa e sem
+        /// ordem. Quem conta e ListarManutencoesAsync.
+        /// </summary>
+        public IQueryable<Manutencao> ConsultaManutencoesFiltradasSemPaginar(string? textoBusca, string? placaBusca, int? idOsBusca, TipoManutencao? tipo, bool? aberta, int? idVeiculo)
+        {
+            try
+            {
+                IQueryable<Manutencao> consulta = AplicarFiltrosDaListagem(textoBusca, placaBusca, idOsBusca, tipo, aberta, idVeiculo);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarManutencao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Filtros da lista: ordens nao desativadas da locadora; tipo; situacao (aberta = sem data de saida, encerrada = com data
+        /// de saida); veiculo; e a busca (marca ou modelo com o texto, placa com a placa normalizada, ou o codigo da ordem). O
+        /// texto ja vem em minusculas e a placa ja vem normalizada, como na busca da frota.
+        /// </summary>
+        private IQueryable<Manutencao> AplicarFiltrosDaListagem(string? textoBusca, string? placaBusca, int? idOsBusca, TipoManutencao? tipo, bool? aberta, int? idVeiculo)
+        {
+            try
+            {
+                IQueryable<Manutencao> consulta = _db.Manutencoes
+                    .AsNoTracking()
+                    .Where(x => x.DisabledAt == null);
+
+                if (tipo.HasValue)
+                {
+                    TipoManutencao tipoFiltro = tipo.Value;
+                    consulta = consulta.Where(x => x.Tipo == tipoFiltro);
+                }
+
+                if (aberta.HasValue)
+                {
+                    bool abertaFiltro = aberta.Value;
+
+                    if (abertaFiltro)
+                    {
+                        consulta = consulta.Where(x => x.DataSaida == null);
+                    }
+                    else
+                    {
+                        consulta = consulta.Where(x => x.DataSaida != null);
+                    }
+                }
+
+                if (idVeiculo.HasValue)
+                {
+                    int idVeiculoFiltro = idVeiculo.Value;
+                    consulta = consulta.Where(x => x.IdVeiculo == idVeiculoFiltro);
+                }
+
+                if (!string.IsNullOrEmpty(textoBusca))
+                {
+                    string termoBusca = textoBusca;
+                    string termoPlaca = placaBusca ?? string.Empty;
+                    bool temPlaca = termoPlaca.Length > 0;
+                    bool temCodigoOs = idOsBusca.HasValue;
+                    int codigoOsBusca = idOsBusca ?? 0;
+
+                    consulta = consulta.Where(x => x.Veiculo.Marca.ToLower().Contains(termoBusca)
+                        || x.Veiculo.Modelo.ToLower().Contains(termoBusca)
+                        || (temPlaca && x.Veiculo.Placa.Contains(termoPlaca))
+                        || (temCodigoOs && x.IdManutencao == codigoOsBusca));
+                }
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarManutencao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta nomeada: ordens abertas da locadora (sem data de saida e nao desativadas), com o filtro "Empresa" ligado.
+        /// Publica para o teste de SQL por ToQueryString; quem conta e ContarOrdensAbertasAsync.
+        /// </summary>
+        public IQueryable<Manutencao> ConsultaOrdensAbertas()
+        {
+            try
+            {
+                IQueryable<Manutencao> consulta = _db.Manutencoes
+                    .AsNoTracking()
+                    .Where(x => x.DisabledAt == null && x.DataSaida == null);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarManutencao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta nomeada: custo das ordens encerradas da locadora com data de saida no periodo (inclusive), so a coluna de
+        /// custo, nao desativadas, com o filtro "Empresa" ligado. Quem soma e SomarCustoEncerradasAsync (custo nulo nao soma).
+        /// </summary>
+        public IQueryable<decimal?> ConsultaCustoEncerradasNoPeriodo(DateOnly dataInicio, DateOnly dataFim)
+        {
+            try
+            {
+                DateOnly inicioFiltro = dataInicio;
+                DateOnly fimFiltro = dataFim;
+
+                IQueryable<decimal?> consulta = _db.Manutencoes
+                    .AsNoTracking()
+                    .Where(x => x.DisabledAt == null && x.DataSaida != null && x.DataSaida >= inicioFiltro && x.DataSaida <= fimFiltro)
+                    .Select(x => x.Custo);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarManutencao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Conta as ordens abertas da locadora (sem periodo). Registra e relanca qualquer falha.</summary>
+        public async Task<int> ContarOrdensAbertasAsync()
+        {
+            try
+            {
+                int total = await ConsultaOrdensAbertas().CountAsync();
+
+                return total;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroResumoManutencao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Soma o custo das ordens encerradas no periodo; sem ordem (soma nula no banco) devolve zero. Registra e relanca qualquer falha.</summary>
+        public async Task<decimal> SomarCustoEncerradasAsync(DateOnly dataInicio, DateOnly dataFim)
+        {
+            try
+            {
+                decimal? soma = await ConsultaCustoEncerradasNoPeriodo(dataInicio, dataFim).SumAsync();
+
+                return soma ?? 0m;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroResumoManutencao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Veiculos da locadora com os ids pedidos, nao desativados, com a capa (fotos ativas) e a locadora. Registra e relanca qualquer falha.</summary>
+        public async Task<List<Veiculo>> ListarVeiculosDosAlertasAsync(IReadOnlyCollection<int> idsVeiculos)
+        {
+            try
+            {
+                List<Veiculo> veiculos = await ConsultaVeiculosDosAlertas(idsVeiculos).ToListAsync();
+
+                return veiculos;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroListarAlertasRevisao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta nomeada: veiculos da locadora (filtro "Empresa" ligado), nao desativados, com os ids pedidos, a locadora e a
+        /// capa (primeira foto ativa, por Include da colecao de fotos). Publica para o teste de SQL por ToQueryString.
+        /// </summary>
+        public IQueryable<Veiculo> ConsultaVeiculosDosAlertas(IReadOnlyCollection<int> idsVeiculos)
+        {
+            try
+            {
+                IQueryable<Veiculo> consulta = _db.Veiculos
+                    .AsNoTracking()
+                    .Where(x => x.DisabledAt == null && idsVeiculos.Contains(x.IdVeiculo))
+                    .Include(x => x.Empresa)
+                    .Include(x => x.Fotos.Where(foto => foto.DisabledAt == null).OrderBy(foto => foto.Ordem).ThenBy(foto => foto.IdVeiculoFoto).Take(ConstantsValues.QuantidadeFotoCapaPorVeiculo));
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroListarAlertasRevisao, GetType().ToString());
+                throw;
+            }
+        }
+
         /// <summary>Monta a excecao de validacao de um campo (400), com a mensagem da regra.</summary>
         private static ValidationException CriarRecusaDeCampo(string campo, string mensagem)
         {

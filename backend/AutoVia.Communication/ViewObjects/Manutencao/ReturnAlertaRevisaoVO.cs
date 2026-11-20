@@ -1,10 +1,13 @@
+using AutoVia.Communication.ViewObjects.Frota;
+
 namespace AutoVia.Communication.ViewObjects.Manutencao
 {
     /// <summary>
     /// Item da lista de alertas de revisao. Traz o veiculo, a quilometragem da base (a ultima preventiva, ou zero), a
     /// proxima revisao, quanto falta e a situacao (VENCIDA ou PROXIMA). Calculado por RegrasRevisao no ManutencaoService.
+    /// A foto de capa (fotoCapa e erroFotoCapa) e aditiva da semana 4 e vem pela mesma regra da lista de ordens.
     /// </summary>
-    public class ReturnAlertaRevisaoVO
+    public class ReturnAlertaRevisaoVO : IComFotoCapa
     {
         /// <summary>Identificador do veiculo.</summary>
         public int IdVeiculo { get; set; }
@@ -38,5 +41,11 @@ namespace AutoVia.Communication.ViewObjects.Manutencao
 
         /// <summary>Situacao do alerta: VENCIDA ou PROXIMA.</summary>
         public string Situacao { get; set; } = string.Empty;
+
+        /// <summary>Foto de capa do veiculo; nula quando nao ha foto ou quando o armazenamento falhou (ver erroFotoCapa).</summary>
+        public FotoCapaVeiculoVO? FotoCapa { get; set; }
+
+        /// <summary>Mensagem quando a capa de um item com foto cadastrada nao pode ser montada agora; nula quando nao ha erro.</summary>
+        public string? ErroFotoCapa { get; set; }
     }
 }

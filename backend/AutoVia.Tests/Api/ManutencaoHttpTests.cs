@@ -7,6 +7,7 @@ using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
+using AutoVia.Integrations.Interfaces;
 using AutoVia.Tests.Fakes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -33,6 +34,7 @@ namespace AutoVia.Tests.Api
     {
         private const string RotaManutencoes = "/api/manutencoes";
         private const string RotaAlertas = "/api/manutencoes/alertas";
+        private const string RotaResumo = "/api/manutencoes/resumo";
         private const string MediaProblema = "application/problem+json";
         private const string VersaoSessaoDeTeste = "versao-de-teste";
         private const string TipoJson = "application/json";
@@ -298,10 +300,135 @@ namespace AutoVia.Tests.Api
             Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
             JsonElement corpo = await LerJsonAsync(resposta);
             Assert.Equal(1, corpo.GetProperty("total").GetInt32());
+            Assert.Equal(ConstantsValues.IntervaloRevisaoKm, corpo.GetProperty("intervaloRevisaoKm").GetInt32());
             JsonElement item = corpo.GetProperty("itens")[0];
             Assert.Equal(PlacaDoTeste, item.GetProperty("placa").GetString());
             Assert.Equal(-100, item.GetProperty("faltamKm").GetInt32());
             Assert.Equal(ConstantsValues.SituacaoRevisaoVencida, item.GetProperty("situacao").GetString());
+        }
+
+        [Theory]
+        [InlineData(CargoFuncionario.GESTOR_FROTA)]
+        [InlineData(CargoFuncionario.ADMINISTRADOR)]
+        public async Task GestorFrotaOuAdministrador_Listar_Devolve200ComPaginaETotal(CargoFuncionario cargo)
+        {
+            DefinirCargo(cargo);
+            Veiculo veiculo = SemearVeiculo(StatusVeiculo.MANUTENCAO, IdEmpresaDoTeste);
+            SemearOrdem(veiculo, DateOnly.FromDateTime(MomentoFixo).AddDays(-3));
+            SemearOrdem(veiculo, DateOnly.FromDateTime(MomentoFixo).AddDays(-1));
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, $"{RotaManutencoes}?pagina=1&tamanhoPagina=10", TokenDeFuncionario(), null));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(2, corpo.GetProperty("total").GetInt32());
+            Assert.Equal(1, corpo.GetProperty("pagina").GetInt32());
+            Assert.Equal(10, corpo.GetProperty("tamanhoPagina").GetInt32());
+            JsonElement itens = corpo.GetProperty("itens");
+            Assert.Equal(2, itens.GetArrayLength());
+            Assert.Equal(PlacaDoTeste, itens[0].GetProperty("placa").GetString());
+            Assert.Equal(TipoCorretiva, itens[0].GetProperty("tipo").GetString());
+        }
+
+        [Theory]
+        [InlineData(CargoFuncionario.ATENDENTE)]
+        [InlineData(CargoFuncionario.VENDEDOR)]
+        [InlineData(CargoFuncionario.FINANCEIRO)]
+        [InlineData(CargoFuncionario.ADMINISTRATIVO)]
+        public async Task CargoSemPermissao_Listar_Devolve403Problem(CargoFuncionario cargo)
+        {
+            DefinirCargo(cargo);
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaManutencoes, GerarToken(PerfilUsuario.FUNCIONARIO, cargo), null));
+
+            Assert.Equal(HttpStatusCode.Forbidden, resposta.StatusCode);
+            Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
+        }
+
+        [Fact]
+        public async Task Listar_SemToken_Devolve401()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaManutencoes, null, null));
+
+            Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
+        }
+
+        [Fact]
+        public async Task Listar_TamanhoDePaginaAcimaDoLimite_Devolve400ComAFaixa()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, $"{RotaManutencoes}?tamanhoPagina=101", TokenDeFuncionario(), null));
+
+            Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+            Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(string.Format(ConstantsMessage.ErroTamanhoPaginaInvalido, ConstantsValues.TamanhoPaginaMaximo), corpo.GetProperty("detail").GetString());
+        }
+
+        [Fact]
+        public async Task Listar_SituacaoInvalida_Devolve400()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, $"{RotaManutencoes}?situacao=XYZ", TokenDeFuncionario(), null));
+
+            Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(ConstantsMessage.ErroManutencaoSituacaoInvalida, corpo.GetProperty("detail").GetString());
+        }
+
+        [Fact]
+        public async Task Listar_FiltroDeSituacaoEDeVeiculoChegaAoRepositorio()
+        {
+            Veiculo veiculo = SemearVeiculo(StatusVeiculo.MANUTENCAO, IdEmpresaDoTeste);
+            SemearOrdem(veiculo, DateOnly.FromDateTime(MomentoFixo).AddDays(-3));
+            Manutencao encerrada = SemearOrdem(veiculo, DateOnly.FromDateTime(MomentoFixo).AddDays(-5));
+            encerrada.DataSaida = DateOnly.FromDateTime(MomentoFixo).AddDays(-4);
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, $"{RotaManutencoes}?situacao=ABERTA&idVeiculo={veiculo.IdVeiculo}", TokenDeFuncionario(), null));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(1, corpo.GetProperty("total").GetInt32());
+            Assert.True(corpo.GetProperty("itens")[0].GetProperty("aberta").GetBoolean());
+        }
+
+        [Theory]
+        [InlineData(CargoFuncionario.GESTOR_FROTA)]
+        [InlineData(CargoFuncionario.ADMINISTRADOR)]
+        public async Task GestorFrotaOuAdministrador_Resumo_Devolve200ComOMesPadrao(CargoFuncionario cargo)
+        {
+            DefinirCargo(cargo);
+            Veiculo veiculo = SemearVeiculo(StatusVeiculo.MANUTENCAO, IdEmpresaDoTeste);
+            SemearOrdem(veiculo, DateOnly.FromDateTime(MomentoFixo).AddDays(-3));
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaResumo, TokenDeFuncionario(), null));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(1, corpo.GetProperty("ordensAbertas").GetInt32());
+            Assert.Equal("2020-01-01", corpo.GetProperty("periodoInicio").GetString());
+            Assert.Equal("2020-01-31", corpo.GetProperty("periodoFim").GetString());
+            Assert.Equal("01/01/2020", corpo.GetProperty("periodoInicioStr").GetString());
+            Assert.Equal(0m, corpo.GetProperty("custoPeriodo").GetDecimal());
+        }
+
+        [Theory]
+        [InlineData(CargoFuncionario.ATENDENTE)]
+        [InlineData(CargoFuncionario.FINANCEIRO)]
+        public async Task CargoSemPermissao_Resumo_Devolve403Problem(CargoFuncionario cargo)
+        {
+            DefinirCargo(cargo);
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaResumo, GerarToken(PerfilUsuario.FUNCIONARIO, cargo), null));
+
+            Assert.Equal(HttpStatusCode.Forbidden, resposta.StatusCode);
+            Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
+        }
+
+        [Fact]
+        public async Task Resumo_SemToken_Devolve401()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, RotaResumo, null, null));
+
+            Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
         }
 
         [Fact]
@@ -451,6 +578,9 @@ namespace AutoVia.Tests.Api
         /// <summary>Conferencia de sessao simulada: os testes trocam o cargo do funcionario.</summary>
         public FakeSessaoService Sessao { get; } = new FakeSessaoService();
 
+        /// <summary>Armazenamento de mentira: a capa da lista e dos alertas nao sai do servidor de teste (sem bucket, sem disco).</summary>
+        public FakeArmazenamentoGateway Armazenamento { get; } = new FakeArmazenamentoGateway();
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseEnvironment("Testing");
@@ -479,6 +609,8 @@ namespace AutoVia.Tests.Api
                 services.AddSingleton<IRelogio>(new FakeRelogio(new DateTime(2020, 1, 1, 10, 0, 0)));
                 services.RemoveAll<ISessaoService>();
                 services.AddSingleton<ISessaoService>(Sessao);
+                services.RemoveAll<IArmazenamentoGateway>();
+                services.AddSingleton<IArmazenamentoGateway>(Armazenamento);
             });
         }
     }

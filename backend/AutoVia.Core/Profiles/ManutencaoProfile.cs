@@ -19,6 +19,17 @@ namespace AutoVia.Core.Profiles
                 .ForMember(dest => dest.DataSaidaStr, opt => opt.MapFrom(src => StaticMethods.FormateDateToPTBR(src.DataSaida)))
                 .ForMember(dest => dest.CustoStr, opt => opt.MapFrom(src => StaticMethods.FormateToMonetary(src.Custo)))
                 .ForMember(dest => dest.Aberta, opt => opt.MapFrom(src => src.DataSaida == null));
+
+            CreateMap<Manutencao, ReturnManutencaoListaVO>()
+                .ForMember(dest => dest.Placa, opt => opt.MapFrom(src => src.Veiculo != null ? src.Veiculo.Placa : string.Empty))
+                .ForMember(dest => dest.Marca, opt => opt.MapFrom(src => src.Veiculo != null ? src.Veiculo.Marca : string.Empty))
+                .ForMember(dest => dest.Modelo, opt => opt.MapFrom(src => src.Veiculo != null ? src.Veiculo.Modelo : string.Empty))
+                .ForMember(dest => dest.FotoCapa, opt => opt.Ignore())
+                .ForMember(dest => dest.ErroFotoCapa, opt => opt.Ignore())
+                .ForMember(dest => dest.DataEntradaStr, opt => opt.MapFrom(src => StaticMethods.FormateDateToPTBR(src.DataEntrada)))
+                .ForMember(dest => dest.DataSaidaStr, opt => opt.MapFrom(src => StaticMethods.FormateDateToPTBR(src.DataSaida)))
+                .ForMember(dest => dest.CustoStr, opt => opt.MapFrom(src => StaticMethods.FormateToMonetary(src.Custo)))
+                .ForMember(dest => dest.Aberta, opt => opt.MapFrom(src => src.DataSaida == null));
         }
     }
 }

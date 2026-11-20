@@ -42,6 +42,8 @@ namespace AutoVia.Tests.Persistence
         private const string ValorDosStatusDeLocacaoEmAbertoNoSql = "'EM_ANDAMENTO', 'ATRASADA'";
         private const string StatusFinalizadaNoSql = "FINALIZADA";
         private const string StatusCanceladaNoSql = "CANCELADA";
+        private const string TabelaDeFotosNoSql = "veiculo_foto";
+        private const string PrimeiraFotoPorVeiculoNoSql = "row <= 1";
 
         private static readonly DbContextOptions<AutoViaDbContext> Opcoes = new DbContextOptionsBuilder<AutoViaDbContext>()
             .UseNpgsql("Host=localhost;Database=autovia_modelo_teste")
@@ -225,6 +227,156 @@ namespace AutoVia.Tests.Persistence
             string sql = CriarRepositorioDeManutencao().ConsultaAlertasRevisao().ToQueryString();
 
             Assert.DoesNotContain(ColunaDataSaida, sql);
+        }
+
+        private static string ConsultaDaListaSemFiltros(int deslocamento, int quantidade)
+        {
+            return CriarRepositorioDeManutencao()
+                .ConsultaManutencoesFiltradas(null, null, null, null, null, null, deslocamento, quantidade)
+                .ToQueryString();
+        }
+
+        [Fact]
+        public void Listagem_FiltraLocadoraEDisabledAtNaOrdem()
+        {
+            string sql = ConsultaDaListaSemFiltros(0, 20);
+
+            Assert.Contains(FiltroEmpresa, sql);
+            Assert.Equal(EmpresaDoTeste.ToString(), ValorDoParametro(sql, FiltroEmpresa));
+
+            Match tabelaDaOrdem = Regex.Match(sql, @"FROM manutencao AS (\w+)");
+
+            Assert.True(tabelaDaOrdem.Success, sql);
+            string aliasDaOrdem = tabelaDaOrdem.Groups[1].Value;
+            Assert.True(Regex.IsMatch(sql, @"\b" + Regex.Escape(aliasDaOrdem) + @"\.disabled_at IS NULL\b"), "A ordem precisa filtrar disabled_at pelo proprio alias: " + sql);
+        }
+
+        [Fact]
+        public void Listagem_OrdenaPorEntradaDepoisIdDecrescentes()
+        {
+            string sql = ConsultaDaListaSemFiltros(0, 20);
+
+            Assert.Matches(@"ORDER BY \w+\.data_entrada DESC, \w+\.id_manutencao DESC", sql);
+        }
+
+        [Fact]
+        public void Listagem_PaginaPorDeslocamentoEQuantidadeComoParametros()
+        {
+            string sql = ConsultaDaListaSemFiltros(20, 10);
+
+            Match deslocamento = Regex.Match(sql, @"OFFSET (@(\w+)|(\d+))");
+            Match quantidade = Regex.Match(sql, @"LIMIT (@(\w+)|(\d+))");
+
+            Assert.True(deslocamento.Success, sql);
+            Assert.True(quantidade.Success, sql);
+            string valorDoDeslocamento = deslocamento.Groups[2].Success ? ValorDoParametro(sql, deslocamento.Groups[2].Value) : deslocamento.Groups[3].Value;
+            string valorDaQuantidade = quantidade.Groups[2].Success ? ValorDoParametro(sql, quantidade.Groups[2].Value) : quantidade.Groups[3].Value;
+            Assert.Equal("20", valorDoDeslocamento);
+            Assert.Equal("10", valorDaQuantidade);
+        }
+
+        [Fact]
+        public void Listagem_FiltroDeTipoSituacaoEVeiculoViramPredicados()
+        {
+            string sql = CriarRepositorioDeManutencao()
+                .ConsultaManutencoesFiltradas(null, null, null, TipoManutencao.PREVENTIVA, true, IdVeiculoDoTeste, 0, 20)
+                .ToQueryString();
+
+            Assert.Contains(ValorDoTipoPreventivaNoSql, sql);
+            Assert.Contains(FiltroDataSaidaNula, sql);
+            Assert.Matches(PredicadoDoIdVeiculoNoSql, sql);
+            Assert.Equal(IdVeiculoDoTeste.ToString(), ValorDoParametro(sql, Regex.Match(sql, PredicadoDoIdVeiculoNoSql).Groups[1].Value));
+        }
+
+        [Fact]
+        public void Listagem_SituacaoEncerradaEhDataSaidaPreenchida()
+        {
+            string sql = CriarRepositorioDeManutencao()
+                .ConsultaManutencoesFiltradas(null, null, null, null, false, null, 0, 20)
+                .ToQueryString();
+
+            Assert.Contains("data_saida IS NOT NULL", sql);
+            Assert.DoesNotContain(FiltroDataSaidaNula, sql);
+        }
+
+        [Fact]
+        public void Listagem_BuscaCasaPlacaMarcaModeloECodigoDaOrdem()
+        {
+            string sql = CriarRepositorioDeManutencao()
+                .ConsultaManutencoesFiltradas("fiat", "ABC1D23", 5, null, null, null, 0, 20)
+                .ToQueryString();
+
+            Assert.Matches(@"(?i)lower\(\w+\.marca\)\s+LIKE", sql);
+            Assert.Matches(@"(?i)lower\(\w+\.modelo\)\s+LIKE", sql);
+            Assert.Matches(@"(?i)\w+\.placa\s+LIKE", sql);
+            Assert.Contains("fiat", sql);
+            Assert.Contains("ABC1D23", sql);
+            Assert.Matches(@"\.id_manutencao = @(\w+)", sql);
+            Assert.Equal("5", ValorDoParametro(sql, Regex.Match(sql, @"\.id_manutencao = @(\w+)").Groups[1].Value));
+        }
+
+        [Fact]
+        public void Listagem_TrazAFotoDeCapaSoAtivaComTeto()
+        {
+            string sql = ConsultaDaListaSemFiltros(0, 20);
+
+            Assert.Contains(TabelaDeFotosNoSql, sql);
+            Assert.Contains(PrimeiraFotoPorVeiculoNoSql, sql);
+            Assert.Matches(@"veiculo_foto AS (\w+)", sql);
+            string alias = Regex.Match(sql, @"veiculo_foto AS (\w+)").Groups[1].Value;
+            Assert.True(Regex.IsMatch(sql, @"\b" + Regex.Escape(alias) + @"\.disabled_at IS NULL\b"), sql);
+        }
+
+        [Fact]
+        public void Contagem_FiltraLocadoraEDisabledAtSemPaginar()
+        {
+            string sql = CriarRepositorioDeManutencao()
+                .ConsultaManutencoesFiltradasSemPaginar(null, null, null, null, null, null)
+                .ToQueryString();
+
+            Assert.Contains(FiltroEmpresa, sql);
+            Assert.Equal(EmpresaDoTeste.ToString(), ValorDoParametro(sql, FiltroEmpresa));
+            Assert.Contains(FiltroDisabledAtNulo, sql);
+            Assert.DoesNotContain(TabelaDeFotosNoSql, sql);
+            Assert.DoesNotContain("LIMIT", sql);
+        }
+
+        [Fact]
+        public void OrdensAbertasDaLocadora_FiltraDataSaidaNulaDisabledAtEEmpresa()
+        {
+            string sql = CriarRepositorioDeManutencao().ConsultaOrdensAbertas().ToQueryString();
+
+            Assert.Contains(FiltroDataSaidaNula, sql);
+            Assert.Contains(FiltroDisabledAtNulo, sql);
+            Assert.Equal(EmpresaDoTeste.ToString(), ValorDoParametro(sql, FiltroEmpresa));
+        }
+
+        [Fact]
+        public void CustoDoPeriodo_LeOCustoDasEncerradasDentroDoPeriodoDaLocadora()
+        {
+            DateOnly inicio = new DateOnly(2026, 11, 1);
+            DateOnly fim = new DateOnly(2026, 11, 30);
+
+            string sql = CriarRepositorioDeManutencao().ConsultaCustoEncerradasNoPeriodo(inicio, fim).ToQueryString();
+
+            Assert.Contains("m.custo", sql);
+            Assert.Contains(ColunaDataSaida, sql);
+            Assert.Contains("'11/01/2026'", sql);
+            Assert.Contains("'11/30/2026'", sql);
+            Assert.Contains(FiltroDisabledAtNulo, sql);
+            Assert.Equal(EmpresaDoTeste.ToString(), ValorDoParametro(sql, FiltroEmpresa));
+        }
+
+        [Fact]
+        public void AlertasDaCapa_FiltraLocadoraDisabledAtPelosIdsEComFoto()
+        {
+            string sql = CriarRepositorioDeManutencao().ConsultaVeiculosDosAlertas(new List<int> { IdVeiculoDoTeste, 9 }).ToQueryString();
+
+            Assert.Contains(FiltroEmpresa, sql);
+            Assert.Equal(EmpresaDoTeste.ToString(), ValorDoParametro(sql, FiltroEmpresa));
+            Assert.Contains(FiltroDisabledAtNulo, sql);
+            Assert.Matches(@"\.id_veiculo = ANY ?\(", sql);
+            Assert.Contains(TabelaDeFotosNoSql, sql);
         }
     }
 }

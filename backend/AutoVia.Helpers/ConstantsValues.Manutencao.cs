@@ -47,5 +47,20 @@ namespace AutoVia.Helpers
 
         /// <summary>Nome do campo da quilometragem na recusa de validacao (400) do encerramento da ordem de manutencao.</summary>
         public const string CampoKmAtualManutencao = "KmAtual";
+
+        /// <summary>Tamanho maximo do texto de busca da lista de manutencao, depois do Trim (igual ao da busca de reservas).</summary>
+        public const int TamanhoMaximoBuscaManutencao = 60;
+
+        /// <summary>Valor do filtro de situacao da lista para ordens abertas (sem data de saida).</summary>
+        public const string SituacaoManutencaoAberta = "ABERTA";
+
+        /// <summary>Valor do filtro de situacao da lista para ordens encerradas (com data de saida).</summary>
+        public const string SituacaoManutencaoEncerrada = "ENCERRADA";
+
+        /// <summary>Prefixo do codigo que a tela mostra para a ordem ("OS #id"); aceito na busca, sem diferenciar maiusculas.</summary>
+        public const string PrefixoCodigoOsManutencao = "OS";
+
+        /// <summary>Sinal que pode vir antes do codigo da ordem na busca ("OS #id" ou "#id").</summary>
+        public const char SinalCodigoManutencao = '#';
     }
 }

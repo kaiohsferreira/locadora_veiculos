@@ -215,5 +215,144 @@ namespace AutoVia.Tests.Frota
 
             Assert.True(ValidarEncerramento(vo).IsValid);
         }
+
+        private static ValidationResult ValidarFiltro(FiltroManutencaoVO filtro)
+        {
+            FiltroManutencaoVOValidator validador = new FiltroManutencaoVOValidator();
+
+            return validador.Validate(filtro);
+        }
+
+        private static string MensagemDaFaixaDePagina()
+        {
+            return string.Format(ConstantsMessage.ErroTamanhoPaginaInvalido, ConstantsValues.TamanhoPaginaMaximo);
+        }
+
+        [Fact]
+        public void FiltroSemNada_PassaSemErro()
+        {
+            Assert.True(ValidarFiltro(new FiltroManutencaoVO()).IsValid);
+        }
+
+        [Theory]
+        [InlineData(1)]
+        [InlineData(20)]
+        [InlineData(100)]
+        public void TamanhoDePaginaDeUmACem_EAceito(int tamanho)
+        {
+            FiltroManutencaoVO filtro = new FiltroManutencaoVO { TamanhoPagina = tamanho };
+
+            Assert.True(ValidarFiltro(filtro).IsValid);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(101)]
+        public void TamanhoDePaginaForaDaFaixa_RecusaComAFaixa(int tamanho)
+        {
+            FiltroManutencaoVO filtro = new FiltroManutencaoVO { TamanhoPagina = tamanho };
+
+            Assert.Equal(new List<string> { MensagemDaFaixaDePagina() }, Mensagens(ValidarFiltro(filtro)));
+        }
+
+        [Fact]
+        public void PaginaQueEstouraOInt_RecusaPeloDeslocamento()
+        {
+            FiltroManutencaoVO filtro = new FiltroManutencaoVO { Pagina = int.MaxValue, TamanhoPagina = 20 };
+
+            Assert.Contains(ConstantsMessage.ErroPaginaDeslocamentoInvalido, Mensagens(ValidarFiltro(filtro)));
+        }
+
+        [Fact]
+        public void BuscaComSessentaCaracteres_EAceitaEComSessentaEUm_Recusa()
+        {
+            FiltroManutencaoVO aceita = new FiltroManutencaoVO { Busca = new string('a', ConstantsValues.TamanhoMaximoBuscaManutencao) };
+            FiltroManutencaoVO recusada = new FiltroManutencaoVO { Busca = new string('a', ConstantsValues.TamanhoMaximoBuscaManutencao + 1) };
+
+            Assert.True(ValidarFiltro(aceita).IsValid);
+            Assert.Equal(
+                new List<string> { string.Format(ConstantsMessage.ErroManutencaoBuscaTamanho, ConstantsValues.TamanhoMaximoBuscaManutencao) },
+                Mensagens(ValidarFiltro(recusada)));
+        }
+
+        [Fact]
+        public void BuscaComEspacosNasPontas_ContaSoOTextoAparado()
+        {
+            FiltroManutencaoVO vo = new FiltroManutencaoVO { Busca = "  " + new string('a', ConstantsValues.TamanhoMaximoBuscaManutencao) + "  " };
+
+            Assert.True(ValidarFiltro(vo).IsValid);
+        }
+
+        [Fact]
+        public void BuscaComCaractereNulo_RecusaComOCampo()
+        {
+            FiltroManutencaoVO vo = new FiltroManutencaoVO { Busca = "fi" + CaractereNulo + "at" };
+
+            Assert.Equal(new List<string> { string.Format(ConstantsMessage.ErroCampoInvalido, "Busca") }, Mensagens(ValidarFiltro(vo)));
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        [InlineData(TipoPreventiva)]
+        [InlineData("  CORRETIVA  ")]
+        public void TipoAusenteVazioOuNomeExato_EAceito(string? tipo)
+        {
+            FiltroManutencaoVO vo = new FiltroManutencaoVO { Tipo = tipo };
+
+            Assert.True(ValidarFiltro(vo).IsValid);
+        }
+
+        [Theory]
+        [InlineData("preventiva")]
+        [InlineData("1")]
+        [InlineData("XYZ")]
+        public void TipoQueNaoEUmNome_RecusaComOTipoInvalido(string tipo)
+        {
+            FiltroManutencaoVO vo = new FiltroManutencaoVO { Tipo = tipo };
+
+            Assert.Equal(new List<string> { ConstantsMessage.ErroManutencaoTipoInvalido }, Mensagens(ValidarFiltro(vo)));
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("ABERTA")]
+        [InlineData("ENCERRADA")]
+        public void SituacaoAusenteOuNomeExato_EAceita(string? situacao)
+        {
+            FiltroManutencaoVO vo = new FiltroManutencaoVO { Situacao = situacao };
+
+            Assert.True(ValidarFiltro(vo).IsValid);
+        }
+
+        [Theory]
+        [InlineData("aberta")]
+        [InlineData("Encerrada")]
+        [InlineData("XYZ")]
+        public void SituacaoFora_RecusaComASituacaoInvalida(string situacao)
+        {
+            FiltroManutencaoVO vo = new FiltroManutencaoVO { Situacao = situacao };
+
+            Assert.Equal(new List<string> { ConstantsMessage.ErroManutencaoSituacaoInvalida }, Mensagens(ValidarFiltro(vo)));
+        }
+
+        [Fact]
+        public void IdVeiculoAusenteOuPositivo_EAceito()
+        {
+            Assert.True(ValidarFiltro(new FiltroManutencaoVO { IdVeiculo = null }).IsValid);
+            Assert.True(ValidarFiltro(new FiltroManutencaoVO { IdVeiculo = 1 }).IsValid);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-4)]
+        public void IdVeiculoZeroOuNegativo_RecusaComOFiltroInvalido(int idVeiculo)
+        {
+            FiltroManutencaoVO vo = new FiltroManutencaoVO { IdVeiculo = idVeiculo };
+
+            Assert.Equal(new List<string> { ConstantsMessage.ErroManutencaoVeiculoFiltroInvalido }, Mensagens(ValidarFiltro(vo)));
+        }
     }
 }

@@ -13,5 +13,8 @@ namespace AutoVia.Communication.ViewObjects.Manutencao
 
         /// <summary>Veiculos em alerta, do mais atrasado para o menos atrasado.</summary>
         public List<ReturnAlertaRevisaoVO> Itens { get; set; } = new List<ReturnAlertaRevisaoVO>();
+
+        /// <summary>Intervalo padrao entre revisoes, em km (ConstantsValues.IntervaloRevisaoKm). Alimenta o "Intervalo Padrao" da tela 14.</summary>
+        public int IntervaloRevisaoKm { get; set; }
     }
 }

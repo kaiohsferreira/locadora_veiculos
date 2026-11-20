@@ -142,6 +142,14 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public void Manutencao_ListarEResumoNaoSaoAnonimosENHerdamAPoliticaDaClasse()
+        {
+            Assert.False(Attribute.IsDefined(typeof(ManutencaoController).GetMethod(nameof(ManutencaoController.Listar))!, typeof(AllowAnonymousAttribute), true));
+            Assert.False(Attribute.IsDefined(typeof(ManutencaoController).GetMethod(nameof(ManutencaoController.Resumo))!, typeof(AllowAnonymousAttribute), true));
+            Assert.Equal(ConstantsValues.PoliticaGestorFrota, typeof(ManutencaoController).GetCustomAttribute<AuthorizeAttribute>()!.Policy);
+        }
+
+        [Fact]
         public void Pagamento_ExigePoliticaFinanceiroNaClasse()
         {
             AuthorizeAttribute? autorizacao = typeof(PagamentoController).GetCustomAttribute<AuthorizeAttribute>();
