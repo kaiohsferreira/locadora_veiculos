@@ -5,21 +5,9 @@
   "colunas_auditoria": {
     "tabelas": "todas",
     "colunas": {
-      "created_at": {
-        "tipo": "timestamp without time zone",
-        "not_null": true,
-        "default": "current_timestamp"
-      },
-      "updated_at": {
-        "tipo": "timestamp without time zone",
-        "not_null": true,
-        "default": "current_timestamp"
-      },
-      "disabled_at": {
-        "tipo": "timestamp without time zone",
-        "not_null": false,
-        "default": null
-      }
+      "created_at": { "tipo": "timestamp without time zone", "not_null": true, "default": "current_timestamp" },
+      "updated_at": { "tipo": "timestamp without time zone", "not_null": true, "default": "current_timestamp" },
+      "disabled_at": { "tipo": "timestamp without time zone", "not_null": false, "default": null }
     }
   },
   "unique_para_indice": {
@@ -44,12 +32,8 @@
     "data": "2026-11-05",
     "motivo": "RF-06 exige autenticacao e a especificacao nao define onde guardar a credencial. Decisao D1: coluna senha_hash. Guarda somente o hash PBKDF2, nunca a senha.",
     "colunas": {
-      "cliente": {
-        "senha_hash": "VARCHAR(255) NULL"
-      },
-      "funcionario": {
-        "senha_hash": "VARCHAR(255) NULL"
-      }
+      "cliente": { "senha_hash": "VARCHAR(255) NULL" },
+      "funcionario": { "senha_hash": "VARCHAR(255) NULL" }
     }
   },
   "recuperacao_senha_e_login_google": {
@@ -66,19 +50,13 @@
           "expira_em": "TIMESTAMP NOT NULL"
         },
         "check": "ck_redefinicao_titular: exatamente um entre id_cliente e id_funcionario",
-        "indices": [
-          "idx_redefinicao_token (comum)"
-        ],
+        "indices": ["idx_redefinicao_token (comum)"],
         "auditoria": "created_at, updated_at, disabled_at (BaseEntities)"
       }
     },
     "colunas_acesso_google": {
-      "cliente": {
-        "google_sub": "VARCHAR(255) NULL"
-      },
-      "indices": [
-        "idx_cliente_google_sub (comum)"
-      ]
+      "cliente": { "google_sub": "VARCHAR(255) NULL" },
+      "indices": ["idx_cliente_google_sub (comum)"]
     },
     "dados": "integration GOOGLE (client_id, provedor) e integration_setting EMAIL.provedor = FAKE, por migration de dados",
     "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico (unicidade no servico)"
@@ -107,24 +85,14 @@
           "operadora": "BOOLEAN NOT NULL DEFAULT FALSE"
         },
         "check": "ck_empresa_cnpj: cnpj com exatamente 14 digitos",
-        "indices": [
-          "idx_empresa_cnpj (comum)",
-          "idx_empresa_email (comum)"
-        ],
+        "indices": ["idx_empresa_cnpj (comum)", "idx_empresa_email (comum)"],
         "auditoria": "created_at, updated_at, disabled_at (BaseEntities)"
       }
     },
     "colunas_novas": {
-      "funcionario": {
-        "id_empresa": "INT NOT NULL, fk_funcionario_empresa (NO ACTION)"
-      },
-      "veiculo": {
-        "id_empresa": "INT NOT NULL, fk_veiculo_empresa (NO ACTION)"
-      },
-      "indices": [
-        "idx_funcionario_empresa (comum)",
-        "idx_veiculo_empresa (comum)"
-      ]
+      "funcionario": { "id_empresa": "INT NOT NULL, fk_funcionario_empresa (NO ACTION)" },
+      "veiculo": { "id_empresa": "INT NOT NULL, fk_veiculo_empresa (NO ACTION)" },
+      "indices": ["idx_funcionario_empresa (comum)", "idx_veiculo_empresa (comum)"]
     },
     "check_alterado": {
       "ck_funcionario_cargo": "passa a aceitar tambem 'ADMINISTRADOR' (6 valores)"
@@ -150,10 +118,7 @@
           "data_verificacao": "TIMESTAMP NULL"
         },
         "check": "ck_cliente_locadora_status: status IN ('PENDENTE', 'APROVADO', 'RECUSADO')",
-        "indices": [
-          "idx_cliente_locadora_empresa_cliente (id_empresa, id_cliente) (comum)",
-          "idx_cliente_locadora_cliente (id_cliente) (comum)"
-        ],
+        "indices": ["idx_cliente_locadora_empresa_cliente (id_empresa, id_cliente) (comum)", "idx_cliente_locadora_cliente (id_cliente) (comum)"],
         "auditoria": "created_at, updated_at, disabled_at (BaseEntities)"
       }
     },
@@ -168,9 +133,7 @@
     "tarefa": "P9-INT-01",
     "motivo": "RF-43 exige linha do tempo do sinistro com autor e data de cada mudanca de status, mas a tabela sinistro so guarda o status atual. O acompanhamento junto a seguradora tambem precisa do protocolo devolvido por ela na abertura.",
     "colunas": {
-      "sinistro": {
-        "protocolo_seguradora": "VARCHAR(40) NULL"
-      }
+      "sinistro": { "protocolo_seguradora": "VARCHAR(40) NULL" }
     },
     "tabelas_novas": {
       "sinistro_historico": {
@@ -191,15 +154,11 @@
           "ck_sinistro_historico_origem": "origem IN ('FUNCIONARIO', 'SEGURADORA')",
           "ck_sinistro_historico_funcionario": "origem <> 'FUNCIONARIO' OR id_funcionario IS NOT NULL"
         },
-        "indices": {
-          "idx_sinistro_historico_sinistro": "id_sinistro, data_alteracao"
-        }
+        "indices": { "idx_sinistro_historico_sinistro": "id_sinistro, data_alteracao" }
       }
     },
     "dados": {
-      "integration_setting": {
-        "SEGURADORA.provedor": "FAKE (migration de dados SeguradoraProvedor; mesmo padrao de AjustarIntegracoesProvedores)"
-      }
+      "integration_setting": { "SEGURADORA.provedor": "FAKE (migration de dados SeguradoraProvedor; mesmo padrao de AjustarIntegracoesProvedores)" }
     }
   },
   "seguro_apolice_por_locadora": {
@@ -254,47 +213,80 @@
     "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico; nenhum status inicial novo; nenhuma migracao de dados"
   },
   "vistoria_saida_comparacao": {
-    "aprovado_por": "Eduardo Freire",
-    "migration": "Somente gerar; aplicacao manual pelo responsavel.",
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "migration": ["20261118163147_VincularAvariasVistoriaSaida"],
+    "observacao": "Somente gerar; aplicacao manual pelo responsavel.",
     "legado": "Saidas com comparacao_realizada=false possuem todas as avarias indeterminadas; sem inferencia textual.",
+    "cobre": [
+      "coluna:vistoria.comparacao_realizada",
+      "coluna:avaria.id_avaria_entrada",
+      "fk:fk_avaria_entrada",
+      "indice:idx_avaria_entrada"
+    ],
     "colunas": {
       "avaria.id_avaria_entrada": "INT NULL FK avaria.id_avaria NO ACTION; indice comum idx_avaria_entrada",
       "vistoria.comparacao_realizada": "BOOLEAN NOT NULL DEFAULT FALSE"
     },
-    "data": "2026-11-18",
+    "data": "2026-11-20",
     "tarefa": "P5-BE-01 / RF-22 / T3 Semana 2 Eduardo",
-    "fonte": "Autorizacao explicita no chat em 18/11/2026"
+    "fonte": "Plano de ajustes da semana 2 do Eduardo, aprovado pelo Kaio em 20/11/2026 ('Aprovo 1 a 10')",
+    "origem": "Autorizacao explicita no chat em 18/11/2026"
   },
   "cobrancas_extras_configuradas": {
-  "aprovado_por": "Eduardo Freire",
-  "data": "2026-11-18",
-  "tarefa": "P5-BE-02 / RF-23 / Semana 2",
-  "fonte": "Autorizo o cadastro e a migration (chat)",
-  "motivo": "Cadastro de parametros pela locadora e apuracao automatica com snapshot e repeticao sem duplicidade",
-  "schema": {
-    "ConfiguracaoCobrancaExtra": "IdConfiguracao,IdEmpresa,IdCategoria,Versao:int; BaseFranquia:string TOTAL|POR_DIARIA;FranquiaKm:int;ValorKmExcedente,ValorTanqueCompleto,ValorUnidadeAtraso:decimal10,2;ToleranciaAtrasoMinutos:int;UnidadeAtraso:HORA|DIARIA;FracionamentoAtraso:PROPORCIONAL|INICIADA;BaseAvarias:ESTIMATIVA_VISTORIA; BaseEntities; nav Empresa,Categoria",
-    "ApuracaoCobrancaExtra": "IdApuracao,IdLocacao,IdConfiguracao,VersaoConfiguracao,IdVistoriaEntrada,IdVistoriaSaida,IdFuncionario,VersaoSnapshot:int;DataHora:DateTime;SnapshotJson:jsonb;Total:decimal12,2;BaseEntities;nav Locacao,Configuracao,VistoriaEntrada,VistoriaSaida,Funcionario,List<CobrancaExtra> Cobrancas",
-    "CobrancaExtra": "ADD IdApuracao:int? nav Apuracao; FK NoAction idx_cobranca_apuracao nonunique; all old columns/rows preserved",
-    "DbSets": "ConfiguracoesCobrancasExtras,ApuracoesCobrancasExtras",
-    "filters": "Named Empresa fail-closed: Config by IdEmpresa; Apuracao by Locacao.Veiculo.IdEmpresa",
-    "bounds": "nonunique indexes only; schema rules profile; new migration generated, never applied"
-  },
-  "indices_comuns": [
-    "idx_configuracao_extra_empresa_categoria",
-    "idx_apuracao_extra_locacao",
-    "idx_cobranca_apuracao"
-  ],
-  "checks_novos": [
-    "ck_configuracao_extra_versao",
-    "ck_configuracao_extra_franquia",
-    "ck_configuracao_extra_tarifas",
-    "ck_configuracao_extra_atraso",
-    "ck_configuracao_extra_avarias",
-    "ck_apuracao_extra_total",
-    "ck_apuracao_extra_versoes"
-  ],
-  "migrations": "Gerar nova, nunca aplicar; manter todas as anteriores",
-  "dados_existentes": "Nenhum backfill; cobranca_extra.id_apuracao nullable",
-  "unicidade": "Somente servico sob trava; nenhum indice unico"
-}
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "migration": ["20261119023757_CadastrarRegrasEApurarCobrancasExtras"],
+    "cobre": [
+      "tabela:configuracao_cobranca_extra",
+      "tabela:apuracao_cobranca_extra",
+      "coluna:cobranca_extra.id_apuracao",
+      "check:ck_configuracao_extra_versao",
+      "check:ck_configuracao_extra_franquia",
+      "check:ck_configuracao_extra_tarifas",
+      "check:ck_configuracao_extra_atraso",
+      "check:ck_configuracao_extra_avarias",
+      "check:ck_apuracao_extra_total",
+      "check:ck_apuracao_extra_versoes",
+      "fk:fk_configuracao_extra_categoria",
+      "fk:fk_configuracao_extra_empresa",
+      "fk:fk_apuracao_extra_configuracao",
+      "fk:fk_apuracao_extra_funcionario",
+      "fk:fk_apuracao_extra_locacao",
+      "fk:fk_apuracao_extra_entrada",
+      "fk:fk_apuracao_extra_saida",
+      "fk:fk_cobranca_apuracao",
+      "indice:idx_configuracao_extra_empresa_categoria",
+      "indice:idx_apuracao_extra_locacao",
+      "indice:idx_cobranca_apuracao"
+    ],
+    "data": "2026-11-20",
+    "tarefa": "P5-BE-02 / RF-23 / Semana 2",
+    "fonte": "Plano de ajustes da semana 2 do Eduardo, aprovado pelo Kaio em 20/11/2026 ('Aprovo 1 a 10')",
+    "origem": "Autorizo o cadastro e a migration (chat)",
+    "motivo": "Cadastro de parametros pela locadora e apuracao automatica com snapshot e repeticao sem duplicidade",
+    "schema": {
+      "ConfiguracaoCobrancaExtra": "IdConfiguracao,IdEmpresa,IdCategoria,Versao:int; BaseFranquia:string TOTAL|POR_DIARIA;FranquiaKm:int;ValorKmExcedente,ValorTanqueCompleto,ValorUnidadeAtraso:decimal10,2;ToleranciaAtrasoMinutos:int;UnidadeAtraso:HORA|DIARIA;FracionamentoAtraso:PROPORCIONAL|INICIADA;BaseAvarias:ESTIMATIVA_VISTORIA; BaseEntities; nav Empresa,Categoria",
+      "ApuracaoCobrancaExtra": "IdApuracao,IdLocacao,IdConfiguracao,VersaoConfiguracao,IdVistoriaEntrada,IdVistoriaSaida,IdFuncionario,VersaoSnapshot:int;DataHora:DateTime;SnapshotJson:jsonb;Total:decimal12,2;BaseEntities;nav Locacao,Configuracao,VistoriaEntrada,VistoriaSaida,Funcionario,List<CobrancaExtra> Cobrancas",
+      "CobrancaExtra": "ADD IdApuracao:int? nav Apuracao; FK NoAction idx_cobranca_apuracao nonunique; all old columns/rows preserved",
+      "DbSets": "ConfiguracoesCobrancasExtras,ApuracoesCobrancasExtras",
+      "filters": "Named Empresa fail-closed: Config by IdEmpresa; Apuracao by Locacao.Veiculo.IdEmpresa",
+      "bounds": "nonunique indexes only; schema rules profile; new migration generated, never applied"
+    },
+    "indices_comuns": [
+      "idx_configuracao_extra_empresa_categoria",
+      "idx_apuracao_extra_locacao",
+      "idx_cobranca_apuracao"
+    ],
+    "checks_novos": [
+      "ck_configuracao_extra_versao",
+      "ck_configuracao_extra_franquia",
+      "ck_configuracao_extra_tarifas",
+      "ck_configuracao_extra_atraso",
+      "ck_configuracao_extra_avarias",
+      "ck_apuracao_extra_total",
+      "ck_apuracao_extra_versoes"
+    ],
+    "migrations": "Gerar nova, nunca aplicar; manter todas as anteriores",
+    "dados_existentes": "Nenhum backfill; cobranca_extra.id_apuracao nullable",
+    "unicidade": "Somente servico sob trava; nenhum indice unico"
+  }
 }
