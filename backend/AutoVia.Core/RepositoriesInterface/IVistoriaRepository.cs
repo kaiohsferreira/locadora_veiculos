@@ -8,6 +8,6 @@ namespace AutoVia.Core.RepositoriesInterface
     {
         Task<Vistoria?> FindEntradaByLocacaoAsync(int idLocacao);
         Task<Vistoria> InsertAsync(Vistoria vistoria);
-        Task<Vistoria> ExecutarComLocacaoBloqueadaAsync(int idLocacao, Func<Task<Vistoria>> operacao);
+        Task<T> ExecutarComLocacaoBloqueadaAsync<T>(int idLocacao, Func<Task<T>> operacao);
     }
 }

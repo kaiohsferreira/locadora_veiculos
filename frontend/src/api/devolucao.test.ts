@@ -16,7 +16,7 @@ describe('API da devolução', () => {
     expect(get).toHaveBeenCalledWith('/api/locacoes/42/vistorias/saida');
   });
   it('envia uma origem e uma nova sem copiar manualmente dados preexistentes', async () => {
-    const dados = { kmRegistrado: 120, nivelCombustivel: 0, observacoes: null, idsAvariasEntrada: [8], novasAvarias: [{ descricao: 'Risco', gravidade: 'LEVE' as const, valorEstimado: null }] };
+    const dados = { kmRegistrado: 120, nivelCombustivel: 0, observacoes: null, idsAvariasEntrada: [8], novasAvarias: [{ descricao: 'Risco', gravidade: 'LEVE' as const, valorEstimado: 0 }] };
     post.mockResolvedValueOnce({ data: { avariasPreexistentes: [{ idAvariaEntrada: 8 }], avariasNovas: [{ descricao: 'Risco' }] } });
     const resposta = await registrarSaida(42, dados);
     expect(post).toHaveBeenCalledWith('/api/locacoes/42/vistorias/saida', dados);

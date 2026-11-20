@@ -15,6 +15,8 @@ namespace AutoVia.Tests.Avarias
     public sealed class AvariaServiceTests
     {
         private const int IdVistoriaDoTeste = 14;
+        private const int IdLocacaoDoTeste = 10;
+        private const int IdVistoriaDeSaida = 15;
         private const int IdAvariaDoTeste = 1;
         private const int LadoAcimaDoLimiteFotoPixels = 8193;
         private const string ChaveDaFoto = "vistorias/14/avarias/1/foto";
@@ -25,13 +27,15 @@ namespace AutoVia.Tests.Avarias
         [Fact]
         public async Task CriarAsync_CriaAvariaFazUploadEDevolveUrl()
         {
-            FakeAvariaRepository repositorio = new FakeAvariaRepository();
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
             FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
-            AvariaService servico = CriarServico(repositorio, armazenamento);
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
 
             AutoVia.Communication.ViewObjects.Avarias.ReturnAvariaVO retorno = await servico.CriarAsync(14, "Arranhão", "MEDIA", 22.50m, JpegValido(), "image/jpeg");
 
             Assert.Equal(1, repositorio.CriacaoCount);
+            Assert.True(repositorio.CriadoSobTrava);
             Assert.Equal(1, armazenamento.UploadCount);
             Assert.Equal("vistorias/14/avarias/1/foto", armazenamento.UploadKeys[0]);
             Assert.True(armazenamento.ObjetoExiste("vistorias/14/avarias/1/foto"));
@@ -42,9 +46,10 @@ namespace AutoVia.Tests.Avarias
         [Fact]
         public async Task UploadFalho_PermiteRetrySemCriarAvariaDuplicada()
         {
-            FakeAvariaRepository repositorio = new FakeAvariaRepository();
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
             FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway { FalharUpload = true };
-            AvariaService servico = CriarServico(repositorio, armazenamento);
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
 
             AvariaUploadException excecao = await Assert.ThrowsAsync<AvariaUploadException>(() => servico.CriarAsync(14, "Arranhão", "LEVE", null, JpegValido(), "image/jpeg"));
             armazenamento.FalharUpload = false;
@@ -61,9 +66,10 @@ namespace AutoVia.Tests.Avarias
         [Fact]
         public async Task RefreshUrl_ConfirmaObjetoEDeleteRepetidoPreservaRegistro()
         {
-            FakeAvariaRepository repositorio = new FakeAvariaRepository();
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
             FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
-            AvariaService servico = CriarServico(repositorio, armazenamento);
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
             await servico.CriarAsync(14, "Arranhão", "GRAVE", null, JpegValido(), "image/jpeg");
 
             await servico.GetFotoUrlAsync(14, 1);
@@ -79,8 +85,9 @@ namespace AutoVia.Tests.Avarias
         [Fact]
         public async Task FotoComAssinaturaInvalida_FalhaAntesDeCriarRegistro()
         {
-            FakeAvariaRepository repositorio = new FakeAvariaRepository();
-            AvariaService servico = CriarServico(repositorio, new FakeArmazenamentoGateway());
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            AvariaService servico = CriarServico(repositorio, saidas, new FakeArmazenamentoGateway());
 
             FluentValidation.ValidationException excecao = await Assert.ThrowsAsync<FluentValidation.ValidationException>(() => servico.CriarAsync(14, "Arranhão", "LEVE", null, new byte[] { 1, 2, 3 }, "image/jpeg"));
 
@@ -91,8 +98,9 @@ namespace AutoVia.Tests.Avarias
         [Fact]
         public async Task FotoComCabecalhoMasConteudoMalformado_FalhaAntesDeCriarRegistro()
         {
-            FakeAvariaRepository repositorio = new FakeAvariaRepository();
-            AvariaService servico = CriarServico(repositorio, new FakeArmazenamentoGateway());
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            AvariaService servico = CriarServico(repositorio, saidas, new FakeArmazenamentoGateway());
 
             FluentValidation.ValidationException excecao = await Assert.ThrowsAsync<FluentValidation.ValidationException>(() => servico.CriarAsync(14, "Arranhão", "LEVE", null, new byte[] { 0xFF, 0xD8, 0xFF, 0x00 }, "image/jpeg"));
 
@@ -103,9 +111,10 @@ namespace AutoVia.Tests.Avarias
         [Fact]
         public async Task VistoriaInexistente_ComAssinaturaJpegEConteudoQueNaoDecodifica_Responde404SemDecodificar()
         {
-            FakeAvariaRepository repositorio = new FakeAvariaRepository { VistoriaExiste = false };
+            FakeVistoriaSaidaRepository saidas = new FakeVistoriaSaidaRepository();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
             FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
-            AvariaService servico = CriarServico(repositorio, armazenamento);
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
 
             NotFoundException excecao = await Assert.ThrowsAsync<NotFoundException>(() => servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "LEVE", null, new byte[] { 0xFF, 0xD8, 0xFF, 0x00 }, "image/jpeg"));
 
@@ -119,9 +128,10 @@ namespace AutoVia.Tests.Avarias
         [InlineData(-3)]
         public async Task IdVistoriaZeroOuNegativo_Responde404SemGravarNemEnviar(int idVistoria)
         {
-            FakeAvariaRepository repositorio = new FakeAvariaRepository();
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
             FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
-            AvariaService servico = CriarServico(repositorio, armazenamento);
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
 
             NotFoundException excecao = await Assert.ThrowsAsync<NotFoundException>(() => servico.CriarAsync(idVistoria, "Arranhão", "LEVE", null, JpegValido(), "image/jpeg"));
 
@@ -133,9 +143,10 @@ namespace AutoVia.Tests.Avarias
         [Fact]
         public async Task FotoAcimaDeOLimiteDePixels_FalhaComMensagemNoErrorsEAntesDeGravar()
         {
-            FakeAvariaRepository repositorio = new FakeAvariaRepository();
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
             FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
-            AvariaService servico = CriarServico(repositorio, armazenamento);
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
 
             FluentValidation.ValidationException excecao = await Assert.ThrowsAsync<FluentValidation.ValidationException>(() => servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "LEVE", null, JpegComLado(LadoAcimaDoLimiteFotoPixels), "image/jpeg"));
 
@@ -148,9 +159,10 @@ namespace AutoVia.Tests.Avarias
         [Fact]
         public async Task JpegTruncado_FalhaAntesDeGravarNemEnviar()
         {
-            FakeAvariaRepository repositorio = new FakeAvariaRepository();
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
             FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
-            AvariaService servico = CriarServico(repositorio, armazenamento);
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
             byte[] jpeg = JpegGrande();
             byte[] truncado = jpeg.Take(jpeg.Length / 2).ToArray();
 
@@ -164,9 +176,10 @@ namespace AutoVia.Tests.Avarias
         [Fact]
         public async Task ContentTypeJpegComBytesDePng_FalhaAntesDeGravarNemEnviar()
         {
-            FakeAvariaRepository repositorio = new FakeAvariaRepository();
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
             FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
-            AvariaService servico = CriarServico(repositorio, armazenamento);
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
 
             FluentValidation.ValidationException excecao = await Assert.ThrowsAsync<FluentValidation.ValidationException>(() => servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "LEVE", null, PngValido(), "image/jpeg"));
 
@@ -178,9 +191,10 @@ namespace AutoVia.Tests.Avarias
         [Fact]
         public async Task FotoAcimaDoTetoDeBytes_FalhaAntesDeGravarNemEnviar()
         {
-            FakeAvariaRepository repositorio = new FakeAvariaRepository();
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
             FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
-            AvariaService servico = CriarServico(repositorio, armazenamento);
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
             byte[] acimaDoLimite = new byte[ConstantsArmazenamento.TamanhoMaximoFotoBytes + 1];
             acimaDoLimite[0] = 0xFF;
             acimaDoLimite[1] = 0xD8;
@@ -196,8 +210,9 @@ namespace AutoVia.Tests.Avarias
         [Fact]
         public async Task GravidadeInvalida_MensagemEspecificaChegaAoErrors()
         {
-            FakeAvariaRepository repositorio = new FakeAvariaRepository();
-            AvariaService servico = CriarServico(repositorio, new FakeArmazenamentoGateway());
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            AvariaService servico = CriarServico(repositorio, saidas, new FakeArmazenamentoGateway());
 
             FluentValidation.ValidationException excecao = await Assert.ThrowsAsync<FluentValidation.ValidationException>(() => servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "CRITICA", null, JpegValido(), "image/jpeg"));
 
@@ -208,9 +223,10 @@ namespace AutoVia.Tests.Avarias
         [Fact]
         public async Task RegravacaoDaFoto_NaoLevaOsMetadadosExifDoOriginal()
         {
-            FakeAvariaRepository repositorio = new FakeAvariaRepository();
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
             CapturadorDeArmazenamento armazenamento = new CapturadorDeArmazenamento();
-            AvariaService servico = new AvariaService(repositorio, armazenamento, new FakeLogService());
+            AvariaService servico = new AvariaService(repositorio, armazenamento, saidas.Vistorias, saidas, new FakeLogService());
             byte[] comExif = JpegComExif();
 
             Assert.Contains(MarcadorExif, Encoding.ASCII.GetString(comExif), StringComparison.Ordinal);
@@ -225,11 +241,12 @@ namespace AutoVia.Tests.Avarias
         public async Task LogDaVistoriaInexistenteEDaFotoInvalida_DeixaRegistro()
         {
             FakeLogService log = new FakeLogService();
-            FakeAvariaRepository repositorio = new FakeAvariaRepository { VistoriaExiste = false };
-            AvariaService servico = new AvariaService(repositorio, new FakeArmazenamentoGateway(), log);
+            FakeVistoriaSaidaRepository saidas = new FakeVistoriaSaidaRepository();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            AvariaService servico = new AvariaService(repositorio, new FakeArmazenamentoGateway(), saidas.Vistorias, saidas, log);
 
             await Assert.ThrowsAsync<NotFoundException>(() => servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "LEVE", null, JpegValido(), "image/jpeg"));
-            repositorio.VistoriaExiste = true;
+            AdicionarVistoria(saidas, TipoVistoria.ENTRADA, StatusLocacao.EM_ANDAMENTO, false);
             await Assert.ThrowsAsync<FluentValidation.ValidationException>(() => servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "LEVE", null, new byte[] { 1, 2, 3 }, "image/jpeg"));
 
             Assert.NotEmpty(log.Entries);
@@ -240,8 +257,9 @@ namespace AutoVia.Tests.Avarias
         public async Task FalhaDeEnvio_LogTrazONomeDoTipoERessalvaAMensagemNemAUrl()
         {
             FakeLogService log = new FakeLogService();
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
             FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway { FalharUpload = true };
-            AvariaService servico = new AvariaService(new FakeAvariaRepository(), armazenamento, log);
+            AvariaService servico = new AvariaService(new FakeAvariaRepository(saidas), armazenamento, saidas.Vistorias, saidas, log);
 
             await Assert.ThrowsAsync<AvariaUploadException>(() => servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "LEVE", null, JpegValido(), "image/jpeg"));
 
@@ -252,9 +270,128 @@ namespace AutoVia.Tests.Avarias
             Assert.DoesNotContain(entradas, entrada => entrada.Contains("https://", StringComparison.Ordinal));
         }
 
-        private static AvariaService CriarServico(FakeAvariaRepository repositorio, FakeArmazenamentoGateway armazenamento)
+        [Fact]
+        public async Task VistoriaDeSaidaRecusa409ComMensagemAntesDaFotoSemGravarNemEnviar()
         {
-            return new AvariaService(repositorio, armazenamento, new FakeLogService());
+            FakeLogService log = new FakeLogService();
+            FakeVistoriaSaidaRepository saidas = CriarSaidas(TipoVistoria.SAIDA);
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento, log);
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "LEVE", null, new byte[] { 1, 2, 3 }, "image/jpeg"));
+
+            Assert.Equal(ConstantsMessage.ErroAvariaVistoriaSaida, excecao.Message);
+            Assert.Equal(0, repositorio.CriacaoCount);
+            Assert.Equal(0, armazenamento.UploadCount);
+            Assert.NotEmpty(log.Entries);
+        }
+
+        [Fact]
+        public async Task EntradaComSaidaAtivaRecusa409SemGravarNemEnviar()
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas(TipoVistoria.ENTRADA, StatusLocacao.EM_ANDAMENTO, comSaidaAtiva: true);
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "LEVE", null, JpegValido(), "image/jpeg"));
+
+            Assert.Equal(ConstantsMessage.ErroAvariaEntradaAposSaida, excecao.Message);
+            Assert.Equal(0, repositorio.CriacaoCount);
+            Assert.Equal(0, armazenamento.UploadCount);
+        }
+
+        [Theory]
+        [InlineData(StatusLocacao.FINALIZADA)]
+        [InlineData(StatusLocacao.CANCELADA)]
+        public async Task LocacaoFechadaRecusa409SemGravarNemEnviar(StatusLocacao status)
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas(TipoVistoria.ENTRADA, status);
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "LEVE", null, JpegValido(), "image/jpeg"));
+
+            Assert.Equal(ConstantsMessage.ErroAvariaLocacaoFechada, excecao.Message);
+            Assert.Equal(0, repositorio.CriacaoCount);
+            Assert.Equal(0, armazenamento.UploadCount);
+        }
+
+        [Theory]
+        [InlineData(StatusLocacao.EM_ANDAMENTO)]
+        [InlineData(StatusLocacao.ATRASADA)]
+        public async Task EntradaSemSaidaComLocacaoEmAbertoAceitaAvaria(StatusLocacao status)
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas(TipoVistoria.ENTRADA, status);
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
+
+            await servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "LEVE", null, JpegValido(), "image/jpeg");
+
+            Assert.Equal(1, repositorio.CriacaoCount);
+            Assert.Equal(1, armazenamento.UploadCount);
+        }
+
+        [Fact]
+        public async Task SaidaRegistradaEntreAChecagemPreviaETravaRecusa409SemGravarNemEnviar()
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
+            Locacao locacao = saidas.Vistorias.Vistorias[0].Locacao;
+            saidas.Vistorias.AoEntrarNaTrava = () => saidas.Vistorias.Vistorias.Add(new Vistoria { IdVistoria = IdVistoriaDeSaida, IdLocacao = IdLocacaoDoTeste, Tipo = TipoVistoria.SAIDA, Locacao = locacao });
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "LEVE", null, JpegValido(), "image/jpeg"));
+
+            Assert.Equal(ConstantsMessage.ErroAvariaEntradaAposSaida, excecao.Message);
+            Assert.Equal(0, repositorio.CriacaoCount);
+            Assert.Equal(0, armazenamento.UploadCount);
+        }
+
+        [Theory]
+        [InlineData(StatusLocacao.FINALIZADA)]
+        [InlineData(StatusLocacao.CANCELADA)]
+        public async Task LocacaoFechadaDentroDaTravaRecusa409SemGravarNemEnviar(StatusLocacao status)
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
+            Locacao locacao = saidas.Vistorias.Vistorias[0].Locacao;
+            saidas.Vistorias.AoEntrarNaTrava = () => locacao.Status = status;
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "LEVE", null, JpegValido(), "image/jpeg"));
+
+            Assert.Equal(ConstantsMessage.ErroAvariaLocacaoFechada, excecao.Message);
+            Assert.Equal(0, repositorio.CriacaoCount);
+            Assert.Equal(0, armazenamento.UploadCount);
+        }
+
+        private static FakeVistoriaSaidaRepository CriarSaidas(TipoVistoria tipo = TipoVistoria.ENTRADA, StatusLocacao status = StatusLocacao.EM_ANDAMENTO, bool comSaidaAtiva = false)
+        {
+            FakeVistoriaSaidaRepository saidas = new FakeVistoriaSaidaRepository();
+            AdicionarVistoria(saidas, tipo, status, comSaidaAtiva);
+            return saidas;
+        }
+
+        /// <summary>Semeia a vistoria 14 (locacao 10), e opcionalmente uma saida ativa na mesma locacao.</summary>
+        private static void AdicionarVistoria(FakeVistoriaSaidaRepository saidas, TipoVistoria tipo, StatusLocacao status, bool comSaidaAtiva)
+        {
+            Locacao locacao = new Locacao { IdLocacao = IdLocacaoDoTeste, Status = status, KmSaida = 100 };
+            saidas.Vistorias.Vistorias.Add(new Vistoria { IdVistoria = IdVistoriaDoTeste, IdLocacao = IdLocacaoDoTeste, Tipo = tipo, Locacao = locacao });
+            if (comSaidaAtiva)
+            {
+                saidas.Vistorias.Vistorias.Add(new Vistoria { IdVistoria = IdVistoriaDeSaida, IdLocacao = IdLocacaoDoTeste, Tipo = TipoVistoria.SAIDA, Locacao = locacao });
+            }
+        }
+
+        private static AvariaService CriarServico(FakeAvariaRepository repositorio, FakeVistoriaSaidaRepository saidas, FakeArmazenamentoGateway armazenamento, FakeLogService? log = null)
+        {
+            return new AvariaService(repositorio, armazenamento, saidas.Vistorias, saidas, log ?? new FakeLogService());
         }
 
         private static byte[] JpegValido()

@@ -70,6 +70,33 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
+        public void ConsultaVistoriaAtivaComLocacao_ComContextoDaEmpresa_TraduzFiltroEJuncaoComALocacao()
+        {
+            using AutoViaDbContext db = CriarDbComContextoDeFuncionario(EmpresaDoTeste);
+            AvariaRepository repositorio = new AvariaRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaVistoriaAtivaComLocacao(IdVistoriaDoTeste).ToQueryString();
+
+            Assert.Contains($"{ParametroEmpresa}='{EmpresaDoTeste}'", sql);
+            Assert.Contains(GuardaVerdadeiro, sql);
+            Assert.Contains(DisabledAtNulo, sql);
+            Assert.Contains("JOIN", sql);
+        }
+
+        [Fact]
+        public void ConsultaVistoriaAtivaComLocacao_SemContexto_FailClosedComIdZeroEGuardaFalsa()
+        {
+            using AutoViaDbContext db = CriarDbSemContexto();
+            AvariaRepository repositorio = new AvariaRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaVistoriaAtivaComLocacao(IdVistoriaDoTeste).ToQueryString();
+
+            Assert.Contains($"{ParametroEmpresa}='{ContextoSemEmpresa}'", sql);
+            Assert.Contains(GuardaFalso, sql);
+            Assert.DoesNotContain($"{ParametroEmpresa}='{EmpresaDoTeste}'", sql);
+        }
+
+        [Fact]
         public void ConsultaAvariaAtiva_ComContextoDaEmpresa_TraduzOFiltroComOIdDaEmpresaEDesativadasFora()
         {
             using AutoViaDbContext db = CriarDbComContextoDeFuncionario(EmpresaDoTeste);

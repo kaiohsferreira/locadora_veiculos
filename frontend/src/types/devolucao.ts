@@ -36,7 +36,8 @@ export interface ContextoDevolucao {
 export interface NovaAvariaSaida {
   descricao: string;
   gravidade: GravidadeAvaria;
-  valorEstimado: number | null;
+  /** Obrigatório no envio; 0 é válido e não gera cobrança. */
+  valorEstimado: number;
 }
 export interface RegistrarSaida {
   kmRegistrado: number;

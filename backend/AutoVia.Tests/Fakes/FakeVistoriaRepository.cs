@@ -16,6 +16,9 @@ namespace AutoVia.Tests.Fakes
         public bool SobTrava { get; private set; }
         public bool LeituraSemTrava { get; private set; }
 
+        /// <summary>Gancho opcional: roda depois de entrar na trava e antes da operacao (simula mudanca feita por outra requisicao).</summary>
+        public Action? AoEntrarNaTrava { get; set; }
+
         public Task<Vistoria?> FindEntradaByLocacaoAsync(int idLocacao)
         {
             LeituraSemTrava |= !SobTrava;
@@ -31,13 +34,14 @@ namespace AutoVia.Tests.Fakes
             return Task.FromResult(vistoria);
         }
 
-        public async Task<Vistoria> ExecutarComLocacaoBloqueadaAsync(int idLocacao, Func<Task<Vistoria>> operacao)
+        public async Task<T> ExecutarComLocacaoBloqueadaAsync<T>(int idLocacao, Func<Task<T>> operacao)
         {
             await _trava.WaitAsync();
             try
             {
                 SobTrava = true;
                 await Task.Yield();
+                AoEntrarNaTrava?.Invoke();
                 return await operacao();
             }
             finally

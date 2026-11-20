@@ -12,7 +12,7 @@ export function criarEsquemaSaida(kmMinimo: number, idsPermitidos: readonly numb
     novasAvarias: z.array(z.object({
       descricao: z.string().trim().min(1, M.descricaoInvalida).max(200, M.descricaoInvalida).refine(v => !v.includes('\0'), M.descricaoInvalida),
       gravidade: z.enum(['LEVE', 'MEDIA', 'GRAVE']),
-      valorEstimado: z.string().trim().refine(v => v === '' || decimal(v, 99_999_999.99), M.valor),
+      valorEstimado: z.string().trim().refine(v => v !== '', M.valor).refine(v => v === '' || decimal(v, 99_999_999.99), M.valorFaixa),
     })),
     comparacaoConferida: z.boolean().refine(v => v, M.confirmar),
   });
@@ -25,6 +25,6 @@ export function converterSaida(campos: CamposSaida): RegistrarSaida {
     observacoes: campos.observacoes.trim() || null,
     idsAvariasEntrada: [...campos.idsAvariasEntrada],
     novasAvarias: campos.novasAvarias.map(a => ({ descricao: a.descricao.trim(), gravidade: a.gravidade,
-      valorEstimado: a.valorEstimado.trim() === '' ? null : Number(a.valorEstimado.replace(',', '.')) })),
+      valorEstimado: Number(a.valorEstimado.replace(',', '.')) })),
   };
 }

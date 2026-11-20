@@ -19,21 +19,22 @@ namespace AutoVia.Tests.Vistorias
         internal static readonly DateTime Agora = new DateTime(2026, 11, 17, 10, 30, 0);
 
         internal static VistoriaService CriarServico(FakeVistoriaRepository vistorias,
-            bool locacaoExiste = true, bool funcionarioAtivo = true, FakeLogService? log = null, bool locacaoDesativada = false)
+            bool locacaoExiste = true, bool funcionarioAtivo = true, FakeLogService? log = null, bool locacaoDesativada = false,
+            StatusLocacao status = StatusLocacao.EM_ANDAMENTO, int kmSaida = 0)
         {
             FakeLocacaoRepository locacoes = new FakeLocacaoRepository();
             if (locacaoExiste)
             {
-                locacoes.Adicionar(new Locacao { IdLocacao = 10, DisabledAt = locacaoDesativada ? Agora : null });
+                locacoes.Adicionar(new Locacao { IdLocacao = 10, DisabledAt = locacaoDesativada ? Agora : null, Status = status, KmSaida = kmSaida });
             }
             locacoes.Adicionar(new Funcionario { IdFuncionario = 20, Ativo = funcionarioAtivo });
             MapperConfiguration configuracao = new MapperConfiguration(cfg => cfg.AddProfile<VistoriaProfile>(), NullLoggerFactory.Instance);
             return new VistoriaService(vistorias, locacoes, new FakeRelogio(Agora), configuracao.CreateMapper(), log ?? new FakeLogService());
         }
 
-        internal static VistoriaEntradaVO Entrada(string? observacoes = null)
+        internal static VistoriaEntradaVO Entrada(string? observacoes = null, int km = 100)
         {
-            return new VistoriaEntradaVO { KmRegistrado = 100, NivelCombustivel = 0.75m, Observacoes = observacoes };
+            return new VistoriaEntradaVO { KmRegistrado = km, NivelCombustivel = 0.75m, Observacoes = observacoes };
         }
 
         [Theory]
@@ -121,6 +122,80 @@ namespace AutoVia.Tests.Vistorias
             ReturnVistoriaVO lida = await servico.GetEntradaAsync(10);
             Assert.Equal(criada.IdVistoria, lida.IdVistoria);
             Assert.Equal(TipoVistoria.ENTRADA, lida.Tipo);
+        }
+
+        [Theory]
+        [InlineData(StatusLocacao.FINALIZADA)]
+        [InlineData(StatusLocacao.CANCELADA)]
+        public async Task LocacaoFechadaRecusaEntrada409SemGravar(StatusLocacao status)
+        {
+            FakeVistoriaRepository repositorio = new FakeVistoriaRepository();
+            VistoriaService servico = CriarServico(repositorio, status: status);
+            BusinessException erro = await Assert.ThrowsAsync<BusinessException>(() => servico.RegistrarEntradaAsync(10, Entrada(), 20));
+            Assert.Equal(ConstantsMessage.ErroVistoriaEntradaStatus, erro.Message);
+            Assert.Empty(repositorio.Vistorias);
+        }
+
+        [Fact]
+        public async Task LocacaoAtrasadaAceitaEntrada()
+        {
+            FakeVistoriaRepository repositorio = new FakeVistoriaRepository();
+            VistoriaService servico = CriarServico(repositorio, status: StatusLocacao.ATRASADA);
+            await servico.RegistrarEntradaAsync(10, Entrada(), 20);
+            Assert.Single(repositorio.Vistorias);
+        }
+
+        [Fact]
+        public async Task KmDaEntradaAbaixoDoKmDeSaidaRecusa409SemGravar()
+        {
+            FakeVistoriaRepository repositorio = new FakeVistoriaRepository();
+            VistoriaService servico = CriarServico(repositorio, kmSaida: 100);
+            BusinessException erro = await Assert.ThrowsAsync<BusinessException>(() => servico.RegistrarEntradaAsync(10, Entrada(km: 99), 20));
+            Assert.Equal(ConstantsMessage.ErroVistoriaEntradaKm, erro.Message);
+            Assert.Empty(repositorio.Vistorias);
+        }
+
+        [Theory]
+        [InlineData(100)]
+        [InlineData(101)]
+        public async Task KmDaEntradaIgualOuAcimaDoKmDeSaidaAceita(int km)
+        {
+            FakeVistoriaRepository repositorio = new FakeVistoriaRepository();
+            VistoriaService servico = CriarServico(repositorio, kmSaida: 100);
+            await servico.RegistrarEntradaAsync(10, Entrada(km: km), 20);
+            Vistoria salva = Assert.Single(repositorio.Vistorias);
+            Assert.Equal(km, salva.KmRegistrado);
+        }
+
+        [Fact]
+        public async Task LocacaoFechadaComKmAbaixoDoSaidaRecusaPeloStatusAntesDoKm()
+        {
+            FakeVistoriaRepository repositorio = new FakeVistoriaRepository();
+            VistoriaService servico = CriarServico(repositorio, status: StatusLocacao.FINALIZADA, kmSaida: 100);
+            BusinessException erro = await Assert.ThrowsAsync<BusinessException>(() => servico.RegistrarEntradaAsync(10, Entrada(km: 99), 20));
+            Assert.Equal(ConstantsMessage.ErroVistoriaEntradaStatus, erro.Message);
+            Assert.Empty(repositorio.Vistorias);
+        }
+
+        [Fact]
+        public async Task EntradaDuplicadaComKmAbaixoDoSaidaRecusaPeloKmAntesDaDuplicidade()
+        {
+            FakeVistoriaRepository repositorio = new FakeVistoriaRepository();
+            VistoriaService servico = CriarServico(repositorio, kmSaida: 100);
+            await servico.RegistrarEntradaAsync(10, Entrada(km: 100), 20);
+            BusinessException erro = await Assert.ThrowsAsync<BusinessException>(() => servico.RegistrarEntradaAsync(10, Entrada(km: 99), 20));
+            Assert.Equal(ConstantsMessage.ErroVistoriaEntradaKm, erro.Message);
+            Assert.Single(repositorio.Vistorias);
+        }
+
+        [Fact]
+        public async Task FuncionarioInativoComLocacaoFechadaRecusaPeloFuncionarioAntesDoStatus()
+        {
+            FakeVistoriaRepository repositorio = new FakeVistoriaRepository();
+            VistoriaService servico = CriarServico(repositorio, funcionarioAtivo: false, status: StatusLocacao.FINALIZADA);
+            BusinessException erro = await Assert.ThrowsAsync<BusinessException>(() => servico.RegistrarEntradaAsync(10, Entrada(), 20));
+            Assert.Equal(ConstantsMessage.ErroVistoriaFuncionarioInativo, erro.Message);
+            Assert.Empty(repositorio.Vistorias);
         }
     }
 }

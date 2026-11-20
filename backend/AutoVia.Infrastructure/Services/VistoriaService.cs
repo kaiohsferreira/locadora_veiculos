@@ -3,6 +3,7 @@ using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Vistorias;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Regras;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -67,6 +68,16 @@ namespace AutoVia.Infrastructure.Services
                 if (funcionario == null)
                 {
                     throw new BusinessException(ConstantsMessage.ErroVistoriaFuncionarioInativo);
+                }
+
+                if (!RegrasVistoria.LocacaoAceitaVistoria(locacao.Status))
+                {
+                    throw new BusinessException(ConstantsMessage.ErroVistoriaEntradaStatus);
+                }
+
+                if (!RegrasVistoria.KmEntradaValido(entrada.KmRegistrado!.Value, locacao.KmSaida))
+                {
+                    throw new BusinessException(ConstantsMessage.ErroVistoriaEntradaKm);
                 }
 
                 Vistoria? existente = await _vistoriaRepository.FindEntradaByLocacaoAsync(idLocacao);

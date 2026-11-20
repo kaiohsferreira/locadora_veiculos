@@ -76,7 +76,7 @@ namespace AutoVia.Infrastructure.Repositories
         /// Confere o escopo antes do SQL de trava, bloqueia a locacao na transacao e rele a locacao sob o filtro Empresa.
         /// O callback do servico valida a duplicidade e insere antes do commit, serializando entradas concorrentes.
         /// </summary>
-        public async Task<Vistoria> ExecutarComLocacaoBloqueadaAsync(int idLocacao, Func<Task<Vistoria>> operacao)
+        public async Task<T> ExecutarComLocacaoBloqueadaAsync<T>(int idLocacao, Func<Task<T>> operacao)
         {
             try
             {
@@ -94,9 +94,9 @@ namespace AutoVia.Infrastructure.Repositories
                     throw new NotFoundException(ConstantsMessage.ErroLocacaoNaoEncontrada);
                 }
 
-                Vistoria criada = await operacao();
+                T resultado = await operacao();
                 await transacao.CommitAsync();
-                return criada;
+                return resultado;
             }
             catch (Exception ex)
             {

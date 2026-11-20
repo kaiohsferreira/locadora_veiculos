@@ -94,7 +94,7 @@ function FormularioSaida({ contexto, atualizando }: FormularioSaidaProps) {
             <Campo rotulo="Descrição" obrigatorio required maxLength={200} {...register(`novasAvarias.${index}.descricao`)} erro={errors.novasAvarias?.[index]?.descricao?.message} />
             <div className="grid gap-4 sm:grid-cols-2">
               <Select rotulo="Gravidade" obrigatorio required opcoes={Object.entries(M.gravidades).map(([valor, rotulo]) => ({ valor, rotulo }))} {...register(`novasAvarias.${index}.gravidade`)} erro={errors.novasAvarias?.[index]?.gravidade?.message} />
-              <Campo rotulo="Valor estimado (R$, opcional)" inputMode="decimal" {...register(`novasAvarias.${index}.valorEstimado`)} erro={errors.novasAvarias?.[index]?.valorEstimado?.message} />
+              <Campo rotulo="Valor estimado (R$)" obrigatorio required inputMode="decimal" {...register(`novasAvarias.${index}.valorEstimado`)} erro={errors.novasAvarias?.[index]?.valorEstimado?.message} />
             </div>
             <Botao variante="fantasma" onClick={() => { remove(index); setValue('comparacaoConferida', false); }} aria-label={`Remover nova avaria ${index + 1}`}>Remover avaria</Botao>
           </fieldset>)}

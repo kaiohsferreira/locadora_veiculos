@@ -10,6 +10,8 @@ namespace AutoVia.Helpers
         public const string ErroVistoriaEntradaDuplicada = "Já existe uma vistoria de entrada ativa para esta locação.";
         public const string ErroVistoriaNaoEncontrada = "A vistoria de entrada não foi encontrada.";
         public const string ErroVistoriaFuncionarioInativo = "O funcionário autenticado não está ativo.";
+        public const string ErroVistoriaEntradaStatus = "A locação deve estar em andamento ou atrasada para registrar a vistoria de entrada.";
+        public const string ErroVistoriaEntradaKm = "A quilometragem da vistoria de entrada não pode ser inferior à quilometragem de saída registrada na locação.";
         public const string ErroSalvarVistoria = "Não foi possível registrar a vistoria de entrada.";
         public const string ErroBuscarVistoria = "Não foi possível consultar a vistoria de entrada.";
     }

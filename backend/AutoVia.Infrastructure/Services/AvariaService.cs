@@ -2,6 +2,7 @@ using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Avarias;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Regras;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -20,12 +21,17 @@ namespace AutoVia.Infrastructure.Services
     {
         private readonly IAvariaRepository _avariaRepository;
         private readonly IArmazenamentoGateway _armazenamentoGateway;
+        private readonly IVistoriaRepository _vistoriaRepository;
+        private readonly IVistoriaSaidaRepository _vistoriaSaidaRepository;
         private readonly ILogService _logService;
 
-        public AvariaService(IAvariaRepository avariaRepository, IArmazenamentoGateway armazenamentoGateway, ILogService logService)
+        public AvariaService(IAvariaRepository avariaRepository, IArmazenamentoGateway armazenamentoGateway,
+            IVistoriaRepository vistoriaRepository, IVistoriaSaidaRepository vistoriaSaidaRepository, ILogService logService)
         {
             _avariaRepository = avariaRepository;
             _armazenamentoGateway = armazenamentoGateway;
+            _vistoriaRepository = vistoriaRepository;
+            _vistoriaSaidaRepository = vistoriaSaidaRepository;
             _logService = logService;
         }
 
@@ -36,18 +42,12 @@ namespace AutoVia.Infrastructure.Services
                 // Ordem: id da vistoria, campos, vistoria no banco e so depois a foto (a decodificacao fica por ultimo).
                 if (idVistoria <= 0) throw new NotFoundException(ConstantsMessage.ErroAvariaVistoriaNaoEncontrada);
                 ValidarCampos(descricao, gravidade, valorEstimado);
-                bool vistoriaExiste = await _avariaRepository.VistoriaAtivaExisteAsync(idVistoria, cancellationToken);
-                if (!vistoriaExiste) throw new NotFoundException(ConstantsMessage.ErroAvariaVistoriaNaoEncontrada);
+                Vistoria vistoria = await ObterVistoriaAtivaAsync(idVistoria, cancellationToken);
+                await ValidarRegraDaVistoriaAsync(vistoria);
                 foto = ValidarFoto(foto, contentType);
 
-                Avaria avaria = new Avaria
-                {
-                    IdVistoria = idVistoria,
-                    Descricao = descricao.Trim(),
-                    Gravidade = ParseGravidade(gravidade),
-                    ValorEstimado = valorEstimado
-                };
-                Avaria criada = await _avariaRepository.CriarAsync(avaria, cancellationToken);
+                Avaria criada = await _vistoriaRepository.ExecutarComLocacaoBloqueadaAsync(vistoria.IdLocacao,
+                    () => CriarSobTravaAsync(idVistoria, descricao, gravidade, valorEstimado, cancellationToken));
                 return await EnviarFotoAsync(criada, foto!, contentType!, cancellationToken);
             }
             catch (ValidationException ex)
@@ -56,6 +56,11 @@ namespace AutoVia.Infrastructure.Services
                 throw;
             }
             catch (NotFoundException ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroCriarAvaria, GetType().ToString());
+                throw;
+            }
+            catch (BusinessException ex)
             {
                 _logService.Write(ex, ConstantsMessage.ErroCriarAvaria, GetType().ToString());
                 throw;
@@ -178,6 +183,80 @@ namespace AutoVia.Infrastructure.Services
             catch (Exception ex)
             {
                 _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroRemoverFotoAvaria, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Vistoria ativa da locadora com a locacao carregada; 404 quando nao existe.</summary>
+        private async Task<Vistoria> ObterVistoriaAtivaAsync(int idVistoria, CancellationToken cancellationToken)
+        {
+            try
+            {
+                Vistoria? vistoria = await _avariaRepository.FindAtivaComLocacaoAsync(idVistoria, cancellationToken);
+                if (vistoria == null) throw new NotFoundException(ConstantsMessage.ErroAvariaVistoriaNaoEncontrada);
+                return vistoria;
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroCriarAvaria, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Regra da vistoria (RegrasVistoria.MotivoRecusaAvaria): 409 quando a vistoria ou a locacao nao aceitam avaria nova.</summary>
+        private async Task ValidarRegraDaVistoriaAsync(Vistoria vistoria)
+        {
+            try
+            {
+                Vistoria? saida = await _vistoriaSaidaRepository.FindSaidaByLocacaoAsync(vistoria.IdLocacao);
+                string? motivo = RegrasVistoria.MotivoRecusaAvaria(vistoria.Tipo, vistoria.Locacao.Status, saida != null);
+                if (motivo != null) throw new BusinessException(motivo);
+            }
+            catch (BusinessException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroCriarAvaria, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Dentro da trava da locacao: relê a vistoria, repete a regra com o estado relido e grava a avaria. A foto e enviada depois, fora da trava.
+        /// </summary>
+        private async Task<Avaria> CriarSobTravaAsync(int idVistoria, string descricao, string gravidade, decimal? valorEstimado, CancellationToken cancellationToken)
+        {
+            try
+            {
+                Vistoria vistoria = await ObterVistoriaAtivaAsync(idVistoria, cancellationToken);
+                await ValidarRegraDaVistoriaAsync(vistoria);
+
+                Avaria avaria = new Avaria
+                {
+                    IdVistoria = idVistoria,
+                    Descricao = descricao.Trim(),
+                    Gravidade = ParseGravidade(gravidade),
+                    ValorEstimado = valorEstimado
+                };
+                return await _avariaRepository.CriarAsync(avaria, cancellationToken);
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (BusinessException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroCriarAvaria, GetType().ToString());
                 throw;
             }
         }

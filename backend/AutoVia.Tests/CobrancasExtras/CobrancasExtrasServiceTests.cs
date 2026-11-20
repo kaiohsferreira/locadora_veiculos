@@ -203,6 +203,16 @@ public sealed class CobrancasExtrasServiceTests
     }
 
     [Fact]
+    public async Task AvariaNovaComValorZeroNaoRecusaENaoSomaNaCobranca()
+    {
+        _saidas.Avarias[1].ValorEstimado = 0m;
+        ReturnSimulacaoCobrancasExtrasVO resultado = await _service.SimularAsync(10, Parametros());
+        Assert.Equal(0m, resultado.Avarias.Valor);
+        Assert.Equal(0m, Assert.Single(resultado.Avarias.Itens).ValorEstimado);
+        Assert.Equal(230m, resultado.Total);
+    }
+
+    [Fact]
     public async Task EntradaInvalidaNoServico404SemLocacao()
     {
         await Assert.ThrowsAsync<ValidationException>(() => _service.SimularAsync(10, new SimularCobrancasExtrasVO()));

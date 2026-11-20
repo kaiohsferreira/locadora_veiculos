@@ -60,5 +60,7 @@ namespace AutoVia.Helpers
         public const string ErroVistoriaSaidaAvariasObrigatorias = "Informe as listas de avarias de entrada e novas avarias, mesmo que vazias.";
         public const string ErroVistoriaSaidaIdsInvalidos = "Informe identificadores positivos e distintos para as avarias de entrada.";
         public const string ErroVistoriaSaidaDescricaoInvalida = "A descrição da avaria não pode conter caractere nulo.";
+        public const string ErroVistoriaSaidaAvariaValorObrigatorio = "Informe o valor estimado de cada nova avaria (use 0,00 quando não houver custo).";
+        public const string ErroVistoriaSaidaAvariasSomaExcedida = "A soma dos valores estimados das novas avarias não pode passar de 99999999,99.";
     }
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { converterSaida, criarEsquemaSaida, type CamposSaida } from './validacaoSaida';
+import { MENSAGENS_DEVOLUCAO as M } from '@/lib/mensagensDevolucao';
 
 const campos: CamposSaida = { kmRegistrado: '120', nivelCombustivel: '0,50', observacoes: '  ok  ', idsAvariasEntrada: [7], novasAvarias: [{ descricao: '  Risco  ', gravidade: 'LEVE', valorEstimado: '12,34' }], comparacaoConferida: true };
 const esquema = criarEsquemaSaida(120, [7, 8]);
@@ -21,8 +22,20 @@ describe('validação da saída RF-22', () => {
     expect(esquema.safeParse({ ...campos, comparacaoConferida: false }).success).toBe(false);
     for (const idsAvariasEntrada of [[7, 7], [9], [0]]) expect(esquema.safeParse({ ...campos, idsAvariasEntrada }).success).toBe(false);
   });
-  it('valor vazio vira nulo e observações com nulo falham', () => {
-    expect(converterSaida({ ...campos, novasAvarias: [{ descricao: 'x', gravidade: 'MEDIA', valorEstimado: '' }] }).novasAvarias[0].valorEstimado).toBeNull();
+  it('observações com nulo falham', () => {
     expect(esquema.safeParse({ ...campos, observacoes: '\0' }).success).toBe(false);
+  });
+  it('exige o valor estimado de cada nova avaria e não coage o vazio para zero', () => {
+    const resultado = esquema.safeParse({ ...campos, novasAvarias: [{ ...campos.novasAvarias[0], valorEstimado: '' }] });
+    expect(resultado.success).toBe(false);
+    expect(resultado.error?.issues[0]?.message).toBe('Informe o valor estimado de cada nova avaria (use 0,00 quando não houver custo).');
+  });
+  it.each(['0', '0,00', '12,34', '99999999,99'])('aceita o valor estimado %s', valorEstimado => expect(esquema.safeParse({ ...campos, novasAvarias: [{ ...campos.novasAvarias[0], valorEstimado }] }).success).toBe(true));
+  it('valor 0,00 chega ao envio como zero, não como nulo', () => {
+    expect(converterSaida(esquema.parse({ ...campos, novasAvarias: [{ ...campos.novasAvarias[0], valorEstimado: '0,00' }] })).novasAvarias[0].valorEstimado).toBe(0);
+  });
+  it('valor negativo ou fora da faixa usa a mensagem de faixa', () => {
+    const resultado = esquema.safeParse({ ...campos, novasAvarias: [{ ...campos.novasAvarias[0], valorEstimado: '-1' }] });
+    expect(resultado.error?.issues[0]?.message).toBe(M.valorFaixa);
   });
 });

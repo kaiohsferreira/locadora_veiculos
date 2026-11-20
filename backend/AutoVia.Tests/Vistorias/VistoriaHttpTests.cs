@@ -41,17 +41,22 @@ namespace AutoVia.Tests.Vistorias
 
         private string Token(PerfilUsuario perfil = PerfilUsuario.FUNCIONARIO)
         {
+            return TokenDe(_fabrica, perfil);
+        }
+
+        private static string TokenDe(VeiculoWebFactory fabrica, PerfilUsuario perfil = PerfilUsuario.FUNCIONARIO)
+        {
             JwtOptions opcoes = new JwtOptions
             {
                 Emissor = VeiculoWebFactory.Emissor, Audiencia = VeiculoWebFactory.Audiencia,
-                ExpiracaoMinutos = 120, Chave = _fabrica.ChaveJwt
+                ExpiracaoMinutos = 120, Chave = fabrica.ChaveJwt
             };
             TokenService tokens = new TokenService(opcoes, new FakeLogService());
             return tokens.GerarToken(perfil, 20, "Teste", perfil == PerfilUsuario.FUNCIONARIO ? CargoFuncionario.ATENDENTE : null,
                 "versao-de-teste", false, perfil == PerfilUsuario.FUNCIONARIO ? 1 : null).Token;
         }
 
-        private async Task<HttpResponseMessage> Enviar(HttpMethod metodo, string rota, string? token, string? corpo = null)
+        private async Task<HttpResponseMessage> Enviar(HttpMethod metodo, string rota, string? token, string? corpo = null, HttpClient? cliente = null)
         {
             using HttpRequestMessage requisicao = new HttpRequestMessage(metodo, rota);
             if (token != null)
@@ -62,7 +67,7 @@ namespace AutoVia.Tests.Vistorias
             {
                 requisicao.Content = new StringContent(corpo, Encoding.UTF8, "application/json");
             }
-            return await _cliente.SendAsync(requisicao);
+            return await (cliente ?? _cliente).SendAsync(requisicao);
         }
 
         private static async Task<JsonElement> LerJson(HttpResponseMessage resposta)
@@ -131,11 +136,42 @@ namespace AutoVia.Tests.Vistorias
             using HttpResponseMessage semLocacao = await Enviar(HttpMethod.Post, "/api/locacoes/99/vistorias/entrada", Token(), CorpoValido);
             Assert.Equal(HttpStatusCode.NotFound, semLocacao.StatusCode);
         }
+
+        [Fact]
+        public async Task EntradaComLocacaoFinalizadaRecusa409ComMensagemESemGravar()
+        {
+            using VistoriaWebFactory fabrica = new VistoriaWebFactory { StatusDaLocacao = StatusLocacao.FINALIZADA };
+            using HttpClient cliente = fabrica.CreateClient();
+            using HttpResponseMessage resposta = await Enviar(HttpMethod.Post, Rota, TokenDe(fabrica), CorpoValido, cliente);
+            Assert.Equal(HttpStatusCode.Conflict, resposta.StatusCode);
+            Assert.Equal("application/problem+json", resposta.Content.Headers.ContentType?.MediaType);
+            Assert.Equal(ConstantsMessage.ErroVistoriaEntradaStatus, (await LerJson(resposta)).GetProperty("detail").GetString());
+            Assert.Empty(fabrica.Vistorias.Vistorias);
+        }
+
+        [Fact]
+        public async Task EntradaComKmInferiorAoDaSaidaRecusa409ComMensagemESemGravar()
+        {
+            using VistoriaWebFactory fabrica = new VistoriaWebFactory { KmSaidaDaLocacao = 100 };
+            using HttpClient cliente = fabrica.CreateClient();
+            string corpo = "{\"kmRegistrado\":99,\"nivelCombustivel\":0.75}";
+            using HttpResponseMessage resposta = await Enviar(HttpMethod.Post, Rota, TokenDe(fabrica), corpo, cliente);
+            Assert.Equal(HttpStatusCode.Conflict, resposta.StatusCode);
+            Assert.Equal("application/problem+json", resposta.Content.Headers.ContentType?.MediaType);
+            Assert.Equal(ConstantsMessage.ErroVistoriaEntradaKm, (await LerJson(resposta)).GetProperty("detail").GetString());
+            Assert.Empty(fabrica.Vistorias.Vistorias);
+        }
     }
 
     public class VistoriaWebFactory : VeiculoWebFactory
     {
         public FakeVistoriaRepository Vistorias { get; } = new FakeVistoriaRepository();
+
+        /// <summary>Status da locacao semeada (padrao EM_ANDAMENTO). Definido antes do primeiro CreateClient.</summary>
+        public StatusLocacao StatusDaLocacao { get; set; } = StatusLocacao.EM_ANDAMENTO;
+
+        /// <summary>KmSaida da locacao semeada (padrao 0). Definido antes do primeiro CreateClient.</summary>
+        public int KmSaidaDaLocacao { get; set; }
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -143,7 +179,7 @@ namespace AutoVia.Tests.Vistorias
             builder.ConfigureTestServices(services =>
             {
                 FakeLocacaoRepository locacoes = new FakeLocacaoRepository();
-                locacoes.Adicionar(new Locacao { IdLocacao = 10 });
+                locacoes.Adicionar(new Locacao { IdLocacao = 10, Status = StatusDaLocacao, KmSaida = KmSaidaDaLocacao });
                 locacoes.Adicionar(new Funcionario { IdFuncionario = 20, Ativo = true });
                 services.RemoveAll<ILocacaoRepository>();
                 services.RemoveAll<IVistoriaRepository>();

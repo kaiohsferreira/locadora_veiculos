@@ -6,6 +6,7 @@ using AutoVia.Communication.ViewObjects.Vistorias;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Profiles;
 using AutoVia.Core.RepositoriesInterface;
+using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
 using AutoVia.Tests.Fakes;
 using FluentValidation;
@@ -146,5 +147,58 @@ public class VistoriaSaidaServiceTests
         VistoriaSaidaVO model = Payload();
         model.NovasAvarias!.Add(null!);
         Assert.False(validator.Validate(model).IsValid);
+    }
+
+    [Fact]
+    public void AvariaNovaSemValorEstimadoEInvalidaComMensagemPropria()
+    {
+        VistoriaSaidaVOValidator validator = new VistoriaSaidaVOValidator();
+        VistoriaSaidaVO model = Payload();
+        model.NovasAvarias![0].ValorEstimado = null;
+
+        FluentValidation.Results.ValidationResult resultado = validator.Validate(model);
+
+        Assert.False(resultado.IsValid);
+        Assert.Equal(ConstantsMessage.ErroVistoriaSaidaAvariaValorObrigatorio, resultado.Errors[0].ErrorMessage);
+    }
+
+    [Fact]
+    public void AvariaNovaComValorZeroEValida()
+    {
+        VistoriaSaidaVOValidator validator = new VistoriaSaidaVOValidator();
+        VistoriaSaidaVO model = Payload();
+        model.NovasAvarias![0].ValorEstimado = 0m;
+
+        Assert.True(validator.Validate(model).IsValid);
+    }
+
+    [Fact]
+    public void SomaDasNovasAvariasAcimaDoTetoEInvalidaComMensagemPropria()
+    {
+        VistoriaSaidaVOValidator validator = new VistoriaSaidaVOValidator();
+        VistoriaSaidaVO model = Payload();
+        model.NovasAvarias = new List<NovaAvariaSaidaVO>
+        {
+            new NovaAvariaSaidaVO { Descricao = "Dano A", Gravidade = GravidadeAvaria.GRAVE, ValorEstimado = 99999999.99m },
+            new NovaAvariaSaidaVO { Descricao = "Dano B", Gravidade = GravidadeAvaria.GRAVE, ValorEstimado = 99999999.99m }
+        };
+
+        FluentValidation.Results.ValidationResult resultado = validator.Validate(model);
+
+        Assert.False(resultado.IsValid);
+        Assert.Contains(resultado.Errors, erro => erro.ErrorMessage == ConstantsMessage.ErroVistoriaSaidaAvariasSomaExcedida);
+    }
+
+    [Fact]
+    public void UmaNovaAvariaNoTetoDaSomaEValida()
+    {
+        VistoriaSaidaVOValidator validator = new VistoriaSaidaVOValidator();
+        VistoriaSaidaVO model = Payload();
+        model.NovasAvarias = new List<NovaAvariaSaidaVO>
+        {
+            new NovaAvariaSaidaVO { Descricao = "Dano A", Gravidade = GravidadeAvaria.GRAVE, ValorEstimado = 99999999.99m }
+        };
+
+        Assert.True(validator.Validate(model).IsValid);
     }
 }

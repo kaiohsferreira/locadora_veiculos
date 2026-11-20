@@ -22,6 +22,22 @@ public class VistoriaSaidaVOValidator : AbstractValidator<VistoriaSaidaVO>
         RuleFor(x => x.NovasAvarias).NotNull().WithMessage(ConstantsMessage.ErroVistoriaSaidaAvariasObrigatorias);
         RuleForEach(x => x.NovasAvarias).NotNull().WithMessage(ConstantsMessage.ErroVistoriaSaidaAvariasObrigatorias)
             .SetValidator(new NovaAvariaSaidaVOValidator());
+        RuleFor(x => x.NovasAvarias).Must(SomaDasNovasAvariasDentroDoTeto)
+            .WithMessage(ConstantsMessage.ErroVistoriaSaidaAvariasSomaExcedida);
+    }
+
+    /// <summary>Soma dos valores estimados das avarias novas da requisicao; nao passa do limite da apuracao. Nulos ficam para as outras regras.</summary>
+    private static bool SomaDasNovasAvariasDentroDoTeto(List<NovaAvariaSaidaVO>? novas)
+    {
+        if (novas == null) return true;
+
+        decimal soma = 0m;
+        foreach (NovaAvariaSaidaVO nova in novas)
+        {
+            if (nova != null && nova.ValorEstimado.HasValue) soma += nova.ValorEstimado.Value;
+        }
+
+        return soma <= ConstantsValues.LimiteSomaValorEstimadoNovasAvariasSaida;
     }
 }
 
@@ -34,6 +50,7 @@ public class NovaAvariaSaidaVOValidator : AbstractValidator<NovaAvariaSaidaVO>
         RuleFor(x => x.Descricao).Must(x => x == null || !x.Contains('\0')).WithMessage(ConstantsMessage.ErroVistoriaSaidaDescricaoInvalida);
         RuleFor(x => x.Gravidade).NotNull().WithMessage(ConstantsMessage.ErroAvariaGravidadeInvalida);
         RuleFor(x => x.Gravidade).IsInEnum().WithMessage(ConstantsMessage.ErroAvariaGravidadeInvalida);
+        RuleFor(x => x.ValorEstimado).NotNull().WithMessage(ConstantsMessage.ErroVistoriaSaidaAvariaValorObrigatorio);
         RuleFor(x => x.ValorEstimado).Must(x => !x.HasValue ||
             (x.Value >= 0m && x.Value <= 99999999.99m && decimal.Round(x.Value, 2) == x.Value))
             .WithMessage(ConstantsMessage.ErroAvariaValorEstimadoInvalido);

@@ -175,6 +175,50 @@ public sealed class VistoriaSaidaHttpTests : IDisposable
         Assert.Equal(0, comparacao.GetProperty("avariasPreexistentes").GetArrayLength());
     }
 
+    [Fact]
+    public async Task AvariaNovaSemValorEstimadoRecusa400ComMensagemESemGravar()
+    {
+        const string corpo = "{\"kmRegistrado\":150,\"nivelCombustivel\":0.5,\"idsAvariasEntrada\":[],\"novasAvarias\":[{\"descricao\":\"Dano\",\"gravidade\":\"LEVE\"}]}";
+        using HttpResponseMessage resposta = await Enviar(HttpMethod.Post, Rota, Token(), corpo);
+        Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+        Assert.Equal("application/problem+json", resposta.Content.Headers.ContentType!.MediaType);
+        JsonElement problema = await Ler(resposta);
+        Assert.Equal(ConstantsMessage.ErroVistoriaSaidaAvariaValorObrigatorio, problema.GetProperty("detail").GetString());
+        Assert.True(problema.GetProperty("errors").TryGetProperty("novasAvarias[0].ValorEstimado", out _));
+        Assert.Single(_fabrica.Saidas.Vistorias.Vistorias);
+        Assert.Single(_fabrica.Saidas.Avarias);
+    }
+
+    [Fact]
+    public async Task AvariaNovaComValorZeroRegistra201()
+    {
+        const string corpo = "{\"kmRegistrado\":150,\"nivelCombustivel\":0.5,\"idsAvariasEntrada\":[],\"novasAvarias\":[{\"descricao\":\"Dano\",\"gravidade\":\"LEVE\",\"valorEstimado\":0}]}";
+        using HttpResponseMessage resposta = await Enviar(HttpMethod.Post, Rota, Token(), corpo);
+        Assert.Equal(HttpStatusCode.Created, resposta.StatusCode);
+    }
+
+    [Fact]
+    public async Task SomaDasNovasAvariasAcimaDoTetoRecusa400ComMensagemESemGravar()
+    {
+        const string corpo = "{\"kmRegistrado\":150,\"nivelCombustivel\":0.5,\"idsAvariasEntrada\":[],\"novasAvarias\":["
+            + "{\"descricao\":\"Dano A\",\"gravidade\":\"GRAVE\",\"valorEstimado\":99999999.99},"
+            + "{\"descricao\":\"Dano B\",\"gravidade\":\"GRAVE\",\"valorEstimado\":99999999.99}]}";
+        using HttpResponseMessage resposta = await Enviar(HttpMethod.Post, Rota, Token(), corpo);
+        Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+        JsonElement problema = await Ler(resposta);
+        Assert.Equal(ConstantsMessage.ErroVistoriaSaidaAvariasSomaExcedida, problema.GetProperty("detail").GetString());
+        Assert.Single(_fabrica.Saidas.Vistorias.Vistorias);
+    }
+
+    [Fact]
+    public async Task UmaNovaAvariaNoTetoDaSomaRegistra201()
+    {
+        const string corpo = "{\"kmRegistrado\":150,\"nivelCombustivel\":0.5,\"idsAvariasEntrada\":[],\"novasAvarias\":["
+            + "{\"descricao\":\"Dano A\",\"gravidade\":\"GRAVE\",\"valorEstimado\":99999999.99}]}";
+        using HttpResponseMessage resposta = await Enviar(HttpMethod.Post, Rota, Token(), corpo);
+        Assert.Equal(HttpStatusCode.Created, resposta.StatusCode);
+    }
+
     private sealed class SaidaWebFactory : VeiculoWebFactory
     {
         public static readonly DateTime Agora = new DateTime(2026, 11, 18, 12, 0, 0);
