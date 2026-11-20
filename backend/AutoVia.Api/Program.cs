@@ -16,7 +16,7 @@ builder.Configuration
 // Cada grupo de registro mora no seu arquivo Extensions/Add<Assunto>Startup.cs.
 builder.Services.AddCustomResponse();
 builder.Services.AddValidation();
-builder.Services.AddDatabase(builder.Configuration);
+builder.Services.AddDatabase();
 builder.Services.AddRepositories();
 builder.Services.AddServices();
 builder.Services.AddMapping();
@@ -34,6 +34,9 @@ WebApplication app = builder.Build();
 
 // Guarda do host: FORWARDEDHEADERS_ENABLED verdadeira faria o host anular o controle do IP do limite; a API nao sobe.
 AddRateLimitingStartup.ValidarHostSemCabecalhosAutomaticos(app.Configuration);
+
+// Sem banco configurado a subida falha aqui, com a mensagem do resolvedor: a conexao so e lida ao criar o contexto.
+app.Configuration.ResolveDatabaseConnection();
 
 // Aviso na subida quando a leitura do IP do cliente esta desligada (Rede:CabecalhoIpCliente vazia).
 AddRateLimitingStartup.RegistrarAvisoCabecalhoDesligado(app.Configuration, app.Services.GetRequiredService<ILogService>());

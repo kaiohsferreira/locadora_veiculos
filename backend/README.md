@@ -27,12 +27,12 @@ dotnet run --project AutoVia.Api --launch-profile http
 
 ### Conexão com o banco
 
-O `appsettings.json` traz uma conexão local padrão (`Host=localhost;Database=autovia;Username=postgres;Password=postgres`). Para usar a **sua** senha sem alterar arquivo versionado:
+O `appsettings.json` não traz conexão: `ConnectionStrings:AutoViaConnection` fica vazia, para que nenhuma senha vá para o git. Para configurar a **sua** máquina, sem alterar arquivo versionado:
 
 1. Copie `AutoVia.Api/appsettings.Local.example.json` para `AutoVia.Api/appsettings.Local.json`. Esse arquivo está no `.gitignore`.
 2. Ajuste a `AutoViaConnection`.
 
-Também funcionam a variável `ConnectionStrings__AutoViaConnection` e a `DATABASE_URL` (`postgresql://usuario:senha@host:5432/banco`).
+Também funcionam a variável `ConnectionStrings__AutoViaConnection` e a `DATABASE_URL` (`postgresql://usuario:senha@host:5432/banco`). Sem nenhuma dessas fontes, a API não sobe e a mensagem diz o que falta.
 
 ### Banco: criado pelas migrations
 
