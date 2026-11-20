@@ -76,20 +76,37 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        public async Task<bool> ExistsByNomeAsync(string nome, int? idCategoriaIgnorada)
+        /// <summary>
+        /// Consulta das categorias ativas com nome igual ao informado (sem diferenciar maiusculas e espacos nas pontas), menos a
+        /// categoria ignorada (a propria, na edicao). Fica separada para o teste de SQL provar a normalizacao (lower e btrim).
+        /// </summary>
+        public IQueryable<Categoria> ConsultaNomeRepetido(string nome, int? idCategoriaIgnorada)
         {
             try
             {
                 IQueryable<Categoria> consulta = _db.Categorias
-                    .Where(x => x.DisabledAt == null);
+                    .Where(x => x.DisabledAt == null && x.Nome.Trim().ToLower() == nome.Trim().ToLower());
 
                 if (idCategoriaIgnorada.HasValue)
                 {
                     consulta = consulta.Where(x => x.IdCategoria != idCategoriaIgnorada.Value);
                 }
 
-                bool existe = await consulta
-                    .AnyAsync(x => x.Nome.Trim().ToLower() == nome.Trim().ToLower());
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarCategoria, GetType().ToString());
+                throw;
+            }
+        }
+
+        public async Task<bool> ExistsByNomeAsync(string nome, int? idCategoriaIgnorada)
+        {
+            try
+            {
+                bool existe = await ConsultaNomeRepetido(nome, idCategoriaIgnorada)
+                    .AnyAsync();
 
                 return existe;
             }

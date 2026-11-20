@@ -85,8 +85,7 @@ namespace AutoVia.Infrastructure.Repositories
                     }
 
                     bool conflito = await ConsultaReservasDoVeiculo(reserva.IdVeiculo)
-                        .AnyAsync(x => x.DataRetiradaPrevista < reserva.DataDevolucaoPrevista
-                            && x.DataDevolucaoPrevista > reserva.DataRetiradaPrevista);
+                        .AnyAsync(RegrasReserva.SobrepoePeriodo(reserva.DataRetiradaPrevista, reserva.DataDevolucaoPrevista));
 
                     if (conflito)
                     {

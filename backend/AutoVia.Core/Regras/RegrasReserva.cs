@@ -1,7 +1,9 @@
 using AutoVia.Communication.Enums;
+using AutoVia.Core.Entities.PgSql;
 using AutoVia.Helpers;
 using System;
 using System.Globalization;
+using System.Linq.Expressions;
 
 namespace AutoVia.Core.Regras
 {
@@ -19,6 +21,16 @@ namespace AutoVia.Core.Regras
         public static bool VeiculoAceitaReserva(StatusVeiculo status)
         {
             return status == StatusVeiculo.DISPONIVEL || status == StatusVeiculo.RESERVADO;
+        }
+
+        /// <summary>
+        /// Predicado do conflito de periodo: a reserva se sobrepoe ao periodo pedido quando a retirada dela e anterior a
+        /// devolucao pedida e a devolucao dela e posterior a retirada pedida (comparacao estrita). Quem so encosta (devolucao
+        /// no mesmo dia da retirada pedida, ou o contrario) nao conflita. Usado como predicado de consulta (EF) na criacao.
+        /// </summary>
+        public static Expression<Func<Reserva, bool>> SobrepoePeriodo(DateTime retirada, DateTime devolucao)
+        {
+            return x => x.DataRetiradaPrevista < devolucao && x.DataDevolucaoPrevista > retirada;
         }
 
         /// <summary>
