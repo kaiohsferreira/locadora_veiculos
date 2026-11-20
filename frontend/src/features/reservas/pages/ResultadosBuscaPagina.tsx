@@ -191,143 +191,148 @@ function ConteudoResultadosBusca() {
         <p className="mt-2 text-corpo-denso text-texto-suave">{descricaoPeriodo}</p>
       </header>
 
-      <Cartao titulo="Ajuste sua busca" descricao="Filtre por período, categoria e valor da diária.">
-        <form className="space-y-5" onSubmit={buscar} noValidate>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Campo
-              rotulo="Unidade de retirada"
-              name="localRetirada"
-              type="text"
-              autoComplete="off"
-              maxLength={100}
-              required
-              dica="Contexto livre de retirada. A consulta considera a frota global, sem filtro por unidade."
-              value={filtros.localRetirada}
-              erro={erroFormulario && filtros.localRetirada.trim() === '' ? 'Informe a unidade de retirada.' : undefined}
-              onChange={(evento) => alterarFiltro('localRetirada', evento.target.value)}
-            />
-            <Campo
-              rotulo="Data de retirada"
-              type="date"
-              name="dataRetirada"
-              required
-              value={filtros.dataRetirada}
-              erro={erroFormulario && !filtros.dataRetirada ? 'Informe a data de retirada.' : undefined}
-              onChange={(evento) => alterarFiltro('dataRetirada', evento.target.value)}
-            />
-            <Campo
-              rotulo="Data de devolução"
-              type="date"
-              name="dataDevolucao"
-              required
-              min={filtros.dataRetirada || undefined}
-              value={filtros.dataDevolucao}
-              erro={erroFormulario && (!filtros.dataDevolucao || filtros.dataRetirada >= filtros.dataDevolucao) ? erroFormulario : undefined}
-              onChange={(evento) => alterarFiltro('dataDevolucao', evento.target.value)}
-            />
-            <Select
-              rotulo="Categoria"
-              name="idCategoria"
-              value={filtros.idCategoria}
-              disabled={categorias.isPending || categorias.isError}
-              dica={categorias.isPending ? 'Carregando categorias…' : undefined}
-              opcoes={(categorias.data?.itens ?? []).map((categoria) => ({ valor: String(categoria.idCategoria), rotulo: categoria.nome }))}
-              onChange={(evento) => alterarFiltro('idCategoria', evento.target.value)}
-            />
-            <Campo
-              rotulo="Diária a partir de"
-              type="number"
-              name="valorDiariaMin"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              placeholder="R$ 0,00"
-              value={filtros.valorDiariaMin}
-              erro={erroFormulario && filtros.valorDiariaMin && (valorNumericoOpcional(filtros.valorDiariaMin) === undefined || Number(filtros.valorDiariaMin) < 0) ? erroFormulario : undefined}
-              onChange={(evento) => alterarFiltro('valorDiariaMin', evento.target.value)}
-            />
-            <Campo
-              rotulo="Diária até"
-              type="number"
-              name="valorDiariaMax"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              placeholder="Sem limite"
-              value={filtros.valorDiariaMax}
-              erro={erroFormulario && filtros.valorDiariaMax && ((valorNumericoOpcional(filtros.valorDiariaMax) === undefined || Number(filtros.valorDiariaMax) < 0) || (valorNumericoOpcional(filtros.valorDiariaMin) !== undefined && Number(filtros.valorDiariaMin) > Number(filtros.valorDiariaMax))) ? erroFormulario : undefined}
-              onChange={(evento) => alterarFiltro('valorDiariaMax', evento.target.value)}
-            />
-          </div>
-          {categorias.isError && (
-            <EstadoErro
-              titulo="Não foi possível carregar as categorias"
-              mensagem={obterMensagemErro(categorias.error)}
-              aoTentarNovamente={() => void categorias.refetch()}
-              tentando={categorias.isFetching}
-            />
-          )}
-          {erroFormulario && <p role="alert" className="text-corpo-denso font-medium text-status-perigo">{erroFormulario}</p>}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-legenda text-texto-suave">A disponibilidade é global e não é filtrada por unidade. Reservas sobrepostas ao período são removidas.</p>
-            <Botao type="submit" tamanho="grande" carregando={disponibilidade.isFetching} icone="search">
-              Buscar veículos
-            </Botao>
-          </div>
-        </form>
-      </Cartao>
+      <div className="grid gap-8 lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start">
+        <aside aria-label="Filtros da busca" className="min-w-0">
 
-      <section aria-labelledby="titulo-resultados" className="mt-10">
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 id="titulo-resultados" className="text-2xl font-bold text-navy">Veículos disponíveis</h2>
-            {contextoValido && !disponibilidade.isPending && !disponibilidade.isError && (
-              <p className="mt-1 text-corpo-denso text-texto-suave" aria-live="polite">
-                {total === 1 ? '1 veículo encontrado' : `${total} veículos encontrados`}
-              </p>
-            )}
+          <Cartao titulo="Ajuste sua busca" descricao="Filtre por período, categoria e valor da diária.">
+            <form className="space-y-5" onSubmit={buscar} noValidate>
+              <div className="grid gap-4">
+                <Campo
+                  rotulo="Unidade de retirada"
+                  name="localRetirada"
+                  type="text"
+                  autoComplete="off"
+                  maxLength={100}
+                  required
+                  dica="Contexto livre de retirada. A consulta considera a frota global, sem filtro por unidade."
+                  value={filtros.localRetirada}
+                  erro={erroFormulario && filtros.localRetirada.trim() === '' ? 'Informe a unidade de retirada.' : undefined}
+                  onChange={(evento) => alterarFiltro('localRetirada', evento.target.value)}
+                />
+                <Campo
+                  rotulo="Data de retirada"
+                  type="date"
+                  name="dataRetirada"
+                  required
+                  value={filtros.dataRetirada}
+                  erro={erroFormulario && !filtros.dataRetirada ? 'Informe a data de retirada.' : undefined}
+                  onChange={(evento) => alterarFiltro('dataRetirada', evento.target.value)}
+                />
+                <Campo
+                  rotulo="Data de devolução"
+                  type="date"
+                  name="dataDevolucao"
+                  required
+                  min={filtros.dataRetirada || undefined}
+                  value={filtros.dataDevolucao}
+                  erro={erroFormulario && (!filtros.dataDevolucao || filtros.dataRetirada >= filtros.dataDevolucao) ? erroFormulario : undefined}
+                  onChange={(evento) => alterarFiltro('dataDevolucao', evento.target.value)}
+                />
+                <Select
+                  rotulo="Categoria"
+                  name="idCategoria"
+                  value={filtros.idCategoria}
+                  disabled={categorias.isPending || categorias.isError}
+                  dica={categorias.isPending ? 'Carregando categorias…' : undefined}
+                  opcoes={(categorias.data?.itens ?? []).map((categoria) => ({ valor: String(categoria.idCategoria), rotulo: categoria.nome }))}
+                  onChange={(evento) => alterarFiltro('idCategoria', evento.target.value)}
+                />
+                <Campo
+                  rotulo="Diária a partir de"
+                  type="number"
+                  name="valorDiariaMin"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  placeholder="R$ 0,00"
+                  value={filtros.valorDiariaMin}
+                  erro={erroFormulario && filtros.valorDiariaMin && (valorNumericoOpcional(filtros.valorDiariaMin) === undefined || Number(filtros.valorDiariaMin) < 0) ? erroFormulario : undefined}
+                  onChange={(evento) => alterarFiltro('valorDiariaMin', evento.target.value)}
+                />
+                <Campo
+                  rotulo="Diária até"
+                  type="number"
+                  name="valorDiariaMax"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  placeholder="Sem limite"
+                  value={filtros.valorDiariaMax}
+                  erro={erroFormulario && filtros.valorDiariaMax && ((valorNumericoOpcional(filtros.valorDiariaMax) === undefined || Number(filtros.valorDiariaMax) < 0) || (valorNumericoOpcional(filtros.valorDiariaMin) !== undefined && Number(filtros.valorDiariaMin) > Number(filtros.valorDiariaMax))) ? erroFormulario : undefined}
+                  onChange={(evento) => alterarFiltro('valorDiariaMax', evento.target.value)}
+                />
+              </div>
+              {categorias.isError && (
+                <EstadoErro
+                  titulo="Não foi possível carregar as categorias"
+                  mensagem={obterMensagemErro(categorias.error)}
+                  aoTentarNovamente={() => void categorias.refetch()}
+                  tentando={categorias.isFetching}
+                />
+              )}
+              {erroFormulario && <p role="alert" className="text-corpo-denso font-medium text-status-perigo">{erroFormulario}</p>}
+              <div className="flex flex-col gap-3">
+                <p className="text-legenda text-texto-suave">A disponibilidade é global e não é filtrada por unidade. Reservas sobrepostas ao período são removidas.</p>
+                <Botao type="submit" tamanho="grande" larguraTotal carregando={disponibilidade.isFetching} icone="search">
+                  Buscar veículos
+                </Botao>
+              </div>
+            </form>
+          </Cartao>
+        </aside>
+
+        <section aria-labelledby="titulo-resultados" className="min-w-0">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 id="titulo-resultados" className="text-2xl font-bold text-navy">Veículos disponíveis</h2>
+              {contextoValido && !disponibilidade.isPending && !disponibilidade.isError && (
+                <p className="mt-1 text-corpo-denso text-texto-suave" aria-live="polite">
+                  {total === 1 ? '1 veículo encontrado' : `${total} veículos encontrados`}
+                </p>
+              )}
           </div>
         </div>
 
-        {!contextoValido ? (
-          <EstadoVazio
-            titulo={localRetiradaValido ? 'Informe um período para começar' : 'Informe a unidade de retirada'}
-            descricao={localRetiradaValido
-              ? 'Escolha as datas de retirada e devolução e selecione Buscar veículos.'
-              : 'Digite o nome da unidade para manter o contexto da sua retirada.'}
-            icone="place"
-          />
-        ) : disponibilidade.isPending ? (
-          <CartoesCarregando />
-        ) : disponibilidade.isError ? (
-          <EstadoErro
-            titulo="Não foi possível buscar os veículos"
-            mensagem={obterMensagemErro(disponibilidade.error)}
-            aoTentarNovamente={() => void disponibilidade.refetch()}
-            tentando={disponibilidade.isFetching}
-          />
-        ) : disponibilidade.data.itens.length === 0 ? (
-          <EstadoVazio titulo="Nenhum veículo disponível para este período" descricao="Altere as datas ou os filtros de categoria e diária para tentar novamente." icone="directions_car" />
-        ) : (
-          <>
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {disponibilidade.data.itens.map((veiculo) => (
-                <CartaoVeiculo key={veiculo.idVeiculo} veiculo={veiculo} buscaAtual={parametros.toString()} aoFalharFoto={aoFalharFoto} />
-              ))}
-            </div>
-            <div className="mt-5 rounded-lg border border-borda bg-branco">
-              <Paginacao
-                pagina={disponibilidade.data.pagina}
-                tamanhoPagina={disponibilidade.data.tamanhoPagina}
-                total={disponibilidade.data.total}
-                aoMudarPagina={mudarPagina}
-                desabilitada={disponibilidade.isFetching}
-                rotuloItens="veículos"
-              />
-            </div>
-          </>
-        )}
-      </section>
+          {!contextoValido ? (
+            <EstadoVazio
+              titulo={localRetiradaValido ? 'Informe um período para começar' : 'Informe a unidade de retirada'}
+              descricao={localRetiradaValido
+                ? 'Escolha as datas de retirada e devolução e selecione Buscar veículos.'
+                : 'Digite o nome da unidade para manter o contexto da sua retirada.'}
+              icone="place"
+            />
+          ) : disponibilidade.isPending ? (
+            <CartoesCarregando />
+          ) : disponibilidade.isError ? (
+            <EstadoErro
+              titulo="Não foi possível buscar os veículos"
+              mensagem={obterMensagemErro(disponibilidade.error)}
+              aoTentarNovamente={() => void disponibilidade.refetch()}
+              tentando={disponibilidade.isFetching}
+            />
+          ) : disponibilidade.data.itens.length === 0 ? (
+            <EstadoVazio titulo="Nenhum veículo disponível para este período" descricao="Altere as datas ou os filtros de categoria e diária para tentar novamente." icone="directions_car" />
+          ) : (
+            <>
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {disponibilidade.data.itens.map((veiculo) => (
+                  <CartaoVeiculo key={veiculo.idVeiculo} veiculo={veiculo} buscaAtual={parametros.toString()} aoFalharFoto={aoFalharFoto} />
+                ))}
+              </div>
+              <div className="mt-5 rounded-lg border border-borda bg-branco">
+                <Paginacao
+                  pagina={disponibilidade.data.pagina}
+                  tamanhoPagina={disponibilidade.data.tamanhoPagina}
+                  total={disponibilidade.data.total}
+                  aoMudarPagina={mudarPagina}
+                  desabilitada={disponibilidade.isFetching}
+                  rotuloItens="veículos"
+                />
+              </div>
+            </>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
