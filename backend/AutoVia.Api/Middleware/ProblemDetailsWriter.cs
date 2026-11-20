@@ -29,14 +29,13 @@ namespace AutoVia.Api.Middleware
         {
             ProblemDetails problem = new ProblemDetails
             {
-                Type = $"https://httpstatuses.io/{status}",
                 Title = title,
                 Status = status,
                 Detail = detail,
                 Instance = context.Request.Path
             };
 
-            problem.Extensions["traceId"] = Activity.Current?.Id ?? context.TraceIdentifier;
+            PreencherTipoETraceId(problem, context, status);
 
             List<KeyValuePair<string, StringValues>> cabecalhosPreservados = CapturarCabecalhosPreservados(context);
 
@@ -53,7 +52,17 @@ namespace AutoVia.Api.Middleware
             await context.Response.WriteAsJsonAsync(problem, (JsonSerializerOptions?)null, "application/problem+json");
         }
 
-        /// <summary>Guarda os cabecalhos de CORS e Vary que a resposta ja tem, antes da limpeza.</summary>
+        /// <summary>
+        /// Grava o type (https://httpstatuses.io/{status}) e o traceId no ProblemDetails. E a unica fonte desses dois campos:
+        /// todo erro da API (middleware, filtro de validacao, model binding e writer) passa por aqui.
+        /// </summary>
+        public static void PreencherTipoETraceId(ProblemDetails problema, HttpContext context, int status)
+        {
+            problema.Type = $"https://httpstatuses.io/{status}";
+            problema.Extensions["traceId"] = Activity.Current?.Id ?? context.TraceIdentifier;
+        }
+
+        /// <summary>Guarda os cabecalhos de CORS, Vary e Allow que a resposta ja tem, antes da limpeza.</summary>
         private static List<KeyValuePair<string, StringValues>> CapturarCabecalhosPreservados(HttpContext context)
         {
             List<KeyValuePair<string, StringValues>> preservados = new List<KeyValuePair<string, StringValues>>();
@@ -78,13 +87,14 @@ namespace AutoVia.Api.Middleware
             }
         }
 
-        /// <summary>Indica se o cabecalho e de CORS (prefixo Access-Control-) ou o Vary, que o UseCors grava.</summary>
+        /// <summary>Indica se o cabecalho e de CORS (prefixo Access-Control-), o Vary, que o UseCors grava, ou o Allow, que o 405 exige (RFC 9110).</summary>
         private static bool EhCabecalhoPreservado(string nome)
         {
             bool ehCors = nome.StartsWith(ConstantsValues.PrefixoCabecalhoCors, StringComparison.OrdinalIgnoreCase);
             bool ehVary = string.Equals(nome, HeaderNames.Vary, StringComparison.OrdinalIgnoreCase);
+            bool ehAllow = string.Equals(nome, HeaderNames.Allow, StringComparison.OrdinalIgnoreCase);
 
-            return ehCors || ehVary;
+            return ehCors || ehVary || ehAllow;
         }
     }
 }

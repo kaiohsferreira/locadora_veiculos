@@ -27,6 +27,8 @@ namespace AutoVia.Helpers
         public const string TituloConflito = "Conflito de regra de negócio";
         public const string TituloErroIntegracao = "Falha em serviço externo";
         public const string TituloErroInterno = "Erro interno";
+        public const string TituloMetodoNaoPermitido = "Método não permitido";
+        public const string ErroMetodoNaoPermitido = "O método HTTP usado não é aceito por este recurso.";
 
         // --- Paginacao ---
         public const string ErroPaginaInvalida = "O número da página deve ser maior ou igual a 1.";

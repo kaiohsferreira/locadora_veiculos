@@ -48,6 +48,9 @@ app.UseForwardedHeaders(AddRateLimitingStartup.CriarCabecalhosEncaminhados(app.C
 // Qualquer excecao abaixo vira ProblemDetails.
 app.UseMiddleware<ErrorHandlingMiddleware>();
 
+// 404 de rota inexistente e 405 de metodo nao aceito saem com ProblemDetails (o framework responde sem corpo).
+app.UseMiddleware<ErroSemCorpoMiddleware>();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

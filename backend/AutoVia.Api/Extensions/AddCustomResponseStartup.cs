@@ -1,4 +1,5 @@
 using AutoVia.Api.Filters;
+using AutoVia.Api.Middleware;
 using AutoVia.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -49,6 +50,8 @@ namespace AutoVia.Api.Extensions
                             Status = StatusCodes.Status400BadRequest,
                             Instance = context.HttpContext.Request.Path
                         };
+
+                        ProblemDetailsWriter.PreencherTipoETraceId(problem, context.HttpContext, StatusCodes.Status400BadRequest);
 
                         BadRequestObjectResult result = new BadRequestObjectResult(problem);
                         result.ContentTypes.Add("application/problem+json");

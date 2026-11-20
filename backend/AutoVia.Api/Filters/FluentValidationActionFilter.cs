@@ -1,3 +1,4 @@
+using AutoVia.Api.Middleware;
 using AutoVia.Helpers;
 using FluentValidation;
 using FluentValidation.Results;
@@ -50,6 +51,8 @@ namespace AutoVia.Api.Filters
                     Status = StatusCodes.Status400BadRequest,
                     Instance = context.HttpContext.Request.Path
                 };
+
+                ProblemDetailsWriter.PreencherTipoETraceId(problem, context.HttpContext, StatusCodes.Status400BadRequest);
 
                 BadRequestObjectResult badRequest = new BadRequestObjectResult(problem);
                 badRequest.ContentTypes.Add("application/problem+json");
