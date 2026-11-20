@@ -39,15 +39,15 @@ export function CartaoReservaAtiva({ reserva, nomeCondutor, aoCancelar, aoFalhar
   return (
     <article
       aria-labelledby={`reserva-${reserva.idReserva}-titulo`}
-      className="overflow-hidden rounded-cartao bg-branco shadow-md"
+      className="overflow-hidden rounded-cartao bg-branco shadow-md [overflow-wrap:anywhere]"
     >
       <header className="flex flex-wrap items-center justify-between gap-4 bg-steel-fundo px-6 py-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex flex-wrap items-center gap-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-4">
+          <div className="flex min-w-0 flex-wrap items-center gap-1">
             <span className="text-micro font-semibold uppercase tracking-wider text-texto-suave">
               {MENSAGEM_RESERVAS_CODIGO_ROTULO}
             </span>
-            <span className="text-corpo font-bold tabular-nums text-navy" id={`reserva-${reserva.idReserva}-titulo`}>
+            <span className="min-w-0 text-corpo font-bold tabular-nums text-navy" id={`reserva-${reserva.idReserva}-titulo`}>
               {reserva.codigo}
             </span>
             <BotaoCopiarCodigo codigo={reserva.codigo} />
@@ -62,7 +62,7 @@ export function CartaoReservaAtiva({ reserva, nomeCondutor, aoCancelar, aoFalhar
         <div className="flex min-w-0 flex-col justify-between gap-4 lg:col-span-4">
           <div className="flex flex-col">
             <div className="mb-1 flex flex-wrap items-center justify-between gap-1">
-              <span className="inline-block rounded-sm bg-steel-suave px-2.5 py-0.5 text-micro font-semibold uppercase tracking-wider text-navy">
+              <span className="inline-block min-w-0 rounded-sm bg-steel-suave px-2.5 py-0.5 text-micro font-semibold uppercase tracking-wider text-navy">
                 {reserva.categoriaNome}
               </span>
               <span className="inline-flex h-6 items-center gap-1.5 overflow-hidden rounded-sm bg-branco px-2 shadow-sm">

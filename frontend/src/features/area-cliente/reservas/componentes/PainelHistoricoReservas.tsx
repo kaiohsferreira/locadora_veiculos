@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { EstadoErro, EstadoVazio, Botao, Paginacao } from '@/components/ui';
 import { FiltroHistoricoReservas } from '@/features/area-cliente/reservas/componentes/FiltroHistoricoReservas';
-import { TabelaHistoricoReservas } from '@/features/area-cliente/reservas/componentes/TabelaHistoricoReservas';
+import { ListaHistoricoReservas } from '@/features/area-cliente/reservas/componentes/ListaHistoricoReservas';
 import type { EstadoListaReservas } from '@/features/area-cliente/reservas/estadoLista';
 import { TAMANHO_PAGINA_HISTORICO } from '@/features/area-cliente/reservas/parametrosReservas';
 import { obterMensagemErro } from '@/lib/erros';
@@ -31,7 +31,7 @@ export interface PainelHistoricoReservasProps {
 }
 
 /**
- * Aba Histórico: busca por código ou modelo, tabela de 6 colunas, estados e paginação de 10 em 10.
+ * Aba Histórico: busca por código ou modelo, listagem, estados e paginação de 10 em 10.
  * Vazio sem busca e vazio com busca têm textos diferentes; com busca, o botão limpa o filtro.
  */
 export function PainelHistoricoReservas({
@@ -57,7 +57,7 @@ export function PainelHistoricoReservas({
       />
     );
   } else if (carregando) {
-    conteudo = <TabelaHistoricoReservas itens={[]} carregando />;
+    conteudo = <ListaHistoricoReservas itens={[]} carregando />;
   } else if (!dados || dados.total === 0) {
     const buscando = buscaAplicada !== '';
     conteudo = (
@@ -81,8 +81,8 @@ export function PainelHistoricoReservas({
             {MENSAGEM_RESERVAS_ERRO_ATUALIZACAO}
           </p>
         ) : null}
-        <TabelaHistoricoReservas itens={dados.itens} carregando={false} />
-        <div className="border-t border-borda bg-steel-fundo">
+        <ListaHistoricoReservas itens={dados.itens} carregando={false} />
+        <div className="border-t border-borda bg-steel-fundo [&_nav>ul]:flex-wrap">
           <Paginacao
             pagina={pagina}
             tamanhoPagina={TAMANHO_PAGINA_HISTORICO}

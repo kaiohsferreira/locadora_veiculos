@@ -94,7 +94,7 @@ export function PainelReservasAtivas({
         />
       ))}
 
-      <div className="overflow-hidden rounded-cartao bg-branco shadow-cartao">
+      <div className="overflow-hidden rounded-cartao bg-branco shadow-cartao [&_nav>ul]:flex-wrap">
         <Paginacao
           pagina={pagina}
           tamanhoPagina={TAMANHO_PAGINA_ATIVAS}
