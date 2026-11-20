@@ -9,7 +9,7 @@ Fundação gerada a partir do Prompt 1 do guia da equipe (tarefa **T-BE-01**). O
 ## Pré-requisitos
 
 - SDK do .NET 10
-- PostgreSQL 14 ou superior
+- PostgreSQL (o repositório não fixa a versão)
 - Python 3: obrigatório para quem gera migration, porque o script de conferência do esquema tem de rodar antes do commit (ver [`docs/CONFERENCIA_ESQUEMA.md`](docs/CONFERENCIA_ESQUEMA.md))
 
 ## Como rodar

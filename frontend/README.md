@@ -112,7 +112,7 @@ frontend/
     │                        validadores, conversaoLogin, ambiente, queryClient,
     │                        credencialGoogle (memória do login com Google), googleIdentity (carregador do script do Google),
     │                        preenchimentoGoogle (nome e e-mail do Google para o cadastro, em memória), tokenRecuperacao (token do link)
-    ├── routes/              rotas.tsx, caminhos.ts, paginas.ts (lazy), RotaProtegida, 404, erro e acesso negado
+    ├── routes/              rotas.tsx, caminhos.ts, paginas.ts (lazy), RotaProtegida, RotaPorCargo, 404, erro e acesso negado
     │   └── autenticacao/    contexto mínimo de autenticação (useAutenticacao)
     └── types/               api.ts (ProblemDetails, ErroApi, Pagina<T>), enums.ts, autenticacao.ts (sessão e login), clientes.ts (cadastro), google.ts (script do Google)
 ```
@@ -147,9 +147,12 @@ Versões mobile usam a **mesma rota** da versão desktop (layout responsivo).
 | `/entrar/vincular-google`                       | VincularGooglePagina          | N3 (RF-51)            | pública     |
 | `/recuperar-senha`                              | RecuperarSenhaPagina          | N1 (RF-49)            | pública     |
 | `/redefinir-senha`                              | RedefinirSenhaPagina          | N1 (RF-49)            | pública     |
-| `/cadastro`                                     | redireciona para `/cadastro/dados-pessoais` | –       | pública     |
+| `/cadastro`                                     | TipoContaPagina (escolha do tipo de conta, tela 35): cliente segue para `/cadastro/dados-pessoais`; locadora para `/cadastro/locadora/empresa` | P10-FE-01 e P10-FE-02 (telas 35 a 38) | pública     |
 | `/cadastro/dados-pessoais`                      | CadastroDadosPessoaisPagina (etapa 1; dados só em memória no `ProvedorCadastro`) | P2-FE-02 | pública |
-| `/cadastro/documentos`                          | CadastroDocumentosPagina (etapa 2 provisória: CNH digitada, endereço e senha; envio de arquivos previsto na P2-FE-03) | P2-FE-02 (+ P2-FE-03) | pública |
+| `/cadastro/documentos`                          | CadastroDocumentosPagina (etapa 2, tela 21: CNH, endereço, senha e envio dos dois arquivos de documento) | P2-FE-02 e P2-FE-03 | pública |
+| `/cadastro/locadora/empresa`                    | CadastroLocadoraEmpresaPagina (etapa 1 do cadastro de locadora; dados só em memória no `ProvedorCadastroLocadora`) | P10-FE-01 e P10-FE-02 (telas 35 a 38) | pública |
+| `/cadastro/locadora/responsavel`                | CadastroLocadoraResponsavelPagina (etapa 2; só abre com os dados da etapa 1) | P10-FE-01 e P10-FE-02 (telas 35 a 38) | pública |
+| `/cadastro/locadora/confirmacao`                | CadastroLocadoraConfirmacaoPagina (só abre com a conta criada na etapa 2) | P10-FE-01 e P10-FE-02 (telas 35 a 38) | pública |
 | `/veiculos`                                     | ResultadosBuscaPagina         | P3-FE-02 (+ P3-FE-07) | pública     |
 | `/veiculos/:veiculoId`                          | DetalheVeiculoPagina          | P3-FE-03              | pública     |
 | `/seminovos`                                    | CatalogoSeminovosPagina       | P6-FE-01 (+ P6-FE-04) | pública     |
@@ -159,12 +162,14 @@ Versões mobile usam a **mesma rota** da versão desktop (layout responsivo).
 | `/minhas-reservas`                              | MinhasReservasPagina          | T-FE-03 (+ T-FE-04)   | cliente     |
 | `/minhas-locacoes`                              | MinhasLocacoesPagina          | T-FE-02               | cliente     |
 | `/meus-pagamentos`                              | PagamentosFaturasPagina       | P7-FE-02              | cliente     |
-| `/back-office`                                  | redireciona para `/back-office/frota` | –             | funcionário |
+| `/back-office`                                  | redireciona para `/back-office/visao-geral` | –             | funcionário |
+| `/back-office/visao-geral`                      | VisaoGeralPagina              | P11-FE-01 (telas 39 e 40) | funcionário |
 | `/back-office/frota`                            | PainelFrotaPagina             | P1-FE-01              | funcionário |
 | `/back-office/frota/veiculos`                   | ListagemFrotaPagina           | P1-FE-02              | funcionário |
 | `/back-office/frota/veiculos/novo`              | CadastroVeiculoPagina         | P1-FE-03              | funcionário |
+| `/back-office/frota/veiculos/:idVeiculo/editar` | CadastroVeiculoPagina (mesma página da criação) | P1-FE-03       | funcionário |
 | `/back-office/clientes`                         | redireciona para `/back-office/clientes/verificacao` | – | funcionário |
-| `/back-office/clientes/verificacao`             | VerificacaoCadastrosPagina    | P2-FE-04              | funcionário |
+| `/back-office/clientes/verificacao`             | VerificacaoCadastrosPagina    | P2-FE-04              | ATENDENTE ou ADMINISTRADOR |
 | `/back-office/reservas`                         | PainelReservasPagina          | P3-FE-06              | funcionário |
 | `/back-office/locacoes`                         | PainelReservasPagina          | P3-FE-06              | funcionário |
 | `/back-office/locacoes/retirada/:reservaId`     | RetiradaVeiculoPagina         | P4-FE-01              | funcionário |
@@ -177,6 +182,8 @@ Versões mobile usam a **mesma rota** da versão desktop (layout responsivo).
 | `/back-office/manutencao/custos-e-resultado`    | CustoResultadoFrotaPagina     | P8-FE-02              | funcionário |
 | `/back-office/seguros`                          | GestaoSegurosPagina           | P9-FE-01              | funcionário |
 | `/back-office/seguros/sinistros/:sinistroId`    | DetalheSinistroPagina         | P9-FE-02              | funcionário |
+| `/back-office/equipe`                           | EquipePagina                  | P10-FE-03             | ADMINISTRADOR |
+| `/back-office/configuracoes/cobrancas-extras`   | ConfiguracoesCobrancasPagina  | P10-FE-03             | ADMINISTRADOR |
 | qualquer outro                                  | PaginaNaoEncontrada (404)     | –                     | –           |
 
 Os caminhos ficam em `src/routes/caminhos.ts` (`CAMINHOS`). Para montar um link com parâmetro:
