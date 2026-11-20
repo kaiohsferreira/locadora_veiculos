@@ -38,7 +38,7 @@ Também funcionam a variável `ConnectionStrings__AutoViaConnection` e a `DATABA
 
 O banco **não** é criado rodando SQL à mão. Quem cria o esquema são as migrations.
 
-Hoje são **18 migrations** (scripts 01 a 08 e 11 a 20 em `backend/docs/sql`; os números 09 e 10 não existem). A lista completa e a conferência estão em [`docs/CONFERENCIA_ESQUEMA.md`](docs/CONFERENCIA_ESQUEMA.md). A tabela abaixo mostra só as duas primeiras:
+Hoje são **20 migrations** (scripts 01 a 08 e 11 a 22 em `backend/docs/sql`; os números 09 e 10 não existem). A lista completa e a conferência estão em [`docs/CONFERENCIA_ESQUEMA.md`](docs/CONFERENCIA_ESQUEMA.md). A tabela abaixo mostra só as duas primeiras:
 
 | Migration | O que faz |
 |---|---|
@@ -73,7 +73,7 @@ backend/
 │  ├─ Validators/<Modulo>/   um AbstractValidator por VO de entrada
 │  └─ CustomExceptions/      BusinessException (409), NotFoundException (404), IntegrationException (502)
 ├─ AutoVia.Core/             centro da solução, SEM EF Core
-│  ├─ Entities/PgSql/        as 20 entidades de negócio (todas herdam BaseEntities: auditoria e exclusão lógica)
+│  ├─ Entities/PgSql/        as 22 entidades de negócio (todas herdam BaseEntities: auditoria e exclusão lógica)
 │  ├─ Enums/                 valores fixos (status, tipo...), gravados como texto
 │  ├─ RepositoriesInterface/ contratos dos repositórios
 │  ├─ ServicesInterface/     contratos dos serviços (+ ILogService)
@@ -91,7 +91,7 @@ backend/
 │  ├─ Persistence/           AutoViaDbContext + Configurations/ (uma por entidade)
 │  ├─ Repositories/          implementação dos repositórios
 │  ├─ Services/              implementação dos serviços
-│  └─ Migrations/            18 migrations (lista em docs/CONFERENCIA_ESQUEMA.md)
+│  └─ Migrations/            20 migrations (lista em docs/CONFERENCIA_ESQUEMA.md)
 ├─ AutoVia.Api/              controllers, Extensions/Add*Startup.cs, Filters/, Middleware/
 ├─ AutoVia.Tests/            xUnit (sem PostgreSQL real)
 ├─ docs/                     especificação, SQL exportado e conferência

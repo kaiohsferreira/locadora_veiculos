@@ -2,7 +2,7 @@
 
 Data: 04/11/2026 · Responsável: Kaio Henrique dos Santos Ferreira
 
-Atualizado em 19/11/2026 (T-BE-02, RF-44) · Estado: **entregue com ressalva**
+Atualizado em 20/11/2026 (T-BE-02, RF-44) · Estado: **entregue com ressalva**
 
 ## Regra de equivalência e estado (19/11/2026)
 
@@ -24,15 +24,15 @@ Além disso, o casamento é só pelo nome: um item de `cobre` aceita qualquer ti
 
 ## Quadro: Apêndice A -> hoje
 
-Números do modo literal (Apêndice A, sem decisões) e do modelo atual com as decisões, conferidos em 19/11/2026:
+Números do modo literal (Apêndice A, sem decisões) e do modelo atual com as decisões, conferidos em 20/11/2026:
 
 | Item | Apêndice A | Hoje (Apêndice + decisões) |
 |---|---|---|
-| Tabelas | 16 | 22 (+6: `redefinicao_senha`, `empresa`, `cliente_locadora`, `sinistro_historico`, `veiculo_foto`, `cliente_documento`) |
-| Colunas | 148 | 268 |
-| CHECK | 32 | 41 |
-| Chaves estrangeiras | 22 | 35 |
-| Índices | 11 | 37 (11 do Apêndice + 15 que eram UNIQUE + 11 novos) |
+| Tabelas | 16 | 24 (+8: `redefinicao_senha`, `empresa`, `cliente_locadora`, `sinistro_historico`, `veiculo_foto`, `cliente_documento`, `configuracao_cobranca_extra`, `apuracao_cobranca_extra`) |
+| Colunas | 148 | 301 |
+| CHECK | 32 | 48 |
+| Chaves estrangeiras | 22 | 44 |
+| Índices | 11 | 41 (11 do Apêndice + 15 que eram UNIQUE + 15 novos) |
 | UNIQUE | 15 | 0 |
 
 Uma linha por decisão registrada (em `desvios_aprovados.json`):
@@ -51,6 +51,8 @@ Uma linha por decisão registrada (em `desvios_aprovados.json`):
 | `veiculo_fornecedor_nota_fiscal_compra` | 16/11/2026 | `20261117025802_AdicionarFornecedorNotaFiscalCompraVeiculo` | `veiculo.fornecedor` e `veiculo.numero_nota_fiscal_compra`; `veiculo.modelo` de 40 para 60 |
 | `cliente_documento` | 19/11/2026 | `20261119142116_AdicionarClienteDocumento` | tabela `cliente_documento` (CHECK de tipo, 1 FK, 1 índice) |
 | `pagamento_id_transacao` | 19/11/2026 | `20261119162522_AdicionarIdTransacaoPagamento` | `pagamento.id_transacao` VARCHAR(40) NULL |
+| `vistoria_saida_comparacao` | 20/11/2026 | `20261118163147_VincularAvariasVistoriaSaida` | `vistoria.comparacao_realizada` BOOLEAN NOT NULL DEFAULT FALSE; `avaria.id_avaria_entrada` INT NULL (FK `fk_avaria_entrada`, índice `idx_avaria_entrada`) |
+| `cobrancas_extras_configuradas` | 20/11/2026 | `20261119023757_CadastrarRegrasEApurarCobrancasExtras` | tabelas `configuracao_cobranca_extra` (5 CHECK, 2 FK, 1 índice) e `apuracao_cobranca_extra` (2 CHECK, 5 FK, 1 índice); `cobranca_extra.id_apuracao` (FK `fk_cobranca_apuracao`, índice `idx_cobranca_apuracao`) |
 
 Os três blocos antigos (`colunas_auditoria`, `unique_para_indice` e `colunas_acesso`) não têm o campo `migration` no JSON: o script os aplica pelo código e não precisam de `cobre`.
 
@@ -58,13 +60,13 @@ Os 16 do Apêndice A estão em dois arquivos: 14 tabelas de negócio em `apendic
 
 A especificação diz "dez índices" num ponto e 11 em outro. O Apêndice tem 11, e é esse número que o quadro usa.
 
-Os números 148 colunas e 11 índices são do Apêndice A puro. Os números 193 e 26 da saída do segundo comando são o Apêndice com os desvios: 148 + 43 colunas de auditoria + 2 `senha_hash` = 193, e 11 + 15 UNIQUE convertidos em índice = 26. O quadro mostra o número de hoje (268 colunas e 37 índices).
+Os números 148 colunas e 11 índices são do Apêndice A puro. Os números 193 e 26 da saída do segundo comando são o Apêndice com os desvios: 148 + 43 colunas de auditoria + 2 `senha_hash` = 193, e 11 + 15 UNIQUE convertidos em índice = 26. O quadro mostra o número de hoje (301 colunas e 41 índices).
 
-Números da cadeia de migrations (`dotnet ef migrations script 0`, sem banco), medidos em 19/11/2026: 22 CREATE TABLE além do histórico, 0 DROP TABLE, 52 CREATE INDEX (15 únicos) e 15 DROP INDEX; no fim, 37 índices e nenhum único. O histórico tem 18 registros.
+Números da cadeia de migrations (`dotnet ef migrations script 0`, sem banco), medidos em 20/11/2026: 24 CREATE TABLE além do histórico, 0 DROP TABLE, 56 CREATE INDEX (15 únicos) e 15 DROP INDEX; no fim, 41 índices e nenhum único. O histórico tem 20 registros. (Medição de 19/11/2026, antes das migrations do Eduardo: 22, 52, 37 e 18.)
 
-## Migrations do projeto (18)
+## Migrations do projeto (20)
 
-Lista das 18 migrations, na ordem. "Esquema" muda tabela, coluna, CHECK, FK ou índice; "dados" só mexe em linhas. A coluna "Script" é o arquivo em `docs/sql`.
+Lista das 20 migrations, na ordem. "Esquema" muda tabela, coluna, CHECK, FK ou índice; "dados" só mexe em linhas. A coluna "Script" é o arquivo em `docs/sql`.
 
 | Nº | MigrationId | Esquema ou dados | Script |
 |---|---|---|---|
@@ -86,10 +88,12 @@ Lista das 18 migrations, na ordem. "Esquema" muda tabela, coluna, CHECK, FK ou �
 | 18 | `20261118180936_ArmazenamentoDiscoLocal` | dados | `18_ArmazenamentoDiscoLocal.sql` |
 | 19 | `20261119142116_AdicionarClienteDocumento` | esquema | `19_AdicionarClienteDocumento.sql` |
 | 20 | `20261119162522_AdicionarIdTransacaoPagamento` | esquema | `20_AdicionarIdTransacaoPagamento.sql` |
+| 21 | `20261118163147_VincularAvariasVistoriaSaida` | esquema | `21_VincularAvariasVistoriaSaida.sql` |
+| 22 | `20261119023757_CadastrarRegrasEApurarCobrancasExtras` | esquema | `22_CadastrarRegrasEApurarCobrancasExtras.sql` |
 
-Os números 09 e 10 não existem (ver "Números 09 e 10 dos scripts").
+Os números 09 e 10 não existem (ver "Números 09 e 10 dos scripts"). Os números 21 e 22 são as migrations do Eduardo (ids 20261118163147 e 20261119023757): seguem a ordem de chegada ao projeto, por isso a tabela não está em ordem de id.
 
-## Como conferir de novo (19/11/2026)
+## Como conferir de novo (20/11/2026)
 
 Na pasta `backend/`, com `python -I` (o script usa só a biblioteca padrão):
 
@@ -99,9 +103,9 @@ dotnet ef dbcontext script --project AutoVia.Infrastructure --startup-project Au
 python -I tools/compare_schema.py docs/especificacao/apendice_A_tabelas_negocio.sql docs/especificacao/apendice_B_tabelas_integracoes.sql docs/sql/00_ModeloAtual.sql docs/especificacao/desvios_aprovados.json
 ```
 
-Nas linhas `gerado=`, o número vem de um arquivo: `docs/sql/01_Inicial.sql` ou `docs/sql/00_ModeloAtual.sql`. Nenhuma delas lê o banco. O `00_ModeloAtual.sql` é gerado pelo `dotnet ef dbcontext script` (sem banco) e foi ajustado à mão em 16/11/2026 e em 19/11/2026, como dizem os blocos de desvio abaixo. Esta conferência compara arquivo com arquivo. Em 19/11/2026 o modelo foi gerado de novo pela ferramenta, num arquivo à parte, e o script deu a mesma saída para ele e para o `00_ModeloAtual.sql`.
+Nas linhas `gerado=`, o número vem de um arquivo: `docs/sql/01_Inicial.sql` ou `docs/sql/00_ModeloAtual.sql`. Nenhuma delas lê o banco. O `00_ModeloAtual.sql` é gerado pelo `dotnet ef dbcontext script` (sem banco) e foi ajustado à mão em 16/11/2026, em 19/11/2026 e em 20/11/2026, como dizem os blocos de desvio abaixo. Em 20/11/2026 as adições das duas migrations do Eduardo foram acrescentadas à mão. Houve um movimento de bloco: `cobranca_extra` saiu de entre `locacao` e `pagamento` e foi para depois de `apuracao_cobranca_extra`, porque a FK `fk_cobranca_apuracao` fica dentro do `CREATE TABLE` (o `compare_schema.py` só lê CONSTRAINT dentro dele) e a apuração depende da vistoria. Nenhum outro bloco foi movido. Por isso a ordem das tabelas no arquivo não é a do EF, que reordena por dependência. O Kaio decide se aceita o movimento de `cobranca_extra`. Esta conferência compara arquivo com arquivo. Em 20/11/2026 o modelo foi gerado de novo pela ferramenta, num arquivo à parte, e o script deu a mesma saída para ele e para o `00_ModeloAtual.sql`.
 
-Saída real do primeiro comando (modo literal, 19/11/2026):
+Saída real do primeiro comando (modo literal, 20/11/2026):
 
 ```text
 Tabelas:  especificacao=16 gerado=16
@@ -113,23 +117,23 @@ Indices:  especificacao=11 gerado=11
 Diferencas: 0
 ```
 
-Resumo real do segundo comando (modo com decisões, 19/11/2026; a lista completa de cada diferença, com o bloco que a cobre, sai no terminal):
+Resumo real do segundo comando (modo com decisões, 20/11/2026; a lista completa de cada diferença, com o bloco que a cobre, sai no terminal):
 
 ```text
 Desvios aprovados aplicados a especificacao: 60
-Tabelas:  especificacao=16 gerado=22
-Colunas:  especificacao=193 gerado=268
-CHECK:    especificacao=32 gerado=41
-FK:       especificacao=22 gerado=35
+Tabelas:  especificacao=16 gerado=24
+Colunas:  especificacao=193 gerado=301
+CHECK:    especificacao=32 gerado=48
+FK:       especificacao=22 gerado=44
 UNIQUE:   especificacao=0 gerado=0
-Indices:  especificacao=26 gerado=37
-Diferencas registradas: 48
+Indices:  especificacao=26 gerado=41
+Diferencas registradas: 73
 Diferencas nao registradas: 0
 Registros sem diferenca: 0
 Blocos sem registro: 0
 ```
 
-Os 48 são as 6 tabelas novas, 8 colunas, 10 CHECK, 13 FKs e 11 índices. As 5 linhas de "tabela diferente" repetem colunas e não contam em dobro.
+Os 73 são as 8 tabelas novas, 11 colunas, 17 CHECK, 22 FKs e 15 índices. As 8 linhas de "tabela diferente" repetem colunas e não contam em dobro. (Antes das migrations do Eduardo, em 19/11/2026, eram 48: 6 tabelas, 8 colunas, 10 CHECK, 13 FKs e 11 índices.)
 
 ## Números 09 e 10 dos scripts
 
@@ -151,7 +155,9 @@ Os trechos marcados como HISTORICO abaixo são de datas anteriores. Não foram a
 | `especificacao/apendice_B_tabelas_integracoes.sql` | Especificação das 2 tabelas da biblioteca de integrações |
 | `sql/01_Inicial.sql` | SQL gerado pela migration `Inicial` |
 | `sql/02_SeedIntegracoes.sql` | SQL gerado pela migration `SeedIntegracoes` |
-| `sql/00_ModeloAtual.sql` | SQL do modelo atual, gerado pelo `dotnet ef dbcontext script` (sem banco) e ajustado à mão em 16/11 e 19/11/2026 |
+| `sql/00_ModeloAtual.sql` | SQL do modelo atual, gerado pelo `dotnet ef dbcontext script` (sem banco) e ajustado à mão em 16/11, 19/11 e 20/11/2026 |
+| `sql/21_VincularAvariasVistoriaSaida.sql` | SQL da migration `VincularAvariasVistoriaSaida` (Eduardo), gerado pelo `dotnet ef migrations script` (sem banco) |
+| `sql/22_CadastrarRegrasEApurarCobrancasExtras.sql` | SQL da migration `CadastrarRegrasEApurarCobrancasExtras` (Eduardo), gerado pelo `dotnet ef migrations script` (sem banco) |
 | `especificacao/desvios_aprovados.json` | Desvios aprovados pelo dono; cada bloco que muda o esquema tem `migration` e `cobre` |
 | `../tools/compare_schema.py` | Script que compara a especificação com o SQL gerado |
 
@@ -168,7 +174,7 @@ python -I tools/compare_schema.py docs/especificacao/apendice_A_tabelas_negocio.
 
 O script compara tabela por tabela: nome, tipo, nulidade e DEFAULT de cada coluna; nome e expressão de cada CHECK; nome, coluna, tabela de destino e ação de exclusão de cada FK; nome e colunas de cada UNIQUE e de cada índice.
 
-## Resultado (modo literal, medido em 19/11/2026)
+## Resultado (modo literal, medido em 20/11/2026)
 
 ```text
 Tabelas:  especificacao=16 gerado=16
@@ -253,7 +259,7 @@ Estes pontos não aparecem como diferença porque são equivalentes. Vale regist
 3. **Nomes iguais aos do PostgreSQL.** As chaves primárias foram nomeadas `<tabela>_pkey`, e os UNIQUE escritos na própria linha da coluna, `<tabela>_<coluna>_key`. São exatamente os nomes que o PostgreSQL daria rodando o SQL da especificação. Os nomes declarados na especificação (`fk_*`, `ck_*`, `uq_*`, `idx_*`) foram mantidos.
 4. **`SERIAL`.** O mapeamento usa `UseSerialColumns()`. Sem isso, o Npgsql geraria `GENERATED BY DEFAULT AS IDENTITY`. Por isso a migration não tem nenhuma anotação `Npgsql:IdentitySequenceOptions` para limpar.
 5. **Ação de exclusão.** O `ON DELETE CASCADE` ficou só onde a especificação pede (`fk_vistoria_locacao`, `fk_avaria_vistoria`, `fk_cobranca_locacao` e `fk_setting_integration`). O restante ficou sem cláusula, ou seja, `NO ACTION`, que é o padrão do PostgreSQL e o mesmo comportamento do SQL da especificação.
-6. **Nenhum índice automático de FK.** Por convenção, o EF cria um índice para cada chave estrangeira. Essa convenção foi desligada no `AutoViaDbContext`, então, na migration `Inicial`, existiam só os 11 índices da especificação mais os UNIQUE. Hoje o modelo tem 37 índices e nenhum UNIQUE (ver o quadro acima).
+6. **Nenhum índice automático de FK.** Por convenção, o EF cria um índice para cada chave estrangeira. Essa convenção foi desligada no `AutoViaDbContext`, então, na migration `Inicial`, existiam só os 11 índices da especificação mais os UNIQUE. Hoje o modelo tem 41 índices e nenhum UNIQUE (ver o quadro acima).
 
 ## Pontos da especificação que merecem atenção (não alterados)
 

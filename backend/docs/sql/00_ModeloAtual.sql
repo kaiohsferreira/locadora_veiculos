@@ -331,23 +331,6 @@ CREATE TABLE locacao (
 );
 
 
-CREATE TABLE cobranca_extra (
-    id_cobranca serial NOT NULL,
-    id_locacao integer NOT NULL,
-    tipo character varying(20) NOT NULL,
-    descricao character varying(200),
-    valor numeric(10,2) NOT NULL,
-    data_lancamento date NOT NULL DEFAULT (CURRENT_DATE),
-    created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
-    updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
-    disabled_at timestamp without time zone,
-    CONSTRAINT cobranca_extra_pkey PRIMARY KEY (id_cobranca),
-    CONSTRAINT ck_cobranca_tipo CHECK (tipo IN ('MULTA_TRANSITO', 'KM_EXCEDENTE', 'ATRASO', 'AVARIA', 'COMBUSTIVEL', 'LIMPEZA')),
-    CONSTRAINT ck_cobranca_valor CHECK (valor >= 0),
-    CONSTRAINT fk_cobranca_locacao FOREIGN KEY (id_locacao) REFERENCES locacao (id_locacao) ON DELETE CASCADE
-);
-
-
 CREATE TABLE pagamento (
     id_pagamento serial NOT NULL,
     id_locacao integer,
@@ -404,6 +387,7 @@ CREATE TABLE vistoria (
     km_registrado integer NOT NULL,
     nivel_combustivel numeric(4,2),
     observacoes text,
+    comparacao_realizada boolean NOT NULL DEFAULT FALSE,
     created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     disabled_at timestamp without time zone,
@@ -443,13 +427,94 @@ CREATE TABLE avaria (
     descricao character varying(200) NOT NULL,
     gravidade character varying(15) NOT NULL DEFAULT 'LEVE',
     valor_estimado numeric(10,2),
+    id_avaria_entrada integer,
     created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     disabled_at timestamp without time zone,
     CONSTRAINT avaria_pkey PRIMARY KEY (id_avaria),
     CONSTRAINT ck_avaria_gravidade CHECK (gravidade IN ('LEVE', 'MEDIA', 'GRAVE')),
+    CONSTRAINT fk_avaria_entrada FOREIGN KEY (id_avaria_entrada) REFERENCES avaria (id_avaria),
     CONSTRAINT fk_avaria_vistoria FOREIGN KEY (id_vistoria) REFERENCES vistoria (id_vistoria) ON DELETE CASCADE
 );
+
+
+CREATE TABLE configuracao_cobranca_extra (
+    id_configuracao serial NOT NULL,
+    id_empresa integer NOT NULL,
+    id_categoria integer NOT NULL,
+    versao integer NOT NULL,
+    base_franquia character varying(20) NOT NULL,
+    franquia_km integer NOT NULL,
+    valor_km_excedente numeric(10,2) NOT NULL,
+    valor_tanque_completo numeric(10,2) NOT NULL,
+    tolerancia_atraso_minutos integer NOT NULL,
+    unidade_atraso character varying(10) NOT NULL,
+    fracionamento_atraso character varying(20) NOT NULL,
+    valor_unidade_atraso numeric(10,2) NOT NULL,
+    base_avarias character varying(30) NOT NULL,
+    created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    disabled_at timestamp without time zone,
+    CONSTRAINT configuracao_cobranca_extra_pkey PRIMARY KEY (id_configuracao),
+    CONSTRAINT ck_configuracao_extra_atraso CHECK (tolerancia_atraso_minutos >= 0 AND unidade_atraso IN ('HORA', 'DIARIA') AND fracionamento_atraso IN ('PROPORCIONAL', 'INICIADA')),
+    CONSTRAINT ck_configuracao_extra_avarias CHECK (base_avarias = 'ESTIMATIVA_VISTORIA'),
+    CONSTRAINT ck_configuracao_extra_franquia CHECK (franquia_km >= 0 AND base_franquia IN ('TOTAL', 'POR_DIARIA')),
+    CONSTRAINT ck_configuracao_extra_tarifas CHECK (valor_km_excedente > 0 AND valor_tanque_completo > 0 AND valor_unidade_atraso > 0),
+    CONSTRAINT ck_configuracao_extra_versao CHECK (versao > 0),
+    CONSTRAINT fk_configuracao_extra_categoria FOREIGN KEY (id_categoria) REFERENCES categoria (id_categoria),
+    CONSTRAINT fk_configuracao_extra_empresa FOREIGN KEY (id_empresa) REFERENCES empresa (id_empresa)
+);
+
+
+CREATE TABLE apuracao_cobranca_extra (
+    id_apuracao serial NOT NULL,
+    id_locacao integer NOT NULL,
+    id_configuracao integer NOT NULL,
+    versao_configuracao integer NOT NULL,
+    id_vistoria_entrada integer NOT NULL,
+    id_vistoria_saida integer NOT NULL,
+    id_funcionario integer NOT NULL,
+    data_hora timestamp without time zone NOT NULL,
+    versao_snapshot integer NOT NULL,
+    snapshot_json jsonb NOT NULL,
+    total numeric(12,2) NOT NULL,
+    created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    disabled_at timestamp without time zone,
+    CONSTRAINT apuracao_cobranca_extra_pkey PRIMARY KEY (id_apuracao),
+    CONSTRAINT ck_apuracao_extra_total CHECK (total >= 0),
+    CONSTRAINT ck_apuracao_extra_versoes CHECK (versao_configuracao > 0 AND versao_snapshot > 0),
+    CONSTRAINT fk_apuracao_extra_configuracao FOREIGN KEY (id_configuracao) REFERENCES configuracao_cobranca_extra (id_configuracao),
+    CONSTRAINT fk_apuracao_extra_entrada FOREIGN KEY (id_vistoria_entrada) REFERENCES vistoria (id_vistoria),
+    CONSTRAINT fk_apuracao_extra_funcionario FOREIGN KEY (id_funcionario) REFERENCES funcionario (id_funcionario),
+    CONSTRAINT fk_apuracao_extra_locacao FOREIGN KEY (id_locacao) REFERENCES locacao (id_locacao),
+    CONSTRAINT fk_apuracao_extra_saida FOREIGN KEY (id_vistoria_saida) REFERENCES vistoria (id_vistoria)
+);
+
+
+CREATE TABLE cobranca_extra (
+    id_cobranca serial NOT NULL,
+    id_locacao integer NOT NULL,
+    tipo character varying(20) NOT NULL,
+    descricao character varying(200),
+    valor numeric(10,2) NOT NULL,
+    data_lancamento date NOT NULL DEFAULT (CURRENT_DATE),
+    id_apuracao integer,
+    created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    disabled_at timestamp without time zone,
+    CONSTRAINT cobranca_extra_pkey PRIMARY KEY (id_cobranca),
+    CONSTRAINT ck_cobranca_tipo CHECK (tipo IN ('MULTA_TRANSITO', 'KM_EXCEDENTE', 'ATRASO', 'AVARIA', 'COMBUSTIVEL', 'LIMPEZA')),
+    CONSTRAINT ck_cobranca_valor CHECK (valor >= 0),
+    CONSTRAINT fk_cobranca_apuracao FOREIGN KEY (id_apuracao) REFERENCES apuracao_cobranca_extra (id_apuracao),
+    CONSTRAINT fk_cobranca_locacao FOREIGN KEY (id_locacao) REFERENCES locacao (id_locacao) ON DELETE CASCADE
+);
+
+
+CREATE INDEX idx_apuracao_extra_locacao ON apuracao_cobranca_extra (id_locacao);
+
+
+CREATE INDEX idx_avaria_entrada ON avaria (id_avaria_entrada);
 
 
 CREATE INDEX idx_categoria_nome ON categoria (nome);
@@ -471,6 +536,12 @@ CREATE INDEX idx_cliente_locadora_cliente ON cliente_locadora (id_cliente);
 
 
 CREATE INDEX idx_cliente_locadora_empresa_cliente ON cliente_locadora (id_empresa, id_cliente);
+
+
+CREATE INDEX idx_cobranca_apuracao ON cobranca_extra (id_apuracao);
+
+
+CREATE INDEX idx_configuracao_extra_empresa_categoria ON configuracao_cobranca_extra (id_empresa, id_categoria);
 
 
 CREATE INDEX idx_empresa_cnpj ON empresa (cnpj);
