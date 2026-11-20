@@ -12,6 +12,10 @@ namespace AutoVia.Communication.Validators.Equipe
     /// </summary>
     public class FiltroEquipeVOValidator : AbstractValidator<FiltroEquipeVO>
     {
+        // Caractere NUL: a busca vai para o SQL; o PostgreSQL recusa o texto e o erro sairia como 500. Recusa aqui, com 400.
+        private const char CaractereNulo = '\0';
+        private const string NomeCampoBusca = nameof(FiltroEquipeVO.Busca);
+
         public FiltroEquipeVOValidator()
         {
             Include(new FiltroPaginacaoVOValidator());
@@ -19,6 +23,10 @@ namespace AutoVia.Communication.Validators.Equipe
             RuleFor(x => x.Busca)
                 .Must(busca => string.IsNullOrWhiteSpace(busca) || busca.Trim().Length <= ConstantsValues.TamanhoMaximoBuscaEquipe)
                 .WithMessage(string.Format(ConstantsMessage.ErroEquipeBuscaTamanho, ConstantsValues.TamanhoMaximoBuscaEquipe));
+
+            RuleFor(x => x.Busca)
+                .Must(busca => busca == null || !busca.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoBusca));
 
             RuleFor(x => x.Cargo)
                 .Must(cargo => !cargo.HasValue || Enum.IsDefined(cargo.Value))

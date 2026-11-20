@@ -15,6 +15,10 @@ namespace AutoVia.Communication.Validators.Empresas
     /// </summary>
     public class VerificarCadastroEmpresaVOValidator : AbstractValidator<VerificarCadastroEmpresaVO>
     {
+        // Caractere NUL: no ramo de e-mail o valor vai para a pesquisa no banco; o PostgreSQL recusa o texto (erro 500). Recusa aqui, com 400.
+        private const char CaractereNulo = '\0';
+        private const string NomeCampoValor = nameof(VerificarCadastroEmpresaVO.Valor);
+
         public VerificarCadastroEmpresaVOValidator()
         {
             RuleFor(x => x.Campo)
@@ -24,6 +28,10 @@ namespace AutoVia.Communication.Validators.Empresas
             RuleFor(x => x.Valor)
                 .Must(valor => TamanhoCruAceito(valor))
                 .WithMessage(ConstantsMessage.ErroLocadoraVerificacaoValorInvalido);
+
+            RuleFor(x => x.Valor)
+                .Must(valor => valor == null || !valor.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoValor));
 
             When(x => x.Campo == CampoVerificacaoEmpresa.CNPJ, () =>
             {

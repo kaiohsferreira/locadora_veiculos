@@ -14,6 +14,19 @@ namespace AutoVia.Communication.Validators.Empresas
     /// </summary>
     public class CadastroLocadoraVOValidator : AbstractValidator<CadastroLocadoraVO>
     {
+        // Caractere NUL: o PostgreSQL recusa o texto e o erro sairia como 500. Recusa aqui, com 400 (ErroCampoInvalido).
+        private const char CaractereNulo = '\0';
+        private const string NomeCampoRazaoSocial = nameof(CadastroLocadoraVO.RazaoSocial);
+        private const string NomeCampoNomeFantasia = nameof(CadastroLocadoraVO.NomeFantasia);
+        private const string NomeCampoEmail = nameof(CadastroLocadoraVO.Email);
+        private const string NomeCampoLogradouro = nameof(CadastroLocadoraVO.Logradouro);
+        private const string NomeCampoNumero = nameof(CadastroLocadoraVO.Numero);
+        private const string NomeCampoComplemento = nameof(CadastroLocadoraVO.Complemento);
+        private const string NomeCampoBairro = nameof(CadastroLocadoraVO.Bairro);
+        private const string NomeCampoCidade = nameof(CadastroLocadoraVO.Cidade);
+        private const string NomeCampoResponsavelNome = nameof(CadastroLocadoraVO.ResponsavelNome);
+        private const string NomeCampoResponsavelEmail = nameof(CadastroLocadoraVO.ResponsavelEmail);
+
         public CadastroLocadoraVOValidator()
         {
             RuleFor(x => x.RazaoSocial)
@@ -23,12 +36,20 @@ namespace AutoVia.Communication.Validators.Empresas
                 .Must(texto => TamanhoAteAposTrim(texto, ConstantsValues.TamanhoMaximoRazaoSocialLocadora))
                 .WithMessage(string.Format(ConstantsMessage.ErroLocadoraCampoTamanho, ConstantsMessage.RotuloRazaoSocialLocadora, ConstantsValues.TamanhoMaximoRazaoSocialLocadora));
 
+            RuleFor(x => x.RazaoSocial)
+                .Must(texto => texto == null || !texto.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoRazaoSocial));
+
             RuleFor(x => x.NomeFantasia)
                 .Cascade(CascadeMode.Stop)
                 .Must(texto => !string.IsNullOrWhiteSpace(texto))
                 .WithMessage(ConstantsMessage.ErroLocadoraNomeFantasiaObrigatorio)
                 .Must(texto => TamanhoAteAposTrim(texto, ConstantsValues.TamanhoMaximoNomeFantasiaLocadora))
                 .WithMessage(string.Format(ConstantsMessage.ErroLocadoraCampoTamanho, ConstantsMessage.RotuloNomeFantasiaLocadora, ConstantsValues.TamanhoMaximoNomeFantasiaLocadora));
+
+            RuleFor(x => x.NomeFantasia)
+                .Must(texto => texto == null || !texto.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoNomeFantasia));
 
             RuleFor(x => x.Cnpj)
                 .Cascade(CascadeMode.Stop)
@@ -53,6 +74,10 @@ namespace AutoVia.Communication.Validators.Empresas
                 .Must(email => EmailValidoAposTrim(email))
                 .WithMessage(ConstantsMessage.ErroLocadoraEmailInvalido);
 
+            RuleFor(x => x.Email)
+                .Must(email => email == null || !email.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoEmail));
+
             RuleFor(x => x.Cep)
                 .Must(cep => QuantidadeDeDigitosEntre(cep, ConstantsValues.TamanhoCepLocadora, ConstantsValues.TamanhoCepLocadora))
                 .WithMessage(ConstantsMessage.ErroLocadoraCepInvalido);
@@ -64,6 +89,10 @@ namespace AutoVia.Communication.Validators.Empresas
                 .Must(texto => TamanhoAteAposTrim(texto, ConstantsValues.TamanhoMaximoLogradouroLocadora))
                 .WithMessage(string.Format(ConstantsMessage.ErroLocadoraCampoTamanho, ConstantsMessage.RotuloLogradouroLocadora, ConstantsValues.TamanhoMaximoLogradouroLocadora));
 
+            RuleFor(x => x.Logradouro)
+                .Must(texto => texto == null || !texto.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoLogradouro));
+
             RuleFor(x => x.Numero)
                 .Cascade(CascadeMode.Stop)
                 .Must(texto => !string.IsNullOrWhiteSpace(texto))
@@ -71,9 +100,17 @@ namespace AutoVia.Communication.Validators.Empresas
                 .Must(texto => TamanhoAteAposTrim(texto, ConstantsValues.TamanhoMaximoNumeroEnderecoLocadora))
                 .WithMessage(string.Format(ConstantsMessage.ErroLocadoraCampoTamanho, ConstantsMessage.RotuloNumeroLocadora, ConstantsValues.TamanhoMaximoNumeroEnderecoLocadora));
 
+            RuleFor(x => x.Numero)
+                .Must(texto => texto == null || !texto.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoNumero));
+
             RuleFor(x => x.Complemento)
                 .Must(texto => TamanhoAteAposTrim(texto, ConstantsValues.TamanhoMaximoComplementoLocadora))
                 .WithMessage(string.Format(ConstantsMessage.ErroLocadoraCampoTamanho, ConstantsMessage.RotuloComplementoLocadora, ConstantsValues.TamanhoMaximoComplementoLocadora));
+
+            RuleFor(x => x.Complemento)
+                .Must(texto => texto == null || !texto.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoComplemento));
 
             RuleFor(x => x.Bairro)
                 .Cascade(CascadeMode.Stop)
@@ -82,12 +119,20 @@ namespace AutoVia.Communication.Validators.Empresas
                 .Must(texto => TamanhoAteAposTrim(texto, ConstantsValues.TamanhoMaximoBairroLocadora))
                 .WithMessage(string.Format(ConstantsMessage.ErroLocadoraCampoTamanho, ConstantsMessage.RotuloBairroLocadora, ConstantsValues.TamanhoMaximoBairroLocadora));
 
+            RuleFor(x => x.Bairro)
+                .Must(texto => texto == null || !texto.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoBairro));
+
             RuleFor(x => x.Cidade)
                 .Cascade(CascadeMode.Stop)
                 .Must(texto => !string.IsNullOrWhiteSpace(texto))
                 .WithMessage(ConstantsMessage.ErroLocadoraCidadeObrigatoria)
                 .Must(texto => TamanhoAteAposTrim(texto, ConstantsValues.TamanhoMaximoCidadeLocadora))
                 .WithMessage(string.Format(ConstantsMessage.ErroLocadoraCampoTamanho, ConstantsMessage.RotuloCidadeLocadora, ConstantsValues.TamanhoMaximoCidadeLocadora));
+
+            RuleFor(x => x.Cidade)
+                .Must(texto => texto == null || !texto.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoCidade));
 
             RuleFor(x => x.Uf)
                 .Must(uf => UfValida(uf))
@@ -99,6 +144,10 @@ namespace AutoVia.Communication.Validators.Empresas
                 .WithMessage(ConstantsMessage.ErroLocadoraResponsavelNomeObrigatorio)
                 .Must(texto => TamanhoAteAposTrim(texto, ConstantsValues.TamanhoMaximoResponsavelNome))
                 .WithMessage(string.Format(ConstantsMessage.ErroLocadoraCampoTamanho, ConstantsMessage.RotuloResponsavelNomeLocadora, ConstantsValues.TamanhoMaximoResponsavelNome));
+
+            RuleFor(x => x.ResponsavelNome)
+                .Must(texto => texto == null || !texto.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoResponsavelNome));
 
             RuleFor(x => x.ResponsavelCpf)
                 .Cascade(CascadeMode.Stop)
@@ -115,6 +164,10 @@ namespace AutoVia.Communication.Validators.Empresas
                 .WithMessage(string.Format(ConstantsMessage.ErroLocadoraCampoTamanho, ConstantsMessage.RotuloResponsavelEmailLocadora, ConstantsValues.TamanhoMaximoEmailLocadora))
                 .Must(email => EmailValidoAposTrim(email))
                 .WithMessage(ConstantsMessage.ErroLocadoraResponsavelEmailInvalido);
+
+            RuleFor(x => x.ResponsavelEmail)
+                .Must(email => email == null || !email.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoResponsavelEmail));
 
             RuleFor(x => x.Senha)
                 .Cascade(CascadeMode.Stop)

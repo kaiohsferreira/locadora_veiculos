@@ -14,6 +14,9 @@ namespace AutoVia.Communication.Validators.Equipe
     /// </summary>
     public abstract class DadosFuncionarioValidatorBase<TVO> : AbstractValidator<TVO> where TVO : class
     {
+        // Caractere NUL: o PostgreSQL recusa o texto e o erro sairia como 500. Recusa aqui, com 400 (ErroCampoInvalido).
+        private const char CaractereNulo = '\0';
+
         /// <summary>Validador de e-mail do proprio FluentValidation, aplicado ao texto ja aparado.</summary>
         private static readonly InlineValidator<string> ValidadorEmail = CriarValidadorEmail();
 
@@ -26,6 +29,10 @@ namespace AutoVia.Communication.Validators.Equipe
                 .WithMessage(ConstantsMessage.ErroEquipeNomeObrigatorio)
                 .Must(texto => TamanhoAteAposTrim(texto, ConstantsValues.TamanhoMaximoNomeFuncionario))
                 .WithMessage(string.Format(ConstantsMessage.ErroEquipeCampoTamanho, ConstantsValues.RotuloNomeFuncionario, ConstantsValues.TamanhoMaximoNomeFuncionario));
+
+            RuleFor(campo)
+                .Must(texto => texto == null || !texto.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeDoCampo(campo)));
         }
 
         /// <summary>Matricula obrigatoria, sem so espacos, ate o limite depois do Trim.</summary>
@@ -37,6 +44,10 @@ namespace AutoVia.Communication.Validators.Equipe
                 .WithMessage(ConstantsMessage.ErroEquipeMatriculaObrigatoria)
                 .Must(texto => TamanhoAteAposTrim(texto, ConstantsValues.TamanhoMaximoMatriculaFuncionario))
                 .WithMessage(string.Format(ConstantsMessage.ErroEquipeCampoTamanho, ConstantsValues.RotuloMatriculaFuncionario, ConstantsValues.TamanhoMaximoMatriculaFuncionario));
+
+            RuleFor(campo)
+                .Must(texto => texto == null || !texto.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeDoCampo(campo)));
         }
 
         /// <summary>E-mail obrigatorio, ate o limite e em formato valido depois do Trim.</summary>
@@ -50,6 +61,10 @@ namespace AutoVia.Communication.Validators.Equipe
                 .WithMessage(string.Format(ConstantsMessage.ErroEquipeCampoTamanho, ConstantsValues.RotuloEmailFuncionario, ConstantsValues.TamanhoMaximoEmailFuncionario))
                 .Must(email => EmailValidoAposTrim(email))
                 .WithMessage(ConstantsMessage.ErroEquipeEmailInvalido);
+
+            RuleFor(campo)
+                .Must(texto => texto == null || !texto.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeDoCampo(campo)));
         }
 
         /// <summary>Data de admissao obrigatoria (diferente do valor padrao) e nao posterior a hoje.</summary>
@@ -72,6 +87,15 @@ namespace AutoVia.Communication.Validators.Equipe
                 .WithMessage(ConstantsMessage.ErroEquipeCargoObrigatorio)
                 .Must(cargo => cargo.HasValue && Enum.IsDefined(cargo.Value))
                 .WithMessage(ConstantsMessage.ErroRequisicaoInvalida);
+        }
+
+        /// <summary>Nome do campo (como a propriedade do VO, em PascalCase) a partir da expressao; vai na mensagem ErroCampoInvalido.</summary>
+        private static string NomeDoCampo<TCampo>(Expression<Func<TVO, TCampo>> campo)
+        {
+            MemberExpression membro = (MemberExpression)campo.Body;
+            string nome = membro.Member.Name;
+
+            return nome;
         }
 
         /// <summary>Monta o validador de e-mail uma vez, sobre o proprio texto.</summary>

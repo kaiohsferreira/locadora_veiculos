@@ -16,6 +16,16 @@ namespace AutoVia.Communication.Validators.Clientes
     /// </summary>
     public class ClienteVOValidator : AbstractValidator<ClienteVO>
     {
+        // Caractere NUL: o PostgreSQL recusa o texto e o erro sairia como 500. Recusa aqui, com 400 (ErroCampoInvalido).
+        private const char CaractereNulo = '\0';
+        private const string NomeCampoNome = nameof(ClienteVO.Nome);
+        private const string NomeCampoEmail = nameof(ClienteVO.Email);
+        private const string NomeCampoLogradouro = nameof(ClienteVO.Logradouro);
+        private const string NomeCampoNumero = nameof(ClienteVO.Numero);
+        private const string NomeCampoComplemento = nameof(ClienteVO.Complemento);
+        private const string NomeCampoBairro = nameof(ClienteVO.Bairro);
+        private const string NomeCampoCidade = nameof(ClienteVO.Cidade);
+
         public ClienteVOValidator()
         {
             RuleFor(x => x.Nome)
@@ -24,6 +34,10 @@ namespace AutoVia.Communication.Validators.Clientes
                 .WithMessage(ConstantsMessage.ErroClienteNomeObrigatorio)
                 .Must(nome => TamanhoAteAposTrim(nome, ConstantsValues.TamanhoMaximoNomeCliente))
                 .WithMessage(string.Format(ConstantsMessage.ErroClienteCampoTamanho, ConstantsMessage.RotuloNomeCliente, ConstantsValues.TamanhoMaximoNomeCliente));
+
+            RuleFor(x => x.Nome)
+                .Must(nome => nome == null || !nome.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoNome));
 
             RuleFor(x => x.Cpf)
                 .Cascade(CascadeMode.Stop)
@@ -49,6 +63,10 @@ namespace AutoVia.Communication.Validators.Clientes
                 .WithMessage(string.Format(ConstantsMessage.ErroClienteCampoTamanho, ConstantsMessage.RotuloEmailCliente, ConstantsValues.TamanhoMaximoEmailCliente))
                 .Must(email => EmailValidoAposTrim(email))
                 .WithMessage(ConstantsMessage.ErroClienteEmailInvalido);
+
+            RuleFor(x => x.Email)
+                .Must(email => email == null || !email.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoEmail));
 
             RuleFor(x => x.Telefone)
                 .Cascade(CascadeMode.Stop)
@@ -79,21 +97,41 @@ namespace AutoVia.Communication.Validators.Clientes
                 .Must(logradouro => TamanhoAteAposTrim(logradouro, ConstantsValues.TamanhoMaximoLogradouroCliente))
                 .WithMessage(string.Format(ConstantsMessage.ErroClienteCampoTamanho, ConstantsMessage.RotuloLogradouroCliente, ConstantsValues.TamanhoMaximoLogradouroCliente));
 
+            RuleFor(x => x.Logradouro)
+                .Must(logradouro => logradouro == null || !logradouro.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoLogradouro));
+
             RuleFor(x => x.Numero)
                 .Must(numero => TamanhoAteAposTrim(numero, ConstantsValues.TamanhoMaximoNumeroEnderecoCliente))
                 .WithMessage(string.Format(ConstantsMessage.ErroClienteCampoTamanho, ConstantsMessage.RotuloNumeroEnderecoCliente, ConstantsValues.TamanhoMaximoNumeroEnderecoCliente));
+
+            RuleFor(x => x.Numero)
+                .Must(numero => numero == null || !numero.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoNumero));
 
             RuleFor(x => x.Complemento)
                 .Must(complemento => TamanhoAteAposTrim(complemento, ConstantsValues.TamanhoMaximoComplementoCliente))
                 .WithMessage(string.Format(ConstantsMessage.ErroClienteCampoTamanho, ConstantsMessage.RotuloComplementoCliente, ConstantsValues.TamanhoMaximoComplementoCliente));
 
+            RuleFor(x => x.Complemento)
+                .Must(complemento => complemento == null || !complemento.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoComplemento));
+
             RuleFor(x => x.Bairro)
                 .Must(bairro => TamanhoAteAposTrim(bairro, ConstantsValues.TamanhoMaximoBairroCliente))
                 .WithMessage(string.Format(ConstantsMessage.ErroClienteCampoTamanho, ConstantsMessage.RotuloBairroCliente, ConstantsValues.TamanhoMaximoBairroCliente));
 
+            RuleFor(x => x.Bairro)
+                .Must(bairro => bairro == null || !bairro.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoBairro));
+
             RuleFor(x => x.Cidade)
                 .Must(cidade => TamanhoAteAposTrim(cidade, ConstantsValues.TamanhoMaximoCidadeCliente))
                 .WithMessage(string.Format(ConstantsMessage.ErroClienteCampoTamanho, ConstantsMessage.RotuloCidadeCliente, ConstantsValues.TamanhoMaximoCidadeCliente));
+
+            RuleFor(x => x.Cidade)
+                .Must(cidade => cidade == null || !cidade.Contains(CaractereNulo))
+                .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoCidade));
 
             RuleFor(x => x.Uf)
                 .Must(uf => UfValida(uf))
