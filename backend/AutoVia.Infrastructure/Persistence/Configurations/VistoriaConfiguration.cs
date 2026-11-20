@@ -26,6 +26,8 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .HasColumnType("timestamp without time zone")
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+            builder.Property(x => x.ComparacaoRealizada).IsRequired(true).HasDefaultValue(false);
+
             builder.Property(x => x.KmRegistrado).IsRequired(true);
             builder.Property(x => x.NivelCombustivel).IsRequired(false).HasPrecision(4, 2);
             builder.Property(x => x.Observacoes).IsRequired(false).HasColumnType("text");

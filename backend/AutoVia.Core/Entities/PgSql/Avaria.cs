@@ -22,6 +22,11 @@ namespace AutoVia.Core.Entities.PgSql
         [Column("valor_estimado")]
         public decimal? ValorEstimado { get; set; }
 
+        [Column("id_avaria_entrada")]
+        public int? IdAvariaEntrada { get; set; }
+
+        public virtual Avaria? AvariaEntrada { get; set; }
+
         // --- Navegacao ---
         public virtual Vistoria Vistoria { get; set; } = null!;
     }

@@ -5,6 +5,9 @@ namespace AutoVia.Helpers
         public const string ErroAvariaVistoriaNaoEncontrada = "A vistoria informada não foi encontrada.";
         public const string ErroAvariaNaoEncontrada = "A avaria informada não foi encontrada.";
         public const string ErroAvariaFotoNaoEncontrada = "A foto da avaria não foi encontrada no armazenamento.";
+        public const string ErroAvariaVistoriaSaida = "Não é possível lançar avaria numa vistoria de saída já registrada; as avarias novas são informadas no registro da saída.";
+        public const string ErroAvariaEntradaAposSaida = "A locação já tem vistoria de saída; não é possível lançar novas avarias na vistoria de entrada.";
+        public const string ErroAvariaLocacaoFechada = "A locação deve estar em andamento ou atrasada para lançar avarias.";
         public const string ErroAvariaDescricaoObrigatoria = "Informe a descrição da avaria.";
         public const string ErroAvariaDescricaoTamanho = "A descrição da avaria deve ter no máximo 200 caracteres.";
         public const string ErroAvariaGravidadeInvalida = "A gravidade deve ser LEVE, MEDIA ou GRAVE.";

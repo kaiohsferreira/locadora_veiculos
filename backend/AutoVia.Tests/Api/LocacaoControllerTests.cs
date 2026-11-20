@@ -96,7 +96,7 @@ namespace AutoVia.Tests.Api
             IMapper mapper = configuracao.CreateMapper();
             FakeLogService logService = new FakeLogService();
             FakeRelogio relogio = new FakeRelogio(new DateTime(2026, 11, 19, 9, 30, 0));
-            LocacaoService servico = new LocacaoService(repositorio, relogio, mapper, logService);
+            LocacaoService servico = new LocacaoService(repositorio, relogio, mapper, logService, ContextoEmpresaDeTeste.Criar());
             LocacaoController controller = new LocacaoController(servico, logService);
             DefaultHttpContext contexto = new DefaultHttpContext();
 

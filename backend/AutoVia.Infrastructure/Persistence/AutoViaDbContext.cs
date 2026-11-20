@@ -74,6 +74,8 @@ namespace AutoVia.Infrastructure.Persistence
         public DbSet<Vistoria> Vistorias { get; set; } = null!;
         public DbSet<Avaria> Avarias { get; set; } = null!;
         public DbSet<CobrancaExtra> CobrancasExtras { get; set; } = null!;
+        public DbSet<ConfiguracaoCobrancaExtra> ConfiguracoesCobrancasExtras { get; set; } = null!;
+        public DbSet<ApuracaoCobrancaExtra> ApuracoesCobrancasExtras { get; set; } = null!;
 
         // --- Venda e pagamentos ---
         public DbSet<Venda> Vendas { get; set; } = null!;

@@ -19,12 +19,12 @@ namespace AutoVia.Infrastructure.Repositories
             _logService = logService;
         }
 
-        public async Task<bool> VistoriaAtivaExisteAsync(int idVistoria, CancellationToken cancellationToken = default)
+        public async Task<Vistoria?> FindAtivaComLocacaoAsync(int idVistoria, CancellationToken cancellationToken = default)
         {
             try
             {
-                bool existe = await ConsultaVistoriaAtiva(idVistoria).AsNoTracking().AnyAsync(cancellationToken);
-                return existe;
+                Vistoria? vistoria = await ConsultaVistoriaAtivaComLocacao(idVistoria).AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+                return vistoria;
             }
             catch (Exception ex)
             {
@@ -68,7 +68,7 @@ namespace AutoVia.Infrastructure.Repositories
 
         /// <summary>
         /// Consulta da vistoria ativa (nao desativada) com o filtro "Empresa" da locadora do contexto. So monta a consulta, sem executar:
-        /// a leitura fica em VistoriaAtivaExisteAsync. Publica para o teste de SQL por ToQueryString.
+        /// a leitura fica em FindAtivaComLocacaoAsync. Publica para o teste de SQL por ToQueryString.
         /// </summary>
         public IQueryable<Vistoria> ConsultaVistoriaAtiva(int idVistoria)
         {
@@ -76,6 +76,27 @@ namespace AutoVia.Infrastructure.Repositories
             {
                 IQueryable<Vistoria> consulta = _db.Vistorias
                     .Where(x => x.IdVistoria == idVistoria && x.DisabledAt == null);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarAvaria, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta da vistoria ativa com a locacao carregada (Include), descartando locacao desativada. Mesmo filtro "Empresa" de
+        /// ConsultaVistoriaAtiva. So monta a consulta, sem executar: a leitura fica em FindAtivaComLocacaoAsync.
+        /// </summary>
+        public IQueryable<Vistoria> ConsultaVistoriaAtivaComLocacao(int idVistoria)
+        {
+            try
+            {
+                IQueryable<Vistoria> consulta = ConsultaVistoriaAtiva(idVistoria)
+                    .Include(x => x.Locacao)
+                    .Where(x => x.Locacao.DisabledAt == null);
 
                 return consulta;
             }

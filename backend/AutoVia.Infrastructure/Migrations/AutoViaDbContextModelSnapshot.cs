@@ -22,6 +22,87 @@ namespace AutoVia.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseSerialColumns(modelBuilder);
 
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.ApuracaoCobrancaExtra", b =>
+                {
+                    b.Property<int>("IdApuracao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id_apuracao");
+
+                    NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdApuracao"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime>("DataHora")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("data_hora");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
+
+                    b.Property<int>("IdConfiguracao")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_configuracao");
+
+                    b.Property<int>("IdFuncionario")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_funcionario");
+
+                    b.Property<int>("IdLocacao")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_locacao");
+
+                    b.Property<int>("IdVistoriaEntrada")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_vistoria_entrada");
+
+                    b.Property<int>("IdVistoriaSaida")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_vistoria_saida");
+
+                    b.Property<string>("SnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("snapshot_json");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("total");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<int>("VersaoConfiguracao")
+                        .HasColumnType("integer")
+                        .HasColumnName("versao_configuracao");
+
+                    b.Property<int>("VersaoSnapshot")
+                        .HasColumnType("integer")
+                        .HasColumnName("versao_snapshot");
+
+                    b.HasKey("IdApuracao")
+                        .HasName("apuracao_cobranca_extra_pkey");
+
+                    b.HasIndex("IdLocacao")
+                        .HasDatabaseName("idx_apuracao_extra_locacao");
+
+                    b.ToTable("apuracao_cobranca_extra", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_apuracao_extra_total", "total >= 0");
+
+                            t.HasCheckConstraint("ck_apuracao_extra_versoes", "versao_configuracao > 0 AND versao_snapshot > 0");
+                        });
+                });
+
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Avaria", b =>
                 {
                     b.Property<int>("IdAvaria")
@@ -55,6 +136,10 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasDefaultValue("LEVE")
                         .HasColumnName("gravidade");
 
+                    b.Property<int?>("IdAvariaEntrada")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_avaria_entrada");
+
                     b.Property<int>("IdVistoria")
                         .HasColumnType("integer")
                         .HasColumnName("id_vistoria");
@@ -72,6 +157,9 @@ namespace AutoVia.Infrastructure.Migrations
 
                     b.HasKey("IdAvaria")
                         .HasName("avaria_pkey");
+
+                    b.HasIndex("IdAvariaEntrada")
+                        .HasDatabaseName("idx_avaria_entrada");
 
                     b.ToTable("avaria", null, t =>
                         {
@@ -458,6 +546,10 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("disabled_at");
 
+                    b.Property<int?>("IdApuracao")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_apuracao");
+
                     b.Property<int>("IdLocacao")
                         .HasColumnType("integer")
                         .HasColumnName("id_locacao");
@@ -482,11 +574,118 @@ namespace AutoVia.Infrastructure.Migrations
                     b.HasKey("IdCobranca")
                         .HasName("cobranca_extra_pkey");
 
+                    b.HasIndex("IdApuracao")
+                        .HasDatabaseName("idx_cobranca_apuracao");
+
                     b.ToTable("cobranca_extra", null, t =>
                         {
                             t.HasCheckConstraint("ck_cobranca_tipo", "tipo IN ('MULTA_TRANSITO', 'KM_EXCEDENTE', 'ATRASO', 'AVARIA', 'COMBUSTIVEL', 'LIMPEZA')");
 
                             t.HasCheckConstraint("ck_cobranca_valor", "valor >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.ConfiguracaoCobrancaExtra", b =>
+                {
+                    b.Property<int>("IdConfiguracao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id_configuracao");
+
+                    NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdConfiguracao"));
+
+                    b.Property<string>("BaseAvarias")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("base_avarias");
+
+                    b.Property<string>("BaseFranquia")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("base_franquia");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
+
+                    b.Property<string>("FracionamentoAtraso")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("fracionamento_atraso");
+
+                    b.Property<int>("FranquiaKm")
+                        .HasColumnType("integer")
+                        .HasColumnName("franquia_km");
+
+                    b.Property<int>("IdCategoria")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_categoria");
+
+                    b.Property<int>("IdEmpresa")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_empresa");
+
+                    b.Property<int>("ToleranciaAtrasoMinutos")
+                        .HasColumnType("integer")
+                        .HasColumnName("tolerancia_atraso_minutos");
+
+                    b.Property<string>("UnidadeAtraso")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("unidade_atraso");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<decimal>("ValorKmExcedente")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("valor_km_excedente");
+
+                    b.Property<decimal>("ValorTanqueCompleto")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("valor_tanque_completo");
+
+                    b.Property<decimal>("ValorUnidadeAtraso")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("valor_unidade_atraso");
+
+                    b.Property<int>("Versao")
+                        .HasColumnType("integer")
+                        .HasColumnName("versao");
+
+                    b.HasKey("IdConfiguracao")
+                        .HasName("configuracao_cobranca_extra_pkey");
+
+                    b.HasIndex("IdEmpresa", "IdCategoria")
+                        .HasDatabaseName("idx_configuracao_extra_empresa_categoria");
+
+                    b.ToTable("configuracao_cobranca_extra", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_configuracao_extra_atraso", "tolerancia_atraso_minutos >= 0 AND unidade_atraso IN ('HORA', 'DIARIA') AND fracionamento_atraso IN ('PROPORCIONAL', 'INICIADA')");
+
+                            t.HasCheckConstraint("ck_configuracao_extra_avarias", "base_avarias = 'ESTIMATIVA_VISTORIA'");
+
+                            t.HasCheckConstraint("ck_configuracao_extra_franquia", "franquia_km >= 0 AND base_franquia IN ('TOTAL', 'POR_DIARIA')");
+
+                            t.HasCheckConstraint("ck_configuracao_extra_tarifas", "valor_km_excedente > 0 AND valor_tanque_completo > 0 AND valor_unidade_atraso > 0");
+
+                            t.HasCheckConstraint("ck_configuracao_extra_versao", "versao > 0");
                         });
                 });
 
@@ -1654,6 +1853,12 @@ namespace AutoVia.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdVistoria"));
 
+                    b.Property<bool>("ComparacaoRealizada")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("comparacao_realizada");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")
@@ -1857,14 +2062,70 @@ namespace AutoVia.Infrastructure.Migrations
                     b.ToTable("integration_setting", (string)null);
                 });
 
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.ApuracaoCobrancaExtra", b =>
+                {
+                    b.HasOne("AutoVia.Core.Entities.PgSql.ConfiguracaoCobrancaExtra", "Configuracao")
+                        .WithMany()
+                        .HasForeignKey("IdConfiguracao")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_apuracao_extra_configuracao");
+
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Funcionario", "Funcionario")
+                        .WithMany()
+                        .HasForeignKey("IdFuncionario")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_apuracao_extra_funcionario");
+
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Locacao", "Locacao")
+                        .WithMany()
+                        .HasForeignKey("IdLocacao")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_apuracao_extra_locacao");
+
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Vistoria", "VistoriaEntrada")
+                        .WithMany()
+                        .HasForeignKey("IdVistoriaEntrada")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_apuracao_extra_entrada");
+
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Vistoria", "VistoriaSaida")
+                        .WithMany()
+                        .HasForeignKey("IdVistoriaSaida")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_apuracao_extra_saida");
+
+                    b.Navigation("Configuracao");
+
+                    b.Navigation("Funcionario");
+
+                    b.Navigation("Locacao");
+
+                    b.Navigation("VistoriaEntrada");
+
+                    b.Navigation("VistoriaSaida");
+                });
+
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Avaria", b =>
                 {
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Avaria", "AvariaEntrada")
+                        .WithMany()
+                        .HasForeignKey("IdAvariaEntrada")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_avaria_entrada");
+
                     b.HasOne("AutoVia.Core.Entities.PgSql.Vistoria", "Vistoria")
                         .WithMany("Avarias")
                         .HasForeignKey("IdVistoria")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_avaria_vistoria");
+
+                    b.Navigation("AvariaEntrada");
 
                     b.Navigation("Vistoria");
                 });
@@ -1912,6 +2173,12 @@ namespace AutoVia.Infrastructure.Migrations
 
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.CobrancaExtra", b =>
                 {
+                    b.HasOne("AutoVia.Core.Entities.PgSql.ApuracaoCobrancaExtra", "Apuracao")
+                        .WithMany("Cobrancas")
+                        .HasForeignKey("IdApuracao")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasConstraintName("fk_cobranca_apuracao");
+
                     b.HasOne("AutoVia.Core.Entities.PgSql.Locacao", "Locacao")
                         .WithMany("CobrancasExtras")
                         .HasForeignKey("IdLocacao")
@@ -1919,7 +2186,30 @@ namespace AutoVia.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_cobranca_locacao");
 
+                    b.Navigation("Apuracao");
+
                     b.Navigation("Locacao");
+                });
+
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.ConfiguracaoCobrancaExtra", b =>
+                {
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Categoria", "Categoria")
+                        .WithMany()
+                        .HasForeignKey("IdCategoria")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_configuracao_extra_categoria");
+
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("IdEmpresa")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_configuracao_extra_empresa");
+
+                    b.Navigation("Categoria");
+
+                    b.Navigation("Empresa");
                 });
 
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Funcionario", b =>
@@ -2214,6 +2504,11 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasConstraintName("fk_setting_integration");
 
                     b.Navigation("Integration");
+                });
+
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.ApuracaoCobrancaExtra", b =>
+                {
+                    b.Navigation("Cobrancas");
                 });
 
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Categoria", b =>

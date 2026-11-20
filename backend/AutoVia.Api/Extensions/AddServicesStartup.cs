@@ -62,6 +62,7 @@ namespace AutoVia.Api.Extensions
 
             // --- Locacao ---
             services.AddScoped<ILocacaoService, LocacaoService>();
+            services.AddScoped<IVistoriaService, VistoriaService>();
             services.AddScoped<IAvariaService, AvariaService>();
 
             // --- Autenticacao ---
@@ -85,6 +86,12 @@ namespace AutoVia.Api.Extensions
             // --- Cobranca da locadora e do cliente (RF-31 e RF-36) ---
             services.AddScoped<IPagamentoService, PagamentoService>();
 
+            // --- Vistoria de saida e cobrancas extras (semana 2 do Eduardo) ---
+            services.AddScoped<IVistoriaSaidaService, VistoriaSaidaService>();
+            services.AddScoped<ICobrancasExtrasService, CobrancasExtrasService>();
+
+            services.AddScoped<IConfiguracoesCobrancasExtrasService, ConfiguracoesCobrancasExtrasService>();
+            services.AddScoped<IApuracaoCobrancasExtrasService, ApuracaoCobrancasExtrasService>();
             return services;
         }
     }

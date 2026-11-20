@@ -79,6 +79,14 @@ namespace AutoVia.Infrastructure.Persistence
                 ConstantsValues.NomeFiltroEmpresa,
                 x => IdEmpresaContexto > 0 && x.Locacao.Veiculo.IdEmpresa == IdEmpresaContexto);
 
+            modelBuilder.Entity<ConfiguracaoCobrancaExtra>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0 && x.IdEmpresa == IdEmpresaContexto);
+
+            modelBuilder.Entity<ApuracaoCobrancaExtra>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0 && x.Locacao.Veiculo.IdEmpresa == IdEmpresaContexto);
+
             modelBuilder.Entity<Avaria>().HasQueryFilter(
                 ConstantsValues.NomeFiltroEmpresa,
                 x => IdEmpresaContexto > 0 && x.Vistoria.Locacao.Veiculo.IdEmpresa == IdEmpresaContexto);

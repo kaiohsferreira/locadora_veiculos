@@ -22,5 +22,8 @@ namespace AutoVia.Helpers
 
         /// <summary>Caminho relativo do PUT da foto; {0} = idVistoria e {1} = idAvaria, formatados com CultureInfo.InvariantCulture.</summary>
         public const string FormatoRotaRetryFotoAvaria = "/api/vistorias/{0}/avarias/{1}/foto";
+
+        /// <summary>Teto (R$) da soma dos valores estimados das avarias novas de uma saida; o mesmo limite da apuracao (ErroCobrancasExtrasLimite).</summary>
+        public const decimal LimiteSomaValorEstimadoNovasAvariasSaida = 99999999.99m;
     }
 }

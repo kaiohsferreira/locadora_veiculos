@@ -74,7 +74,10 @@ namespace AutoVia.Tests.Persistence
         /// da abertura e do encerramento da ordem, o mesmo SQL da troca de status, com id_empresa por parametro e o filtro
         /// ligado; SQL provado em ManutencaoConsultasSqlTests). PagamentoRepository (duas ocorrencias: a consulta base do cliente,
         /// com a posse pelo cliente do contexto, e a trava FOR UPDATE da baixa, com SQL bruto e o filtro ligado; SQL provado em
-        /// PagamentoConsultasSqlTests).
+        /// PagamentoConsultasSqlTests). VistoriaRepository (trava FOR UPDATE da locacao na vistoria de saida, obtida pela
+        /// conexao crua do contexto (GetDbConnection), com consulta sob o filtro Empresa antes e depois da trava; so trava a linha).
+        /// CobrancasExtrasRepository (conexao crua do contexto (GetDbConnection) apenas para os locks FOR UPDATE parametrizados
+        /// (empresa e locacao), com o escopo validado antes da trava).
         /// </summary>
         private static readonly Dictionary<string, int> OcorrenciasPermitidas = new Dictionary<string, int>
         {
@@ -84,6 +87,10 @@ namespace AutoVia.Tests.Persistence
             ["AutoVia.Infrastructure/Repositories/LocacaoRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/ManutencaoRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/PagamentoRepository.cs"] = 2,
+            // Trava por locacao, precedida e seguida de consulta sob o filtro Empresa.
+            ["AutoVia.Infrastructure/Repositories/VistoriaRepository.cs"] = 1,
+            // RF-23: uma conexao crua compartilhada apenas pelos locks parametrizados, com escopo validado antes.
+            ["AutoVia.Infrastructure/Repositories/CobrancasExtrasRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/RedefinicaoSenhaRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/ReservaRepository.cs"] = 5,
             ["AutoVia.Infrastructure/Repositories/VeiculoRepository.Cadastro.cs"] = 3,

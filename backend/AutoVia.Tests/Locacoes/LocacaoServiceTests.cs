@@ -203,7 +203,7 @@ namespace AutoVia.Tests.Locacoes
             IMapper mapper = configuracao.CreateMapper();
             FakeLogService log = logService ?? new FakeLogService();
             FakeRelogio relogio = new FakeRelogio(AgoraDoRelogio);
-            LocacaoService servico = new LocacaoService(repositorio, relogio, mapper, log);
+            LocacaoService servico = new LocacaoService(repositorio, relogio, mapper, log, ContextoEmpresaDeTeste.Criar());
 
             return servico;
         }

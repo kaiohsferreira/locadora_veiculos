@@ -37,7 +37,9 @@ namespace AutoVia.Tests.Persistence
             // Desvio aprovado por Kaio em 16/11/2026 (fotos do veiculo, RF-94 a RF-101 e RF-105): tabela veiculo_foto.
             "veiculo_foto",
             // Desvio aprovado por Kaio em 19/11/2026 (documentos do cliente, RF-08): tabela cliente_documento.
-            "cliente_documento"
+            "cliente_documento",
+            // RF-23: cadastro e apuracao autorizados por Eduardo em 18/11/2026.
+            "configuracao_cobranca_extra", "apuracao_cobranca_extra"
         };
 
         private static readonly string[] TabelasIntegracao = new string[] { "integration", "integration_setting" };
@@ -66,7 +68,11 @@ namespace AutoVia.Tests.Persistence
             // Desvio aprovado por Kaio em 16/11/2026 (fotos do veiculo): indice comum, sem UNIQUE.
             "idx_veiculo_foto_veiculo",
             // Desvio aprovado por Kaio em 19/11/2026 (documentos do cliente): indice comum, sem UNIQUE.
-            "idx_cliente_documento_cliente_tipo"
+            "idx_cliente_documento_cliente_tipo",
+            // RF-22: vínculo aditivo autorizado por Eduardo Freire em 18/11/2026.
+            "idx_avaria_entrada",
+            // RF-23: indices comuns do desvio autorizado.
+            "idx_configuracao_extra_empresa_categoria", "idx_apuracao_extra_locacao", "idx_cobranca_apuracao"
         };
 
         /// <summary>
@@ -93,7 +99,7 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
-        public void Modelo_TemExatamenteAs22TabelasDaEspecificacaoMaisODesvios()
+        public void Modelo_TemExatamenteAsTabelasDaEspecificacaoMaisOsDesvios()
         {
             IModel model = BuildModel();
 
@@ -178,15 +184,15 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
-        public void Modelo_TemAs41RestricoesCheckDaEspecificacaoMaisODesvios()
+        public void Modelo_TemAsRestricoesCheckDaEspecificacaoMaisOsDesvios()
         {
             IModel model = BuildModel();
 
             int totalChecks = model.GetEntityTypes().SelectMany(x => x.GetCheckConstraints()).Count();
 
             // 35 anteriores + 4 da sinistro_historico (desvio aprovado por Kaio em 16/11/2026) + 1 da veiculo_foto (mesmo desvio de fotos)
-            // + 1 da cliente_documento (desvio aprovado por Kaio em 19/11/2026).
-            Assert.Equal(41, totalChecks);
+            // + 1 da cliente_documento (desvio aprovado por Kaio em 19/11/2026) + 7 do RF-23 (5 da configuracao e 2 da apuracao de cobrancas extras).
+            Assert.Equal(48, totalChecks);
         }
 
         [Fact]

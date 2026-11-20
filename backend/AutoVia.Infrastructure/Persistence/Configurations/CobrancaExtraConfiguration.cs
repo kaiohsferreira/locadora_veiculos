@@ -36,6 +36,12 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
                 .HasConstraintName("fk_cobranca_locacao")
                 .OnDelete(DeleteBehavior.Cascade);
 
+            builder.Property(x => x.IdApuracao).IsRequired(false);
+            builder.HasIndex(x => x.IdApuracao).HasDatabaseName("idx_cobranca_apuracao");
+            builder.HasOne(x => x.Apuracao).WithMany(x => x.Cobrancas).HasForeignKey(x => x.IdApuracao)
+                .HasConstraintName("fk_cobranca_apuracao")
+                .OnDelete(DeleteBehavior.NoAction);
+
             // --- BaseEntities (created_at, updated_at, disabled_at: exclusao logica) ---
             builder.ConfigureBaseEntities();
         }

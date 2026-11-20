@@ -269,5 +269,82 @@
     },
     "regra_no_servico": "o id nunca sai em resposta de API para o cliente; nenhum VO muda nesta entrega",
     "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico; nenhuma migracao de dados aplicada"
+  },
+  "vistoria_saida_comparacao": {
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "migration": ["20261118163147_VincularAvariasVistoriaSaida"],
+    "observacao": "Somente gerar; aplicacao manual pelo responsavel.",
+    "legado": "Saidas com comparacao_realizada=false possuem todas as avarias indeterminadas; sem inferencia textual.",
+    "cobre": [
+      "coluna:vistoria.comparacao_realizada",
+      "coluna:avaria.id_avaria_entrada",
+      "fk:fk_avaria_entrada",
+      "indice:idx_avaria_entrada"
+    ],
+    "colunas": {
+      "avaria.id_avaria_entrada": "INT NULL FK avaria.id_avaria NO ACTION; indice comum idx_avaria_entrada",
+      "vistoria.comparacao_realizada": "BOOLEAN NOT NULL DEFAULT FALSE"
+    },
+    "data": "2026-11-20",
+    "tarefa": "P5-BE-01 / RF-22 / T3 Semana 2 Eduardo",
+    "fonte": "Plano de ajustes da semana 2 do Eduardo, aprovado pelo Kaio em 20/11/2026 ('Aprovo 1 a 10')",
+    "origem": "Autorizacao explicita no chat em 18/11/2026"
+  },
+  "cobrancas_extras_configuradas": {
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "migration": ["20261119023757_CadastrarRegrasEApurarCobrancasExtras"],
+    "cobre": [
+      "tabela:configuracao_cobranca_extra",
+      "tabela:apuracao_cobranca_extra",
+      "coluna:cobranca_extra.id_apuracao",
+      "check:ck_configuracao_extra_versao",
+      "check:ck_configuracao_extra_franquia",
+      "check:ck_configuracao_extra_tarifas",
+      "check:ck_configuracao_extra_atraso",
+      "check:ck_configuracao_extra_avarias",
+      "check:ck_apuracao_extra_total",
+      "check:ck_apuracao_extra_versoes",
+      "fk:fk_configuracao_extra_categoria",
+      "fk:fk_configuracao_extra_empresa",
+      "fk:fk_apuracao_extra_configuracao",
+      "fk:fk_apuracao_extra_funcionario",
+      "fk:fk_apuracao_extra_locacao",
+      "fk:fk_apuracao_extra_entrada",
+      "fk:fk_apuracao_extra_saida",
+      "fk:fk_cobranca_apuracao",
+      "indice:idx_configuracao_extra_empresa_categoria",
+      "indice:idx_apuracao_extra_locacao",
+      "indice:idx_cobranca_apuracao"
+    ],
+    "data": "2026-11-20",
+    "tarefa": "P5-BE-02 / RF-23 / Semana 2",
+    "fonte": "Plano de ajustes da semana 2 do Eduardo, aprovado pelo Kaio em 20/11/2026 ('Aprovo 1 a 10')",
+    "origem": "Autorizo o cadastro e a migration (chat)",
+    "motivo": "Cadastro de parametros pela locadora e apuracao automatica com snapshot e repeticao sem duplicidade",
+    "schema": {
+      "ConfiguracaoCobrancaExtra": "IdConfiguracao,IdEmpresa,IdCategoria,Versao:int; BaseFranquia:string TOTAL|POR_DIARIA;FranquiaKm:int;ValorKmExcedente,ValorTanqueCompleto,ValorUnidadeAtraso:decimal10,2;ToleranciaAtrasoMinutos:int;UnidadeAtraso:HORA|DIARIA;FracionamentoAtraso:PROPORCIONAL|INICIADA;BaseAvarias:ESTIMATIVA_VISTORIA; BaseEntities; nav Empresa,Categoria",
+      "ApuracaoCobrancaExtra": "IdApuracao,IdLocacao,IdConfiguracao,VersaoConfiguracao,IdVistoriaEntrada,IdVistoriaSaida,IdFuncionario,VersaoSnapshot:int;DataHora:DateTime;SnapshotJson:jsonb;Total:decimal12,2;BaseEntities;nav Locacao,Configuracao,VistoriaEntrada,VistoriaSaida,Funcionario,List<CobrancaExtra> Cobrancas",
+      "CobrancaExtra": "ADD IdApuracao:int? nav Apuracao; FK NoAction idx_cobranca_apuracao nonunique; all old columns/rows preserved",
+      "DbSets": "ConfiguracoesCobrancasExtras,ApuracoesCobrancasExtras",
+      "filters": "Named Empresa fail-closed: Config by IdEmpresa; Apuracao by Locacao.Veiculo.IdEmpresa",
+      "bounds": "nonunique indexes only; schema rules profile; new migration generated, never applied"
+    },
+    "indices_comuns": [
+      "idx_configuracao_extra_empresa_categoria",
+      "idx_apuracao_extra_locacao",
+      "idx_cobranca_apuracao"
+    ],
+    "checks_novos": [
+      "ck_configuracao_extra_versao",
+      "ck_configuracao_extra_franquia",
+      "ck_configuracao_extra_tarifas",
+      "ck_configuracao_extra_atraso",
+      "ck_configuracao_extra_avarias",
+      "ck_apuracao_extra_total",
+      "ck_apuracao_extra_versoes"
+    ],
+    "migrations": "Gerar nova, nunca aplicar; manter todas as anteriores",
+    "dados_existentes": "Nenhum backfill; cobranca_extra.id_apuracao nullable",
+    "unicidade": "Somente servico sob trava; nenhum indice unico"
   }
 }

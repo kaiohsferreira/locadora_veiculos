@@ -1,4 +1,5 @@
 using AutoMapper;
+using AutoVia.Communication.Enums;
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.ViewObjects.Locacoes;
 using AutoVia.Core.Entities.PgSql;
@@ -18,13 +19,15 @@ namespace AutoVia.Infrastructure.Services
         private readonly IRelogio _relogio;
         private readonly IMapper _mapper;
         private readonly ILogService _logService;
+        private readonly IContextoEmpresa _contextoEmpresa;
 
-        public LocacaoService(ILocacaoRepository locacaoRepository, IRelogio relogio, IMapper mapper, ILogService logService)
+        public LocacaoService(ILocacaoRepository locacaoRepository, IRelogio relogio, IMapper mapper, ILogService logService, IContextoEmpresa contextoEmpresa)
         {
             _locacaoRepository = locacaoRepository;
             _relogio = relogio;
             _mapper = mapper;
             _logService = logService;
+            _contextoEmpresa = contextoEmpresa;
         }
 
         /// <summary>Inicia a locacao de uma reserva valida para um funcionario ativo.</summary>
@@ -83,6 +86,43 @@ namespace AutoVia.Infrastructure.Services
             catch (Exception ex)
             {
                 _logService.Write(ex, ConstantsMessage.ErroSalvarLocacao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Prepara a retirada com cadastro local e CNH conforme cargo conferido no servidor.</summary>
+        public async Task<ReturnRetiradaVO> GetRetiradaAsync(int idReserva)
+        {
+            try
+            {
+                Reserva? reserva = await _locacaoRepository.FindReservaParaRetiradaAsync(idReserva);
+                if (reserva == null || reserva.DisabledAt != null || reserva.Cliente == null ||
+                    reserva.Cliente.DisabledAt != null || reserva.Veiculo == null || reserva.Veiculo.DisabledAt != null ||
+                    _contextoEmpresa.IdEmpresa <= 0 || reserva.Veiculo.IdEmpresa != _contextoEmpresa.IdEmpresa)
+                {
+                    throw new NotFoundException(ConstantsMessage.ErroReservaNaoEncontrada);
+                }
+                ReturnRetiradaVO retorno = _mapper.Map<ReturnRetiradaVO>(reserva);
+                CargoFuncionario? cargo = _contextoEmpresa.Cargo;
+                if (cargo != CargoFuncionario.ATENDENTE && cargo != CargoFuncionario.ADMINISTRADOR)
+                {
+                    retorno.CnhNumero = StaticMethods.MascararCnh(retorno.CnhNumero);
+                }
+                return retorno;
+            }
+            catch (BusinessException ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
+            catch (NotFoundException ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
                 throw;
             }
         }
