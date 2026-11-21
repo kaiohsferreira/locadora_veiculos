@@ -4,6 +4,7 @@
  */
 import { api } from './client';
 import type {
+  CobrancaPix,
   FiltroMeusPagamentos,
   MeuPagamento,
   PeriodoPagamentosCliente,
@@ -13,6 +14,20 @@ import type {
 
 const CAMINHO_MEUS_PAGAMENTOS = '/api/pagamentos/meus';
 const CAMINHO_RESUMO_MEUS_PAGAMENTOS = '/api/pagamentos/meus/resumo';
+
+/** Caminho de POST /api/pagamentos/meus/{id}/pix (gerar ou reabrir o PIX de uma cobrança do cliente). */
+export function caminhoGerarPixMeuPagamento(idPagamento: number): string {
+  return `${CAMINHO_MEUS_PAGAMENTOS}/${idPagamento}/pix`;
+}
+
+/**
+ * Gera ou reabre o PIX de uma cobrança do cliente (200). A chamada não tem corpo: valor, pagador e locadora vêm do
+ * servidor. Fechar a gaveta não cancela nada; reabrir chama a mesma rota. Erros chegam como ErroApi e propagam.
+ */
+export async function gerarPixMeuPagamento(idPagamento: number): Promise<CobrancaPix> {
+  const resposta = await api.post<CobrancaPix>(caminhoGerarPixMeuPagamento(idPagamento));
+  return resposta.data;
+}
 
 /** Parâmetros da query de GET /api/pagamentos/meus. */
 export type ParametrosMeusPagamentos = Record<string, string | number>;

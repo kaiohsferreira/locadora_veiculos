@@ -45,6 +45,25 @@ export interface FiltroMeusPagamentos {
   tamanhoPagina: number;
 }
 
+/**
+ * Resposta de POST /api/pagamentos/meus/{id}/pix (ReturnCobrancaPixVO, contrato pagamento-pix). Gerar e reabrir devolvem
+ * a mesma forma. Não traz identificador do provedor nem dado pessoal do pagador.
+ */
+export interface CobrancaPix {
+  idPagamento: number;
+  forma: 'PIX';
+  valor: number;
+  /** Valor no formato de moeda do servidor. Mostrado como veio. */
+  valorStr: string;
+  /** PNG em base64, sem prefixo `data:`. A tela monta `data:image/png;base64,`. */
+  qrCodeBase64: string;
+  copiaECola: string;
+  /** dd/MM/yyyy HH:mm:ss. Só para exibição; a contagem usa `segundosParaExpirar`. */
+  expiraEmStr: string;
+  /** Segundos até a validade, calculados pelo servidor no momento da resposta. */
+  segundosParaExpirar: number;
+}
+
 /** Resposta de GET /api/pagamentos/meus/resumo (ReturnResumoMeusPagamentosVO). */
 export interface ResumoMeusPagamentos {
   /** Ano corrente, pelo servidor. */

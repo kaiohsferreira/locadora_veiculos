@@ -26,7 +26,7 @@ import { obterMensagemErro } from '@/lib/erros';
 import { ROTULO_TIPO_PAGAMENTO } from '@/types/enums';
 import type { ErroApi } from '@/types/api';
 import type { MeuPagamento } from '@/types/pagamentos';
-import { BotaoPagarDesligado } from './BotaoPagarDesligado';
+import { BotaoPagar } from './BotaoPagar';
 import { EtiquetaSituacaoPagamento } from './EtiquetaSituacaoPagamento';
 
 export interface TabelaPagamentosClienteProps {
@@ -42,6 +42,8 @@ export interface TabelaPagamentosClienteProps {
   comFiltro: boolean;
   aoMudarPagina: (pagina: number) => void;
   aoTentarNovamente: () => void;
+  /** "Pagar agora": abre a gaveta de PIX da cobrança da linha. O botão é o gatilho do foco. */
+  aoPagarCobranca: (pagamento: MeuPagamento, gatilho: HTMLElement) => void;
 }
 
 const CABECALHOS: readonly { chave: string; titulo: string; alinhamento: 'esquerda' | 'centro' | 'direita' }[] = [
@@ -73,6 +75,7 @@ export function TabelaPagamentosCliente({
   comFiltro,
   aoMudarPagina,
   aoTentarNovamente,
+  aoPagarCobranca,
 }: TabelaPagamentosClienteProps) {
   if (erro && itens.length === 0 && !carregando) {
     return (
@@ -120,7 +123,14 @@ export function TabelaPagamentosCliente({
                   ))}
                 </tr>
               ))}
-            {!carregando && itens.map((item) => <LinhaPagamento key={item.idPagamento} pagamento={item} />)}
+            {!carregando &&
+              itens.map((item) => (
+                <LinhaPagamento
+                  key={item.idPagamento}
+                  pagamento={item}
+                  aoPagar={(gatilho) => aoPagarCobranca(item, gatilho)}
+                />
+              ))}
           </tbody>
         </table>
       </div>
@@ -147,10 +157,11 @@ export function TabelaPagamentosCliente({
 
 interface LinhaPagamentoProps {
   pagamento: MeuPagamento;
+  aoPagar: (gatilho: HTMLElement) => void;
 }
 
-/** Uma cobrança: descrição, origem, vencimento, valor, situação e ação (sempre desligada). */
-function LinhaPagamento({ pagamento }: LinhaPagamentoProps) {
+/** Uma cobrança: descrição, origem, vencimento, valor, situação e ação (Pagar agora, só quando elegível). */
+function LinhaPagamento({ pagamento, aoPagar }: LinhaPagamentoProps) {
   const pendente = ehPendente(pagamento);
   const idDescricao = `pagamento-${pagamento.idPagamento}-descricao`;
   const origem = rotuloOrigem(pagamento);
@@ -219,11 +230,12 @@ function LinhaPagamento({ pagamento }: LinhaPagamentoProps) {
 
       <td className="whitespace-nowrap px-6 py-4 text-right align-middle">
         {podePagarNaLinha(pagamento) && (
-          <BotaoPagarDesligado
+          <BotaoPagar
             variante="linha"
             rotulo={MENSAGEM_PAGAMENTOS_PAGAR_AGORA}
             icone="bolt"
             tamanhoIcone={18}
+            aoPagar={aoPagar}
           />
         )}
       </td>

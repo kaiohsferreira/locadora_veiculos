@@ -1,19 +1,25 @@
 import { Icone } from '@/components/ui';
-import {
-  MENSAGEM_PAGAMENTOS_BOTAO_EM_BREVE,
-  mensagemBotaoPagarFatura,
-} from '@/lib/mensagens';
+import { mensagemBotaoPagarFatura } from '@/lib/mensagens';
 import { textoFaixaPendencias } from '@/features/financeiro/cliente/regrasPagamentosCliente';
-import { BotaoPagarDesligado } from './BotaoPagarDesligado';
+import { BotaoPagar } from './BotaoPagar';
 
 export interface FaixaPendenciaPagamentosProps {
   quantidadePendentes: number;
   /** Total pendente como veio do servidor (ex.: "R$ 395,60"). */
   totalPendenteStr: string;
+  /** Pagar Fatura: a tela decide entre abrir a gaveta da cobrança única e levar à aba Pendentes. */
+  aoPagar: (gatilho: HTMLElement) => void;
+  /** Busca da cobrança única em andamento. */
+  buscando?: boolean;
 }
 
 /** Faixa do topo (desenho) com as cobranças pendentes. Sem pendente, a faixa não aparece. */
-export function FaixaPendenciaPagamentos({ quantidadePendentes, totalPendenteStr }: FaixaPendenciaPagamentosProps) {
+export function FaixaPendenciaPagamentos({
+  quantidadePendentes,
+  totalPendenteStr,
+  aoPagar,
+  buscando = false,
+}: FaixaPendenciaPagamentosProps) {
   const texto = textoFaixaPendencias(quantidadePendentes);
   if (texto === null) return null;
 
@@ -25,11 +31,12 @@ export function FaixaPendenciaPagamentos({ quantidadePendentes, totalPendenteStr
           <p className="text-apoio font-medium">{texto}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-apoio">{MENSAGEM_PAGAMENTOS_BOTAO_EM_BREVE}</span>
-          <BotaoPagarDesligado
+          <BotaoPagar
             variante="faixa"
             rotulo={mensagemBotaoPagarFatura(totalPendenteStr)}
             iconeDireita="arrow_forward"
+            carregando={buscando}
+            aoPagar={aoPagar}
           />
         </div>
       </div>

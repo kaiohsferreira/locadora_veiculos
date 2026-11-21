@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { ResumoMeusPagamentos } from '@/types/pagamentos';
 import { CartoesResumoPagamentos } from './CartoesResumoPagamentos';
@@ -16,15 +16,15 @@ const RESUMO: ResumoMeusPagamentos = {
   quantidadeAbaPagos: 4,
 };
 
-/** Todo botão que contém o texto de pagar ou regularizar precisa estar desligado. */
-function botoesSemDesligar(html: string): string[] {
-  const botoes = html.match(/<button(?![^>]*(?<![-\w])disabled)[^>]*>[\s\S]*?<\/button>/g) ?? [];
-  return botoes.filter((botao) => /Pagar|Regularizar/.test(botao));
+/** Botões de pagar ou regularizar que vieram desligados (com disabled). Com pendente, nenhum pode vir assim. */
+function botoesDePagarDesligados(html: string): string[] {
+  const botoes = html.match(/<button[^>]*>[\s\S]*?<\/button>/g) ?? [];
+  return botoes.filter((botao) => /Pagar|Regularizar/.test(botao) && /\sdisabled[\s=>]/.test(botao));
 }
 
 describe('CartoesResumoPagamentos (tela 30)', () => {
   it('mostra os dois cartões com os valores como vieram do servidor', () => {
-    const html = renderToStaticMarkup(<CartoesResumoPagamentos resumo={RESUMO} />);
+    const html = renderToStaticMarkup(<CartoesResumoPagamentos resumo={RESUMO} aoRegularizar={vi.fn()} />);
     expect(html).toContain('Total Liquidado no Ano');
     expect(html).toContain('R$ 4.763,85');
     expect(html).toContain('4 cobranças quitadas');
@@ -35,25 +35,27 @@ describe('CartoesResumoPagamentos (tela 30)', () => {
     expect(html).not.toContain('Forma Padrão');
   });
 
-  it('botão Regularizar aparece desligado quando há pendente', () => {
-    const html = renderToStaticMarkup(<CartoesResumoPagamentos resumo={RESUMO} />);
+  it('botão Regularizar aparece ligado quando há pendente, sem aviso de indisponível', () => {
+    const html = renderToStaticMarkup(<CartoesResumoPagamentos resumo={RESUMO} aoRegularizar={vi.fn()} />);
     expect(html).toContain('Regularizar');
-    expect(html).toContain('Pagamento online disponível em breve.');
-    expect(botoesSemDesligar(html)).toEqual([]);
+    expect(html).not.toContain('Pagamento online disponível em breve.');
+    expect(botoesDePagarDesligados(html)).toEqual([]);
   });
 
-  it('botão Regularizar vem desligado e com opacity-60', () => {
-    const html = renderToStaticMarkup(<CartoesResumoPagamentos resumo={RESUMO} />);
+  it('botão Regularizar vem sem disabled, sem aria-disabled e sem opacity-60', () => {
+    const html = renderToStaticMarkup(<CartoesResumoPagamentos resumo={RESUMO} aoRegularizar={vi.fn()} />);
     const botao = (html.match(/<button[^>]*>[\s\S]*?<\/button>/g) ?? []).find((b) => b.includes('Regularizar')) ?? '';
-    expect(botao).toMatch(/<button[^>]*\sdisabled[\s=>]/);
-    expect(botao).toMatch(/aria-disabled="true"/);
-    expect(botao).toMatch(/class="[^"]*\bopacity-60\b[^"]*"/);
+    expect(botao).toMatch(/<button[^>]*type="button"/);
+    expect(botao).not.toMatch(/\sdisabled[\s=>]/);
+    expect(botao).not.toMatch(/aria-disabled/);
+    expect(botao).not.toMatch(/\bopacity-60\b/);
   });
 
   it('com zero pendente: valor zerado, sem botão e sem aviso', () => {
     const html = renderToStaticMarkup(
       <CartoesResumoPagamentos
         resumo={{ ...RESUMO, quantidadePendentes: 0, totalPendenteStr: 'R$ 0,00', totalPendente: 0 }}
+        aoRegularizar={vi.fn()}
       />,
     );
     expect(html).toContain('R$ 0,00');
@@ -63,14 +65,14 @@ describe('CartoesResumoPagamentos (tela 30)', () => {
 
   it('com 1 cobrança quitada usa o singular', () => {
     const html = renderToStaticMarkup(
-      <CartoesResumoPagamentos resumo={{ ...RESUMO, quantidadeQuitadasAno: 1 }} />,
+      <CartoesResumoPagamentos resumo={{ ...RESUMO, quantidadeQuitadasAno: 1 }} aoRegularizar={vi.fn()} />,
     );
     expect(html).toContain('1 cobrança quitada');
     expect(html).not.toContain('1 cobranças');
   });
 
   it('carregando: esqueleto, sem valores', () => {
-    const html = renderToStaticMarkup(<CartoesResumoPagamentos resumo={null} />);
+    const html = renderToStaticMarkup(<CartoesResumoPagamentos resumo={null} aoRegularizar={vi.fn()} />);
     expect(html).toContain('animate-pulse');
     expect(html).not.toContain('R$');
   });
@@ -78,28 +80,45 @@ describe('CartoesResumoPagamentos (tela 30)', () => {
 
 describe('FaixaPendenciaPagamentos (tela 30)', () => {
   it('sem pendente a faixa não aparece', () => {
-    const html = renderToStaticMarkup(<FaixaPendenciaPagamentos quantidadePendentes={0} totalPendenteStr="R$ 0,00" />);
+    const html = renderToStaticMarkup(
+      <FaixaPendenciaPagamentos quantidadePendentes={0} totalPendenteStr="R$ 0,00" aoPagar={vi.fn()} />,
+    );
     expect(html).toBe('');
   });
 
-  it('com pendente: texto no singular e botão Pagar Fatura desligado', () => {
-    const html = renderToStaticMarkup(<FaixaPendenciaPagamentos quantidadePendentes={1} totalPendenteStr="R$ 395,60" />);
+  it('com pendente: texto no singular e botão Pagar Fatura ligado', () => {
+    const html = renderToStaticMarkup(
+      <FaixaPendenciaPagamentos quantidadePendentes={1} totalPendenteStr="R$ 395,60" aoPagar={vi.fn()} />,
+    );
     expect(html).toContain('Você possui 1 cobrança pendente.');
     expect(html).toContain('Pagar Fatura R$ 395,60');
-    expect(html).toContain('Pagamento online disponível em breve.');
-    expect(botoesSemDesligar(html)).toEqual([]);
+    expect(html).not.toContain('Pagamento online disponível em breve.');
+    expect(botoesDePagarDesligados(html)).toEqual([]);
   });
 
-  it('botão Pagar Fatura vem desligado e com opacity-60', () => {
-    const html = renderToStaticMarkup(<FaixaPendenciaPagamentos quantidadePendentes={1} totalPendenteStr="R$ 395,60" />);
+  it('botão Pagar Fatura vem sem disabled e sem opacity-60', () => {
+    const html = renderToStaticMarkup(
+      <FaixaPendenciaPagamentos quantidadePendentes={1} totalPendenteStr="R$ 395,60" aoPagar={vi.fn()} />,
+    );
     const botao = (html.match(/<button[^>]*>[\s\S]*?<\/button>/g) ?? []).find((b) => b.includes('Pagar Fatura')) ?? '';
-    expect(botao).toMatch(/<button[^>]*\sdisabled[\s=>]/);
-    expect(botao).toMatch(/aria-disabled="true"/);
-    expect(botao).toMatch(/class="[^"]*\bopacity-60\b[^"]*"/);
+    expect(botao).not.toMatch(/\sdisabled[\s=>]/);
+    expect(botao).not.toMatch(/aria-disabled/);
+    expect(botao).not.toMatch(/\bopacity-60\b/);
+  });
+
+  it('enquanto a cobrança é buscada, o botão fica bloqueado e marcado como ocupado', () => {
+    const html = renderToStaticMarkup(
+      <FaixaPendenciaPagamentos quantidadePendentes={1} totalPendenteStr="R$ 395,60" aoPagar={vi.fn()} buscando />,
+    );
+    const botao = (html.match(/<button[^>]*>[\s\S]*?<\/button>/g) ?? []).find((b) => b.includes('Pagar Fatura')) ?? '';
+    expect(botao).toMatch(/\sdisabled[\s=>]/);
+    expect(botao).toContain('aria-busy="true"');
   });
 
   it('com várias pendências: texto no plural', () => {
-    const html = renderToStaticMarkup(<FaixaPendenciaPagamentos quantidadePendentes={3} totalPendenteStr="R$ 900,00" />);
+    const html = renderToStaticMarkup(
+      <FaixaPendenciaPagamentos quantidadePendentes={3} totalPendenteStr="R$ 900,00" aoPagar={vi.fn()} />,
+    );
     expect(html).toContain('Você possui 3 cobranças pendentes.');
   });
 });

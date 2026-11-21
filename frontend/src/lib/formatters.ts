@@ -122,6 +122,15 @@ export function formatarData(valor: string | Date | null | undefined): string {
   return data ? formatadorData.format(data) : VALOR_AUSENTE;
 }
 
+/**
+ * "22/11/2026" → "22/11" (dia e mês do vencimento curto). Corta o texto que o servidor já formatou, sem passar pelo Date
+ * (evita voltar um dia). Valor que não esteja em dd/MM/yyyy → traço.
+ */
+export function formatarDiaEMes(valor: string | null | undefined): string {
+  if (semValor(valor)) return VALOR_AUSENTE;
+  return /^\d{2}\/\d{2}\/\d{4}$/.test(valor) ? valor.slice(0, 5) : VALOR_AUSENTE;
+}
+
 /** Date ou instante em ms → "14:22" (hora local, 24 h). */
 export function formatarHora(valor: Date | number | null | undefined): string {
   if (semValor(valor)) return VALOR_AUSENTE;

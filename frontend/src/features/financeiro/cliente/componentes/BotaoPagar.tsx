@@ -1,11 +1,10 @@
 import { Icone } from '@/components/ui';
-import { MENSAGEM_PAGAMENTOS_BOTAO_EM_BREVE } from '@/lib/mensagens';
 
 /** Onde o botão aparece: faixa do topo, cartão de pendentes ou linha da tabela. */
-export type VarianteBotaoPagarDesligado = 'faixa' | 'cartao' | 'linha';
+export type VarianteBotaoPagar = 'faixa' | 'cartao' | 'linha';
 
-interface BotaoPagarDesligadoProps {
-  variante: VarianteBotaoPagarDesligado;
+export interface BotaoPagarProps {
+  variante: VarianteBotaoPagar;
   /** Texto do botão (vem da camada de mensagens). */
   rotulo: string;
   /** Ícone à esquerda do texto (Material Symbols). */
@@ -14,9 +13,13 @@ interface BotaoPagarDesligadoProps {
   iconeDireita?: string;
   /** Tamanho dos ícones, em px. */
   tamanhoIcone?: number;
+  /** Busca em andamento: bloqueia o clique até a cobrança chegar. */
+  carregando?: boolean;
+  /** Abre a gaveta ou a aba. Recebe o próprio botão, que vira o gatilho (o foco volta a ele ao fechar a gaveta). */
+  aoPagar: (gatilho: HTMLElement) => void;
 }
 
-const CLASSES_VARIANTE: Readonly<Record<VarianteBotaoPagarDesligado, string>> = {
+const CLASSES_VARIANTE: Readonly<Record<VarianteBotaoPagar, string>> = {
   faixa:
     'inline-flex items-center gap-1 rounded-sm bg-branco px-2 py-1 text-rotulo font-semibold text-frota-oficina shadow-sm',
   cartao: 'text-rotulo font-bold text-frota-oficina',
@@ -25,23 +28,25 @@ const CLASSES_VARIANTE: Readonly<Record<VarianteBotaoPagarDesligado, string>> = 
 };
 
 /**
- * Botão de pagar da tela 30. Fica SEMPRE desligado (disabled e aria-disabled) até a semana 4 (P7-BE-02). Não chama API
- * nem navega. O aviso fica no title e, na faixa e no cartão, também em texto visível ao lado.
+ * Botão de pagar da tela 30 (ligado). Não chama a API: quem decide o que fazer é a tela, pelo `aoPagar`. Com `carregando`,
+ * fica bloqueado enquanto a cobrança é buscada.
  */
-export function BotaoPagarDesligado({
+export function BotaoPagar({
   variante,
   rotulo,
   icone,
   iconeDireita,
   tamanhoIcone = 16,
-}: BotaoPagarDesligadoProps) {
+  carregando = false,
+  aoPagar,
+}: BotaoPagarProps) {
   return (
     <button
       type="button"
-      disabled
-      aria-disabled="true"
-      title={MENSAGEM_PAGAMENTOS_BOTAO_EM_BREVE}
-      className={`${CLASSES_VARIANTE[variante]} opacity-60 disabled:cursor-not-allowed`}
+      disabled={carregando}
+      aria-busy={carregando || undefined}
+      onClick={(evento) => aoPagar(evento.currentTarget)}
+      className={`${CLASSES_VARIANTE[variante]} transition-colors hover:opacity-90 disabled:cursor-wait`}
     >
       {icone && <Icone nome={icone} tamanho={tamanhoIcone} />}
       {rotulo}

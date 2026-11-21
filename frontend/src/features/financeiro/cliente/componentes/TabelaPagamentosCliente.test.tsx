@@ -35,19 +35,20 @@ function renderizar(parcial: Partial<TabelaPagamentosClienteProps>): string {
     comFiltro: false,
     aoMudarPagina: vi.fn(),
     aoTentarNovamente: vi.fn(),
+    aoPagarCobranca: vi.fn(),
     ...parcial,
   };
   return renderToStaticMarkup(<TabelaPagamentosCliente {...props} />);
 }
 
-/** Todo botão que contém o texto de pagar ou regularizar precisa estar desligado. */
-function botoesSemDesligar(html: string): string[] {
-  const botoes = html.match(/<button(?![^>]*(?<![-\w])disabled)[^>]*>[\s\S]*?<\/button>/g) ?? [];
-  return botoes.filter((botao) => /Pagar|Regularizar/.test(botao));
+/** Botões "Pagar agora" que vieram desligados (com disabled). Numa cobrança elegível, nenhum pode vir assim. */
+function botoesDePagarDesligados(html: string): string[] {
+  const botoes = html.match(/<button[^>]*>[\s\S]*?<\/button>/g) ?? [];
+  return botoes.filter((botao) => botao.includes('Pagar agora') && /\sdisabled[\s=>]/.test(botao));
 }
 
 describe('TabelaPagamentosCliente (tela 30)', () => {
-  it('pendente: vence em N dias, Pagar agora desligado e Pendente', () => {
+  it('pendente: vence em N dias, Pagar agora ligado e Pendente', () => {
     const html = renderizar({ itens: [pagamento({ diasParaVencer: 4 })], total: 1 });
     expect(html).toContain('Vence em 4 dias');
     expect(html).toContain('Pagar agora');
@@ -56,7 +57,7 @@ describe('TabelaPagamentosCliente (tela 30)', () => {
     expect(html).toContain('Jeep Renegade Longitude');
     expect(html).toContain('Cobrança nº 77');
     expect(html).toContain('Diária');
-    expect(botoesSemDesligar(html)).toEqual([]);
+    expect(botoesDePagarDesligados(html)).toEqual([]);
   });
 
   it('pendente vence hoje e amanhã', () => {
@@ -64,7 +65,7 @@ describe('TabelaPagamentosCliente (tela 30)', () => {
     expect(renderizar({ itens: [pagamento({ diasParaVencer: 1 })], total: 1 })).toContain('Vence amanhã');
   });
 
-  it('atrasado: vencida há N dias, com Pagar agora desligado', () => {
+  it('atrasado: vencida há N dias, com Pagar agora ligado', () => {
     const html = renderizar({
       itens: [pagamento({ situacao: 'ATRASADO', diasParaVencer: -2, tipo: 'COBRANCA_EXTRA' })],
       total: 1,
@@ -73,7 +74,7 @@ describe('TabelaPagamentosCliente (tela 30)', () => {
     expect(html).toContain('Atrasado');
     expect(html).toContain('Cobrança extra');
     expect(html).toContain('Pagar agora');
-    expect(botoesSemDesligar(html)).toEqual([]);
+    expect(botoesDePagarDesligados(html)).toEqual([]);
   });
 
   it('pago: Compensado, Pago via forma e sem botão de pagar', () => {
@@ -115,13 +116,22 @@ describe('TabelaPagamentosCliente (tela 30)', () => {
     expect(html).not.toContain('text-frota-oficina">22/11/2026');
   });
 
-  it('botão de pagar da linha vem desligado e com opacity-60', () => {
+  it('botão de pagar da linha vem ligado, sem aviso de indisponível', () => {
     const html = renderizar({ itens: [pagamento({ diasParaVencer: 4 })], total: 1 });
     const botoes = html.match(/<button[^>]*>[\s\S]*?<\/button>/g) ?? [];
     const pagar = botoes.filter((botao) => botao.includes('Pagar agora'));
     expect(pagar).toHaveLength(1);
-    expect(pagar[0]).toMatch(/<button[^>]*\sdisabled[\s=>]/);
-    expect(pagar[0]).toMatch(/class="[^"]*\bopacity-60\b[^"]*"/);
+    expect(pagar[0]).not.toMatch(/\sdisabled[\s=>]/);
+    expect(pagar[0]).not.toMatch(/aria-disabled/);
+    expect(pagar[0]).not.toMatch(/\bopacity-60\b/);
+    expect(botoesDePagarDesligados(html)).toEqual([]);
+    expect(html).not.toContain('Pagamento online disponível em breve.');
+  });
+
+  it('cobrança atrasada também tem o botão ligado', () => {
+    const html = renderizar({ itens: [pagamento({ situacao: 'ATRASADO', diasParaVencer: -3 })], total: 1 });
+    expect(html).toContain('Pagar agora');
+    expect(botoesDePagarDesligados(html)).toEqual([]);
   });
 
   it('origem de venda aparece como Venda nº', () => {

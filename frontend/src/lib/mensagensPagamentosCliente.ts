@@ -19,10 +19,38 @@ export const MENSAGEM_PAGAMENTOS_MIGALHA_ATUAL = 'Financeiro & Pagamentos';
 /** Nome da trilha de navegação para leitores de tela (novo). */
 export const MENSAGEM_PAGAMENTOS_NAVEGACAO_CAMINHO = 'Caminho da página';
 
-// Aviso dos botões de pagar (decisão 4) ----------------------------------------
+// Gaveta de PIX (P7-FE-02, contrato pagamento-pix; textos aprovados em 20/11/2026) --------
 
-/** Aviso único dos botões de pagar desligados (contrato pagamento). */
-export const MENSAGEM_PAGAMENTOS_BOTAO_EM_BREVE = 'Pagamento online disponível em breve.';
+/** Título da gaveta (desenho, html da gaveta). */
+export const MENSAGEM_PIX_TITULO = 'Pagamento Seguro AutoVia';
+/** Rótulo do valor no bloco de resumo (desenho). */
+export const MENSAGEM_PIX_VALOR_FATURA = 'Valor da Fatura';
+/** Vencimento curto no selo do bloco de resumo: "Venc. 22/11". */
+export function mensagemPixVencimentoCurto(diaEMes: string): string {
+  return `Venc. ${diaEMes}`;
+}
+/** Estado gerando: enquanto o servidor responde. */
+export const MENSAGEM_PIX_GERANDO = 'Gerando seu PIX...';
+/** Texto abaixo do QR (desenho). */
+export const MENSAGEM_PIX_ESCANEIE = 'Escaneie com o app do seu Banco';
+/** Texto antes da contagem regressiva (desenho). */
+export const MENSAGEM_PIX_CONTAGEM_ANTES = 'O código expira em';
+/** Alternativa textual do QR Code (acessibilidade). */
+export const MENSAGEM_PIX_QR_ALT = 'QR Code para pagamento via PIX';
+/** Nome acessível do campo somente leitura do copia e cola. Aprovado pelo Kaio em 21/11/2026. */
+export const MENSAGEM_PIX_CAMPO_CODIGO = 'Código PIX copia e cola';
+/** Botão do copia e cola (desenho). */
+export const MENSAGEM_PIX_COPIAR = 'Copiar';
+/** Feedback do Copiar, por 2 segundos. */
+export const MENSAGEM_PIX_CODIGO_COPIADO = 'Código copiado';
+/** Estado expirado: quando a contagem chega a zero. */
+export const MENSAGEM_PIX_EXPIROU = 'O código PIX expirou.';
+/** Botão do estado expirado: chama a mesma rota, que gera outro PIX. */
+export const MENSAGEM_PIX_GERAR_NOVO = 'Gerar novo código';
+/** Botão do estado erro. */
+export const MENSAGEM_PIX_TENTAR_NOVAMENTE = 'Tentar novamente';
+/** Rótulo do botão de fechar a gaveta (mesmo texto da gaveta de funcionário). Aprovado pelo Kaio em 21/11/2026. */
+export const MENSAGEM_PIX_FECHAR = 'Fechar';
 
 // Faixa de pendência ------------------------------------------------------------
 
@@ -139,7 +167,7 @@ export function mensagemPagoVia(rotuloForma: string): string {
   return `Pago via ${rotuloForma}`;
 }
 
-/** Botão de pagar da linha (desligado). */
+/** Botão de pagar da linha (ligado: abre a gaveta do PIX; ver BotaoPagar). */
 export const MENSAGEM_PAGAMENTOS_PAGAR_AGORA = 'Pagar agora';
 
 /** Etiqueta do status pago (desenho). */

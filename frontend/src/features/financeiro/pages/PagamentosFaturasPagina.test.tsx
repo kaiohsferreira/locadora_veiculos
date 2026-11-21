@@ -8,6 +8,8 @@ import PagamentosFaturasPagina from './PagamentosFaturasPagina';
 vi.mock('@/features/financeiro/hooks/usePagamentosCliente', () => ({
   useMeusPagamentos: vi.fn(),
   useResumoMeusPagamentos: vi.fn(),
+  useBuscarUnicaPendencia: vi.fn(),
+  useGerarPixPagamentoCliente: vi.fn(),
   CHAVE_PAGAMENTOS_CLIENTE: 'pagamentos-cliente',
 }));
 
@@ -103,10 +105,10 @@ function renderizar(): string {
   return renderToStaticMarkup(<PagamentosFaturasPagina />);
 }
 
-/** Todo botão que contém o texto de pagar ou regularizar precisa estar desligado. */
-function botoesSemDesligar(html: string): string[] {
-  const botoes = html.match(/<button(?![^>]*(?<![-\w])disabled)[^>]*>[\s\S]*?<\/button>/g) ?? [];
-  return botoes.filter((botao) => /Pagar|Regularizar/.test(botao));
+/** Botões de pagar ou regularizar que vieram desligados. Com pendente, nenhum pode vir assim. */
+function botoesDePagarDesligados(html: string): string[] {
+  const botoes = html.match(/<button[^>]*>[\s\S]*?<\/button>/g) ?? [];
+  return botoes.filter((botao) => /Pagar|Regularizar/.test(botao) && /\sdisabled[\s=>]/.test(botao));
 }
 
 describe('PagamentosFaturasPagina (tela 30)', () => {
@@ -134,7 +136,7 @@ describe('PagamentosFaturasPagina (tela 30)', () => {
     expect(html).toContain('Pago via PIX');
   });
 
-  it('nenhum botão de pagar fica ligado, e o aviso aparece', () => {
+  it('os botões de pagar vêm ligados e o aviso de indisponível sumiu', () => {
     vi.mocked(useResumoMeusPagamentos).mockReturnValue(consultaResumo({ data: RESUMO }));
     vi.mocked(useMeusPagamentos).mockReturnValue(
       consultaLista({ data: { itens: [PENDENTE], total: 1, pagina: 1, tamanhoPagina: 10 } }),
@@ -143,8 +145,8 @@ describe('PagamentosFaturasPagina (tela 30)', () => {
     const html = renderizar();
     expect(html).toContain('Pagar agora');
     expect(html).toContain('Regularizar');
-    expect(html).toContain('Pagamento online disponível em breve.');
-    expect(botoesSemDesligar(html)).toEqual([]);
+    expect(html).not.toContain('Pagamento online disponível em breve.');
+    expect(botoesDePagarDesligados(html)).toEqual([]);
   });
 
   it('nenhum termo que a tela 30 não pode mostrar aparece', () => {

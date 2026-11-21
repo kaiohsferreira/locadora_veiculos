@@ -7,18 +7,21 @@ import {
   mensagemCobrancasQuitadas,
   mensagemExercicio,
   mensagemFaturasAguardandoRegularizacao,
-  MENSAGEM_PAGAMENTOS_BOTAO_EM_BREVE,
 } from '@/lib/mensagens';
 import type { ResumoMeusPagamentos } from '@/types/pagamentos';
-import { BotaoPagarDesligado } from './BotaoPagarDesligado';
+import { BotaoPagar } from './BotaoPagar';
 
 export interface CartoesResumoPagamentosProps {
   /** Resumo já carregado; nulo enquanto carrega. */
   resumo: ResumoMeusPagamentos | null;
+  /** Regularizar: a tela decide entre abrir a gaveta da cobrança única e levar à aba Pendentes. */
+  aoRegularizar: (gatilho: HTMLElement) => void;
+  /** Busca da cobrança única em andamento. */
+  buscando?: boolean;
 }
 
 /** Os dois cartões do topo: total liquidado no ano e cobranças pendentes (desenho, sem o cartão de forma padrão). */
-export function CartoesResumoPagamentos({ resumo }: CartoesResumoPagamentosProps) {
+export function CartoesResumoPagamentos({ resumo, aoRegularizar, buscando = false }: CartoesResumoPagamentosProps) {
   const carregando = resumo === null;
   const temPendentes = resumo !== null && resumo.quantidadePendentes > 0;
 
@@ -86,12 +89,16 @@ export function CartoesResumoPagamentos({ resumo }: CartoesResumoPagamentosProps
                   : MENSAGEM_PAGAMENTOS_SEM_PENDENTES}
               </span>
               {temPendentes && (
-                <BotaoPagarDesligado variante="cartao" rotulo={MENSAGEM_PAGAMENTOS_REGULARIZAR} />
+                <BotaoPagar
+                  variante="cartao"
+                  rotulo={MENSAGEM_PAGAMENTOS_REGULARIZAR}
+                  carregando={buscando}
+                  aoPagar={aoRegularizar}
+                />
               )}
             </>
           )}
         </div>
-        {temPendentes && <p className="mt-2 text-apoio text-texto-apoio">{MENSAGEM_PAGAMENTOS_BOTAO_EM_BREVE}</p>}
       </article>
     </div>
   );

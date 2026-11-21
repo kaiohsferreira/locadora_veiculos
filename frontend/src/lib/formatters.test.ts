@@ -4,12 +4,27 @@ import {
   formatarCep,
   formatarCnpj,
   formatarCpf,
+  formatarDiaEMes,
   formatarHora,
   formatarNumero,
   formatarTelefone,
   limitarDigitos,
   mascararMoedaDigitada,
 } from '@/lib/formatters';
+
+describe('formatarDiaEMes (vencimento curto da tela 30)', () => {
+  it('corta dd/MM/yyyy em dd/MM, sem passar pelo Date', () => {
+    expect(formatarDiaEMes('22/11/2026')).toBe('22/11');
+    expect(formatarDiaEMes('01/01/2027')).toBe('01/01');
+  });
+
+  it('valor ausente ou fora do formato dd/MM/yyyy vira traço', () => {
+    expect(formatarDiaEMes(null)).toBe('—');
+    expect(formatarDiaEMes(undefined)).toBe('—');
+    expect(formatarDiaEMes('2026-11-22')).toBe('—');
+    expect(formatarDiaEMes('22/11')).toBe('—');
+  });
+});
 
 describe('mascararMoedaDigitada', () => {
   it('põe a vírgula dos centavos e o ponto de milhar enquanto a pessoa digita', () => {
