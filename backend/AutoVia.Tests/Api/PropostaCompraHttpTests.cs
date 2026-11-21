@@ -98,6 +98,35 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public async Task DetalheAVenda_SemLogin_Devolve200SemPlacaChassiRenavam()
+        {
+            Veiculo veiculo = Semear(89900m, StatusVeiculo.DISPONIVEL);
+
+            HttpResponseMessage resposta = await _cliente.GetAsync($"/api/veiculos/a-venda/{veiculo.IdVeiculo}");
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(veiculo.IdVeiculo, corpo.GetProperty("idVeiculo").GetInt32());
+            Assert.Equal("Jeep", corpo.GetProperty("marca").GetString());
+            Assert.Equal(89900m, corpo.GetProperty("valorVenda").GetDecimal());
+            Assert.Equal(JsonValueKind.Null, corpo.GetProperty("fotoCapa").ValueKind);
+            Assert.False(corpo.TryGetProperty("placa", out JsonElement _));
+            Assert.False(corpo.TryGetProperty("chassi", out JsonElement _));
+            Assert.False(corpo.TryGetProperty("renavam", out JsonElement _));
+        }
+
+        [Fact]
+        public async Task DetalheAVenda_VeiculoForaDoCatalogo_Devolve404ProblemJson()
+        {
+            Veiculo veiculo = Semear(89900m, StatusVeiculo.LOCADO);
+
+            HttpResponseMessage resposta = await _cliente.GetAsync($"/api/veiculos/a-venda/{veiculo.IdVeiculo}");
+
+            Assert.Equal(HttpStatusCode.NotFound, resposta.StatusCode);
+            Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
+        }
+
+        [Fact]
         public async Task Proposta_SemToken_Devolve401()
         {
             HttpResponseMessage resposta = await _cliente.SendAsync(RequisicaoProposta(null));
