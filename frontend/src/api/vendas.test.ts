@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/api/client';
-import { buscarVeiculoAVenda, enviarPropostaCompra, simularParcelamento } from '@/api/vendas';
+import { buscarVeiculoAVenda, enviarPropostaCompra, listarCatalogo, montarParametrosCatalogo, simularParcelamento } from '@/api/vendas';
 import type { PropostaCompraRequisicao } from '@/types/vendas';
 
 vi.mock('@/api/client', () => ({
@@ -60,5 +60,38 @@ describe('enviarPropostaCompra', () => {
     postMock.mockRejectedValue(erro);
 
     await expect(enviarPropostaCompra(REQUISICAO)).rejects.toBe(erro);
+  });
+});
+
+describe('catálogo', () => {
+  beforeEach(() => {
+    getMock.mockReset();
+  });
+
+  it('monta a query só com os filtros informados e a marca aparada', () => {
+    expect(montarParametrosCatalogo({ pagina: 2, tamanhoPagina: 20, marca: '  Jeep ', precoMaximo: 100000 })).toEqual({
+      pagina: 2,
+      tamanhoPagina: 20,
+      marca: 'Jeep',
+      precoMaximo: 100000,
+    });
+    expect(montarParametrosCatalogo({ pagina: 1, tamanhoPagina: 20, marca: '   ' })).toEqual({ pagina: 1, tamanhoPagina: 20 });
+  });
+
+  it('faz GET em /api/veiculos/a-venda com a query e devolve a página', async () => {
+    getMock.mockResolvedValue({ data: { itens: [{ idVeiculo: 4 }], total: 21, pagina: 1, tamanhoPagina: 20 } });
+
+    const resposta = await listarCatalogo({ pagina: 1, tamanhoPagina: 20, anoMinimo: 2021 });
+
+    expect(getMock).toHaveBeenCalledWith('/api/veiculos/a-venda', { params: { pagina: 1, tamanhoPagina: 20, anoMinimo: 2021 } });
+    expect(resposta.total).toBe(21);
+  });
+
+  it('resposta sem lista vira página vazia', async () => {
+    getMock.mockResolvedValue({ data: null });
+
+    const resposta = await listarCatalogo({ pagina: 3, tamanhoPagina: 20 });
+
+    expect(resposta).toEqual({ itens: [], total: 0, pagina: 3, tamanhoPagina: 20 });
   });
 });

@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
-import { buscarVeiculoAVenda, enviarPropostaCompra, simularParcelamento } from '@/api/vendas';
-import { chaveSimulacao, chaveVeiculoAVenda } from './chavesVendas';
+import { buscarVeiculoAVenda, enviarPropostaCompra, listarCatalogo, simularParcelamento } from '@/api/vendas';
+import { chaveCatalogo, chaveSimulacao, chaveVeiculoAVenda } from './chavesVendas';
+import { useCatalogoSeminovos } from './useCatalogoSeminovos';
 import { useEnviarPropostaCompra } from './useEnviarPropostaCompra';
 import { useSimulacaoParcelamento } from './useSimulacaoParcelamento';
 import { useVeiculoAVenda } from './useVeiculoAVenda';
@@ -15,6 +16,7 @@ vi.mock('@/api/vendas', () => ({
   buscarVeiculoAVenda: vi.fn(),
   simularParcelamento: vi.fn(),
   enviarPropostaCompra: vi.fn(),
+  listarCatalogo: vi.fn(),
 }));
 // Sem espera nos testes: o debounce devolve o valor recebido.
 vi.mock('@/hooks/useDebounce', () => ({
@@ -97,5 +99,20 @@ describe('useEnviarPropostaCompra', () => {
     const opcoes = useMutationMock.mock.calls[0][0] as unknown as { mutationFn: unknown };
 
     expect(opcoes.mutationFn).toBe(enviarPropostaCompra);
+  });
+});
+
+describe('useCatalogoSeminovos', () => {
+  beforeEach(() => useQueryMock.mockReset());
+
+  it('consulta a página do filtro e mantém a lista anterior enquanto a nova chega', async () => {
+    const filtro = { pagina: 2, tamanhoPagina: 20, marca: 'Jeep' };
+    useCatalogoSeminovos(filtro);
+    const opcoes = opcoesConsulta();
+
+    expect(opcoes.queryKey).toEqual(chaveCatalogo(filtro));
+    expect(opcoes.placeholderData).toBe(keepPreviousData);
+    await opcoes.queryFn();
+    expect(listarCatalogo).toHaveBeenCalledWith(filtro);
   });
 });

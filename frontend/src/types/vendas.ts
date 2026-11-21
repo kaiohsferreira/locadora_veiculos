@@ -2,6 +2,7 @@
  * Tipos da venda de seminovos: detalhe público do veículo, simulação do parcelamento e proposta de compra
  * (contrato proposta-compra v1.2, P6-BE-02). Os nomes e formatos seguem exatamente o contrato.
  */
+import type { Pagina } from './api';
 import type { FotoCapaVeiculo } from './fotosVeiculo';
 
 /** Situação da proposta (coluna proposta_compra.status). Nesta entrega toda proposta nasce ENVIADA. */
@@ -68,3 +69,21 @@ export interface PropostaCompra extends SimulacaoParcelamento {
   /** Data e hora do envio, em ISO 8601 (sem fuso: horário do servidor). */
   dataProposta: string;
 }
+
+/**
+ * Filtros do catálogo de seminovos (query de GET /api/veiculos/a-venda). Todos opcionais e combinados com AND; o ano é o
+ * do modelo. `pagina` começa em 1 e `tamanhoPagina` é 20 na tela.
+ */
+export interface FiltroCatalogo {
+  pagina: number;
+  tamanhoPagina: number;
+  marca?: string;
+  precoMinimo?: number;
+  precoMaximo?: number;
+  anoMinimo?: number;
+  anoMaximo?: number;
+  kmMaximo?: number;
+}
+
+/** Página do catálogo: veículos a venda do menor preço para o maior. */
+export type RespostaCatalogo = Pagina<VeiculoAVenda>;

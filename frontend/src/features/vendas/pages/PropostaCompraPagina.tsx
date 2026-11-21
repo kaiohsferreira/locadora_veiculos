@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { BotaoLink, EstadoErro, Esqueleto, Icone } from '@/components/ui';
 import { useAoFalharFotoCapa } from '@/features/area-cliente/hooks/useAoFalharFotoCapa';
@@ -85,6 +85,11 @@ export default function PropostaCompraPagina() {
   useTituloDocumento(PROPOSTA_TITULO_PAGINA);
   const { veiculoId } = useParams<'veiculoId'>();
   const idVeiculo = lerIdVeiculo(veiculoId);
+
+  // O app não restaura a rolagem entre telas: vinda do catálogo rolado, a proposta abriria no meio. Abre no topo.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [veiculoId]);
   const navegar = useNavigate();
   const localizacao = useLocation();
   const { autenticado, possuiPerfil } = useAutenticacao();

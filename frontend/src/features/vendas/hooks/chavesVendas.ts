@@ -1,5 +1,5 @@
 import type { QueryKey } from '@tanstack/react-query';
-import type { ParametrosSimulacao } from '@/types/vendas';
+import type { FiltroCatalogo, ParametrosSimulacao } from '@/types/vendas';
 
 /**
  * Família de chaves da venda de seminovos. As chaves ficam aqui, num arquivo próprio, para os hooks não dependerem uns
@@ -20,4 +20,9 @@ export function chaveVeiculoAVenda(idVeiculo: number | null): QueryKey {
 /** Simulação de um veículo com uma entrada e um número de parcelas. */
 export function chaveSimulacao(idVeiculo: number | null, parametros: ParametrosSimulacao | null): QueryKey {
   return [CHAVE_VENDAS, 'simulacao', idVeiculo, parametros?.valorEntrada ?? null, parametros?.numeroParcelas ?? null];
+}
+
+/** Página do catálogo com os filtros aplicados. */
+export function chaveCatalogo(filtro: FiltroCatalogo): QueryKey {
+  return [CHAVE_VENDAS, 'catalogo', filtro];
 }
