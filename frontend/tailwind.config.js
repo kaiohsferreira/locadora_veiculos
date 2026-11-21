@@ -165,6 +165,16 @@ export default {
         /** Ponto do cartão de quitadas (emerald-500 do desenho). */
         'sucesso-ponto': '#10B981',
       },
+      /**
+       * Financeiro (tela 09, painel financeiro): cores do desenho que não existiam no tema. Valores novos da tela 09.
+       * Aprovado pelo Kaio em 21/11/2026. As outras telas não usam estes tokens.
+       */
+      financeiro: {
+        /** Selo "Venda" da coluna de origem (tertiary do desenho, #000F1F). */
+        'origem-venda': '#000F1F',
+        /** Hover do botão "Dar baixa" (on-secondary-container do desenho, #5D1900). */
+        'acao-hover': '#5D1900',
+      },
     },
     extend: {
       fontFamily: {

@@ -8,6 +8,7 @@ import { ExigirDadosEmpresa } from '@/features/locadoras/cadastro/ExigirDadosEmp
 import { ProvedorCadastroLocadora } from '@/features/locadoras/cadastro/ProvedorCadastroLocadora';
 import { ProvedorFiltrosFrota } from '@/features/frota/listagem/ProvedorFiltrosFrota';
 import { CARGOS_OPERAR_MANUTENCAO } from '@/features/manutencao/permissoes';
+import { CARGOS_VER_PAINEL_FINANCEIRO } from '@/features/financeiro/permissoes';
 import { CAMINHOS } from './caminhos';
 import { ErroInesperado } from './ErroInesperado';
 import { PaginaNaoEncontrada } from './PaginaNaoEncontrada';
@@ -166,8 +167,11 @@ export const rotas: RouteObject[] = [
           // Vendas
           { path: CAMINHOS.vendas, element: <GestaoVendasPagina /> },
 
-          // Financeiro
-          { path: CAMINHOS.financeiro, element: <PainelFinanceiroPagina /> },
+          // Financeiro: painel (tela 09) só FINANCEIRO e ADMINISTRADOR. O servidor confere de novo (política Financeiro).
+          {
+            element: <RotaPorCargo cargosPermitidos={CARGOS_VER_PAINEL_FINANCEIRO} />,
+            children: [{ path: CAMINHOS.financeiro, element: <PainelFinanceiroPagina /> }],
+          },
 
           // Manutenção: abrir e encerrar ordem só GESTOR_FROTA e ADMINISTRADOR (P13). O servidor confere de novo.
           {

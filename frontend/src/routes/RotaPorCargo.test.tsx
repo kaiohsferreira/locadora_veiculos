@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { UsuarioSessao } from '@/types/autenticacao';
 import type { CargoFuncionario } from '@/types/enums';
+import { CARGOS_VER_PAINEL_FINANCEIRO } from '@/features/financeiro/permissoes';
 import { AutenticacaoContexto, type AutenticacaoContextoValor } from './autenticacao/AutenticacaoContexto';
 import { RotaPorCargo } from './RotaPorCargo';
 
@@ -98,5 +99,26 @@ describe('RotaPorCargo: modo de desenvolvimento sem autenticação (VITE_IGNORAR
     const marcado = renderizarRota({ nome: 'Caio', perfil: 'funcionario', cargo: 'ATENDENTE' }, ['ADMINISTRADOR'], false);
 
     expect(marcado).toContain(TITULO_NEGADO);
+  });
+});
+
+describe('RotaPorCargo: painel financeiro (tela 09)', () => {
+  it('ATENDENTE não abre a tela 09', () => {
+    const marcado = renderizarRota(
+      { nome: 'Caio', perfil: 'funcionario', cargo: 'ATENDENTE' },
+      CARGOS_VER_PAINEL_FINANCEIRO,
+    );
+
+    expect(marcado).toContain(TITULO_NEGADO);
+    expect(marcado).not.toContain(MENSAGEM_CONTEUDO);
+  });
+
+  it('FINANCEIRO e ADMINISTRADOR abrem a tela 09', () => {
+    expect(
+      renderizarRota({ nome: 'Bia', perfil: 'funcionario', cargo: 'FINANCEIRO' }, CARGOS_VER_PAINEL_FINANCEIRO),
+    ).toContain(MENSAGEM_CONTEUDO);
+    expect(
+      renderizarRota({ nome: 'Marina', perfil: 'funcionario', cargo: 'ADMINISTRADOR' }, CARGOS_VER_PAINEL_FINANCEIRO),
+    ).toContain(MENSAGEM_CONTEUDO);
   });
 });

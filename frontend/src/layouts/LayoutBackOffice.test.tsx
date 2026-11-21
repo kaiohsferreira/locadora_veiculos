@@ -225,3 +225,20 @@ describe('menu das políticas de cobranças extras', () => {
     expect(renderizarLayout(ATENDENTE)).not.toContain(`href="${CAMINHOS.configuracoesCobrancasExtras}"`);
   });
 });
+
+describe('menu do painel financeiro (tela 09: só FINANCEIRO e ADMINISTRADOR)', () => {
+  const FINANCEIRO_PAINEL: UsuarioSessao = { nome: 'Bia Lima', perfil: 'funcionario', cargo: 'FINANCEIRO' };
+  const LINK_FINANCEIRO = `href="${CAMINHOS.financeiro}"`;
+
+  it('aparece para FINANCEIRO e para ADMINISTRADOR', () => {
+    expect(renderizarLayout(FINANCEIRO_PAINEL)).toContain(LINK_FINANCEIRO);
+    expect(renderizarLayout(ADMINISTRADOR)).toContain(LINK_FINANCEIRO);
+  });
+
+  it('some para ATENDENTE e para GESTOR_FROTA', () => {
+    expect(renderizarLayout(ATENDENTE)).not.toContain(LINK_FINANCEIRO);
+    expect(renderizarLayout({ nome: 'Lia Rocha', perfil: 'funcionario', cargo: 'GESTOR_FROTA' })).not.toContain(
+      LINK_FINANCEIRO,
+    );
+  });
+});
