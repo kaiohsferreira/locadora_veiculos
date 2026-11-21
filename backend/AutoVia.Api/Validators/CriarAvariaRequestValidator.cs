@@ -23,10 +23,19 @@ namespace AutoVia.Api.Validators
                 .WithMessage(string.Format(ConstantsMessage.ErroCampoInvalido, NomeCampoDescricao));
             RuleFor(x => x.Gravidade).Must(GravidadePermitida)
                 .WithMessage(ConstantsMessage.ErroAvariaGravidadeInvalida);
-            RuleFor(x => x.ValorEstimado).Must(x => !x.HasValue || (x.Value >= 0m && x.Value <= 99999999.99m && decimal.Round(x.Value, 2) == x.Value))
+            RuleFor(x => x.ValorEstimado).Must(ValorEstimadoValido)
                 .WithMessage(ConstantsMessage.ErroAvariaValorEstimadoInvalido);
             RuleFor(x => x.Foto).NotNull().WithMessage(ConstantsMessage.ErroAvariaFotoObrigatoria)
                 .MustAsync(ValidarFotoAsync).WithMessage(ConstantsMessage.ErroAvariaFotoFormatoInvalido);
+        }
+
+        /// <summary>Texto do valor estimado aceito pela conversao unica e dentro da faixa de 0 a 99999999.99; vazio e sem valor.</summary>
+        private static bool ValorEstimadoValido(string? texto)
+        {
+            decimal? valor;
+            if (!ConversorValorEstimadoFormulario.TentarConverter(texto, out valor))
+                return false;
+            return !valor.HasValue || (valor.Value >= 0m && valor.Value <= ConstantsValues.LimiteValorEstimadoAvaria);
         }
 
         private static bool GravidadePermitida(string valor)

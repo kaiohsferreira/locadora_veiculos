@@ -20,6 +20,7 @@ namespace AutoVia.Tests.Avarias
             Assert.Equal("idAvaria", ConstantsValues.ExtensaoProblemaIdAvaria);
             Assert.Equal("retryUploadUrl", ConstantsValues.ExtensaoProblemaRetryUploadUrl);
             Assert.Equal("/api/vistorias/{0}/avarias/{1}/foto", ConstantsValues.FormatoRotaRetryFotoAvaria);
+            Assert.Equal(99999999.99m, ConstantsValues.LimiteValorEstimadoAvaria);
         }
     }
 }

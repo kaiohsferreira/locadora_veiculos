@@ -23,6 +23,15 @@ namespace AutoVia.Helpers
         /// <summary>Caminho relativo do PUT da foto; {0} = idVistoria e {1} = idAvaria, formatados com CultureInfo.InvariantCulture.</summary>
         public const string FormatoRotaRetryFotoAvaria = "/api/vistorias/{0}/avarias/{1}/foto";
 
+        /// <summary>Maior valor estimado aceito numa avaria (R$, NUMERIC(10,2)); o menor e zero.</summary>
+        public const decimal LimiteValorEstimadoAvaria = 99999999.99m;
+
+        /// <summary>
+        /// Formato do valor estimado no formulario da avaria: so digitos, com no maximo um ponto decimal e ate duas casas.
+        /// Sem sinal, espaco, separador de milhar, virgula ou expoente. \A e \z (e nao $) para nao aceitar quebra de linha no fim.
+        /// </summary>
+        public const string PadraoValorEstimadoFormulario = @"\A[0-9]+(\.[0-9]{1,2})?\z";
+
         /// <summary>Teto (R$) da soma dos valores estimados das avarias novas de uma saida; o mesmo limite da apuracao (ErroCobrancasExtrasLimite).</summary>
         public const decimal LimiteSomaValorEstimadoNovasAvariasSaida = 99999999.99m;
     }

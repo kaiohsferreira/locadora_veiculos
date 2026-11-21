@@ -46,7 +46,8 @@ namespace AutoVia.Api.Controllers
             try
             {
                 (byte[] conteudo, string contentType) = await LerFotoAsync(request.Foto, HttpContext.RequestAborted);
-                ReturnAvariaVO criada = await _avariaService.CriarAsync(idVistoria, request.Descricao, request.Gravidade, request.ValorEstimado, conteudo, contentType, HttpContext.RequestAborted);
+                decimal? valorEstimado = ConverterValorEstimado(request.ValorEstimado);
+                ReturnAvariaVO criada = await _avariaService.CriarAsync(idVistoria, request.Descricao, request.Gravidade, valorEstimado, conteudo, contentType, HttpContext.RequestAborted);
                 return CreatedAtAction(nameof(GetById), new { idVistoria, idAvaria = criada.IdAvaria }, criada);
             }
             catch (AvariaUploadException ex)
@@ -151,6 +152,15 @@ namespace AutoVia.Api.Controllers
                 _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroRemoverFotoAvaria, GetType().ToString());
                 throw;
             }
+        }
+
+        /// <summary>Converte o texto do formulario com a mesma regra do validador; texto fora do formato vira 400 (o validador ja o recusa antes).</summary>
+        private static decimal? ConverterValorEstimado(string? texto)
+        {
+            decimal? valor;
+            if (!ConversorValorEstimadoFormulario.TentarConverter(texto, out valor))
+                throw new ValidationException(ConstantsMessage.ErroAvariaValorEstimadoInvalido);
+            return valor;
         }
 
         private static async Task<(byte[] Conteudo, string ContentType)> LerFotoAsync(IFormFile? foto, CancellationToken cancellationToken)

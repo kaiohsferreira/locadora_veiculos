@@ -21,7 +21,7 @@ namespace AutoVia.Tests.Avarias;
 /// <summary>Teste HTTP da rota POST /api/vistorias/{id}/avarias: as tres recusas 409 da regra da vistoria e o caminho que segue.</summary>
 public sealed class AvariaHttpTests
 {
-    private const int IdVistoria = 14;
+    internal const int IdVistoria = 14;
     private const int IdLocacao = 10;
     private const int IdVistoriaDeSaida = 15;
 
@@ -81,7 +81,7 @@ public sealed class AvariaHttpTests
         Assert.Equal(1, fabrica.Armazenamento.UploadCount);
     }
 
-    private static string TokenDe(AvariaWebFactory fabrica)
+    internal static string TokenDe(AvariaWebFactory fabrica)
     {
         JwtOptions opcoes = new JwtOptions
         {
@@ -113,7 +113,7 @@ public sealed class AvariaHttpTests
         return documento.RootElement.GetProperty("detail").GetString();
     }
 
-    private static byte[] JpegValido()
+    internal static byte[] JpegValido()
     {
         using SKBitmap bitmap = new SKBitmap(1, 1);
         bitmap.Erase(SKColors.White);
@@ -122,7 +122,7 @@ public sealed class AvariaHttpTests
         return dados.ToArray();
     }
 
-    private sealed class AvariaWebFactory : VeiculoWebFactory
+    internal sealed class AvariaWebFactory : VeiculoWebFactory
     {
         public FakeVistoriaSaidaRepository Saidas { get; } = new FakeVistoriaSaidaRepository();
         public FakeAvariaRepository Avarias { get; }

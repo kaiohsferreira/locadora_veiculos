@@ -23,6 +23,9 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Verdadeiro quando a avaria foi gravada com a trava da locacao ativa (o que o servico precisa garantir).</summary>
         public bool CriadoSobTrava { get; private set; }
 
+        /// <summary>Ultima avaria gravada pelo fake (null enquanto nao houve gravacao), para o teste ler os campos gravados.</summary>
+        public Avaria? UltimaCriada { get; private set; }
+
         public Task<Vistoria?> FindAtivaComLocacaoAsync(int idVistoria, CancellationToken cancellationToken = default)
         {
             Vistoria? vistoria = _saidas.Vistorias.Vistorias.FirstOrDefault(x => x.IdVistoria == idVistoria && x.DisabledAt == null);
@@ -40,6 +43,7 @@ namespace AutoVia.Tests.Fakes
             CriadoSobTrava = _saidas.Vistorias.SobTrava;
             avaria.IdAvaria = CriacaoCount + 1;
             _avarias.Add(avaria.IdAvaria, avaria);
+            UltimaCriada = avaria;
             CriacaoCount++;
             return Task.FromResult(avaria);
         }

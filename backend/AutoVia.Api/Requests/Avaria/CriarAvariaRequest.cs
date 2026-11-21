@@ -7,7 +7,8 @@ namespace AutoVia.Api.Requests.Avaria
     {
         public string Descricao { get; set; } = string.Empty;
         public string Gravidade { get; set; } = string.Empty;
-        public decimal? ValorEstimado { get; set; }
+        /// <summary>Valor estimado como texto do formulario (ponto decimal); a conversao e de ConversorValorEstimadoFormulario, sem depender da cultura.</summary>
+        public string? ValorEstimado { get; set; }
         public IFormFile? Foto { get; set; }
     }
 }
