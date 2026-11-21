@@ -35,7 +35,7 @@ export interface ModalEncerrarOrdemProps {
 
 /**
  * Modal "Encerrar ordem #n": quilometragem na saída (obrigatória), data de saída (vazia é hoje) e custo (opcional, em
- * reais, com máscara). Valida antes e mostra as mensagens do servidor no campo certo; 404 e 409 aparecem no topo.
+ * reais, com máscara). Valida antes e mostra as mensagens do servidor no campo certo; 404 e 409 aparecem no fim do formulário, depois do último campo.
  */
 export function ModalEncerrarOrdem({ ordem, aoFechar }: ModalEncerrarOrdemProps) {
   const aviso = useAviso();

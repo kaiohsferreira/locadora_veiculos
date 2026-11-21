@@ -11,6 +11,7 @@ import {
   mensagemManutencaoCategoria,
 } from '@/lib/mensagens';
 import { faixaDoAlerta, larguraBarraCiclo, seloDoAlerta, textoCicloDoAlerta, textoFaltamDoAlerta, type FaixaAlerta } from '@/features/manutencao/alertas/faixaAlerta';
+import type { TipoManutencao } from '@/types/enums';
 import type { AlertaRevisaoRetorno } from '@/types/manutencao';
 
 /** Classes de cada faixa, só com tokens do tema (desenho 14, cartões 1 a 4). */
@@ -66,8 +67,11 @@ const ESTILO_POR_FAIXA: Readonly<Record<FaixaAlerta, EstiloFaixa>> = {
 
 export interface CartaoAlertaRevisaoProps {
   alerta: AlertaRevisaoRetorno;
-  /** Abre o modal de abrir ordem com o veículo preenchido (Bloquear p/ Oficina e Abrir ordem). */
-  aoAbrirOrdem: (idVeiculo: number) => void;
+  /**
+   * Abre o modal de abrir ordem com o veículo preenchido. Bloquear p/ Oficina passa o tipo Preventiva; Abrir ordem não
+   * passa tipo (o campo fica vazio).
+   */
+  aoAbrirOrdem: (idVeiculo: number, tipoInicial?: TipoManutencao) => void;
   /** Filtra a tabela pelas ordens deste veículo (Ver Histórico). */
   aoVerHistorico: (idVeiculo: number) => void;
   /** Chamado na primeira falha da capa (a página refaz a consulta, uma vez por visita). */
@@ -154,7 +158,7 @@ export function CartaoAlertaRevisao({ alerta, aoAbrirOrdem, aoVerHistorico, aoFa
           <>
             <button
               type="button"
-              onClick={() => aoAbrirOrdem(alerta.idVeiculo)}
+              onClick={() => aoAbrirOrdem(alerta.idVeiculo, 'PREVENTIVA')}
               className="inline-flex h-9 flex-1 items-center justify-center gap-1 rounded bg-manutencao-alerta text-corpo-denso font-semibold text-branco shadow-sm transition-colors enabled:hover:bg-manutencao-alerta-escuro focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-acao"
             >
               <Icone nome="lock" tamanho={16} />

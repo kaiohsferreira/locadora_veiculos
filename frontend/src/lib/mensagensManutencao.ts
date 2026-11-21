@@ -3,7 +3,7 @@
  * `@/lib/mensagens`.
  *
  * Os textos aprovados pelo Kaio em 20/11/2026 ("Aprovo como está") vêm de docs/textos-novos-semana4-20-11.md e do
- * contrato manutencao.contract.json v2. Os marcados como "pendente" não estavam na lista aprovada e aguardam o Kaio.
+ * contrato manutencao.contract.json v2. Os textos fora da lista do contrato foram aprovados pelo Kaio em 20/11/2026.
  * Os números (quantidades, km) entram já formatados pelo chamador, com `@/lib/formatters`.
  */
 
@@ -15,9 +15,9 @@ function preencher(modelo: string, ...valores: string[]): string {
 // Cabeçalho ------------------------------------------------------------------
 
 export const MENSAGEM_MANUTENCAO_TITULO = 'Manutenção da Frota';
-/** Pendente (pergunta 7 do contrato): a trilha fica com estes dois itens; o último ("Oficinas Credenciadas") foi cortado. */
+/** Aprovado pelo Kaio em 20/11/2026 (pergunta 7 do contrato): a trilha fica com estes dois itens; o último ("Oficinas Credenciadas") foi cortado. */
 export const MENSAGEM_MANUTENCAO_TRILHA_OPERACOES = 'Operações';
-/** Pendente (pergunta 7 do contrato): ver a trilha acima. */
+/** Aprovado pelo Kaio em 20/11/2026 (pergunta 7 do contrato): ver a trilha acima. */
 export const MENSAGEM_MANUTENCAO_TRILHA_CONTROLE = 'Controle Técnico de Ativos';
 export const MENSAGEM_MANUTENCAO_DESCRICAO =
   'Alertas de revisão por quilometragem e controle das ordens de manutenção da frota.';
@@ -112,9 +112,9 @@ export const MENSAGEM_MANUTENCAO_ERRO_DATA_SAIDA_FUTURA = 'A data de saída não
 export const MENSAGEM_MANUTENCAO_ERRO_DATA_SAIDA_ANTERIOR =
   'A data de saída não pode ser anterior à data de entrada.';
 export const MENSAGEM_MANUTENCAO_ERRO_KM = 'Informe a quilometragem do veículo na saída.';
-/** Pendente: a quilometragem tem de caber num inteiro de 32 bits (o servidor guarda int). Texto igual ao da vistoria, uso novo aqui. */
+/** Aprovado pelo Kaio em 20/11/2026: a quilometragem tem de caber num inteiro de 32 bits (o servidor guarda int). Texto igual ao da vistoria, uso novo aqui. */
 export const MENSAGEM_MANUTENCAO_ERRO_KM_LIMITE = 'Informe a quilometragem inteira entre 0 e 2.147.483.647 km.';
-/** Pendente: o texto de custo do servidor (ErroManutencaoCustoPrecisao) não estava na lista aprovada. */
+/** Aprovado pelo Kaio em 20/11/2026: o texto de custo do servidor (ErroManutencaoCustoPrecisao). */
 export const MENSAGEM_MANUTENCAO_ERRO_CUSTO_PRECISAO =
   'O custo deve ter no máximo 8 dígitos inteiros e 2 casas decimais.';
 

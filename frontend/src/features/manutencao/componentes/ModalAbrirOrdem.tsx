@@ -16,7 +16,7 @@ import {
   MENSAGEM_MANUTENCAO_MODAL_ABRIR_TITULO,
   MENSAGEM_MANUTENCAO_SUCESSO_ABRIR,
 } from '@/lib/mensagens';
-import { ROTULO_TIPO_MANUTENCAO, TIPO_MANUTENCAO } from '@/types/enums';
+import { ROTULO_TIPO_MANUTENCAO, TIPO_MANUTENCAO, type TipoManutencao } from '@/types/enums';
 import { useAbrirManutencao } from '@/features/manutencao/hooks/useAbrirManutencao';
 import { useVeiculosParaOrdem } from '@/features/manutencao/hooks/useVeiculosParaOrdem';
 import {
@@ -25,6 +25,7 @@ import {
   criarEsquemaAbrirOrdem,
   dataIsoLocal,
   montarRequisicaoAbrir,
+  valoresIniciaisAbrirOrdem,
   type ValoresAbrirOrdem,
 } from '@/features/manutencao/formularios/esquemasOrdem';
 
@@ -69,16 +70,18 @@ const CampoTextoLongo = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
 export interface ModalAbrirOrdemProps {
   /** Veículo já escolhido (Bloquear p/ Oficina e Abrir ordem do cartão), ou nulo para escolher na lista. */
   idVeiculoInicial: number | null;
+  /** Tipo já escolhido (Bloquear p/ Oficina: Preventiva). Sem ele, o campo Tipo vem vazio. O usuário pode trocar. */
+  tipoInicial?: TipoManutencao;
   /** Fecha o modal (sucesso ou cancelamento). O pai desmonta o componente. */
   aoFechar: () => void;
 }
 
 /**
  * Modal "Abrir ordem de manutenção". Veículo e tipo são obrigatórios; oficina, descrição e data de entrada são opcionais
- * (a data vazia é hoje). Valida antes (Zod) e mostra as mensagens do servidor no campo certo; 404 e 409 aparecem no topo.
+ * (a data vazia é hoje). Valida antes (Zod) e mostra as mensagens do servidor no campo certo; 404 e 409 aparecem no fim do formulário, depois do último campo.
  * Depois do sucesso, o aviso é dado pela página e o modal fecha.
  */
-export function ModalAbrirOrdem({ idVeiculoInicial, aoFechar }: ModalAbrirOrdemProps) {
+export function ModalAbrirOrdem({ idVeiculoInicial, tipoInicial, aoFechar }: ModalAbrirOrdemProps) {
   const aviso = useAviso();
   const idFormulario = useId();
   const veiculos = useVeiculosParaOrdem();
@@ -94,13 +97,7 @@ export function ModalAbrirOrdem({ idVeiculoInicial, aoFechar }: ModalAbrirOrdemP
     formState: { errors },
   } = useForm<ValoresAbrirOrdem>({
     resolver: zodResolver(esquema),
-    defaultValues: {
-      idVeiculo: idVeiculoInicial === null ? '' : String(idVeiculoInicial),
-      tipo: '',
-      oficina: '',
-      descricao: '',
-      dataEntrada: hoje,
-    },
+    defaultValues: valoresIniciaisAbrirOrdem(idVeiculoInicial, tipoInicial, hoje),
   });
 
   const opcoesVeiculos: OpcaoSelect[] = (veiculos.data ?? []).map((veiculo) => ({

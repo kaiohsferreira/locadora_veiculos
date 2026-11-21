@@ -56,6 +56,24 @@ export function criarEsquemaAbrirOrdem(hoje: string) {
   });
 }
 
+/**
+ * Estado inicial do formulário de abrir ordem, por origem. O veículo vem do cartão (ou vazio, pelo cabeçalho). O tipo vem
+ * do Bloquear p/ Oficina (Preventiva) ou fica vazio nas demais origens.
+ */
+export function valoresIniciaisAbrirOrdem(
+  idVeiculoInicial: number | null,
+  tipoInicial: TipoManutencao | undefined,
+  hoje: string,
+): ValoresAbrirOrdem {
+  return {
+    idVeiculo: idVeiculoInicial === null ? '' : String(idVeiculoInicial),
+    tipo: tipoInicial ?? '',
+    oficina: '',
+    descricao: '',
+    dataEntrada: hoje,
+  };
+}
+
 /** Corpo do POST: o veículo vira número; oficina, descrição e data vazias não vão (o servidor usa o padrão). */
 export function montarRequisicaoAbrir(valores: ValoresAbrirOrdem): AbrirManutencaoRequisicao {
   const requisicao: AbrirManutencaoRequisicao = {

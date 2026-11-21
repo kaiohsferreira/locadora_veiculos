@@ -5,6 +5,7 @@ import {
   dataIsoLocal,
   montarRequisicaoAbrir,
   montarRequisicaoEncerrar,
+  valoresIniciaisAbrirOrdem,
   type ValoresAbrirOrdem,
   type ValoresEncerrarOrdem,
 } from './esquemasOrdem';
@@ -20,6 +21,29 @@ const ABRIR_VALIDO: ValoresAbrirOrdem = {
 };
 
 const ENCERRAR_VALIDO: ValoresEncerrarOrdem = { kmAtual: '40120', dataSaida: '2026-11-20', custo: '890,50' };
+
+describe('valoresIniciaisAbrirOrdem (estado inicial por origem do formulário)', () => {
+  it('pelo Bloquear p/ Oficina de um cartão: veículo do cartão e tipo Preventiva já escolhido', () => {
+    const iniciais = valoresIniciaisAbrirOrdem(7, 'PREVENTIVA', HOJE);
+    expect(iniciais.idVeiculo).toBe('7');
+    expect(iniciais.tipo).toBe('PREVENTIVA');
+    expect(iniciais.oficina).toBe('');
+    expect(iniciais.descricao).toBe('');
+    expect(iniciais.dataEntrada).toBe(HOJE);
+  });
+
+  it('pelo Abrir ordem de um cartão: veículo do cartão e tipo vazio', () => {
+    const iniciais = valoresIniciaisAbrirOrdem(7, undefined, HOJE);
+    expect(iniciais.idVeiculo).toBe('7');
+    expect(iniciais.tipo).toBe('');
+  });
+
+  it('pelo Abrir ordem do cabeçalho: sem veículo e tipo vazio (como antes)', () => {
+    const iniciais = valoresIniciaisAbrirOrdem(null, undefined, HOJE);
+    expect(iniciais.idVeiculo).toBe('');
+    expect(iniciais.tipo).toBe('');
+  });
+});
 
 /** Primeira mensagem de erro do formulário, ou null quando passa. */
 function erroAbrir(valores: Partial<ValoresAbrirOrdem>): string | null {

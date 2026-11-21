@@ -14,6 +14,7 @@ import {
   MENSAGEM_MANUTENCAO_TENTAR_DE_NOVO,
   MENSAGEM_MANUTENCAO_TITULO,
 } from '@/lib/mensagens';
+import type { TipoManutencao } from '@/types/enums';
 import type { ManutencaoListaRetorno } from '@/types/manutencao';
 import { CabecalhoManutencao } from '@/features/manutencao/componentes/CabecalhoManutencao';
 import { BarraFiltrosManutencao } from '@/features/manutencao/componentes/BarraFiltrosManutencao';
@@ -54,7 +55,7 @@ export default function ManutencaoFrotaPagina() {
   const alertas = useAlertasRevisao();
   const resumo = useResumoManutencao();
   /** Modal aberto: veículo pré-escolhido (ou nulo) para abrir uma ordem; ordem escolhida para encerrar. */
-  const [abrindoPara, setAbrindoPara] = useState<{ idVeiculo: number | null } | null>(null);
+  const [abrindoPara, setAbrindoPara] = useState<{ idVeiculo: number | null; tipoInicial?: TipoManutencao } | null>(null);
   const [encerrando, setEncerrando] = useState<ManutencaoListaRetorno | null>(null);
   /** Uma nova consulta por visita quando uma capa falha (ver `aoFalharFotoCapa`), uma para cada bloco. */
   const [controleFotoAlertas] = useState(criarControleNovaConsultaFoto);
@@ -87,7 +88,7 @@ export default function ManutencaoFrotaPagina() {
         tentando={alertas.isFetching}
         alertas={alertas.data}
         aoTentarNovamente={() => void alertas.refetch()}
-        aoAbrirOrdem={(idVeiculo) => setAbrindoPara({ idVeiculo })}
+        aoAbrirOrdem={(idVeiculo, tipoInicial) => setAbrindoPara({ idVeiculo, tipoInicial })}
         aoVerHistorico={(idVeiculo) => mudar({ tipo: 'veiculo', idVeiculo })}
         aoFalharFotoCapa={() => aoFalharFotoCapa(controleFotoAlertas, () => void alertas.refetch())}
       />
@@ -170,7 +171,11 @@ export default function ManutencaoFrotaPagina() {
       </section>
 
       {abrindoPara !== null && (
-        <ModalAbrirOrdem idVeiculoInicial={abrindoPara.idVeiculo} aoFechar={() => setAbrindoPara(null)} />
+        <ModalAbrirOrdem
+          idVeiculoInicial={abrindoPara.idVeiculo}
+          tipoInicial={abrindoPara.tipoInicial}
+          aoFechar={() => setAbrindoPara(null)}
+        />
       )}
       {encerrando !== null && <ModalEncerrarOrdem ordem={encerrando} aoFechar={() => setEncerrando(null)} />}
     </div>

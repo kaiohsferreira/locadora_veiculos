@@ -1,3 +1,4 @@
+import { isValidElement, type ReactElement, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { AlertaRevisaoRetorno, AlertasRevisaoRetorno } from '@/types/manutencao';
@@ -242,5 +243,57 @@ describe('ListaAlertasRevisao: estados', () => {
     expect(marcado).toContain('Nenhum veículo próximo da revisão.');
     expect(marcado).not.toContain('Requerem Atenção');
     expect(marcado).not.toContain('Requer Atenção');
+  });
+});
+
+/** Texto visível de um nó do React (sem os elementos de ícone). */
+function textoDoNo(no: ReactNode): string {
+  if (typeof no === 'string' || typeof no === 'number') return String(no);
+  if (Array.isArray(no)) return no.map(textoDoNo).join('');
+  if (isValidElement<{ children?: ReactNode }>(no)) return textoDoNo(no.props.children);
+  return '';
+}
+
+/** Primeiro botão da árvore cujo texto contém o rótulo. */
+function acharBotao(no: ReactNode, rotulo: string): ReactElement<{ onClick: () => void }> | undefined {
+  if (Array.isArray(no)) {
+    for (const item of no) {
+      const achado = acharBotao(item, rotulo);
+      if (achado) return achado;
+    }
+    return undefined;
+  }
+  if (!isValidElement<{ children?: ReactNode; onClick: () => void }>(no)) return undefined;
+  if (no.type === 'button' && textoDoNo(no.props.children).includes(rotulo)) {
+    return no as ReactElement<{ onClick: () => void }>;
+  }
+  return acharBotao(no.props.children, rotulo);
+}
+
+describe('CartaoAlertaRevisao: o que o botão manda para o formulário de ordem', () => {
+  it('Bloquear p/ Oficina (cartão vermelho) pede a ordem com o tipo Preventiva', () => {
+    const aoAbrirOrdem = vi.fn();
+    const arvore = CartaoAlertaRevisao({
+      alerta: alerta({ idVeiculo: 9, faltamKm: 180 }),
+      aoAbrirOrdem,
+      aoVerHistorico: vi.fn(),
+      aoFalharFotoCapa: vi.fn(),
+    });
+    acharBotao(arvore, 'Bloquear p/ Oficina')?.props.onClick();
+    expect(aoAbrirOrdem).toHaveBeenCalledWith(9, 'PREVENTIVA');
+  });
+
+  it('Abrir ordem (cartão laranja) pede a ordem só com o veículo, sem tipo', () => {
+    const aoAbrirOrdem = vi.fn();
+    const arvore = CartaoAlertaRevisao({
+      alerta: alerta({ idVeiculo: 9, faltamKm: 1060, percentualCiclo: 89.4 }),
+      aoAbrirOrdem,
+      aoVerHistorico: vi.fn(),
+      aoFalharFotoCapa: vi.fn(),
+    });
+    acharBotao(arvore, 'Abrir ordem')?.props.onClick();
+    expect(aoAbrirOrdem).toHaveBeenCalledTimes(1);
+    expect(aoAbrirOrdem.mock.calls[0]).toHaveLength(1);
+    expect(aoAbrirOrdem.mock.calls[0][0]).toBe(9);
   });
 });

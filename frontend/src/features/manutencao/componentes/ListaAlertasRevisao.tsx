@@ -12,6 +12,7 @@ import {
   mensagemManutencaoSeloAlertas,
 } from '@/lib/mensagens';
 import { CartaoAlertaRevisao } from '@/features/manutencao/componentes/CartaoAlertaRevisao';
+import type { TipoManutencao } from '@/types/enums';
 import type { AlertasRevisaoRetorno } from '@/types/manutencao';
 
 export interface ListaAlertasRevisaoProps {
@@ -24,7 +25,7 @@ export interface ListaAlertasRevisaoProps {
   /** Alertas da API. Nulo enquanto não há dados. */
   alertas: AlertasRevisaoRetorno | undefined;
   aoTentarNovamente: () => void;
-  aoAbrirOrdem: (idVeiculo: number) => void;
+  aoAbrirOrdem: (idVeiculo: number, tipoInicial?: TipoManutencao) => void;
   aoVerHistorico: (idVeiculo: number) => void;
   aoFalharFotoCapa: () => void;
 }
