@@ -119,6 +119,48 @@ namespace AutoVia.Tests.Fakes
             return Task.FromResult(pagamento);
         }
 
+        /// <summary>Quando verdadeiro, a atualizacao de atrasos falha depois de passar pela consulta (excecao generica, como um erro de banco).</summary>
+        public bool FalharAtrasos { get; set; }
+
+        /// <summary>Consulta da rotina de atraso: nao desativada, PENDENTE, sem caucao e com vencimento antes de hoje (a regra pura).</summary>
+        public IQueryable<Pagamento> ConsultaAtrasosVencidos(DateOnly hoje)
+        {
+            return Pagamentos
+                .Where(x => x.DisabledAt == null && RegrasPagamento.DeveVirarAtrasado(x.Tipo, x.Status, x.DataVencimento, hoje))
+                .AsQueryable();
+        }
+
+        /// <summary>Marca como ATRASADO os pagamentos da rotina; a lista do teste e de uma so locadora, entao e a mesma conta.</summary>
+        public Task<int> AtualizarAtrasosTodasLocadorasAsync(DateOnly hoje, DateTime agora)
+        {
+            return Task.FromResult(MarcarAtrasos(hoje, agora));
+        }
+
+        /// <summary>Marca como ATRASADO os pagamentos vencidos da locadora do teste.</summary>
+        public Task<int> AtualizarAtrasosDaLocadoraAsync(DateOnly hoje, DateTime agora)
+        {
+            return Task.FromResult(MarcarAtrasos(hoje, agora));
+        }
+
+        /// <summary>Atualiza status e horario das cobrancas que a regra marca e devolve a quantidade (falha simulada se FalharAtrasos).</summary>
+        private int MarcarAtrasos(DateOnly hoje, DateTime agora)
+        {
+            if (FalharAtrasos)
+            {
+                throw new InvalidOperationException("Falha simulada da atualizacao de atrasos.");
+            }
+
+            List<Pagamento> alvos = ConsultaAtrasosVencidos(hoje).ToList();
+
+            foreach (Pagamento cobranca in alvos)
+            {
+                cobranca.Status = StatusPagamento.ATRASADO;
+                cobranca.UpdatedAt = agora;
+            }
+
+            return alvos.Count;
+        }
+
         /// <summary>Lista da locadora: predicado, ordem de vencimento e id, com pagina e total. Devolve a projecao sem o QR.</summary>
         public Task<(List<PagamentoListagemRegistro> Itens, int Total)> ListarPagamentosDaLocadoraAsync(Expression<Func<Pagamento, bool>> predicado, int deslocamento, int tamanho)
         {

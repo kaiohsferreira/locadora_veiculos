@@ -122,5 +122,11 @@ namespace AutoVia.Helpers
 
         /// <summary>Meses do periodo SEIS_MESES.</summary>
         public const int MesesPeriodoSeisMeses = 6;
+
+        /// <summary>Minutos entre as rodadas da rotina que marca os pagamentos vencidos como atrasados (uma vez a cada hora, e tambem ao subir a API).</summary>
+        public const int IntervaloRotinaAtrasoMinutos = 60;
+
+        /// <summary>Chave de configuracao que liga (padrao, quando ausente) ou desliga a rotina de atraso ao subir a API. Os testes da API a desligam pela variavel de ambiente.</summary>
+        public const string ChaveRotinaAtrasoPagamentoAtiva = "Pagamentos:RotinaAtrasoAtiva";
     }
 }

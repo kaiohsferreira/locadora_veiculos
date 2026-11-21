@@ -183,6 +183,15 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public void Pagamento_ProcessarAtrasosNaoEAnonimoEFicaNaPoliticaFinanceiro()
+        {
+            MethodInfo acao = typeof(PagamentoController).GetMethod(nameof(PagamentoController.ProcessarAtrasos))!;
+
+            Assert.False(Attribute.IsDefined(acao, typeof(AllowAnonymousAttribute), true));
+            Assert.Equal(ConstantsValues.PoliticaFinanceiro, typeof(PagamentoController).GetCustomAttribute<AuthorizeAttribute>()!.Policy);
+        }
+
+        [Fact]
         public void Pagamento_GerarPixDaLocadoraNaoEAnonimoETemOLimiteDeGeracao()
         {
             MethodInfo acao = typeof(PagamentoController).GetMethod(nameof(PagamentoController.GerarOuReabrirPix))!;

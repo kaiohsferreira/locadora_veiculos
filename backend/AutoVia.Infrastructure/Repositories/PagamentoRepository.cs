@@ -654,6 +654,75 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
+        /// <summary>
+        /// Consulta nomeada da rotina de atraso (pagamento-atraso v1): cobrancas nao desativadas, PENDENTE, sem caucao e com
+        /// vencimento antes de hoje, com o filtro de locadora ligado. So monta a consulta; quem executa e a atualizacao em massa
+        /// de cada rotina. Publica para o teste de SQL por ToQueryString.
+        /// </summary>
+        public IQueryable<Pagamento> ConsultaAtrasosVencidos(DateOnly hoje)
+        {
+            try
+            {
+                IQueryable<Pagamento> consulta = _db.Pagamentos
+                    .AsNoTracking()
+                    .Where(x => x.DisabledAt == null
+                        && x.Status == StatusPagamento.PENDENTE
+                        && x.Tipo != TipoPagamento.CAUCAO
+                        && x.DataVencimento < hoje);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarPagamento, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Rotina do sistema (P10 aprovado): marca ATRASADO os pagamentos vencidos de TODAS as locadoras, sem o filtro de locadora
+        /// (bypass nomeado, so esta rotina; nao ha usuario nem locadora no contexto). Atualiza so o status e o horario, nunca le o
+        /// valor, e devolve so o numero de linhas. O WHERE completo protege a baixa simultanea: a linha paga antes nao e tocada.
+        /// </summary>
+        public async Task<int> AtualizarAtrasosTodasLocadorasAsync(DateOnly hoje, DateTime agora)
+        {
+            try
+            {
+                int quantidade = await ConsultaAtrasosVencidos(hoje)
+                    .SemEscopoEmpresa()
+                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, StatusPagamento.ATRASADO)
+                        .SetProperty(x => x.UpdatedAt, agora));
+
+                return quantidade;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroLogAtualizarAtrasosTodasLocadoras, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Marca ATRASADO os pagamentos vencidos da locadora do contexto, com o filtro de locadora ligado (sem bypass). Atualiza so
+        /// o status e o horario e devolve so o numero de linhas.
+        /// </summary>
+        public async Task<int> AtualizarAtrasosDaLocadoraAsync(DateOnly hoje, DateTime agora)
+        {
+            try
+            {
+                int quantidade = await ConsultaAtrasosVencidos(hoje)
+                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, StatusPagamento.ATRASADO)
+                        .SetProperty(x => x.UpdatedAt, agora));
+
+                return quantidade;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroLogAtualizarAtrasosLocadora, GetType().ToString());
+                throw;
+            }
+        }
+
         /// <summary>Consulta nomeada: venda nao desativada pelo id, com o filtro de locadora ligado.</summary>
         public IQueryable<Venda> ConsultaVendaDaCobranca(int idVenda)
         {

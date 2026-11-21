@@ -77,7 +77,10 @@ namespace AutoVia.Tests.Persistence
                 "ConsultaMeusPagamentos" + SeparadorMetodoSimbolo + "SemEscopoEmpresa(",
                 "ConsultaTravaPagamento" + SeparadorMetodoSimbolo + "FromSql",
                 "ConsultaTravaPagamentoDoCliente" + SeparadorMetodoSimbolo + "SemEscopoEmpresa(",
-                "ConsultaTravaPagamentoDoCliente" + SeparadorMetodoSimbolo + "FromSql"
+                "ConsultaTravaPagamentoDoCliente" + SeparadorMetodoSimbolo + "FromSql",
+                "AtualizarAtrasosTodasLocadorasAsync" + SeparadorMetodoSimbolo + "SemEscopoEmpresa(",
+                "AtualizarAtrasosTodasLocadorasAsync" + SeparadorMetodoSimbolo + "ExecuteUpdate",
+                "AtualizarAtrasosDaLocadoraAsync" + SeparadorMetodoSimbolo + "ExecuteUpdate"
             }
         };
 

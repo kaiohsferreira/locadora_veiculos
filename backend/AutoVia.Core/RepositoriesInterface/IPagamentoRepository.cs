@@ -1,6 +1,7 @@
 using AutoVia.Core.Entities.PgSql;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 
@@ -52,5 +53,14 @@ namespace AutoVia.Core.RepositoriesInterface
         /// So zera se o id gravado ainda for o cancelado (corrida: outro PIX valido nao e tocado). A validade fica gravada.
         /// </summary>
         Task LimparPixCanceladoAsync(int idPagamento, string idTransacaoCancelado, DateTime agora);
+
+        /// <summary>Consulta da rotina de atraso (pagamento-atraso v1): nao desativada, PENDENTE, sem caucao e com vencimento antes de hoje. So monta a consulta.</summary>
+        IQueryable<Pagamento> ConsultaAtrasosVencidos(DateOnly hoje);
+
+        /// <summary>Marca como ATRASADO os pagamentos vencidos de todas as locadoras, pela rotina do sistema (bypass nomeado, P10). Devolve so a quantidade de linhas.</summary>
+        Task<int> AtualizarAtrasosTodasLocadorasAsync(DateOnly hoje, DateTime agora);
+
+        /// <summary>Marca como ATRASADO os pagamentos vencidos da locadora do contexto (com o filtro de locadora). Devolve so a quantidade de linhas.</summary>
+        Task<int> AtualizarAtrasosDaLocadoraAsync(DateOnly hoje, DateTime agora);
     }
 }

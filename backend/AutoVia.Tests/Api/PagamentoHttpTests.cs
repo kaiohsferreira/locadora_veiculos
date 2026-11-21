@@ -51,6 +51,9 @@ namespace AutoVia.Tests.Api
         private const int IdFuncionarioDoTeste = 9;
         private const int IdClienteSemCobranca = 10;
         private const int IdPagamentoDoSegundoCliente = 7;
+        private const int IdPagamentoAtrasoTeste = 9;
+        private const string RotaAtrasosProcessar = "/api/pagamentos/atrasos/processar";
+        private const string NomeQuantidadeAtualizada = "quantidadeAtualizada";
 
         private static readonly DateTime MomentoFixo = new DateTime(2026, 11, 19, 10, 0, 0);
 
@@ -555,6 +558,76 @@ namespace AutoVia.Tests.Api
             Assert.Equal(HttpStatusCode.TooManyRequests, excedido.StatusCode);
             JsonElement corpo = await LerJsonAsync(excedido);
             Assert.Equal(ConstantsMessage.ErroLimiteRequisicoes, corpo.GetProperty(NomeDetail).GetString());
+        }
+
+        [Fact]
+        public async Task ProcessarAtrasos_SemToken_Devolve401ProblemJson()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Post, RotaAtrasosProcessar, null, null));
+
+            Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
+            Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
+        }
+
+        [Fact]
+        public async Task ProcessarAtrasos_TokenDeCliente_Devolve403()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Post, RotaAtrasosProcessar, TokenDoCliente(IdClienteDoTeste), null));
+
+            Assert.Equal(HttpStatusCode.Forbidden, resposta.StatusCode);
+        }
+
+        [Theory]
+        [InlineData(CargoFuncionario.ATENDENTE)]
+        [InlineData(CargoFuncionario.VENDEDOR)]
+        [InlineData(CargoFuncionario.GESTOR_FROTA)]
+        public async Task ProcessarAtrasos_CargoSemPermissao_Devolve403ENaoMarca(CargoFuncionario cargo)
+        {
+            DefinirCargo(cargo);
+            _fabrica.Pagamentos.Pagamentos.Add(CobrancaVencidaPendente(IdPagamentoAtrasoTeste));
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Post, RotaAtrasosProcessar, GerarToken(PerfilUsuario.FUNCIONARIO, cargo, IdFuncionarioDoTeste), null));
+
+            Assert.Equal(HttpStatusCode.Forbidden, resposta.StatusCode);
+            Assert.Equal(StatusPagamento.PENDENTE, StatusNoRepositorio(IdPagamentoAtrasoTeste));
+        }
+
+        [Theory]
+        [InlineData(CargoFuncionario.FINANCEIRO)]
+        [InlineData(CargoFuncionario.ADMINISTRADOR)]
+        public async Task ProcessarAtrasos_FinanceiroOuAdministrador_Devolve200SoComAQuantidadeEMarcaSoOVencido(CargoFuncionario cargo)
+        {
+            DefinirCargo(cargo);
+            _fabrica.Pagamentos.Pagamentos.Add(CobrancaVencidaPendente(IdPagamentoAtrasoTeste));
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Post, RotaAtrasosProcessar, GerarToken(PerfilUsuario.FUNCIONARIO, cargo, IdFuncionarioDoTeste), null));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(1, corpo.GetProperty(NomeQuantidadeAtualizada).GetInt32());
+            Assert.Single(corpo.EnumerateObject());
+            Assert.Equal(StatusPagamento.ATRASADO, StatusNoRepositorio(IdPagamentoAtrasoTeste));
+            Assert.Equal(StatusPagamento.PENDENTE, StatusNoRepositorio(IdPagamentoPendente));
+        }
+
+        private static Pagamento CobrancaVencidaPendente(int id)
+        {
+            return new Pagamento
+            {
+                IdPagamento = id,
+                IdLocacao = IdLocacaoDoTeste,
+                Tipo = TipoPagamento.DIARIA,
+                Status = StatusPagamento.PENDENTE,
+                Valor = 80m,
+                DataVencimento = new DateOnly(2026, 11, 18),
+                CreatedAt = MomentoFixo,
+                UpdatedAt = MomentoFixo
+            };
+        }
+
+        private StatusPagamento StatusNoRepositorio(int id)
+        {
+            return _fabrica.Pagamentos.Pagamentos.Single(x => x.IdPagamento == id).Status;
         }
 
         [Fact]

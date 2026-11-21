@@ -178,6 +178,8 @@ Por isso, com o banco novo, sem contas externas e com a API em `Development`, o 
 
 O `FAKE` do PIX só responde com a chave `Pagamentos:PermitirProvedorFake`, que nasce desligada (`false` no `appsettings.json`): no seu computador, ligue-a no `appsettings.Local.json` (copie o bloco `Pagamentos` do `appsettings.Local.example.json`) ou pela variável de ambiente `Pagamentos__PermitirProvedorFake=true`; no site publicado ela só é ligada para demonstração.
 
+A rotina de pagamento atrasado roda quando a API sobe e depois a cada hora: a cobrança pendente com vencimento anterior a hoje passa a `ATRASADO`, em todas as locadoras do banco. Para desligar (por exemplo, num banco que você não quer alterar), use `Pagamentos__RotinaAtrasoAtiva=false`.
+
 ---
 
 ## Estrutura de pastas

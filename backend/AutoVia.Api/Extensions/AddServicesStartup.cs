@@ -77,6 +77,9 @@ namespace AutoVia.Api.Extensions
             // Garante o administrador inicial na subida (idempotente; falha so vai para o log).
             services.AddHostedService<AdminInicialHostedService>();
 
+            // Rotina de atraso dos pagamentos (P10, RF-34): roda ao subir a API e a cada hora; falha so vai para o log.
+            services.AddHostedService<AtrasoPagamentoHostedService>();
+
             // --- Seguros (P9-BE-01) ---
             services.AddScoped<ISeguroService, SeguroService>();
 
@@ -86,6 +89,9 @@ namespace AutoVia.Api.Extensions
             // --- Cobranca da locadora e do cliente (RF-31 e RF-36) ---
             services.AddScoped<IPagamentoService, PagamentoService>();
             services.AddScoped<ICobrancaPixService, CobrancaPixService>();
+            // Rota manual e rotina de atraso (P10, RF-34): Scoped; a rotina do sistema so e chamada pelo servico hospedado.
+            services.AddScoped<IPagamentoAtrasoService, PagamentoAtrasoService>();
+            services.AddScoped<IPagamentoAtrasoRotinaService, PagamentoAtrasoRotinaService>();
 
             // --- Vistoria de saida e cobrancas extras (semana 2 do Eduardo) ---
             services.AddScoped<IVistoriaSaidaService, VistoriaSaidaService>();

@@ -30,13 +30,15 @@ namespace AutoVia.Api.Controllers
         private readonly ICobrancaPixService _cobrancaPixService;
         private readonly ILogService _logService;
         private readonly TetoGeracaoPixPorCliente _tetoGeracaoPix;
+        private readonly IPagamentoAtrasoService _pagamentoAtrasoService;
 
-        public PagamentoController(IPagamentoService pagamentoService, ICobrancaPixService cobrancaPixService, ILogService logService, TetoGeracaoPixPorCliente tetoGeracaoPix)
+        public PagamentoController(IPagamentoService pagamentoService, ICobrancaPixService cobrancaPixService, ILogService logService, TetoGeracaoPixPorCliente tetoGeracaoPix, IPagamentoAtrasoService pagamentoAtrasoService)
         {
             _pagamentoService = pagamentoService;
             _cobrancaPixService = cobrancaPixService;
             _logService = logService;
             _tetoGeracaoPix = tetoGeracaoPix;
+            _pagamentoAtrasoService = pagamentoAtrasoService;
         }
 
         /// <summary>
@@ -207,6 +209,42 @@ namespace AutoVia.Api.Controllers
             catch (Exception ex)
             {
                 _logService.Write(ex, ConstantsMessage.ErroListarPagamentos, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// ProcessarAtrasos - Rotina manual do financeiro (P10, RF-34): marca como ATRASADO os pagamentos PENDENTE vencidos da
+        /// locadora do contexto. Sem corpo. Devolve 200 com so a quantidade marcada, sem dado de cobranca.
+        /// </summary>
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+        [HttpPost("atrasos/processar")]
+        [ProducesResponseType(typeof(ReturnResultadoAtrasosVO), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> ProcessarAtrasos()
+        {
+            try
+            {
+                ReturnResultadoAtrasosVO resultado = await _pagamentoAtrasoService.MarcarAtrasosDaLocadoraAsync();
+
+                return Ok(resultado);
+            }
+            catch (BusinessException)
+            {
+                throw;
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (IntegrationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroLogAtualizarAtrasosLocadora, GetType().ToString());
                 throw;
             }
         }

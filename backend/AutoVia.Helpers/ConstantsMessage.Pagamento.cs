@@ -72,5 +72,14 @@ namespace AutoVia.Helpers
 
         // TEXTO NOVO (nao estava no contrato): linha informativa do log por baixa (id do pagamento e do funcionario).
         public const string InfoPagamentoBaixado = "Pagamento {0} baixado pelo funcionário {1}.";
+
+        // TEXTO NOVO (so log, contrato pagamento-atraso v1): falha da rotina que marca os atrasos de todas as locadoras.
+        public const string ErroLogAtualizarAtrasosTodasLocadoras = "Falha na rotina que marca os pagamentos em atraso de todas as locadoras.";
+
+        // TEXTO NOVO (so log, contrato pagamento-atraso v1): falha ao marcar os atrasos da locadora (rota manual do financeiro).
+        public const string ErroLogAtualizarAtrasosLocadora = "Falha ao marcar os pagamentos em atraso da locadora.";
+
+        // TEXTO NOVO (so log, contrato pagamento-atraso v1): quantidade marcada numa rodada; so o numero, sem dado de cobranca.
+        public const string InfoAtrasosAtualizados = "Pagamentos marcados como atrasados: {0}.";
     }
 }

@@ -188,6 +188,17 @@ namespace AutoVia.Core.Regras
             return null;
         }
 
+        /// <summary>
+        /// Regra da rotina de atraso (RF-34, contrato pagamento-atraso v1): PENDENTE sem caucao com vencimento estritamente anterior
+        /// a hoje vira ATRASADO. Vencimento de hoje continua PENDENTE; paga, cancelada, ja atrasada e caucao nunca viram.
+        /// </summary>
+        public static bool DeveVirarAtrasado(TipoPagamento tipo, StatusPagamento status, DateOnly vencimento, DateOnly hoje)
+        {
+            return tipo != TipoPagamento.CAUCAO
+                && status == StatusPagamento.PENDENTE
+                && vencimento < hoje;
+        }
+
         /// <summary>Verdadeiro quando a cobranca pode gerar ou reabrir PIX (ver ErroDaGeracaoPix).</summary>
         public static bool PodeGerarPix(TipoPagamento tipo, StatusPagamento status)
         {
