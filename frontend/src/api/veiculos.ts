@@ -3,6 +3,7 @@
  * hooks do TanStack Query, nunca direto. Só funcionário chega aqui: o servidor responde 403 para cliente.
  */
 import { api } from './client';
+import type { Pagina } from '@/types/api';
 import type { VeiculoRequisicao, VeiculoRetorno } from '@/types/veiculos';
 
 const CAMINHO_VEICULOS = '/api/veiculos';
@@ -27,4 +28,18 @@ export async function cadastrarVeiculo(requisicao: VeiculoRequisicao): Promise<V
 /** Altera os 13 campos do veículo (204, sem corpo). O status não muda por esta rota. */
 export async function editarVeiculo(idVeiculo: number, requisicao: VeiculoRequisicao): Promise<void> {
   await api.put(caminhoVeiculo(idVeiculo), requisicao);
+}
+
+/** Quantos veículos a busca por placa mostra de uma vez. */
+export const LIMITE_BUSCA_PLACA = 8;
+
+/**
+ * Busca veículos ativos pela placa (GET /api/veiculos?placa=, parte da placa; o servidor normaliza). Usada pela busca de
+ * veículo da gestão de seguros. Lista ordenada por placa, no máximo LIMITE_BUSCA_PLACA itens.
+ */
+export async function buscarVeiculosPorPlaca(placa: string): Promise<VeiculoRetorno[]> {
+  const resposta = await api.get<Pagina<VeiculoRetorno>>(CAMINHO_VEICULOS, {
+    params: { placa: placa.trim(), pagina: 1, tamanhoPagina: LIMITE_BUSCA_PLACA },
+  });
+  return Array.isArray(resposta.data?.itens) ? resposta.data.itens : [];
 }
