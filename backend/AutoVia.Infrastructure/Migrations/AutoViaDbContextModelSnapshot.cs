@@ -1139,6 +1139,19 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("id_venda");
 
+                    b.Property<string>("PixCopiaECola")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("pix_copia_e_cola");
+
+                    b.Property<DateTime?>("PixExpiraEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("pix_expira_em");
+
+                    b.Property<string>("QrCodeBase64")
+                        .HasColumnType("text")
+                        .HasColumnName("qr_code_base64");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()

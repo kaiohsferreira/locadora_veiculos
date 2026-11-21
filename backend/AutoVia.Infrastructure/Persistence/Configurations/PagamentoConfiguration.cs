@@ -41,6 +41,10 @@ namespace AutoVia.Infrastructure.Persistence.Configurations
 
             builder.Property(x => x.IdTransacao).IsRequired(false).HasMaxLength(ConstantsValues.TamanhoMaximoIdTransacaoPagamento);
 
+            builder.Property(x => x.QrCodeBase64).IsRequired(false).HasColumnType("text");
+            builder.Property(x => x.PixCopiaECola).IsRequired(false).HasMaxLength(ConstantsValues.TamanhoMaximoPixCopiaECola);
+            builder.Property(x => x.PixExpiraEm).IsRequired(false).HasColumnType("timestamp without time zone");
+
             builder.HasIndex(x => new { x.Status, x.DataVencimento }).HasDatabaseName("idx_pagamento_status");
 
             builder.HasOne(x => x.Locacao)

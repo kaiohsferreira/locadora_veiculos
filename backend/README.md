@@ -38,7 +38,7 @@ Também funcionam a variável `ConnectionStrings__AutoViaConnection` e a `DATABA
 
 O banco **não** é criado rodando SQL à mão. Quem cria o esquema são as migrations.
 
-Hoje são **20 migrations** (scripts 01 a 08 e 11 a 22 em `backend/docs/sql`; os números 09 e 10 não existem). A lista completa e a conferência estão em [`docs/CONFERENCIA_ESQUEMA.md`](docs/CONFERENCIA_ESQUEMA.md). A tabela abaixo mostra só as duas primeiras:
+Hoje são **21 migrations** (scripts 01 a 08 e 11 a 23 em `backend/docs/sql`; os números 09 e 10 não existem; o script 24 é de dado, não é migration). A lista completa e a conferência estão em [`docs/CONFERENCIA_ESQUEMA.md`](docs/CONFERENCIA_ESQUEMA.md). A tabela abaixo mostra só as duas primeiras:
 
 | Migration | O que faz |
 |---|---|
@@ -59,7 +59,7 @@ dotnet dotnet-ef migrations script 0 Inicial --project AutoVia.Infrastructure --
 Regras:
 - Migration já aplicada **nunca** é editada. Uma correção vira migration nova.
 - Depois de gerar, procure e remova qualquer `.Annotation("Npgsql:IdentitySequenceOptions", ...)`. Com `UseSerialColumns()`, normalmente não aparece nenhuma.
-- Conferência contra a especificação: [`docs/CONFERENCIA_ESQUEMA.md`](docs/CONFERENCIA_ESQUEMA.md). A primeira migration é igual ao Apêndice A (0 diferenças). O esquema atual é o Apêndice A mais as diferenças aprovadas e registradas; o comando de conferência acusa erro se aparecer diferença sem decisão registrada. Nada disso é prova em banco de verdade.
+- Conferência contra a especificação: [`docs/CONFERENCIA_ESQUEMA.md`](docs/CONFERENCIA_ESQUEMA.md). A primeira migration é igual ao Apêndice A (0 diferenças). O esquema atual é o Apêndice A mais as diferenças aprovadas e registradas; o comando de conferência acusa erro se aparecer diferença sem decisão registrada. Nada disso é prova em banco de verdade. Medido em 20/11/2026 no modo com decisões: 76 diferenças registradas, 0 sem decisão, código 0.
 - Regra das próximas migrations: toda migration nova que muda o esquema entra, no mesmo commit, em `docs/especificacao/desvios_aprovados.json` (com os campos `migration` e `cobre`) e no quadro de `docs/CONFERENCIA_ESQUEMA.md`. Rode o comando de conferência antes de commitar: ele tem de terminar sem diferença não registrada.
 
 ## Estrutura
@@ -91,7 +91,7 @@ backend/
 │  ├─ Persistence/           AutoViaDbContext + Configurations/ (uma por entidade)
 │  ├─ Repositories/          implementação dos repositórios
 │  ├─ Services/              implementação dos serviços
-│  └─ Migrations/            20 migrations (lista em docs/CONFERENCIA_ESQUEMA.md)
+│  └─ Migrations/            21 migrations (lista em docs/CONFERENCIA_ESQUEMA.md)
 ├─ AutoVia.Api/              controllers, Extensions/Add*Startup.cs, Filters/, Middleware/
 ├─ AutoVia.Tests/            xUnit (sem PostgreSQL real)
 ├─ docs/                     especificação, SQL exportado e conferência

@@ -346,5 +346,21 @@
     "migrations": "Gerar nova, nunca aplicar; manter todas as anteriores",
     "dados_existentes": "Nenhum backfill; cobranca_extra.id_apuracao nullable",
     "unicidade": "Somente servico sob trava; nenhum indice unico"
+  },
+  "pagamento_pix_qr_copia_validade": {
+    "migration": ["20261121000527_AdicionarPixPagamento"],
+    "cobre": ["coluna:pagamento.qr_code_base64", "coluna:pagamento.pix_copia_e_cola", "coluna:pagamento.pix_expira_em"],
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "data": "2026-11-20",
+    "tarefa": "P7-BE-02 / RF-32 / Semana 4 (pagamento PIX)",
+    "fonte": "Decisao P1 do plano da semana 4 (frase do Kaio em 20/11/2026: \"Aprovo P1 a P14\")",
+    "motivo": "O aceite do RF-32 exige que o QR Code e o copia e cola do PIX fiquem salvos com o pagamento, junto com a validade. A especificacao nao tem essas colunas. Colunas anulaveis, sem indice e sem CHECK, pela regra de unicidade e de dados do projeto.",
+    "colunas_novas": {
+      "pagamento.qr_code_base64": "TEXT NULL, imagem PNG em base64 sem prefixo data:; sem limite de tamanho no banco; as listagens nao devem ler esta coluna (regra do contrato pagamento-pix)",
+      "pagamento.pix_copia_e_cola": "VARCHAR(512) NULL",
+      "pagamento.pix_expira_em": "TIMESTAMP WITHOUT TIME ZONE NULL, hora local do servidor (o gateway converte o ExpiraEm antes de gravar)"
+    },
+    "regra_no_servico": "a validade de 900 s e dado (script 24, chave pix_expiracao_segundos), nao esquema; a unicidade de PIX valido por cobranca fica na trava do servico, nao no banco",
+    "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico; a migration AdicionarPixPagamento so acrescenta as tres colunas"
   }
 }

@@ -9,6 +9,51 @@ namespace AutoVia.Helpers
         /// <summary>Tamanho maximo da coluna pagamento.id_transacao (VARCHAR(40)): identificador da transacao no provedor.</summary>
         public const int TamanhoMaximoIdTransacaoPagamento = 40;
 
+        /// <summary>Tamanho maximo da coluna pagamento.pix_copia_e_cola (VARCHAR(512)): codigo copia e cola do PIX.</summary>
+        public const int TamanhoMaximoPixCopiaECola = 512;
+
+        /// <summary>Prefixo da referencia da cobranca no provedor (chave de idempotencia): PAG-{id}.</summary>
+        public const string PixPrefixoReferencia = "PAG-";
+
+        /// <summary>Sufixo da referencia de recuperacao: PAG-{id}-{validade anterior no formato abaixo}.</summary>
+        public const string PixFormatoSufixoReferencia = "yyyyMMddHHmmss";
+
+        /// <summary>Validade do PIX mostrada na resposta (dd/MM/yyyy HH:mm:ss).</summary>
+        public const string PixFormatoExpiraEm = "dd/MM/yyyy HH:mm:ss";
+
+        /// <summary>Descricao enviada ao provedor (aparece no app do banco): {0} = id da cobranca.</summary>
+        public const string PixDescricaoCobranca = "Cobrança {0} AutoVia";
+
+        /// <summary>Politica de limite das geracoes de PIX (por IP, janela de um minuto).</summary>
+        public const string PoliticaLimiteGeracaoPix = "AutoViaGeracaoPix";
+
+        /// <summary>Chave de integration_setting ou de configuracao do limite de geracoes de PIX por minuto.</summary>
+        public const string ChaveLimiteGeracaoPix = "Pagamentos:LimiteGeracaoPixPorMinuto";
+
+        /// <summary>Padrao do limite de geracoes de PIX por minuto e por IP.</summary>
+        public const int LimiteGeracaoPixPorMinutoPadrao = 10;
+
+        /// <summary>Chave de configuracao do limite de geracoes de PIX por minuto e por cliente (identidade do token, nao IP).</summary>
+        public const string ChaveLimiteGeracaoPixPorCliente = "Pagamentos:LimiteGeracaoPixPorClienteMinuto";
+
+        /// <summary>Padrao do limite de geracoes de PIX por minuto e por cliente (aprovado pelo Kaio em 20/11/2026).</summary>
+        public const int LimiteGeracaoPixPorClienteMinutoPadrao = 5;
+
+        /// <summary>Janela, em minutos, do limite de geracoes de PIX por cliente.</summary>
+        public const int JanelaEmMinutosLimiteGeracaoPixPorCliente = 1;
+
+        /// <summary>Prefixo da chave de particao do limite por cliente: separa o cliente do funcionario que tenha o mesmo id.</summary>
+        public const string PrefixoChaveLimiteGeracaoPixCliente = "cliente:";
+
+        /// <summary>Prefixo da chave de particao do limite por cliente quando a rota e a da locadora (funcionario).</summary>
+        public const string PrefixoChaveLimiteGeracaoPixFuncionario = "funcionario:";
+
+        /// <summary>Motivo da divergencia do retorno do provedor: valor diferente do pedido (log).</summary>
+        public const string MotivoDivergenciaValor = "VALOR";
+
+        /// <summary>Motivo da divergencia do retorno do provedor: referencia diferente da enviada (log).</summary>
+        public const string MotivoDivergenciaReferencia = "REFERENCIA";
+
         /// <summary>Politica do financeiro: FUNCIONARIO da locadora do contexto com cargo FINANCEIRO ou ADMINISTRADOR (IContextoEmpresa.PodeVerValores).</summary>
         public const string PoliticaFinanceiro = "Financeiro";
 

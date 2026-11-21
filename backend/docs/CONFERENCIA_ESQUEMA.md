@@ -29,7 +29,7 @@ Números do modo literal (Apêndice A, sem decisões) e do modelo atual com as d
 | Item | Apêndice A | Hoje (Apêndice + decisões) |
 |---|---|---|
 | Tabelas | 16 | 24 (+8: `redefinicao_senha`, `empresa`, `cliente_locadora`, `sinistro_historico`, `veiculo_foto`, `cliente_documento`, `configuracao_cobranca_extra`, `apuracao_cobranca_extra`) |
-| Colunas | 148 | 301 |
+| Colunas | 148 | 304 |
 | CHECK | 32 | 48 |
 | Chaves estrangeiras | 22 | 44 |
 | Índices | 11 | 41 (11 do Apêndice + 15 que eram UNIQUE + 15 novos) |
@@ -51,6 +51,7 @@ Uma linha por decisão registrada (em `desvios_aprovados.json`):
 | `veiculo_fornecedor_nota_fiscal_compra` | 16/11/2026 | `20261117025802_AdicionarFornecedorNotaFiscalCompraVeiculo` | `veiculo.fornecedor` e `veiculo.numero_nota_fiscal_compra`; `veiculo.modelo` de 40 para 60 |
 | `cliente_documento` | 19/11/2026 | `20261119142116_AdicionarClienteDocumento` | tabela `cliente_documento` (CHECK de tipo, 1 FK, 1 índice) |
 | `pagamento_id_transacao` | 19/11/2026 | `20261119162522_AdicionarIdTransacaoPagamento` | `pagamento.id_transacao` VARCHAR(40) NULL |
+| `pagamento_pix_qr_copia_validade` | 20/11/2026 | `20261121000527_AdicionarPixPagamento` | `pagamento.qr_code_base64` TEXT NULL; `pagamento.pix_copia_e_cola` VARCHAR(512) NULL; `pagamento.pix_expira_em` TIMESTAMP NULL (3 colunas, sem indice e sem CHECK) |
 | `vistoria_saida_comparacao` | 20/11/2026 | `20261118163147_VincularAvariasVistoriaSaida` | `vistoria.comparacao_realizada` BOOLEAN NOT NULL DEFAULT FALSE; `avaria.id_avaria_entrada` INT NULL (FK `fk_avaria_entrada`, índice `idx_avaria_entrada`) |
 | `cobrancas_extras_configuradas` | 20/11/2026 | `20261119023757_CadastrarRegrasEApurarCobrancasExtras` | tabelas `configuracao_cobranca_extra` (5 CHECK, 2 FK, 1 índice) e `apuracao_cobranca_extra` (2 CHECK, 5 FK, 1 índice); `cobranca_extra.id_apuracao` (FK `fk_cobranca_apuracao`, índice `idx_cobranca_apuracao`) |
 
@@ -60,13 +61,13 @@ Os 16 do Apêndice A estão em dois arquivos: 14 tabelas de negócio em `apendic
 
 A especificação diz "dez índices" num ponto e 11 em outro. O Apêndice tem 11, e é esse número que o quadro usa.
 
-Os números 148 colunas e 11 índices são do Apêndice A puro. Os números 193 e 26 da saída do segundo comando são o Apêndice com os desvios: 148 + 43 colunas de auditoria + 2 `senha_hash` = 193, e 11 + 15 UNIQUE convertidos em índice = 26. O quadro mostra o número de hoje (301 colunas e 41 índices).
+Os números 148 colunas e 11 índices são do Apêndice A puro. Os números 193 e 26 da saída do segundo comando são o Apêndice com os desvios: 148 + 43 colunas de auditoria + 2 `senha_hash` = 193, e 11 + 15 UNIQUE convertidos em índice = 26. O quadro mostra o número de hoje (304 colunas e 41 índices).
 
-Números da cadeia de migrations (`dotnet ef migrations script 0`, sem banco), medidos em 20/11/2026: 24 CREATE TABLE além do histórico, 0 DROP TABLE, 56 CREATE INDEX (15 únicos) e 15 DROP INDEX; no fim, 41 índices e nenhum único. O histórico tem 20 registros. (Medição de 19/11/2026, antes das migrations do Eduardo: 22, 52, 37 e 18.)
+Números da cadeia de migrations (`dotnet ef migrations script 0`, sem banco), medidos em 20/11/2026: 24 CREATE TABLE além do histórico, 0 DROP TABLE, 56 CREATE INDEX (15 únicos) e 15 DROP INDEX; no fim, 41 índices e nenhum único. O histórico tem 21 registros. (Medição de 19/11/2026, antes das migrations do Eduardo: 22, 52, 37 e 18.)
 
-## Migrations do projeto (20)
+## Migrations do projeto (21)
 
-Lista das 20 migrations, na ordem. "Esquema" muda tabela, coluna, CHECK, FK ou índice; "dados" só mexe em linhas. A coluna "Script" é o arquivo em `docs/sql`.
+Lista das 21 migrations, na ordem. "Esquema" muda tabela, coluna, CHECK, FK ou índice; "dados" só mexe em linhas. A coluna "Script" é o arquivo em `docs/sql`.
 
 | Nº | MigrationId | Esquema ou dados | Script |
 |---|---|---|---|
@@ -90,6 +91,7 @@ Lista das 20 migrations, na ordem. "Esquema" muda tabela, coluna, CHECK, FK ou �
 | 20 | `20261119162522_AdicionarIdTransacaoPagamento` | esquema | `20_AdicionarIdTransacaoPagamento.sql` |
 | 21 | `20261118163147_VincularAvariasVistoriaSaida` | esquema | `21_VincularAvariasVistoriaSaida.sql` |
 | 22 | `20261119023757_CadastrarRegrasEApurarCobrancasExtras` | esquema | `22_CadastrarRegrasEApurarCobrancasExtras.sql` |
+| 23 | `20261121000527_AdicionarPixPagamento` | esquema | `23_AdicionarPixPagamento.sql` |
 
 Os números 09 e 10 não existem (ver "Números 09 e 10 dos scripts"). Os números 21 e 22 são as migrations do Eduardo (ids 20261118163147 e 20261119023757): seguem a ordem de chegada ao projeto, por isso a tabela não está em ordem de id.
 
@@ -122,18 +124,18 @@ Resumo real do segundo comando (modo com decisões, 20/11/2026; a lista completa
 ```text
 Desvios aprovados aplicados a especificacao: 60
 Tabelas:  especificacao=16 gerado=24
-Colunas:  especificacao=193 gerado=301
+Colunas:  especificacao=193 gerado=304
 CHECK:    especificacao=32 gerado=48
 FK:       especificacao=22 gerado=44
 UNIQUE:   especificacao=0 gerado=0
 Indices:  especificacao=26 gerado=41
-Diferencas registradas: 73
+Diferencas registradas: 76
 Diferencas nao registradas: 0
 Registros sem diferenca: 0
 Blocos sem registro: 0
 ```
 
-Os 73 são as 8 tabelas novas, 11 colunas, 17 CHECK, 22 FKs e 15 índices. As 8 linhas de "tabela diferente" repetem colunas e não contam em dobro. (Antes das migrations do Eduardo, em 19/11/2026, eram 48: 6 tabelas, 8 colunas, 10 CHECK, 13 FKs e 11 índices.)
+Os 76 são as 8 tabelas novas, 14 colunas, 17 CHECK, 22 FKs e 15 índices (as três colunas do PIX, de 20/11/2026, estão entre as 14). As 8 linhas de "tabela diferente" repetem colunas e não contam em dobro. (Antes das migrations do Eduardo, em 19/11/2026, eram 48: 6 tabelas, 8 colunas, 10 CHECK, 13 FKs e 11 índices.)
 
 ## Números 09 e 10 dos scripts
 
@@ -158,6 +160,8 @@ Os trechos marcados como HISTORICO abaixo são de datas anteriores. Não foram a
 | `sql/00_ModeloAtual.sql` | SQL do modelo atual, gerado pelo `dotnet ef dbcontext script` (sem banco) e ajustado à mão em 16/11, 19/11 e 20/11/2026 |
 | `sql/21_VincularAvariasVistoriaSaida.sql` | SQL da migration `VincularAvariasVistoriaSaida` (Eduardo), gerado pelo `dotnet ef migrations script` (sem banco) |
 | `sql/22_CadastrarRegrasEApurarCobrancasExtras.sql` | SQL da migration `CadastrarRegrasEApurarCobrancasExtras` (Eduardo), gerado pelo `dotnet ef migrations script` (sem banco) |
+| `sql/23_AdicionarPixPagamento.sql` | SQL da migration `AdicionarPixPagamento`, gerado pelo `dotnet ef migrations script` (sem banco) |
+| `sql/24_ConfigurarExpiracaoPix900.sql` | Script de DADO (nao e migration, sem linha no historico): chave `pix_expiracao_segundos` da integracao PAGAMENTO para 900 |
 | `especificacao/desvios_aprovados.json` | Desvios aprovados pelo dono; cada bloco que muda o esquema tem `migration` e `cobre` |
 | `../tools/compare_schema.py` | Script que compara a especificação com o SQL gerado |
 
@@ -407,3 +411,23 @@ FK:       inalterado
 UNIQUE:   0 (inalterado)
 Indices:  inalterado
 ```
+
+## Desvio de 20/11/2026: PIX no pagamento (P7-BE-02, RF-32)
+
+Aprovado pelo Kaio em 20/11/2026 (decisão P1 do plano da semana 4, frase dele: "Aprovo P1 a P14"; bloco `pagamento_pix_qr_copia_validade` em `especificacao/desvios_aprovados.json`). O QR Code, o copia e cola e a validade do PIX ficam salvos com a cobrança, para a tela 30 reabrir o mesmo PIX sem chamar o provedor.
+- Colunas novas em `pagamento`, todas anuláveis, sem valor padrão, sem índice e sem CHECK: `qr_code_base64` TEXT (PNG em base64, sem prefixo `data:`), `pix_copia_e_cola` VARCHAR(512) e `pix_expira_em` TIMESTAMP sem fuso (hora local do servidor).
+- Migration `20261121000527_AdicionarPixPagamento`: só gerada na data da geração. O `Up` só acrescenta as três colunas e o `Down` só as remove. Script `sql/23_AdicionarPixPagamento.sql`, gerado com `dotnet ef migrations script` entre `20261119162522_AdicionarIdTransacaoPagamento` e a nova.
+- Dado, não esquema: `sql/24_ConfigurarExpiracaoPix900.sql` troca a chave `pix_expiracao_segundos` da integração PAGAMENTO para 900 (decisão P14). Não é migration e não grava linha em `__EFMigrationsHistory`. Quem roda é o Kaio.
+
+Contagens depois do desvio (`sql/00_ModeloAtual.sql` ajustado à mão em 20/11/2026, com as três colunas na tabela `pagamento` logo depois de `id_transacao`, na mesma ordem da saída de `dotnet ef dbcontext script`):
+
+```text
+Tabelas:  inalterado
+Colunas:  +3 (pagamento.qr_code_base64, pagamento.pix_copia_e_cola, pagamento.pix_expira_em); 301 -> 304
+CHECK:    inalterado
+FK:       inalterado
+UNIQUE:   0 (inalterado)
+Indices:  inalterado
+```
+
+Medido em 20/11/2026: antes do bloco novo, o script acusava 3 diferenças não registradas (as três colunas). Depois do bloco, no modo com decisões: `Diferencas registradas: 76`, `Diferencas nao registradas: 0`, `Registros sem diferenca: 0`, `Blocos sem registro: 0`, código 0. O modo literal contra `01_Inicial.sql` continua com `Diferencas: 0`.

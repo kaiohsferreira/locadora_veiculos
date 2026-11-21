@@ -49,6 +49,26 @@ namespace AutoVia.Core.Entities.PgSql
         [Column("id_transacao")]
         public string? IdTransacao { get; set; }
 
+        /// <summary>
+        /// TEXT, anulavel: imagem PNG do QR Code do PIX em base64, sem prefixo data:. Sem indice e sem CHECK.
+        /// As listagens nao devem ler esta coluna (regra do contrato pagamento-pix; a projecao entra com as rotas).
+        /// </summary>
+        [Column("qr_code_base64")]
+        public string? QrCodeBase64 { get; set; }
+
+        /// <summary>
+        /// VARCHAR(512), anulavel: codigo copia e cola do PIX. Sem indice e sem CHECK.
+        /// </summary>
+        [Column("pix_copia_e_cola")]
+        public string? PixCopiaECola { get; set; }
+
+        /// <summary>
+        /// TIMESTAMP sem fuso, anulavel: validade do PIX gravada na hora local do servidor (o gateway converte antes de gravar).
+        /// Sem indice e sem CHECK.
+        /// </summary>
+        [Column("pix_expira_em")]
+        public DateTime? PixExpiraEm { get; set; }
+
         // --- Navegacao ---
         public virtual Locacao? Locacao { get; set; }
         public virtual Venda? Venda { get; set; }

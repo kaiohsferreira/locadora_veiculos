@@ -98,7 +98,7 @@ dotnet tool restore
 dotnet dotnet-ef database update --project AutoVia.Infrastructure --startup-project AutoVia.Api
 ```
 
-`dotnet tool restore` instala o `dotnet-ef` local (versão fixada em `backend/dotnet-tools.json`). São 20 migrations, na pasta `backend/AutoVia.Infrastructure/Migrations`. Elas criam as tabelas, inserem as integrações (seed), criam a empresa operadora inicial e deixam o armazenamento no provedor de pasta (`DISCO_LOCAL`). Migration já aplicada não é editada; uma correção vira migration nova.
+`dotnet tool restore` instala o `dotnet-ef` local (versão fixada em `backend/dotnet-tools.json`). São 21 migrations, na pasta `backend/AutoVia.Infrastructure/Migrations`. Elas criam as tabelas, inserem as integrações (seed), criam a empresa operadora inicial e deixam o armazenamento no provedor de pasta (`DISCO_LOCAL`). Migration já aplicada não é editada; uma correção vira migration nova.
 
 ### 5. Subir a API
 

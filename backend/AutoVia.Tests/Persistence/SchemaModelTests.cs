@@ -732,5 +732,42 @@ namespace AutoVia.Tests.Persistence
             Assert.True(idTransacao.IsNullable);
             Assert.DoesNotContain(entity.GetIndexes(), indice => indice.Properties.Contains(idTransacao));
         }
+
+        [Fact]
+        public void Pagamento_TemAsTresColunasDoPixAnulaveisSemDefaultSemIndiceESemCheckNovo()
+        {
+            IModel model = BuildModel();
+            StoreObjectIdentifier table = StoreObjectIdentifier.Table("pagamento", null);
+            IEntityType entity = model.GetEntityTypes().Single(x => x.GetTableName() == "pagamento");
+
+            IProperty? qrCode = entity.FindProperty("QrCodeBase64");
+            IProperty? copiaECola = entity.FindProperty("PixCopiaECola");
+            IProperty? expiraEm = entity.FindProperty("PixExpiraEm");
+            Assert.NotNull(qrCode);
+            Assert.NotNull(copiaECola);
+            Assert.NotNull(expiraEm);
+
+            Assert.Equal("qr_code_base64", qrCode.GetColumnName(table));
+            Assert.Equal("text", qrCode.GetColumnType(table));
+            Assert.True(qrCode.IsNullable);
+
+            Assert.Equal("pix_copia_e_cola", copiaECola.GetColumnName(table));
+            Assert.Equal("character varying(512)", copiaECola.GetColumnType(table));
+            Assert.Equal(512, copiaECola.GetMaxLength());
+            Assert.True(copiaECola.IsNullable);
+
+            Assert.Equal("pix_expira_em", expiraEm.GetColumnName(table));
+            Assert.Equal("timestamp without time zone", expiraEm.GetColumnType(table));
+            Assert.True(expiraEm.IsNullable);
+
+            foreach (IProperty coluna in new List<IProperty> { qrCode, copiaECola, expiraEm })
+            {
+                Assert.Null(coluna.GetDefaultValueSql());
+                Assert.Null(coluna.GetDefaultValue());
+                Assert.DoesNotContain(entity.GetIndexes(), indice => indice.Properties.Contains(coluna));
+            }
+
+            Assert.Equal(4, entity.GetCheckConstraints().Count());
+        }
     }
 }
