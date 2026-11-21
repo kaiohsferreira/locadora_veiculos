@@ -234,6 +234,42 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
+        public void EmailTitular_ProjetaSomenteEmailDaFkComFiltrosDaReservaDaEmpresaEDoCliente()
+        {
+            const int idReserva = 72;
+            using AutoViaDbContext db = CriarDbComContextoDeCliente(IdClienteDoTeste);
+            ReservaRepository repositorio = new ReservaRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaEmailTitularReserva(idReserva, IdClienteDoTeste, EmpresaDoTeste).ToQueryString();
+
+            Match cliente = Regex.Match(sql, @"JOIN cliente AS (\w+) ON r\.id_cliente = \1\.id_cliente");
+            Assert.True(cliente.Success, sql);
+            string aliasCliente = cliente.Groups[1].Value;
+            Assert.Matches(@"(?m)^SELECT " + aliasCliente + @"\.email\s*$", sql);
+            Assert.Contains(aliasCliente + ".disabled_at IS NULL", sql);
+            Assert.Matches(PredicadoDoDonoNoSql, sql);
+            Assert.Matches(@"\bv\.disabled_at IS NULL", sql);
+            string parametroReserva = ExtrairParametro(sql, @"\br\.id_reserva = (@\w+)");
+            string parametroEmpresa = ExtrairParametro(sql, @"\b\w+\.id_empresa = (@\w+)");
+            Assert.Contains($"{parametroReserva.TrimStart('@')}='{idReserva}'", sql);
+            Assert.Contains($"{parametroEmpresa.TrimStart('@')}='{EmpresaDoTeste}'", sql);
+            Assert.DoesNotContain(PosseNegadaNoSql, sql);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void EmailTitular_SemPosseNaoPropoeSelecionarRegistro(bool outroCliente)
+        {
+            using AutoViaDbContext db = outroCliente ? CriarDbComContextoDeCliente(IdClienteAlheio) : CriarDbSemContexto();
+            ReservaRepository repositorio = new ReservaRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaEmailTitularReserva(72, IdClienteDoTeste, EmpresaDoTeste).ToQueryString();
+
+            Assert.Contains(PosseNegadaNoSql, sql);
+        }
+
+        [Fact]
         public void ConflitoDePeriodo_SemParametroDeEmpresaNemDePosse_FiltraVeiculoEStatus()
         {
             using AutoViaDbContext db = CriarDbComContextoDeCliente(IdClienteDoTeste);

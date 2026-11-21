@@ -66,7 +66,7 @@ namespace AutoVia.Integrations.Services.Email
             }
             catch (Exception ex)
             {
-                _logService.Write(ex, ConstantsMessage.ErroEmailEnviar, GetType().ToString());
+                _logService.Write(ConstantsMessage.ErroEmailEnviar, ConstantsMessage.ErroEmailEnviar, GetType().ToString());
                 throw new IntegrationException(ConstantsIntegration.Email, ConstantsMessage.ErroEmailEnviar, ex);
             }
         }

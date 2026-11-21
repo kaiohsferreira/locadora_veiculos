@@ -39,9 +39,9 @@ namespace AutoVia.Integrations.Services.Email
             {
                 // Desligamento da aplicacao: encerra o leitor sem erro.
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                _logService.Write(ex, ConstantsMessage.ErroEmailProcessarFila, GetType().ToString());
+                _logService.Write(ConstantsMessage.ErroEmailProcessarFila, ConstantsMessage.ErroEmailProcessarFila, GetType().ToString());
             }
         }
 
@@ -59,9 +59,9 @@ namespace AutoVia.Integrations.Services.Email
             {
                 throw;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                _logService.Write(ex, ConstantsMessage.ErroEmailEnviar, GetType().ToString());
+                _logService.Write(ConstantsMessage.ErroEmailEnviar, ConstantsMessage.ErroEmailEnviar, GetType().ToString());
             }
         }
     }

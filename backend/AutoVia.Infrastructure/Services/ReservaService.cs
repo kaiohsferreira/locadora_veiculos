@@ -33,8 +33,16 @@ namespace AutoVia.Infrastructure.Services
         private readonly IMapper _mapper;
         private readonly ILogService _logService;
         private readonly IFotoCapaVeiculoService _fotoCapaVeiculoService;
+        private readonly INotificacaoTransacionalService _notificacaoTransacionalService;
 
-        public ReservaService(IReservaRepository reservaRepository, IClienteLocadoraService clienteLocadoraService, IRelogio relogio, IMapper mapper, ILogService logService, IFotoCapaVeiculoService fotoCapaVeiculoService)
+        public ReservaService(
+            IReservaRepository reservaRepository,
+            IClienteLocadoraService clienteLocadoraService,
+            IRelogio relogio,
+            IMapper mapper,
+            ILogService logService,
+            IFotoCapaVeiculoService fotoCapaVeiculoService,
+            INotificacaoTransacionalService notificacaoTransacionalService)
         {
             _reservaRepository = reservaRepository;
             _clienteLocadoraService = clienteLocadoraService;
@@ -42,6 +50,7 @@ namespace AutoVia.Infrastructure.Services
             _mapper = mapper;
             _logService = logService;
             _fotoCapaVeiculoService = fotoCapaVeiculoService;
+            _notificacaoTransacionalService = notificacaoTransacionalService;
         }
 
         public async Task<ReturnReservaCriadaVO> CriarAsync(int idCliente, CriarReservaVO entrada)
@@ -96,6 +105,23 @@ namespace AutoVia.Infrastructure.Services
 
                 Reserva criada = await _reservaRepository.InsertAtomicallyAsync(reserva);
                 ReturnReservaCriadaVO retorno = _mapper.Map<ReturnReservaCriadaVO>(criada);
+
+                try
+                {
+                    ReservaCriadaEmail evento = new ReservaCriadaEmail(
+                        criada.IdReserva,
+                        idCliente,
+                        veiculo.IdEmpresa,
+                        DateOnly.FromDateTime(criada.DataRetiradaPrevista),
+                        DateOnly.FromDateTime(criada.DataDevolucaoPrevista),
+                        criada.ValorEstimado);
+                    await _notificacaoTransacionalService.ConfirmarReservaAsync(evento);
+                }
+                catch (Exception)
+                {
+                    _logService.Write(ConstantsMessage.ErroEmailNotificarReservaCriada, ConstantsMessage.ErroEmailNotificarReservaCriada, GetType().ToString());
+                }
+
                 return retorno;
             }
             catch (BusinessException)
