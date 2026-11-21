@@ -23,5 +23,47 @@ namespace AutoVia.Helpers
 
         /// <summary>Meses de duracao da janela de veiculos novos no mes (um mes, ate o dia 1 do mes seguinte, excluido).</summary>
         public const int MesesDaJanelaMensal = 1;
+
+        /// <summary>Dias maximos do periodo do painel financeiro: diferenca em dias entre a data final e a inicial (366 vale, 367 nao).</summary>
+        public const int DiasLimitePeriodoFinanceiro = 366;
+
+        /// <summary>Dias da aba PAGOS_RECENTES, incluindo hoje (hoje menos 29 ate hoje).</summary>
+        public const int DiasPagosRecentes = 30;
+
+        /// <summary>Casas decimais do ticket medio do painel financeiro (arredondamento AwayFromZero, em C#).</summary>
+        public const int CasasDecimaisTicketMedio = 2;
+
+        /// <summary>Digitos de um CPF sem pontuacao.</summary>
+        public const int TamanhoCpfDigitos = 11;
+
+        /// <summary>Digitos iniciais do CPF mascarado (desenho da tela 09: CPF: 194.***.***-12).</summary>
+        public const int DigitosCpfInicioMascara = 3;
+
+        /// <summary>Digitos finais do CPF mascarado.</summary>
+        public const int DigitosCpfFimMascara = 2;
+
+        /// <summary>Mascara do CPF: {0} = primeiros digitos, {1} = ultimos digitos.</summary>
+        public const string FormatoCpfMascarado = "{0}.***.***-{1}";
+
+        /// <summary>Aba TODOS de GET /api/painel/financeiro/titulos (padrao).</summary>
+        public const string AbaTitulosTodos = "TODOS";
+
+        /// <summary>Aba EM_ATRASO: a mesma populacao do indicador em atraso.</summary>
+        public const string AbaTitulosEmAtraso = "EM_ATRASO";
+
+        /// <summary>Aba VENCE_HOJE: pendentes com vencimento hoje (so se hoje estiver no periodo).</summary>
+        public const string AbaTitulosVenceHoje = "VENCE_HOJE";
+
+        /// <summary>Aba PAGOS_RECENTES: pagos nos ultimos DiasPagosRecentes dias; ignora o periodo.</summary>
+        public const string AbaTitulosPagosRecentes = "PAGOS_RECENTES";
+
+        /// <summary>Abas aceitas pela lista de titulos; outro valor vira 400.</summary>
+        public static readonly string[] AbasTitulosFinanceiros = { AbaTitulosTodos, AbaTitulosEmAtraso, AbaTitulosVenceHoje, AbaTitulosPagosRecentes };
+
+        /// <summary>Origem do titulo quando a cobranca vem de uma locacao (texto da resposta).</summary>
+        public const string OrigemTituloLocacao = "LOCACAO";
+
+        /// <summary>Origem do titulo quando a cobranca vem de uma venda (texto da resposta).</summary>
+        public const string OrigemTituloVenda = "VENDA";
     }
 }

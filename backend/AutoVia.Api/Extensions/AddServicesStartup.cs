@@ -39,6 +39,7 @@ namespace AutoVia.Api.Extensions
 
             // --- Painel da locadora (visao geral, P11-BE-01 e P11-BE-02) ---
             services.AddScoped<IPainelService, PainelService>();
+            services.AddScoped<IPainelFinanceiroService, PainelFinanceiroService>();
             // Singleton: relogio sem estado (DateTime.Now); os testes trocam por um relogio fixo.
             services.AddSingleton<IRelogio, RelogioSistema>();
 

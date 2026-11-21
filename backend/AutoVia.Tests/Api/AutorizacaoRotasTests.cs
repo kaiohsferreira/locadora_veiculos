@@ -204,6 +204,22 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public void PainelFinanceiro_ExigePoliticaFinanceiroNaClasseENenhumaAcaoEAnonima()
+        {
+            AuthorizeAttribute? autorizacao = typeof(PainelFinanceiroController).GetCustomAttribute<AuthorizeAttribute>();
+            MethodInfo[] acoes = typeof(PainelFinanceiroController).GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+
+            Assert.NotNull(autorizacao);
+            Assert.Equal(ConstantsValues.PoliticaFinanceiro, autorizacao!.Policy);
+            Assert.Equal(2, acoes.Length);
+
+            foreach (MethodInfo acao in acoes)
+            {
+                Assert.False(Attribute.IsDefined(acao, typeof(AllowAnonymousAttribute), true), acao.Name);
+            }
+        }
+
+        [Fact]
         public void Seguro_ExigeFuncionarioNaClasse()
         {
             AuthorizeAttribute? autorizacao = typeof(SeguroController).GetCustomAttribute<AuthorizeAttribute>();
