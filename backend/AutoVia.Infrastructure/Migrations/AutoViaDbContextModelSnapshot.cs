@@ -1108,6 +1108,94 @@ namespace AutoVia.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.PropostaCompra", b =>
+                {
+                    b.Property<int>("IdPropostaCompra")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id_proposta_compra");
+
+                    NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdPropostaCompra"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
+
+                    b.Property<int>("IdCliente")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_cliente");
+
+                    b.Property<int>("IdVeiculo")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_veiculo");
+
+                    b.Property<int>("NumeroParcelas")
+                        .HasColumnType("integer")
+                        .HasColumnName("numero_parcelas");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("ENVIADA")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<decimal>("ValorEntrada")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("valor_entrada");
+
+                    b.Property<decimal>("ValorParcela")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("valor_parcela");
+
+                    b.Property<decimal>("ValorUltimaParcela")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("valor_ultima_parcela");
+
+                    b.Property<decimal>("ValorVenda")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("valor_venda");
+
+                    b.HasKey("IdPropostaCompra")
+                        .HasName("proposta_compra_pkey");
+
+                    b.HasIndex("IdCliente")
+                        .HasDatabaseName("idx_proposta_compra_cliente");
+
+                    b.HasIndex("IdVeiculo")
+                        .HasDatabaseName("idx_proposta_compra_veiculo");
+
+                    b.ToTable("proposta_compra", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_proposta_compra_entrada", "valor_entrada >= 0 AND valor_entrada < valor_venda");
+
+                            t.HasCheckConstraint("ck_proposta_compra_parcela", "valor_parcela > 0 AND valor_ultima_parcela >= valor_parcela");
+
+                            t.HasCheckConstraint("ck_proposta_compra_parcelas", "numero_parcelas BETWEEN 1 AND 60");
+
+                            t.HasCheckConstraint("ck_proposta_compra_status", "status IN ('ENVIADA', 'ACEITA', 'RECUSADA', 'CANCELADA')");
+
+                            t.HasCheckConstraint("ck_proposta_compra_valor", "valor_venda > 0");
+                        });
+                });
+
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.RedefinicaoSenha", b =>
                 {
                     b.Property<int>("IdRedefinicaoSenha")
@@ -2205,6 +2293,27 @@ namespace AutoVia.Infrastructure.Migrations
                     b.Navigation("Locacao");
 
                     b.Navigation("Venda");
+                });
+
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.PropostaCompra", b =>
+                {
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Cliente", "Cliente")
+                        .WithMany()
+                        .HasForeignKey("IdCliente")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_proposta_compra_cliente");
+
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Veiculo", "Veiculo")
+                        .WithMany()
+                        .HasForeignKey("IdVeiculo")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_proposta_compra_veiculo");
+
+                    b.Navigation("Cliente");
+
+                    b.Navigation("Veiculo");
                 });
 
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.RedefinicaoSenha", b =>

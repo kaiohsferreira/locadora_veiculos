@@ -17,6 +17,7 @@ namespace AutoVia.Tests.Persistence
         private const string CaminhoDisponibilidade = "AutoVia.Infrastructure/Repositories/VeiculoRepository.Disponibilidade.cs";
         private const string CaminhoCatalogo = "AutoVia.Infrastructure/Repositories/VeiculoRepository.Catalogo.cs";
         private const string CaminhoLocacaoRepository = "AutoVia.Infrastructure/Repositories/LocacaoRepository.cs";
+        private const string CaminhoPropostaCompraRepository = "AutoVia.Infrastructure/Repositories/PropostaCompraRepository.cs";
         private const string SeparadorMetodoSimbolo = "|";
         private const string PadraoDeclaracaoDeMetodo = @"^        (public|private)\s[^=]*?\s(\w+)\(";
 
@@ -27,7 +28,7 @@ namespace AutoVia.Tests.Persistence
         /// metodo, simbolo ou quantidade reprova. Motivos: ReservaRepository (quatro consultas nomeadas fora do filtro Empresa
         /// e a trava do veiculo, que tem SQL bruto); VeiculoRepository.Disponibilidade e VeiculoRepository.Catalogo (leituras
         /// publicas entre locadoras, sempre com locadora ativa); LocacaoRepository (trava de linha pela conexao crua, so no
-        /// metodo que faz a trava).
+        /// metodo que faz a trava); PropostaCompraRepository (propostas do proprio cliente, com a posse pelo cliente do contexto).
         /// </summary>
         private static readonly Dictionary<string, string[]> OcorrenciasEsperadas = new Dictionary<string, string[]>
         {
@@ -50,6 +51,10 @@ namespace AutoVia.Tests.Persistence
             [CaminhoLocacaoRepository] = new string[]
             {
                 "LockActiveRowAsync" + SeparadorMetodoSimbolo + "GetDbConnection("
+            },
+            [CaminhoPropostaCompraRepository] = new string[]
+            {
+                "ConsultaPropostasDoClienteLogado" + SeparadorMetodoSimbolo + "SemEscopoEmpresa("
             }
         };
 
@@ -105,6 +110,7 @@ namespace AutoVia.Tests.Persistence
         [InlineData(CaminhoDisponibilidade)]
         [InlineData(CaminhoCatalogo)]
         [InlineData(CaminhoLocacaoRepository)]
+        [InlineData(CaminhoPropostaCompraRepository)]
         public void Repositorio_SimbolosDeBypassSoNosMetodosNomeadosNaQuantidadeExata(string caminhoRelativo)
         {
             string conteudo = File.ReadAllText(Path.Combine(RaizDoBackend(), caminhoRelativo.Replace('/', Path.DirectorySeparatorChar)));

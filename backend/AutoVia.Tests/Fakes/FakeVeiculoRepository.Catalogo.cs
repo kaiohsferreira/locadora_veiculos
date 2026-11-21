@@ -50,6 +50,22 @@ namespace AutoVia.Tests.Fakes
             return Task.FromResult(total);
         }
 
+        /// <summary>Veiculo do catalogo pelo id, com o mesmo recorte de FiltrarCatalogo (simulacao e proposta de compra).</summary>
+        public Task<Veiculo?> FindAVendaByIdAsync(int idVeiculo)
+        {
+            if (ExcecaoAoListarCatalogo != null)
+            {
+                throw ExcecaoAoListarCatalogo;
+            }
+
+            Veiculo? veiculo = FiltrarCatalogo(null, null, null, null, null, null)
+                .Where(x => x.IdVeiculo == idVeiculo)
+                .Select(x => Copiar(x))
+                .FirstOrDefault();
+
+            return Task.FromResult(veiculo);
+        }
+
         /// <summary>Auxiliar de teste: muda o status de um veiculo semeado (simula, por exemplo, a abertura de uma manutencao).</summary>
         public void AlterarStatus(int idVeiculo, StatusVeiculo novoStatus)
         {

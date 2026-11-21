@@ -35,7 +35,9 @@ namespace AutoVia.Tests.Persistence
             // Desvio aprovado por Kaio em 16/11/2026 (fotos do veiculo, RF-94 a RF-101 e RF-105): tabela veiculo_foto.
             "veiculo_foto",
             // RF-23: cadastro e apuracao autorizados por Eduardo em 18/11/2026.
-            "configuracao_cobranca_extra", "apuracao_cobranca_extra"
+            "configuracao_cobranca_extra", "apuracao_cobranca_extra",
+            // Desvio aprovado por Kaio em 21/11/2026 (P6-BE-02, RF-27): proposta de compra de seminovo.
+            "proposta_compra"
         };
 
         private static readonly string[] TabelasIntegracao = new string[] { "integration", "integration_setting" };
@@ -66,7 +68,9 @@ namespace AutoVia.Tests.Persistence
             // RF-22: vínculo aditivo autorizado por Eduardo Freire em 18/11/2026.
             "idx_avaria_entrada",
             // RF-23: indices comuns do desvio autorizado.
-            "idx_configuracao_extra_empresa_categoria", "idx_apuracao_extra_locacao", "idx_cobranca_apuracao"
+            "idx_configuracao_extra_empresa_categoria", "idx_apuracao_extra_locacao", "idx_cobranca_apuracao",
+            // Desvio aprovado por Kaio em 21/11/2026 (P6-BE-02): indices comuns, sem UNIQUE.
+            "idx_proposta_compra_veiculo", "idx_proposta_compra_cliente"
         };
 
         /// <summary>
@@ -186,7 +190,7 @@ namespace AutoVia.Tests.Persistence
 
             // 35 anteriores + 4 da sinistro_historico (desvio aprovado por Kaio em 16/11/2026) + 1 da veiculo_foto (mesmo desvio de fotos).
             // RF-23 autorizado: 5 checks configuracao + 2 apuracao, preservando os 40 anteriores.
-            Assert.Equal(47, totalChecks);
+            Assert.Equal(52, totalChecks);
         }
 
         [Fact]

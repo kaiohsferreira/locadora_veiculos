@@ -77,6 +77,8 @@ namespace AutoVia.Tests.Persistence
             ["AutoVia.Infrastructure/Repositories/AutenticacaoRepository.cs"] = 3,
             ["AutoVia.Infrastructure/Repositories/EmpresaRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/LocacaoRepository.cs"] = 1,
+            // P6-BE-02: propostas do proprio cliente (ConsultaPropostasDoClienteLogado), com a posse pelo cliente do contexto.
+            ["AutoVia.Infrastructure/Repositories/PropostaCompraRepository.cs"] = 1,
             // Trava por locacao, precedida e seguida de consulta sob o filtro Empresa.
             ["AutoVia.Infrastructure/Repositories/VistoriaRepository.cs"] = 1,
             // RF-23: uma conexao crua compartilhada apenas pelos locks parametrizados, com escopo validado antes.

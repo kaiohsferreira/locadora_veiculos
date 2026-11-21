@@ -9,7 +9,7 @@ namespace AutoVia.Infrastructure.Persistence
     /// <summary>
     /// Isolamento por locadora (multi-locadora, T-BE-03b): o filtro global nomeado "Empresa" e
     /// registrado UMA vez, pelo AutoViaDbContext.OnModelCreating (metodo abaixo). Caminhos: Veiculo e
-    /// Funcionario pela propria coluna id_empresa; Reserva, Locacao, Venda, Manutencao, Seguro e
+    /// Funcionario pela propria coluna id_empresa; Reserva, Locacao, Venda, PropostaCompra, Manutencao, Seguro e
     /// Sinistro pelo Veiculo; SinistroHistorico pelo Sinistro; VeiculoFoto pelo Veiculo; Vistoria e CobrancaExtra pela Locacao; Avaria pela Vistoria; Pagamento
     /// pela Locacao ou pela Venda; ClienteLocadora pelo proprio id_empresa OU pelo id_cliente do contexto.
     /// Fail-closed: sem contexto de empresa (id 0) nada volta.
@@ -18,7 +18,7 @@ namespace AutoVia.Infrastructure.Persistence
     /// e o motivo de cada um: autenticacao (login, sessao e administrador inicial, antes de haver contexto); redefinicao de
     /// senha (titular do link, sem contexto); unicidade do veiculo (placa, chassi e renavam na plataforma inteira); CPF na
     /// plataforma (cadastro publico de locadora e inclusao de funcionario); reservas do proprio cliente (posse pelo cliente do
-    /// contexto); conflito de periodo (reservas do veiculo, para a checagem de sobreposicao); veiculo de locadora ativa para
+    /// contexto); propostas de compra do proprio cliente (posse pelo cliente do contexto, P6-BE-02); conflito de periodo (reservas do veiculo, para a checagem de sobreposicao); veiculo de locadora ativa para
     /// reserva; trava do veiculo e da locacao (bloqueio de linha FOR UPDATE, sem leitura de dados fora do filtro); busca publica
     /// de disponiveis e catalogo publico de seminovos (so locadoras ativas e nao desativadas). Qualquer outro metodo que
     /// desligue o filtro reprova a guarda. Os metodos e a quantidade de cada simbolo estao em GuardaPorMetodoRepositoriosTests
@@ -27,7 +27,7 @@ namespace AutoVia.Infrastructure.Persistence
     public partial class AutoViaDbContext
     {
         /// <summary>
-        /// Registra o filtro "Empresa" nas 15 entidades que pertencem a uma locadora (ClienteLocadora tem a condicao dupla: locadora ou cliente). As expressoes leem
+        /// Registra o filtro "Empresa" nas 16 entidades que pertencem a uma locadora (ClienteLocadora tem a condicao dupla: locadora ou cliente). As expressoes leem
         /// IdEmpresaContexto de ESTA instancia (this): o EF troca o this pelo contexto que executa a consulta,
         /// por isso o filtro nao pode capturar outra instancia nem uma variavel local.
         /// </summary>
@@ -50,6 +50,10 @@ namespace AutoVia.Infrastructure.Persistence
                 x => IdEmpresaContexto > 0 && x.Veiculo.IdEmpresa == IdEmpresaContexto);
 
             modelBuilder.Entity<Venda>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0 && x.Veiculo.IdEmpresa == IdEmpresaContexto);
+
+            modelBuilder.Entity<PropostaCompra>().HasQueryFilter(
                 ConstantsValues.NomeFiltroEmpresa,
                 x => IdEmpresaContexto > 0 && x.Veiculo.IdEmpresa == IdEmpresaContexto);
 
