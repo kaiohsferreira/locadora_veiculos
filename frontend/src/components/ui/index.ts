@@ -11,6 +11,8 @@ export { Tabela } from './Tabela';
 export type { AlinhamentoColuna, ColunaTabela, TabelaProps } from './Tabela';
 export { Etiqueta } from './Etiqueta';
 export type { EtiquetaProps, TomEtiqueta } from './Etiqueta';
+export { Gaveta } from './Gaveta';
+export type { GavetaProps } from './Gaveta';
 export { Modal } from './Modal';
 export type { ModalProps, TamanhoModal } from './Modal';
 export { Paginacao } from './Paginacao';
