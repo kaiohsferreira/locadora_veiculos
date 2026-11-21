@@ -11,7 +11,10 @@ using AutoVia.Integrations.Interfaces;
 using AutoVia.Integrations.Services;
 using AutoVia.Integrations.Services.Pix;
 using AutoVia.Tests.Fakes;
+using AutoVia.Tests.Integrations.Google;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 
 namespace AutoVia.Tests.Integrations.Pix
 {
@@ -294,14 +297,15 @@ namespace AutoVia.Tests.Integrations.Pix
         // ------------------------------------------------------------------
 
         [Fact]
-        public async Task CriarCobrancaAsync_SemExpiracaoNaSolicitacaoNemNaConfiguracao_UsaPadraoDe3600()
+        public async Task CriarCobrancaAsync_SemExpiracaoNaSolicitacaoNemNaConfiguracao_UsaPadraoDe900()
         {
             ProvedorRoteirizado provedor = new ProvedorRoteirizado(ConstantsPix.ProvedorMercadoPago);
             PixGateway gateway = CriarGateway(CriarRepositorio(CriarIntegracao(ConstantsPix.ProvedorMercadoPago, AmbienteIntegracao.PRODUCAO)), new FakeLogService(), provedor);
 
             PixCobrancaResultado resultado = await gateway.CriarCobrancaAsync(CriarSolicitacao());
 
-            Assert.Equal(3600, provedor.ExpiracaoRecebida);
+            Assert.Equal(900, provedor.ExpiracaoRecebida);
+            Assert.Equal(900, ConstantsPix.ExpiracaoPadraoSegundos);
             Assert.Equal(ConstantsPix.ProvedorMercadoPago, resultado.Provedor);
         }
 
@@ -366,15 +370,19 @@ namespace AutoVia.Tests.Integrations.Pix
         }
 
         [Fact]
-        public async Task CriarCobrancaAsync_FakeForaDoSandbox_LancaFakeForaDoSandbox()
+        public async Task CriarCobrancaAsync_FakeForaDoSandbox_RecusadoPeloProvedorFakeSemGravar()
         {
-            ProvedorRoteirizado fake = new ProvedorRoteirizado(ConstantsPix.ProvedorFake);
+            // Decisao 1 (21/11/2026): a trava do FAKE e do provedor (ponto unico). O gateway so escolhe o provedor pelo nome.
+            PixFakeStore store = new PixFakeStore();
+            Dictionary<string, string?> valores = new Dictionary<string, string?> { { ConstantsPix.ChavePermitirProvedorFake, "true" } };
+            IConfiguration configuracao = new ConfigurationBuilder().AddInMemoryCollection(valores).Build();
+            FakePixProvider fake = new FakePixProvider(store, new GoogleProvaDeTeste.AmbienteFalso(Environments.Development), configuracao, new FakeLogService());
             PixGateway gateway = CriarGateway(CriarRepositorio(CriarIntegracao(ConstantsPix.ProvedorFake, AmbienteIntegracao.PRODUCAO)), new FakeLogService(), fake);
 
             IntegrationException excecao = await Assert.ThrowsAsync<IntegrationException>(() => gateway.CriarCobrancaAsync(CriarSolicitacao()));
 
             Assert.Equal(ConstantsMessage.ErroPixFakeForaDoSandbox, excecao.Message);
-            Assert.Equal(0, fake.ChamadasCriar);
+            Assert.Equal(0, store.Quantidade);
         }
 
         [Fact]

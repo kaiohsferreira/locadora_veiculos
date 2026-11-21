@@ -74,8 +74,9 @@ namespace AutoVia.Tests.Persistence
         /// provado em VeiculoPublicoSqlTests); VeiculoRepository.Status (trava FOR UPDATE da troca manual de status, com id_empresa
         /// por parametro e o filtro ligado; SQL provado em VeiculoStatusConsultasSqlTests); ManutencaoRepository (trava FOR UPDATE
         /// da abertura e do encerramento da ordem, o mesmo SQL da troca de status, com id_empresa por parametro e o filtro
-        /// ligado; SQL provado em ManutencaoConsultasSqlTests). PagamentoRepository (duas ocorrencias: a consulta base do cliente,
-        /// com a posse pelo cliente do contexto, e a trava FOR UPDATE da baixa, com SQL bruto e o filtro ligado; SQL provado em
+        /// ligado; SQL provado em ManutencaoConsultasSqlTests). PagamentoRepository (quatro ocorrencias: a consulta base do cliente,
+        /// com a posse pelo cliente do contexto, e a trava FOR UPDATE da baixa, com SQL bruto e o filtro ligado; mais a trava
+        /// FOR UPDATE do cliente para o PIX (item P7-BE-02, posse dentro do SQL, sem filtro de locadora); SQL provado em
         /// PagamentoConsultasSqlTests). VistoriaRepository (trava FOR UPDATE da locacao na vistoria de saida, obtida pela
         /// conexao crua do contexto (GetDbConnection), com consulta sob o filtro Empresa antes e depois da trava; so trava a linha).
         /// CobrancasExtrasRepository (conexao crua do contexto (GetDbConnection) apenas para os locks FOR UPDATE parametrizados
@@ -90,7 +91,7 @@ namespace AutoVia.Tests.Persistence
             ["AutoVia.Infrastructure/Repositories/EmpresaRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/LocacaoRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/ManutencaoRepository.cs"] = 1,
-            ["AutoVia.Infrastructure/Repositories/PagamentoRepository.cs"] = 2,
+            ["AutoVia.Infrastructure/Repositories/PagamentoRepository.cs"] = 4,
             // Trava por locacao, precedida e seguida de consulta sob o filtro Empresa.
             ["AutoVia.Infrastructure/Repositories/VistoriaRepository.cs"] = 1,
             // RF-23: uma conexao crua compartilhada apenas pelos locks parametrizados, com escopo validado antes.

@@ -32,6 +32,10 @@ namespace AutoVia.Tests.Persistence
         private const string DisabledAtNulo = "disabled_at IS NULL";
         private const string TravaNoSql = @"id_pagamento = @(\w+) AND disabled_at IS NULL AND \(EXISTS .*v\.id_empresa = @(\w+)\).*FOR UPDATE";
         private const string ColunaDeTravaNoSql = "FOR UPDATE";
+        private const string ColunaQrCodeNoSql = "qr_code_base64";
+        private const string TravaDoClienteNoSql = @"id_pagamento = @(\w+) AND disabled_at IS NULL AND \(EXISTS \(SELECT 1 FROM locacao l WHERE l\.id_locacao = pagamento\.id_locacao AND l\.id_cliente = @(\w+) AND l\.disabled_at IS NULL\) OR EXISTS \(SELECT 1 FROM venda vd WHERE vd\.id_venda = pagamento\.id_venda AND vd\.id_cliente = @(\w+) AND vd\.disabled_at IS NULL\)\) FOR UPDATE";
+        private const string NaoRastreiaNoExpression = "AsNoTracking";
+        private const string LinhaInteiraNoSql = "SELECT * FROM pagamento";
         private const string OrdemDaListaDaLocadoraNoSql = @"ORDER BY \S+\.data_vencimento, \S+\.id_pagamento\b";
         private const string OrdemDaListaDoClienteNoSql = @"ORDER BY \S+\.data_vencimento DESC, \S+\.id_pagamento DESC\b";
         private const string PaginaNoSql = @"LIMIT @(\w+) OFFSET @(\w+)";
@@ -175,6 +179,83 @@ namespace AutoVia.Tests.Persistence
             Assert.Equal(EmpresaDoTeste.ToString(), ValorDoParametro(sql, trava.Groups[2].Value));
             Assert.Contains(FiltroEmpresa, sql);
             Assert.Equal(EmpresaDoTeste.ToString(), ValorDoParametro(sql, FiltroEmpresa));
+        }
+
+        [Fact]
+        public void ConsultaTravaPagamentoDoCliente_ForUpdateComIdClienteSemFiltroDeLocadora()
+        {
+            using AutoViaDbContext db = CriarDbComContextoDeCliente(IdClienteDoTeste);
+            PagamentoRepository repositorio = new PagamentoRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaTravaPagamentoDoCliente(IdClienteDoTeste, IdPagamentoDoTeste).ToQueryString();
+
+            Assert.Contains(ColunaDeTravaNoSql, sql);
+            Assert.DoesNotContain(FiltroEmpresa, sql);
+            Match trava = Regex.Match(sql, TravaDoClienteNoSql);
+            Assert.True(trava.Success, $"A trava do cliente deveria ter a posse nas duas origens, disabled_at e FOR UPDATE. SQL: {sql}");
+            Assert.Equal(IdPagamentoDoTeste.ToString(), ValorDoParametro(sql, trava.Groups[1].Value));
+            Assert.Equal(IdClienteDoTeste.ToString(), ValorDoParametro(sql, trava.Groups[2].Value));
+            Assert.Equal(IdClienteDoTeste.ToString(), ValorDoParametro(sql, trava.Groups[3].Value));
+        }
+
+        [Fact]
+        public void ConsultaTravaParaPixSemRastreio_NaoRastreiaA_TravaDoClienteEADaLocadoraRastreiaParaGravar()
+        {
+            using AutoViaDbContext db = CriarDbComContextoDeCliente(IdClienteDoTeste);
+            PagamentoRepository repositorio = new PagamentoRepository(db, new FakeLogService());
+
+            string leituraDaTrava = repositorio.ConsultaTravaParaPixSemRastreio(IdClienteDoTeste, IdPagamentoDoTeste).Expression.ToString();
+            string gravacaoDoCliente = repositorio.ConsultaTravaPagamentoDoCliente(IdClienteDoTeste, IdPagamentoDoTeste).Expression.ToString();
+            string travaDaBaixa = repositorio.ConsultaTravaPagamento(IdPagamentoDoTeste).Expression.ToString();
+
+            Assert.Contains(NaoRastreiaNoExpression, leituraDaTrava);
+            Assert.DoesNotContain(NaoRastreiaNoExpression, gravacaoDoCliente);
+            Assert.DoesNotContain(NaoRastreiaNoExpression, travaDaBaixa);
+        }
+
+        [Fact]
+        public void ConsultaCobrancaPixDaLocadora_TemOFiltroDeLocadoraEAOrigemAtiva()
+        {
+            using AutoViaDbContext db = CriarDbComContextoDeFuncionario(EmpresaDoTeste);
+            PagamentoRepository repositorio = new PagamentoRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaCobrancaPixDaLocadora(IdPagamentoDoTeste).ToQueryString();
+
+            Assert.Contains(FiltroEmpresa, sql);
+            Assert.Equal(EmpresaDoTeste.ToString(), ValorDoParametro(sql, FiltroEmpresa));
+            Assert.Contains(DisabledAtNulo, sql);
+            Assert.DoesNotContain(ColunaDeTravaNoSql, sql);
+        }
+
+        [Fact]
+        public void ListagensDaLocadoraEDoCliente_NaoLeemOQrCodeBase64()
+        {
+            using AutoViaDbContext db = CriarDbComContextoDeFuncionario(EmpresaDoTeste);
+            PagamentoRepository repositorio = new PagamentoRepository(db, new FakeLogService());
+
+            string sqlLocadora = repositorio.ConsultaPaginaDaLocadora(repositorio.ConsultaPagamentosDaLocadora(), DeslocamentoDoTeste, TamanhoDaPaginaDoTeste).ToQueryString();
+            Assert.DoesNotContain(ColunaQrCodeNoSql, sqlLocadora);
+
+            using AutoViaDbContext dbCliente = CriarDbComContextoDeCliente(IdClienteDoTeste);
+            PagamentoRepository repositorioCliente = new PagamentoRepository(dbCliente, new FakeLogService());
+            string sqlCliente = repositorioCliente.ConsultaPaginaDoCliente(repositorioCliente.ConsultaMeusPagamentos(IdClienteDoTeste), DeslocamentoDoTeste, TamanhoDaPaginaDoTeste).ToQueryString();
+            Assert.DoesNotContain(ColunaQrCodeNoSql, sqlCliente);
+        }
+
+        [Fact]
+        public void LeiturasDeUmaCobranca_TrazemOQrCodeBase64()
+        {
+            using AutoViaDbContext db = CriarDbComContextoDeFuncionario(EmpresaDoTeste);
+            PagamentoRepository repositorio = new PagamentoRepository(db, new FakeLogService());
+
+            using AutoViaDbContext dbCliente = CriarDbComContextoDeCliente(IdClienteDoTeste);
+            PagamentoRepository repositorioCliente = new PagamentoRepository(dbCliente, new FakeLogService());
+
+            Assert.Contains(ColunaQrCodeNoSql, repositorioCliente.ConsultaMeusPagamentos(IdClienteDoTeste).ToQueryString());
+            Assert.Contains(ColunaQrCodeNoSql, repositorio.ConsultaCobrancaPixDaLocadora(IdPagamentoDoTeste).ToQueryString());
+            Assert.Contains(ColunaQrCodeNoSql, repositorio.ConsultaTravaPagamento(IdPagamentoDoTeste).ToQueryString());
+            // A trava do cliente (sem filtro de locadora) le a linha inteira com SELECT *: o QR vem junto, sem o nome da coluna no SQL.
+            Assert.Contains(LinhaInteiraNoSql, repositorioCliente.ConsultaTravaPagamentoDoCliente(IdClienteDoTeste, IdPagamentoDoTeste).ToQueryString());
         }
 
         [Fact]

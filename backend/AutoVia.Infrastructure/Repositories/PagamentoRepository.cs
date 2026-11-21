@@ -31,6 +31,12 @@ namespace AutoVia.Infrastructure.Repositories
         /// </summary>
         private const string SqlTravaPagamento = "SELECT * FROM pagamento WHERE id_pagamento = {0} AND disabled_at IS NULL AND (EXISTS (SELECT 1 FROM locacao l INNER JOIN veiculo v ON v.id_veiculo = l.id_veiculo WHERE l.id_locacao = pagamento.id_locacao AND v.id_empresa = {1}) OR EXISTS (SELECT 1 FROM venda vd INNER JOIN veiculo vv ON vv.id_veiculo = vd.id_veiculo WHERE vd.id_venda = pagamento.id_venda AND vv.id_empresa = {1})) FOR UPDATE";
 
+        /// <summary>
+        /// Trava da cobranca do cliente pelo id, com disabled_at nulo e FOR UPDATE. A posse do cliente entra DENTRO do SQL ({1}):
+        /// a cobranca so e travada se a locacao ou a venda de origem for desse cliente. Sem locadora no contexto (o cliente nao tem).
+        /// </summary>
+        private const string SqlTravaPagamentoDoCliente = "SELECT * FROM pagamento WHERE id_pagamento = {0} AND disabled_at IS NULL AND (EXISTS (SELECT 1 FROM locacao l WHERE l.id_locacao = pagamento.id_locacao AND l.id_cliente = {1} AND l.disabled_at IS NULL) OR EXISTS (SELECT 1 FROM venda vd WHERE vd.id_venda = pagamento.id_venda AND vd.id_cliente = {1} AND vd.disabled_at IS NULL)) FOR UPDATE";
+
         private readonly AutoViaDbContext _db;
         private readonly ILogService _logService;
 
@@ -91,9 +97,10 @@ namespace AutoVia.Infrastructure.Repositories
 
         /// <summary>
         /// Da baixa em transacao: trava a cobranca, recusa caucao, pago e cancelado (409) e inexistente (404), e grava PAGO
-        /// com a data e a forma. Duas baixas ao mesmo tempo: a segunda espera a trava e responde 409.
+        /// com a data e a forma. Duas baixas ao mesmo tempo: a segunda espera a trava e responde 409. Dentro da trava, reconfere
+        /// se surgiu PIX valido que nao foi o cancelado antes no provedor (decisao 2 de 21/11/2026): nesse caso, 409.
         /// </summary>
-        public async Task<Pagamento> BaixarAtomicamenteAsync(int idPagamento, string forma, DateOnly dataPagamento, DateTime agora)
+        public async Task<Pagamento> BaixarAtomicamenteAsync(int idPagamento, string forma, DateOnly dataPagamento, DateTime agora, bool confirmarBaixaComPixGerado, string? idTransacaoCancelado)
         {
             try
             {
@@ -113,6 +120,16 @@ namespace AutoVia.Infrastructure.Repositories
                     if (erroDaBaixa != null)
                     {
                         throw new BusinessException(erroDaBaixa);
+                    }
+
+                    if (RegrasPagamento.ExigeConfirmacaoBaixaComPix(pagamento.IdTransacao, forma, confirmarBaixaComPixGerado))
+                    {
+                        throw new BusinessException(ConstantsMessage.ErroPagamentoBaixaComPixGerado);
+                    }
+
+                    if (RegrasPagamento.PixValidoSemCancelamento(pagamento.IdTransacao, pagamento.PixExpiraEm, forma, idTransacaoCancelado, agora))
+                    {
+                        throw new BusinessException(ConstantsMessage.ErroPagamentoBaixaComPixGerado);
                     }
 
                     pagamento.Status = StatusPagamento.PAGO;
@@ -143,7 +160,7 @@ namespace AutoVia.Infrastructure.Repositories
         }
 
         /// <summary>Lista da locadora: predicado, ordem de vencimento e id, com a pagina e o total (filtro de locadora ligado).</summary>
-        public async Task<(List<Pagamento> Itens, int Total)> ListarPagamentosDaLocadoraAsync(Expression<Func<Pagamento, bool>> predicado, int deslocamento, int tamanho)
+        public async Task<(List<PagamentoListagemRegistro> Itens, int Total)> ListarPagamentosDaLocadoraAsync(Expression<Func<Pagamento, bool>> predicado, int deslocamento, int tamanho)
         {
             try
             {
@@ -151,7 +168,7 @@ namespace AutoVia.Infrastructure.Repositories
 
                 int total = await consulta.CountAsync();
 
-                List<Pagamento> itens = await ConsultaPaginaDaLocadora(consulta, deslocamento, tamanho).ToListAsync();
+                List<PagamentoListagemRegistro> itens = await ConsultaPaginaDaLocadora(consulta, deslocamento, tamanho).ToListAsync();
 
                 return (itens, total);
             }
@@ -163,7 +180,7 @@ namespace AutoVia.Infrastructure.Repositories
         }
 
         /// <summary>Lista do cliente: predicado sobre a consulta base do cliente, ordem de vencimento decrescente e id, com a pagina e o total.</summary>
-        public async Task<(List<Pagamento> Itens, int Total)> ListarMeusPagamentosAsync(int idCliente, Expression<Func<Pagamento, bool>> predicado, int deslocamento, int tamanho)
+        public async Task<(List<PagamentoListagemRegistro> Itens, int Total)> ListarMeusPagamentosAsync(int idCliente, Expression<Func<Pagamento, bool>> predicado, int deslocamento, int tamanho)
         {
             try
             {
@@ -171,7 +188,7 @@ namespace AutoVia.Infrastructure.Repositories
 
                 int total = await consulta.CountAsync();
 
-                List<Pagamento> itens = await ConsultaPaginaDoCliente(consulta, deslocamento, tamanho).ToListAsync();
+                List<PagamentoListagemRegistro> itens = await ConsultaPaginaDoCliente(consulta, deslocamento, tamanho).ToListAsync();
 
                 return (itens, total);
             }
@@ -208,15 +225,30 @@ namespace AutoVia.Infrastructure.Repositories
         /// Ordem e pagina da lista da locadora: vencimento crescente e id para desempatar, com o deslocamento e a quantidade.
         /// Publica para o teste de SQL por ToQueryString; quem executa e ListarPagamentosDaLocadoraAsync.
         /// </summary>
-        public IQueryable<Pagamento> ConsultaPaginaDaLocadora(IQueryable<Pagamento> consulta, int deslocamento, int tamanho)
+        public IQueryable<PagamentoListagemRegistro> ConsultaPaginaDaLocadora(IQueryable<Pagamento> consulta, int deslocamento, int tamanho)
         {
             try
             {
-                IQueryable<Pagamento> pagina = consulta
+                IQueryable<PagamentoListagemRegistro> pagina = consulta
                     .OrderBy(x => x.DataVencimento)
                     .ThenBy(x => x.IdPagamento)
                     .Skip(deslocamento)
-                    .Take(tamanho);
+                    .Take(tamanho)
+                    .Select(x => new PagamentoListagemRegistro
+                    {
+                        IdPagamento = x.IdPagamento,
+                        IdLocacao = x.IdLocacao,
+                        IdVenda = x.IdVenda,
+                        Tipo = x.Tipo,
+                        Valor = x.Valor,
+                        DataVencimento = x.DataVencimento,
+                        DataPagamento = x.DataPagamento,
+                        Forma = x.Forma,
+                        Status = x.Status,
+                        VeiculoDescricao = x.Locacao != null
+                            ? x.Locacao.Veiculo.Marca + " " + x.Locacao.Veiculo.Modelo
+                            : (x.Venda != null ? x.Venda.Veiculo.Marca + " " + x.Venda.Veiculo.Modelo : null)
+                    });
 
                 return pagina;
             }
@@ -231,15 +263,30 @@ namespace AutoVia.Infrastructure.Repositories
         /// Ordem e pagina da lista do cliente: vencimento decrescente e id decrescente, com o deslocamento e a quantidade.
         /// Publica para o teste de SQL por ToQueryString; quem executa e ListarMeusPagamentosAsync.
         /// </summary>
-        public IQueryable<Pagamento> ConsultaPaginaDoCliente(IQueryable<Pagamento> consulta, int deslocamento, int tamanho)
+        public IQueryable<PagamentoListagemRegistro> ConsultaPaginaDoCliente(IQueryable<Pagamento> consulta, int deslocamento, int tamanho)
         {
             try
             {
-                IQueryable<Pagamento> pagina = consulta
+                IQueryable<PagamentoListagemRegistro> pagina = consulta
                     .OrderByDescending(x => x.DataVencimento)
                     .ThenByDescending(x => x.IdPagamento)
                     .Skip(deslocamento)
-                    .Take(tamanho);
+                    .Take(tamanho)
+                    .Select(x => new PagamentoListagemRegistro
+                    {
+                        IdPagamento = x.IdPagamento,
+                        IdLocacao = x.IdLocacao,
+                        IdVenda = x.IdVenda,
+                        Tipo = x.Tipo,
+                        Valor = x.Valor,
+                        DataVencimento = x.DataVencimento,
+                        DataPagamento = x.DataPagamento,
+                        Forma = x.Forma,
+                        Status = x.Status,
+                        VeiculoDescricao = x.Locacao != null
+                            ? x.Locacao.Veiculo.Marca + " " + x.Locacao.Veiculo.Modelo
+                            : (x.Venda != null ? x.Venda.Veiculo.Marca + " " + x.Venda.Veiculo.Modelo : null)
+                    });
 
                 return pagina;
             }
@@ -316,6 +363,269 @@ namespace AutoVia.Infrastructure.Repositories
                     .FromSqlRaw(SqlTravaPagamento, idPagamento, _db.IdEmpresaContexto)
                     .Where(x => (x.Locacao != null && x.Locacao.DisabledAt == null)
                         || (x.Venda != null && x.Venda.DisabledAt == null));
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarPagamento, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta nomeada da cobranca da locadora do contexto para gerar ou reabrir o PIX: nao desativada, com a origem nao
+        /// desativada e com o cliente da origem (pagador). O filtro de locadora fica ligado (sem bypass). Sem trava.
+        /// </summary>
+        public IQueryable<Pagamento> ConsultaCobrancaPixDaLocadora(int idPagamento)
+        {
+            try
+            {
+                IQueryable<Pagamento> consulta = _db.Pagamentos
+                    .AsNoTracking()
+                    .Where(x => x.IdPagamento == idPagamento && x.DisabledAt == null
+                        && ((x.Locacao != null && x.Locacao.DisabledAt == null)
+                            || (x.Venda != null && x.Venda.DisabledAt == null)))
+                    .Include(x => x.Locacao!).ThenInclude(x => x.Cliente)
+                    .Include(x => x.Venda!).ThenInclude(x => x.Cliente);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarPagamento, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta nomeada: trava da cobranca do cliente (FOR UPDATE) pelo id, com a posse do cliente dentro do SQL e o
+        /// disabled_at nulo. Nao tem locadora no contexto (o cliente nao tem), por isso o filtro de locadora fica desligado e a
+        /// posse e o limite. Unica consulta do cliente com SQL bruto deste repositorio.
+        /// </summary>
+        public IQueryable<Pagamento> ConsultaTravaPagamentoDoCliente(int idCliente, int idPagamento)
+        {
+            try
+            {
+                IQueryable<Pagamento> consulta = _db.Pagamentos
+                    .FromSqlRaw(SqlTravaPagamentoDoCliente, idPagamento, idCliente)
+                    .SemEscopoEmpresa();
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarPagamento, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Leitura da cobranca do cliente para o PIX, sem trava: posse pela consulta base do cliente, origem com cliente. 404 se nao achou.</summary>
+        public async Task<Pagamento> ConsultarCobrancaDoClienteParaPixAsync(int idCliente, int idPagamento)
+        {
+            try
+            {
+                Pagamento? cobranca = await ConsultaMeusPagamentos(idCliente)
+                    .Where(x => x.IdPagamento == idPagamento)
+                    .Include(x => x.Locacao!).ThenInclude(x => x.Cliente)
+                    .Include(x => x.Venda!).ThenInclude(x => x.Cliente)
+                    .FirstOrDefaultAsync();
+
+                if (cobranca == null)
+                {
+                    throw new NotFoundException(ConstantsMessage.ErroPagamentoNaoEncontrado);
+                }
+
+                return cobranca;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarPagamento, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Leitura da cobranca da locadora do contexto para o PIX, sem trava, com o cliente da origem. 404 se nao achou.</summary>
+        public async Task<Pagamento> ConsultarCobrancaDaLocadoraParaPixAsync(int idPagamento)
+        {
+            try
+            {
+                Pagamento? cobranca = await ConsultaCobrancaPixDaLocadora(idPagamento).FirstOrDefaultAsync();
+
+                if (cobranca == null)
+                {
+                    throw new NotFoundException(ConstantsMessage.ErroPagamentoNaoEncontrado);
+                }
+
+                return cobranca;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarPagamento, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Trava curta da cobranca para reabrir o PIX: le status, id da transacao e validade na mesma consulta. 404 se nao achou.</summary>
+        public async Task<Pagamento> TravarCobrancaParaPixAsync(int? idCliente, int idPagamento)
+        {
+            try
+            {
+                IDbContextTransaction transacao = await _db.Database.BeginTransactionAsync();
+
+                try
+                {
+                    Pagamento? pagamento = await ConsultaTravaParaPixSemRastreio(idCliente, idPagamento).FirstOrDefaultAsync();
+
+                    if (pagamento == null)
+                    {
+                        throw new NotFoundException(ConstantsMessage.ErroPagamentoNaoEncontrado);
+                    }
+
+                    await transacao.CommitAsync();
+
+                    return pagamento;
+                }
+                catch
+                {
+                    await transacao.RollbackAsync();
+                    throw;
+                }
+                finally
+                {
+                    await transacao.DisposeAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarPagamento, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Grava o PIX gerado em transacao com a trava (FOR UPDATE). Repete a regra de geracao (409) e, se ja existe PIX valido,
+        /// devolve o gravado sem sobrescrever (Gravou = falso). 404 se a cobranca sumiu.
+        /// </summary>
+        public async Task<(Pagamento Pagamento, bool Gravou)> GravarPixAtomicamenteAsync(int? idCliente, int idPagamento, PixGravacaoRegistro dados, DateTime agora)
+        {
+            try
+            {
+                IDbContextTransaction transacao = await _db.Database.BeginTransactionAsync();
+
+                try
+                {
+                    Pagamento? pagamento = await ConsultaTravaParaPix(idCliente, idPagamento).FirstOrDefaultAsync();
+
+                    if (pagamento == null)
+                    {
+                        throw new NotFoundException(ConstantsMessage.ErroPagamentoNaoEncontrado);
+                    }
+
+                    string? erroDaGeracao = RegrasPagamento.ErroDaGeracaoPix(pagamento.Tipo, pagamento.Status);
+
+                    if (erroDaGeracao != null)
+                    {
+                        throw new BusinessException(erroDaGeracao);
+                    }
+
+                    if (RegrasPagamento.PixAindaValido(pagamento.IdTransacao, pagamento.PixExpiraEm, agora))
+                    {
+                        await transacao.CommitAsync();
+
+                        return (pagamento, false);
+                    }
+
+                    pagamento.IdTransacao = dados.IdentificadorProvedor;
+                    pagamento.Forma = ConstantsValues.FormaPix;
+                    pagamento.QrCodeBase64 = dados.QrCodeBase64;
+                    pagamento.PixCopiaECola = dados.CopiaECola;
+                    pagamento.PixExpiraEm = dados.ExpiraEm;
+                    pagamento.UpdatedAt = agora;
+
+                    await _db.SaveChangesAsync();
+                    await transacao.CommitAsync();
+
+                    return (pagamento, true);
+                }
+                catch
+                {
+                    await transacao.RollbackAsync();
+                    throw;
+                }
+                finally
+                {
+                    await transacao.DisposeAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroGravarPixPagamento, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Zera o id da transacao do PIX cancelado sob trava (FOR UPDATE, a consulta de sempre com o filtro de locadora), so se
+        /// ainda for o cancelado. A validade fica gravada. Todo catch registra e relanca.
+        /// </summary>
+        public async Task LimparPixCanceladoAsync(int idPagamento, string idTransacaoCancelado, DateTime agora)
+        {
+            try
+            {
+                IDbContextTransaction transacao = await _db.Database.BeginTransactionAsync();
+
+                try
+                {
+                    Pagamento? pagamento = await ConsultaTravaPagamento(idPagamento).FirstOrDefaultAsync();
+
+                    if (pagamento != null && pagamento.IdTransacao == idTransacaoCancelado)
+                    {
+                        pagamento.IdTransacao = null;
+                        pagamento.UpdatedAt = agora;
+
+                        await _db.SaveChangesAsync();
+                    }
+
+                    await transacao.CommitAsync();
+                }
+                catch
+                {
+                    await transacao.RollbackAsync();
+                    throw;
+                }
+                finally
+                {
+                    await transacao.DisposeAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroLimparPixCancelado, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Trava da cobranca para o PIX: do cliente (posse no SQL) ou da locadora do contexto (filtro de locadora).</summary>
+        private IQueryable<Pagamento> ConsultaTravaParaPix(int? idCliente, int idPagamento)
+        {
+            if (idCliente.HasValue)
+            {
+                return ConsultaTravaPagamentoDoCliente(idCliente.Value, idPagamento);
+            }
+
+            return ConsultaTravaPagamento(idPagamento);
+        }
+
+        /// <summary>
+        /// Trava da cobranca para reabrir o PIX, sem rastreamento: a leitura nao fica no contexto, para que a gravacao (que consulta
+        /// de novo no mesmo contexto) veja os valores do banco e nao a copia lida antes. Publica para o teste de rastreamento.
+        /// </summary>
+        public IQueryable<Pagamento> ConsultaTravaParaPixSemRastreio(int? idCliente, int idPagamento)
+        {
+            try
+            {
+                IQueryable<Pagamento> consulta = ConsultaTravaParaPix(idCliente, idPagamento).AsNoTracking();
 
                 return consulta;
             }

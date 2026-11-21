@@ -117,7 +117,8 @@ namespace AutoVia.Infrastructure.Persistence
     {
         /// <summary>
         /// Bypass nomeado: desliga SO o filtro "Empresa" desta consulta. Uso restrito aos metodos da lista fechada
-        /// descrita na classe; qualquer outro uso reprova a guarda de testes.
+        /// descrita na classe; qualquer outro uso reprova a guarda de testes. Na area do cliente, os dois caminhos
+        /// com posse pelo cliente do contexto (sem locadora) sao ConsultaMeusPagamentos e ConsultaTravaPagamentoDoCliente.
         /// </summary>
         public static IQueryable<TEntidade> SemEscopoEmpresa<TEntidade>(this IQueryable<TEntidade> consulta)
             where TEntidade : class

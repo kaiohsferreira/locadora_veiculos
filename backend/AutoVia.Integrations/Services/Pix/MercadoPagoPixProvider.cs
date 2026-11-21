@@ -42,7 +42,13 @@ namespace AutoVia.Integrations.Services.Pix
                 RequestResponse<MercadoPagoPaymentResponse> resposta = await _comunicacao.SendAsync<MercadoPagoPaymentResponse>(requisicao, cancellationToken);
                 MercadoPagoPaymentResponse pagamento = ObterPagamento(resposta, requisicao, configuracao.Codigo, null);
 
-                PixCobrancaResultado resultado = MapearResultado(pagamento, resposta.StatusCode, requisicao, configuracao.Codigo, solicitacao.Valor, solicitacao.ReferenciaExterna);
+                if (string.IsNullOrWhiteSpace(pagamento.ExternalReference))
+                {
+                    RegistrarRespostaInesperada(configuracao.Codigo, requisicao, resposta.StatusCode, pagamento.Status, pagamento.Id.ToString(CultureInfo.InvariantCulture));
+                    throw new IntegrationException(configuracao.Codigo, ConstantsMessage.ErroPixRespostaInesperada);
+                }
+
+                PixCobrancaResultado resultado = MapearResultado(pagamento, resposta.StatusCode, requisicao, configuracao.Codigo);
 
                 if (string.IsNullOrWhiteSpace(resultado.CopiaECola) || string.IsNullOrWhiteSpace(resultado.QrCodeBase64))
                 {
@@ -85,7 +91,7 @@ namespace AutoVia.Integrations.Services.Pix
                 RequestResponse<MercadoPagoPaymentResponse> resposta = await _comunicacao.SendAsync<MercadoPagoPaymentResponse>(requisicao, cancellationToken);
                 MercadoPagoPaymentResponse pagamento = ObterPagamento(resposta, requisicao, configuracao.Codigo, identificadorProvedor);
 
-                return MapearResultado(pagamento, resposta.StatusCode, requisicao, configuracao.Codigo, null, null);
+                return MapearResultado(pagamento, resposta.StatusCode, requisicao, configuracao.Codigo);
             }
             catch (BusinessException)
             {
@@ -120,7 +126,7 @@ namespace AutoVia.Integrations.Services.Pix
                 RequestResponse<MercadoPagoPaymentResponse> resposta = await _comunicacao.SendAsync<MercadoPagoPaymentResponse>(requisicao, cancellationToken);
                 MercadoPagoPaymentResponse pagamento = ObterPagamento(resposta, requisicao, configuracao.Codigo, identificadorProvedor);
 
-                return MapearResultado(pagamento, resposta.StatusCode, requisicao, configuracao.Codigo, null, null);
+                return MapearResultado(pagamento, resposta.StatusCode, requisicao, configuracao.Codigo);
             }
             catch (BusinessException)
             {
@@ -182,7 +188,9 @@ namespace AutoVia.Integrations.Services.Pix
 
             if (status == ConstantsPix.HttpStatusRequisicaoRecusada || status == ConstantsPix.HttpStatusNaoProcessavel)
             {
-                return new BusinessException(string.Format(ConstantsMessage.ErroPixCobrancaRecusada, MontarMotivoRecusa(resposta, requisicao)));
+                // O corpo do provedor nao sai na mensagem nem no log: pode trazer nome, CPF ou e-mail do pagador.
+                _logService.WriteInfo(string.Format(ConstantsMessage.LogPixRecusadaPeloProvedor, status), GetType().ToString());
+                return new BusinessException(ConstantsMessage.ErroPixCobrancaRecusada);
             }
 
             if (status == ConstantsPix.HttpStatusNaoEncontrado)
@@ -210,32 +218,11 @@ namespace AutoVia.Integrations.Services.Pix
             return new IntegrationException(codigo, ConstantsMessage.ErroPixRespostaInesperada);
         }
 
-        /// <summary>
-        /// Motivo do provedor mascarado (access_token, e-mail e CPF do pagador) e truncado no limite do contrato.
-        /// Mascarar antes de truncar garante que nenhum valor protegido sobra pela metade.
-        /// </summary>
-        private static string MontarMotivoRecusa(RequestResponse<MercadoPagoPaymentResponse> resposta, RequestInfo requisicao)
-        {
-            string motivo = SensitiveDataMasker.Mask(resposta.RawContent, requisicao.SensitiveValues);
-
-            if (string.IsNullOrWhiteSpace(motivo))
-            {
-                return ConstantsMessage.ErroRequisicaoInvalida;
-            }
-
-            if (motivo.Length > ConstantsPix.TamanhoMaximoMotivoRecusa)
-            {
-                return motivo.Substring(0, ConstantsPix.TamanhoMaximoMotivoRecusa);
-            }
-
-            return motivo;
-        }
-
         // ------------------------------------------------------------------
         // Mapeamento para o resultado do gateway
         // ------------------------------------------------------------------
 
-        private PixCobrancaResultado MapearResultado(MercadoPagoPaymentResponse pagamento, int statusHttp, RequestInfo requisicao, string codigo, decimal? valorPadrao, string? referenciaPadrao)
+        private PixCobrancaResultado MapearResultado(MercadoPagoPaymentResponse pagamento, int statusHttp, RequestInfo requisicao, string codigo)
         {
             string identificador = pagamento.Id.ToString(CultureInfo.InvariantCulture);
 
@@ -253,7 +240,7 @@ namespace AutoVia.Integrations.Services.Pix
                 throw new IntegrationException(codigo, ConstantsMessage.ErroPixRespostaInesperada);
             }
 
-            decimal? valor = pagamento.TransactionAmount ?? valorPadrao;
+            decimal? valor = pagamento.TransactionAmount;
 
             if (valor == null)
             {
@@ -266,7 +253,7 @@ namespace AutoVia.Integrations.Services.Pix
             PixCobrancaResultado resultado = new PixCobrancaResultado
             {
                 IdentificadorProvedor = identificador,
-                ReferenciaExterna = pagamento.ExternalReference ?? referenciaPadrao ?? string.Empty,
+                ReferenciaExterna = pagamento.ExternalReference ?? string.Empty,
                 Status = status.Value,
                 Valor = valor.Value,
                 CopiaECola = dadosPix?.QrCode,

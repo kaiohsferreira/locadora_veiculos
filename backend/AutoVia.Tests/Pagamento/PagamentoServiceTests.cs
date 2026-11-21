@@ -33,7 +33,7 @@ namespace AutoVia.Tests.Cobranca
             MapperConfiguration configuracao = new MapperConfiguration(cfg => cfg.AddProfile<PagamentoProfile>(), NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
 
-            return new PagamentoService(repositorio, mapper, new FakeRelogio(Agora), ContextoEmpresaDeTeste.Criar(1, CargoFuncionario.FINANCEIRO), new FakeLogService());
+            return new PagamentoService(repositorio, mapper, new FakeRelogio(Agora), ContextoEmpresaDeTeste.Criar(1, CargoFuncionario.FINANCEIRO), new FakeLogService(), new FakePixGateway());
         }
 
         private static Locacao CriarLocacao(int id, int idCliente)
@@ -222,9 +222,21 @@ namespace AutoVia.Tests.Cobranca
             repositorio.Pagamentos.Add(Cobranca(5, repositorio.Locacoes[0], TipoPagamento.COBRANCA_EXTRA, StatusPagamento.ATRASADO, new DateOnly(2026, 10, 1)));
             PagamentoService servico = CriarServico(repositorio);
 
-            ReturnPagamentoVO baixado = await servico.BaixarAsync(5, new BaixarPagamentoVO { Forma = "CARTAO" });
+            ReturnPagamentoVO baixado = await servico.BaixarAsync(5, new BaixarPagamentoVO { Forma = "PIX" });
 
             Assert.Equal(StatusPagamento.PAGO.ToString(), baixado.Status);
+        }
+
+        [Fact]
+        public async Task Baixar_AtrasadoComPixGeradoPorOutraForma_Devolve409SemConfirmacao()
+        {
+            FakePagamentoRepository repositorio = RepositorioComOrigens();
+            repositorio.Pagamentos.Add(Cobranca(5, repositorio.Locacoes[0], TipoPagamento.COBRANCA_EXTRA, StatusPagamento.ATRASADO, new DateOnly(2026, 10, 1)));
+            PagamentoService servico = CriarServico(repositorio);
+
+            BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => servico.BaixarAsync(5, new BaixarPagamentoVO { Forma = "CARTAO" }));
+
+            Assert.Equal(ConstantsMessage.ErroPagamentoBaixaComPixGerado, excecao.Message);
         }
 
         [Fact]

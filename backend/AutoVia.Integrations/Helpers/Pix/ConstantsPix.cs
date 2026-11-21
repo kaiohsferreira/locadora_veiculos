@@ -16,8 +16,12 @@ namespace AutoVia.Integrations.Helpers.Pix
         public const string ProvedorMercadoPago = "MERCADOPAGO";
         public const string ProvedorFake = "FAKE";
 
-        // --- Expiracao da cobranca, em segundos ---
-        public const int ExpiracaoPadraoSegundos = 3600;
+        // --- Chave que libera o provedor FAKE (decisao 1 de 21/11/2026): so responde com ela verdadeira, em Development e SANDBOX ---
+        public const string ChavePermitirProvedorFake = "Pagamentos:PermitirProvedorFake";
+        public const bool PermitirProvedorFakePadrao = false;
+
+        // --- Expiracao da cobranca, em segundos (P14: 15 minutos) ---
+        public const int ExpiracaoPadraoSegundos = 900;
         public const int ExpiracaoMaximaSegundos = 2592000;
 
         // --- Limites de validacao da solicitacao ---
@@ -25,7 +29,6 @@ namespace AutoVia.Integrations.Helpers.Pix
         public const int DescricaoTamanhoMaximo = 140;
         public const int PagadorNomeTamanhoMaximo = 120;
         public const int EmailTamanhoMaximo = 254;
-        public const int TamanhoMaximoMotivoRecusa = 200;
         public const int TamanhoMaximoStatusLog = 50;
 
         // --- Marcador de valor ausente no log tecnico ---
@@ -63,6 +66,8 @@ namespace AutoVia.Integrations.Helpers.Pix
         public const string PrefixoIdentificadorFake = "FAKE-";
         public const int TamanhoHashIdentificadorFake = 12;
         public const string PrefixoCopiaEColaFake = "FAKE-COPIA-";
-        public const string PrefixoQrCodeFake = "FAKE-QR-";
+        /// <summary>Quadriculado do QR de teste: 25 modulos de 8 px = PNG de 200 x 200 px. Nao e QR lido por banco.</summary>
+        public const int DimensaoQrCodeFake = 25;
+        public const int TamanhoModuloQrCodeFake = 8;
     }
 }

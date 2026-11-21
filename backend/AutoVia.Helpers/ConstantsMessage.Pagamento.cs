@@ -29,6 +29,7 @@ namespace AutoVia.Helpers
         public const string ErroPagamentoJaPago = "Este pagamento já foi baixado.";
         public const string ErroPagamentoCancelado = "Pagamento cancelado não pode ser baixado.";
         public const string ErroPagamentoBaixaCaucao = "A caução é baixada ou retida na devolução do veículo, não por esta rota.";
+        public const string ErroPagamentoBaixaComPixGerado = "Esta cobrança tem um PIX gerado. Dê baixa pela forma PIX ou confirme a baixa por outra forma.";
 
         // --- Pagamento: baixa (BaixarPagamentoVO) ---
         public const string ErroPagamentoFormaObrigatoria = "Informe a forma de pagamento.";
@@ -58,6 +59,13 @@ namespace AutoVia.Helpers
 
         // TEXTO NOVO (nao estava no contrato): mensagem de falha de leitura no repositorio, gravada no log.
         public const string ErroConsultarPagamento = "Não foi possível consultar os pagamentos.";
+
+        // --- Pagamento: baixa com PIX gerado (decisao 2 de 21/11/2026: a baixa manual cancela o PIX no provedor antes) ---
+        public const string ErroPagamentoBaixaPixJaPago = "O PIX desta cobrança já foi pago. Dê baixa pela forma PIX.";
+        public const string ErroPagamentoBaixaCancelarPixFalhou = "Não foi possível cancelar o PIX desta cobrança no provedor. A baixa não foi feita. Tente novamente em instantes.";
+        public const string LogPagamentoBaixaPixJaPagoNoProvedor = "O provedor informou que o PIX da cobrança {0} já foi pago; a baixa em dinheiro não foi feita.";
+        public const string LogPagamentoPixCanceladoAntesDaBaixa = "PIX da cobrança {0} cancelado no provedor antes da baixa manual.";
+        public const string ErroLimparPixCancelado = "Falha ao limpar o PIX cancelado da cobrança {0}. O PIX segue gravado até a validade.";
 
         // TEXTO NOVO (nao estava no contrato): linha informativa do log por lancamento (id do pagamento e do funcionario).
         public const string InfoPagamentoLancado = "Pagamento {0} lançado pelo funcionário {1}.";

@@ -171,6 +171,30 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public void PagamentoCliente_GerarPixNaoEAnonimoETemOLimiteDoIpNaPolitica()
+        {
+            MethodInfo acao = typeof(PagamentoClienteController).GetMethod(nameof(PagamentoClienteController.GerarOuReabrirPixMeuPagamento))!;
+            EnableRateLimitingAttribute? limiteIp = acao.GetCustomAttribute<EnableRateLimitingAttribute>();
+
+            Assert.False(Attribute.IsDefined(acao, typeof(AllowAnonymousAttribute), true));
+            Assert.NotNull(limiteIp);
+            Assert.Equal(ConstantsValues.PoliticaLimiteGeracaoPix, limiteIp!.PolicyName);
+            Assert.Equal(ConstantsValues.PoliticaCliente, typeof(PagamentoClienteController).GetCustomAttribute<AuthorizeAttribute>()!.Policy);
+        }
+
+        [Fact]
+        public void Pagamento_GerarPixDaLocadoraNaoEAnonimoETemOLimiteDeGeracao()
+        {
+            MethodInfo acao = typeof(PagamentoController).GetMethod(nameof(PagamentoController.GerarOuReabrirPix))!;
+            EnableRateLimitingAttribute? limiteIp = acao.GetCustomAttribute<EnableRateLimitingAttribute>();
+
+            Assert.False(Attribute.IsDefined(acao, typeof(AllowAnonymousAttribute), true));
+            Assert.NotNull(limiteIp);
+            Assert.Equal(ConstantsValues.PoliticaLimiteGeracaoPix, limiteIp!.PolicyName);
+            Assert.Equal(ConstantsValues.PoliticaFinanceiro, typeof(PagamentoController).GetCustomAttribute<AuthorizeAttribute>()!.Policy);
+        }
+
+        [Fact]
         public void Seguro_ExigeFuncionarioNaClasse()
         {
             AuthorizeAttribute? autorizacao = typeof(SeguroController).GetCustomAttribute<AuthorizeAttribute>();

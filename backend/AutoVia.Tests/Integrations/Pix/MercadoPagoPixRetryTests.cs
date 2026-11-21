@@ -183,8 +183,7 @@ namespace AutoVia.Tests.Integrations.Pix
 
             BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => gateway.CriarCobrancaAsync(CriarSolicitacao()));
 
-            string prefixo = ConstantsMessage.ErroPixCobrancaRecusada.Replace("{0}", string.Empty);
-            Assert.StartsWith(prefixo, excecao.Message);
+            Assert.Equal(ConstantsMessage.ErroPixCobrancaRecusada, excecao.Message);
             Assert.Single(handler.Requisicoes);
         }
 

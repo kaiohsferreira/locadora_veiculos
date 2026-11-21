@@ -1,3 +1,4 @@
+using AutoVia.Api.Extensions;
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.ViewObjects.Pagamento;
 using AutoVia.Communication.ViewObjects.Utils;
@@ -7,6 +8,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -24,12 +26,16 @@ namespace AutoVia.Api.Controllers
     public class PagamentoClienteController : ControllerBase
     {
         private readonly IPagamentoService _pagamentoService;
+        private readonly ICobrancaPixService _cobrancaPixService;
         private readonly ILogService _logService;
+        private readonly TetoGeracaoPixPorCliente _tetoGeracaoPix;
 
-        public PagamentoClienteController(IPagamentoService pagamentoService, ILogService logService)
+        public PagamentoClienteController(IPagamentoService pagamentoService, ICobrancaPixService cobrancaPixService, ILogService logService, TetoGeracaoPixPorCliente tetoGeracaoPix)
         {
             _pagamentoService = pagamentoService;
+            _cobrancaPixService = cobrancaPixService;
             _logService = logService;
+            _tetoGeracaoPix = tetoGeracaoPix;
         }
 
         /// <summary>
@@ -118,6 +124,59 @@ namespace AutoVia.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// GerarOuReabrirPixMeuPagamento - Gera o PIX de uma cobranca propria (PENDENTE ou ATRASADA, nunca caucao, paga ou
+        /// cancelada), ou reabre o PIX valido gravado sem chamar o provedor. Sem corpo: valor, pagador e locadora vem do banco.
+        /// Devolve 200 com o QR, o copia e cola e a validade (sem o identificador do provedor).
+        /// </summary>
+        [HttpPost("meus/{idPagamento:int}/pix")]
+        [EnableRateLimiting(ConstantsValues.PoliticaLimiteGeracaoPix)]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+        [ProducesResponseType(typeof(ReturnCobrancaPixVO), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status502BadGateway)]
+        public async Task<IActionResult> GerarOuReabrirPixMeuPagamento(int idPagamento)
+        {
+            try
+            {
+                int idCliente = LerIdCliente();
+                VerificarTetoGeracaoPix(idCliente);
+
+                ReturnCobrancaPixVO pix = await _cobrancaPixService.GerarOuReabrirDoClienteAsync(idCliente, idPagamento);
+
+                return Ok(pix);
+            }
+            catch (UnauthorizedException)
+            {
+                throw;
+            }
+            catch (LimiteExcedidoException)
+            {
+                throw;
+            }
+            catch (BusinessException)
+            {
+                throw;
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (IntegrationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroGerarPixPagamento, GetType().ToString());
+                throw;
+            }
+        }
+
         /// <summary>Le o id do cliente pela claim NameIdentifier; sem id numerico valido, recusa com 401.</summary>
         private int LerIdCliente()
         {
@@ -131,6 +190,17 @@ namespace AutoVia.Api.Controllers
             }
 
             return idCliente;
+        }
+
+        /// <summary>Conta a geracao de PIX no teto do proprio cliente (depois da autenticacao); recusa com 429 quando esgotado.</summary>
+        private void VerificarTetoGeracaoPix(int idCliente)
+        {
+            string chave = $"{ConstantsValues.PrefixoChaveLimiteGeracaoPixCliente}{idCliente}";
+
+            if (!_tetoGeracaoPix.TentarEntrar(chave))
+            {
+                throw new LimiteExcedidoException(ConstantsMessage.ErroLimiteRequisicoes);
+            }
         }
     }
 }

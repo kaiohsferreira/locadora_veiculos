@@ -205,20 +205,26 @@ namespace AutoVia.Tests.Integrations.Pix
         [Theory]
         [InlineData(400)]
         [InlineData(422)]
-        public async Task CriarAsync_RecusadaPeloProvedor_LancaBusinessExceptionComMotivoMascaradoETruncado(int statusCode)
+        public async Task CriarAsync_RecusadaPeloProvedor_LancaBusinessExceptionSemCorpoDoProvedor(int statusCode)
         {
             ComunicacaoRoteirizada comunicacao = new ComunicacaoRoteirizada();
-            string corpoRecusa = "{\"message\":\"token " + TokenSecreto + " " + new string('x', 500) + "\"}";
+            string corpoRecusa = "{\"message\":\"pagador Maria Souza CPF 12345678901 maria@exemplo.com token " + TokenSecreto + "\"}";
             comunicacao.Responder(statusCode, corpoRecusa);
-            MercadoPagoPixProvider provider = CriarProvider(comunicacao, new FakeLogService());
+            FakeLogService log = new FakeLogService();
+            MercadoPagoPixProvider provider = CriarProvider(comunicacao, log);
 
             BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => provider.CriarAsync(CriarConfiguracao(), CriarSolicitacao(), 3600));
 
-            string prefixo = ConstantsMessage.ErroPixCobrancaRecusada.Replace("{0}", string.Empty);
-            Assert.StartsWith(prefixo, excecao.Message);
+            Assert.Equal(ConstantsMessage.ErroPixCobrancaRecusada, excecao.Message);
+            Assert.DoesNotContain("12345678901", excecao.Message);
+            Assert.DoesNotContain("maria@exemplo.com", excecao.Message);
             Assert.DoesNotContain(TokenSecreto, excecao.Message);
-            Assert.Contains(ConstantsIntegration.Mascara, excecao.Message);
-            Assert.True(excecao.Message.Length <= prefixo.Length + ConstantsPix.TamanhoMaximoMotivoRecusa);
+            string registros = string.Join("\n", log.Snapshot());
+            Assert.DoesNotContain("12345678901", registros);
+            Assert.DoesNotContain("maria@exemplo.com", registros);
+            Assert.DoesNotContain("Maria Souza", registros);
+            Assert.DoesNotContain(TokenSecreto, registros);
+            Assert.Contains(ConstantsMessage.LogPixRecusadaPeloProvedor.Replace("{0}", statusCode.ToString()), registros);
         }
 
         [Theory]
@@ -323,6 +329,58 @@ namespace AutoVia.Tests.Integrations.Pix
         }
 
         [Fact]
+        public async Task CriarAsync_SemExternalReference_LancaRespostaInesperadaSemUsarAReferenciaDoPedido()
+        {
+            ComunicacaoRoteirizada comunicacao = new ComunicacaoRoteirizada();
+            comunicacao.Responder(201, CorpoCriacaoValido.Replace(",\"external_reference\":\"PED-2026-0001\"", string.Empty));
+            FakeLogService logService = new FakeLogService();
+            MercadoPagoPixProvider provider = CriarProvider(comunicacao, logService);
+
+            IntegrationException excecao = await Assert.ThrowsAsync<IntegrationException>(() => provider.CriarAsync(CriarConfiguracao(), CriarSolicitacao(), 3600));
+
+            Assert.Equal(ConstantsMessage.ErroPixRespostaInesperada, excecao.Message);
+            Assert.Contains(logService.Entries, entrada => entrada.Contains(ConstantsMessage.ErroPixRespostaInesperada));
+        }
+
+        [Fact]
+        public async Task CriarAsync_SemTransactionAmount_LancaRespostaInesperadaSemUsarOValorDoPedido()
+        {
+            ComunicacaoRoteirizada comunicacao = new ComunicacaoRoteirizada();
+            comunicacao.Responder(201, CorpoCriacaoValido.Replace("\"transaction_amount\":10.5,", string.Empty));
+            FakeLogService logService = new FakeLogService();
+            MercadoPagoPixProvider provider = CriarProvider(comunicacao, logService);
+
+            IntegrationException excecao = await Assert.ThrowsAsync<IntegrationException>(() => provider.CriarAsync(CriarConfiguracao(), CriarSolicitacao(), 3600));
+
+            Assert.Equal(ConstantsMessage.ErroPixRespostaInesperada, excecao.Message);
+            Assert.Contains(logService.Entries, entrada => entrada.Contains(ConstantsMessage.ErroPixRespostaInesperada));
+        }
+
+        [Fact]
+        public async Task CriarAsync_ExpiraEmEmUtcEmMenosTresEMaisZeroDoMesmoInstante_DaOMesmoHorario()
+        {
+            string corpoUtcZ = CorpoCriacaoValido.Replace("2026-11-05T11:00:00.000-03:00", "2026-11-05T14:00:00.000Z");
+            string corpoUtcMaisZero = CorpoCriacaoValido.Replace("2026-11-05T11:00:00.000-03:00", "2026-11-05T14:00:00.000+00:00");
+
+            PixCobrancaResultado deMenosTres = await RetornoDeCriacao(CorpoCriacaoValido);
+            PixCobrancaResultado utcZ = await RetornoDeCriacao(corpoUtcZ);
+            PixCobrancaResultado utcMaisZero = await RetornoDeCriacao(corpoUtcMaisZero);
+
+            Assert.NotNull(deMenosTres.ExpiraEm);
+            Assert.Equal(deMenosTres.ExpiraEm, utcZ.ExpiraEm);
+            Assert.Equal(deMenosTres.ExpiraEm, utcMaisZero.ExpiraEm);
+        }
+
+        private static async Task<PixCobrancaResultado> RetornoDeCriacao(string corpo)
+        {
+            ComunicacaoRoteirizada comunicacao = new ComunicacaoRoteirizada();
+            comunicacao.Responder(201, corpo);
+            MercadoPagoPixProvider provider = CriarProvider(comunicacao, new FakeLogService());
+
+            return await provider.CriarAsync(CriarConfiguracao(), CriarSolicitacao(), 3600);
+        }
+
+        [Fact]
         public async Task CriarAsync_ExcecaoInesperada_LogaEEnvolveEmIntegrationExceptionComInner()
         {
             ComunicacaoRoteirizada comunicacao = new ComunicacaoRoteirizada();
@@ -419,7 +477,7 @@ namespace AutoVia.Tests.Integrations.Pix
         // ------------------------------------------------------------------
 
         [Fact]
-        public async Task CriarAsync_RecusadaQueEcoaEmailECpf_MascaraOsDoisAntesDeDevolverOMotivo()
+        public async Task CriarAsync_RecusadaQueEcoaEmailECpf_NaoDevolveOCorpoDoProvedorNaMensagem()
         {
             ComunicacaoRoteirizada comunicacao = new ComunicacaoRoteirizada();
             comunicacao.Responder(400, "{\"message\":\"pagador maria@exemplo.com cpf 12345678901 recusado\"}");
@@ -427,9 +485,9 @@ namespace AutoVia.Tests.Integrations.Pix
 
             BusinessException excecao = await Assert.ThrowsAsync<BusinessException>(() => provider.CriarAsync(CriarConfiguracao(), CriarSolicitacao(), 3600));
 
+            Assert.Equal(ConstantsMessage.ErroPixCobrancaRecusada, excecao.Message);
             Assert.DoesNotContain("maria@exemplo.com", excecao.Message);
             Assert.DoesNotContain("12345678901", excecao.Message);
-            Assert.Contains(ConstantsIntegration.Mascara, excecao.Message);
         }
 
         // ------------------------------------------------------------------

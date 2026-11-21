@@ -75,7 +75,9 @@ namespace AutoVia.Tests.Persistence
             [CaminhoPagamento] = new string[]
             {
                 "ConsultaMeusPagamentos" + SeparadorMetodoSimbolo + "SemEscopoEmpresa(",
-                "ConsultaTravaPagamento" + SeparadorMetodoSimbolo + "FromSql"
+                "ConsultaTravaPagamento" + SeparadorMetodoSimbolo + "FromSql",
+                "ConsultaTravaPagamentoDoCliente" + SeparadorMetodoSimbolo + "SemEscopoEmpresa(",
+                "ConsultaTravaPagamentoDoCliente" + SeparadorMetodoSimbolo + "FromSql"
             }
         };
 

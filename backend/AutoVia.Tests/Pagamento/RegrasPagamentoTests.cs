@@ -2,6 +2,7 @@ using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Regras;
 using AutoVia.Helpers;
+using AutoVia.Integrations.Helpers.Pix;
 
 namespace AutoVia.Tests.Cobranca
 {
@@ -214,6 +215,129 @@ namespace AutoVia.Tests.Cobranca
             StatusPagamento situacao = RegrasPagamento.Situacao(TipoPagamento.DIARIA, StatusPagamento.PENDENTE, new DateOnly(2026, 11, 7), Hoje);
 
             Assert.Equal(StatusPagamento.ATRASADO, situacao);
+        }
+
+        [Theory]
+        [InlineData(TipoPagamento.CAUCAO, StatusPagamento.PENDENTE, ConstantsMessage.ErroPixTipoNaoPagavel)]
+        [InlineData(TipoPagamento.CAUCAO, StatusPagamento.PAGO, ConstantsMessage.ErroPixTipoNaoPagavel)]
+        [InlineData(TipoPagamento.DIARIA, StatusPagamento.PAGO, ConstantsMessage.ErroPixPagamentoJaPago)]
+        [InlineData(TipoPagamento.VENDA, StatusPagamento.CANCELADO, ConstantsMessage.ErroPixPagamentoCancelado)]
+        public void ErroDaGeracaoPix_RecusaNaOrdemCaucaoPagoCancelado(TipoPagamento tipo, StatusPagamento status, string erroEsperado)
+        {
+            Assert.False(RegrasPagamento.PodeGerarPix(tipo, status));
+            Assert.Equal(erroEsperado, RegrasPagamento.ErroDaGeracaoPix(tipo, status));
+        }
+
+        [Theory]
+        [InlineData(TipoPagamento.DIARIA, StatusPagamento.PENDENTE)]
+        [InlineData(TipoPagamento.COBRANCA_EXTRA, StatusPagamento.ATRASADO)]
+        [InlineData(TipoPagamento.VENDA, StatusPagamento.PENDENTE)]
+        public void PodeGerarPix_PendenteOuAtrasadoSemCaucao_EhLiberado(TipoPagamento tipo, StatusPagamento status)
+        {
+            Assert.True(RegrasPagamento.PodeGerarPix(tipo, status));
+            Assert.Null(RegrasPagamento.ErroDaGeracaoPix(tipo, status));
+        }
+
+        [Fact]
+        public void ReferenciaDaCobranca_SemPixGravado_EPrefixoEId()
+        {
+            Assert.Equal("PAG-12", RegrasPagamento.ReferenciaDaCobranca(12, null));
+        }
+
+        [Fact]
+        public void ReferenciaDaCobranca_ComPixExpirado_IncluiAValidadeAnteriorEEhDeterministica()
+        {
+            DateTime validade = new DateTime(2026, 11, 20, 10, 5, 3);
+
+            string primeira = RegrasPagamento.ReferenciaDaCobranca(12, validade);
+            string segunda = RegrasPagamento.ReferenciaDaCobranca(12, validade);
+
+            Assert.Equal("PAG-12-20261120100503", primeira);
+            Assert.Equal(primeira, segunda);
+            Assert.True(primeira.Length <= ConstantsPix.ReferenciaTamanhoMaximo);
+            Assert.Matches(ConstantsPix.PadraoReferenciaExterna, primeira);
+        }
+
+        [Theory]
+        [InlineData(900, 900)]
+        [InlineData(1, 1)]
+        [InlineData(-5, 0)]
+        public void SegundosParaExpirar_ContaParaBaixoELimitaEmZero(int segundosRestantes, int esperado)
+        {
+            DateTime agora = new DateTime(2026, 11, 20, 10, 0, 0);
+
+            Assert.Equal(esperado, RegrasPagamento.SegundosParaExpirar(agora.AddSeconds(segundosRestantes), agora));
+        }
+
+        [Fact]
+        public void SegundosParaExpirar_FracaoDeSegundoNaoArredondaParaCima()
+        {
+            DateTime agora = new DateTime(2026, 11, 20, 10, 0, 0);
+
+            Assert.Equal(1, RegrasPagamento.SegundosParaExpirar(agora.AddMilliseconds(1900), agora));
+        }
+
+        [Fact]
+        public void PixAindaValido_ExigeIdentificadorEValidadeFutura()
+        {
+            DateTime agora = new DateTime(2026, 11, 20, 10, 0, 0);
+
+            Assert.True(RegrasPagamento.PixAindaValido("FAKE-1", agora.AddSeconds(1), agora));
+            Assert.False(RegrasPagamento.PixAindaValido("FAKE-1", agora, agora));
+            Assert.False(RegrasPagamento.PixAindaValido("FAKE-1", null, agora));
+            Assert.False(RegrasPagamento.PixAindaValido(null, agora.AddSeconds(900), agora));
+            Assert.False(RegrasPagamento.PixAindaValido(string.Empty, agora.AddSeconds(900), agora));
+        }
+
+        [Theory]
+        [InlineData(null, "DINHEIRO", false, false)]
+        [InlineData("FAKE-1", "PIX", false, false)]
+        [InlineData("FAKE-1", "DINHEIRO", false, true)]
+        [InlineData("FAKE-1", "DINHEIRO", true, false)]
+        [InlineData("FAKE-1", "CARTAO", false, true)]
+        [InlineData("FAKE-1", " pix ", false, false)]
+        [InlineData("FAKE-1", "Pix", false, false)]
+        [InlineData("", "DINHEIRO", false, false)]
+        public void ExigeConfirmacaoBaixaComPix_TabelaVerdade(string? idTransacao, string forma, bool confirmar, bool esperado)
+        {
+            Assert.Equal(esperado, RegrasPagamento.ExigeConfirmacaoBaixaComPix(idTransacao, forma, confirmar));
+        }
+
+        [Fact]
+        public void MotivoDivergenciaRetornoPix_ValorIgualEReferenciaIgual_NaoDiverge()
+        {
+            Assert.Null(RegrasPagamento.MotivoDivergenciaRetornoPix(395.60m, 395.6m, "PAG-12", "PAG-12"));
+        }
+
+        [Fact]
+        public void MotivoDivergenciaRetornoPix_ValorDiferente_DevolveVALOR()
+        {
+            Assert.Equal(ConstantsValues.MotivoDivergenciaValor, RegrasPagamento.MotivoDivergenciaRetornoPix(395.60m, 10m, "PAG-12", "PAG-12"));
+        }
+
+        [Theory]
+        [InlineData("PAG-12", "PAG-13")]
+        [InlineData("PAG-12", null)]
+        [InlineData("PAG-12", "pag-12")]
+        public void MotivoDivergenciaRetornoPix_ReferenciaDiferente_DevolveREFERENCIA(string pedida, string? retornada)
+        {
+            Assert.Equal(ConstantsValues.MotivoDivergenciaReferencia, RegrasPagamento.MotivoDivergenciaRetornoPix(10m, 10m, pedida, retornada));
+        }
+
+        [Fact]
+        public void RetornoPixUtilizavel_ExigeCopiaQrEValidadeFuturaELimiteDe512()
+        {
+            DateTime agora = new DateTime(2026, 11, 20, 10, 0, 0);
+            DateTime futuro = agora.AddSeconds(900);
+            string copia = new string('c', ConstantsValues.TamanhoMaximoPixCopiaECola);
+
+            Assert.True(RegrasPagamento.RetornoPixUtilizavel(copia, "QR", futuro, agora));
+            Assert.False(RegrasPagamento.RetornoPixUtilizavel(null, "QR", futuro, agora));
+            Assert.False(RegrasPagamento.RetornoPixUtilizavel(string.Empty, "QR", futuro, agora));
+            Assert.False(RegrasPagamento.RetornoPixUtilizavel(copia, null, futuro, agora));
+            Assert.False(RegrasPagamento.RetornoPixUtilizavel(copia, "QR", null, agora));
+            Assert.False(RegrasPagamento.RetornoPixUtilizavel(copia, "QR", agora, agora));
+            Assert.False(RegrasPagamento.RetornoPixUtilizavel(new string('c', ConstantsValues.TamanhoMaximoPixCopiaECola + 1), "QR", futuro, agora));
         }
     }
 }

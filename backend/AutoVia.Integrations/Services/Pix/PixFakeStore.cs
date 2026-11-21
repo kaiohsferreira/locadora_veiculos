@@ -21,6 +21,18 @@ namespace AutoVia.Integrations.Services.Pix
         private readonly ConcurrentDictionary<string, CobrancaArmazenada> _cobrancas = new ConcurrentDictionary<string, CobrancaArmazenada>(StringComparer.Ordinal);
         private readonly object _transicoes = new object();
 
+        /// <summary>Quantidade de cobrancas guardadas (usada pelos testes para provar que nada foi gravado).</summary>
+        public int Quantidade
+        {
+            get
+            {
+                lock (_transicoes)
+                {
+                    return _cobrancas.Count;
+                }
+            }
+        }
+
         /// <summary>Devolve uma copia da cobranca existente pelo identificador ou cria uma com a fabrica (idempotente).</summary>
         public PixCobrancaResultado ObterOuCriar(string identificador, Func<PixCobrancaResultado> fabrica)
         {

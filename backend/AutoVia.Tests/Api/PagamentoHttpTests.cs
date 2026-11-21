@@ -7,6 +7,7 @@ using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
+using AutoVia.Integrations.Interfaces;
 using AutoVia.Tests.Fakes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -48,6 +49,8 @@ namespace AutoVia.Tests.Api
         private const int IdPagamentoPago = 6;
         private const int IdPagamentoInexistente = 999;
         private const int IdFuncionarioDoTeste = 9;
+        private const int IdClienteSemCobranca = 10;
+        private const int IdPagamentoDoSegundoCliente = 7;
 
         private static readonly DateTime MomentoFixo = new DateTime(2026, 11, 19, 10, 0, 0);
 
@@ -82,8 +85,20 @@ namespace AutoVia.Tests.Api
 
         private void SemearCobrancas()
         {
-            Locacao locacao = new Locacao { IdLocacao = IdLocacaoDoTeste, IdCliente = IdClienteDoTeste, Veiculo = new Veiculo { Marca = "Fiat", Modelo = "Toro" } };
-            Locacao locacaoAlheia = new Locacao { IdLocacao = 2, IdCliente = IdClienteAlheio, Veiculo = new Veiculo { Marca = "VW", Modelo = "Polo" } };
+            Locacao locacao = new Locacao
+            {
+                IdLocacao = IdLocacaoDoTeste,
+                IdCliente = IdClienteDoTeste,
+                Cliente = new Cliente { IdCliente = IdClienteDoTeste, Nome = "Maria Souza", Cpf = "12345678901", Email = "maria@exemplo.com" },
+                Veiculo = new Veiculo { Marca = "Fiat", Modelo = "Toro" }
+            };
+            Locacao locacaoAlheia = new Locacao
+            {
+                IdLocacao = 2,
+                IdCliente = IdClienteAlheio,
+                Cliente = new Cliente { IdCliente = IdClienteAlheio, Nome = "Joao Lima", Cpf = "10987654321", Email = "joao@exemplo.com" },
+                Veiculo = new Veiculo { Marca = "VW", Modelo = "Polo" }
+            };
             _fabrica.Pagamentos.Locacoes.Add(locacao);
             _fabrica.Pagamentos.Locacoes.Add(locacaoAlheia);
             _fabrica.Pagamentos.Vendas.Add(new Venda { IdVenda = 4, IdCliente = IdClienteDoTeste, Veiculo = new Veiculo { Marca = "Fiat", Modelo = "Mobi" } });
@@ -177,6 +192,19 @@ namespace AutoVia.Tests.Api
             }
 
             return requisicao;
+        }
+
+        private static HttpRequestMessage RequisicaoDeIp(HttpMethod metodo, string rota, string? token, string ip)
+        {
+            HttpRequestMessage requisicao = Requisicao(metodo, rota, token, null);
+            requisicao.Headers.Add(ConstantsValues.CabecalhoIpClientePadrao, ip);
+
+            return requisicao;
+        }
+
+        private static string IpDeTeste(int numero)
+        {
+            return $"10.0.1.{numero}";
         }
 
         private static async Task<JsonElement> LerJsonAsync(HttpResponseMessage resposta)
@@ -329,6 +357,207 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public async Task Baixar_DinheiroComPixGeradoSemConfirmar_Devolve409ComAMensagemDaRegraP6()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Patch, $"{RotaPagamentos}/{IdPagamentoPendente}/baixa", TokenFinanceiro(), new BaixarPagamentoVO { Forma = "DINHEIRO" }));
+
+            Assert.Equal(HttpStatusCode.Conflict, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(ConstantsMessage.ErroPagamentoBaixaComPixGerado, corpo.GetProperty(NomeDetail).GetString());
+        }
+
+        [Fact]
+        public async Task Baixar_DinheiroComPixGeradoComConfirmacao_Devolve200()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Patch, $"{RotaPagamentos}/{IdPagamentoPendente}/baixa", TokenFinanceiro(), new BaixarPagamentoVO { Forma = "DINHEIRO", ConfirmarBaixaComPixGerado = true }));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+        }
+
+        [Fact]
+        public async Task Baixar_FalhaDoProvedorNoCancelamento_Devolve502ComUmSoRegistroNoLog()
+        {
+            _fabrica.PixGateway.FalharCancelamento = true;
+            Pagamento cobrancaComPix = _fabrica.Pagamentos.Pagamentos.Single(x => x.IdPagamento == IdPagamentoPendente);
+            cobrancaComPix.PixExpiraEm = MomentoFixo.AddMinutes(15);
+            int registrosAntes = _fabrica.Log.Entries.Count;
+
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Patch, $"{RotaPagamentos}/{IdPagamentoPendente}/baixa", TokenFinanceiro(), new BaixarPagamentoVO { Forma = "DINHEIRO", ConfirmarBaixaComPixGerado = true }));
+
+            Assert.Equal(HttpStatusCode.BadGateway, resposta.StatusCode);
+            Assert.Equal(1, _fabrica.Log.Entries.Count - registrosAntes);
+        }
+
+        [Fact]
+        public async Task Baixar_DinheiroSemPixGerado_Devolve200()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Patch, $"{RotaPagamentos}/7/baixa", TokenFinanceiro(), new BaixarPagamentoVO { Forma = "DINHEIRO" }));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+        }
+
+        [Fact]
+        public async Task GerarPix_ClienteDono_Devolve200SemIdentificadorDoProvedor()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Post, $"{RotaMeus}/{IdPagamentoPendente}/pix", TokenDoCliente(IdClienteDoTeste), null));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(IdPagamentoPendente, corpo.GetProperty("idPagamento").GetInt32());
+            Assert.Equal("PIX", corpo.GetProperty("forma").GetString());
+            Assert.False(string.IsNullOrEmpty(corpo.GetProperty("copiaECola").GetString()));
+            Assert.False(string.IsNullOrEmpty(corpo.GetProperty("qrCodeBase64").GetString()));
+            Assert.Equal(900, corpo.GetProperty("segundosParaExpirar").GetInt32());
+            Assert.False(corpo.TryGetProperty(NomeIdTransacao, out JsonElement _));
+            Assert.False(corpo.TryGetProperty("identificadorProvedor", out JsonElement _));
+        }
+
+        [Fact]
+        public async Task GerarPix_CobrancaDeOutroCliente_Devolve404()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Post, $"{RotaMeus}/7/pix", TokenDoCliente(IdClienteDoTeste), null));
+
+            Assert.Equal(HttpStatusCode.NotFound, resposta.StatusCode);
+        }
+
+        [Fact]
+        public async Task GerarPix_CobrancaPaga_Devolve409()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Post, $"{RotaMeus}/{IdPagamentoPago}/pix", TokenDoCliente(IdClienteDoTeste), null));
+
+            Assert.Equal(HttpStatusCode.Conflict, resposta.StatusCode);
+        }
+
+        [Fact]
+        public async Task GerarPix_SemToken_Devolve401()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Post, $"{RotaMeus}/{IdPagamentoPendente}/pix", null, null));
+
+            Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
+        }
+
+        [Fact]
+        public async Task GerarPix_TokenDeFuncionarioNaRotaDoCliente_Devolve403()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Post, $"{RotaMeus}/{IdPagamentoPendente}/pix", TokenFinanceiro(), null));
+
+            Assert.Equal(HttpStatusCode.Forbidden, resposta.StatusCode);
+        }
+
+        [Fact]
+        public async Task GerarPixDaLocadora_Financeiro_Devolve200ComIdentificadorDoProvedor()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Post, $"{RotaPagamentos}/{IdPagamentoPendente}/pix", TokenFinanceiro(), null));
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal("ID-PAG-5", corpo.GetProperty("identificadorProvedor").GetString());
+        }
+
+        [Fact]
+        public async Task GerarPixDaLocadora_TokenDeCliente_Devolve403()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Post, $"{RotaPagamentos}/{IdPagamentoPendente}/pix", TokenDoCliente(IdClienteDoTeste), null));
+
+            Assert.Equal(HttpStatusCode.Forbidden, resposta.StatusCode);
+        }
+
+        [Fact]
+        public async Task GerarPixDaLocadora_SextaGeracaoDoMesmoFuncionarioNoMinuto_Devolve429MesmoDeIpsDiferentes()
+        {
+            string token = TokenFinanceiro();
+
+            for (int chamada = 1; chamada <= ConstantsValues.LimiteGeracaoPixPorClienteMinutoPadrao; chamada++)
+            {
+                HttpResponseMessage ok = await _cliente.SendAsync(RequisicaoDeIp(HttpMethod.Post, $"{RotaPagamentos}/{IdPagamentoPendente}/pix", token, IpDeTeste(chamada)));
+                Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+            }
+
+            HttpResponseMessage excedido = await _cliente.SendAsync(RequisicaoDeIp(HttpMethod.Post, $"{RotaPagamentos}/{IdPagamentoPendente}/pix", token, IpDeTeste(ConstantsValues.LimiteGeracaoPixPorClienteMinutoPadrao + 1)));
+
+            Assert.Equal(HttpStatusCode.TooManyRequests, excedido.StatusCode);
+            JsonElement corpo = await LerJsonAsync(excedido);
+            Assert.Equal(ConstantsMessage.ErroLimiteRequisicoes, corpo.GetProperty(NomeDetail).GetString());
+        }
+
+        [Fact]
+        public async Task GerarPixDaLocadora_DoisFuncionariosNoMesmoIp_NaoGastamOTetoUmDoOutro()
+        {
+            string tokenPrimeiro = TokenFinanceiro();
+            string tokenSegundo = GerarToken(PerfilUsuario.FUNCIONARIO, CargoFuncionario.FINANCEIRO, IdFuncionarioDoTeste + 1);
+
+            for (int chamada = 1; chamada <= ConstantsValues.LimiteGeracaoPixPorClienteMinutoPadrao; chamada++)
+            {
+                HttpResponseMessage primeiro = await _cliente.SendAsync(RequisicaoDeIp(HttpMethod.Post, $"{RotaPagamentos}/{IdPagamentoPendente}/pix", tokenPrimeiro, IpDeTeste(chamada)));
+                Assert.Equal(HttpStatusCode.OK, primeiro.StatusCode);
+            }
+
+            HttpResponseMessage segundo = await _cliente.SendAsync(RequisicaoDeIp(HttpMethod.Post, $"{RotaPagamentos}/{IdPagamentoPendente}/pix", tokenSegundo, IpDeTeste(1)));
+
+            Assert.Equal(HttpStatusCode.OK, segundo.StatusCode);
+        }
+
+        [Fact]
+        public async Task GerarPix_SextaGeracaoDoMesmoClienteNoMinuto_Devolve429MesmoDeIpsDiferentes()
+        {
+            string token = TokenDoCliente(IdClienteDoTeste);
+
+            for (int chamada = 1; chamada <= ConstantsValues.LimiteGeracaoPixPorClienteMinutoPadrao; chamada++)
+            {
+                HttpResponseMessage ok = await _cliente.SendAsync(RequisicaoDeIp(HttpMethod.Post, $"{RotaMeus}/{IdPagamentoPendente}/pix", token, IpDeTeste(chamada)));
+                Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+            }
+
+            HttpResponseMessage excedido = await _cliente.SendAsync(RequisicaoDeIp(HttpMethod.Post, $"{RotaMeus}/{IdPagamentoPendente}/pix", token, IpDeTeste(ConstantsValues.LimiteGeracaoPixPorClienteMinutoPadrao + 1)));
+
+            Assert.Equal(HttpStatusCode.TooManyRequests, excedido.StatusCode);
+            JsonElement corpo = await LerJsonAsync(excedido);
+            Assert.Equal(ConstantsMessage.ErroLimiteRequisicoes, corpo.GetProperty(NomeDetail).GetString());
+        }
+
+        [Fact]
+        public async Task GerarPix_DoisClientesNoMesmoIp_NaoGastamOTetoUmDoOutro()
+        {
+            string tokenPrimeiro = TokenDoCliente(IdClienteDoTeste);
+            string tokenSegundo = TokenDoCliente(IdClienteAlheio);
+            string ipCompartilhado = IpDeTeste(1);
+
+            for (int chamada = 1; chamada <= ConstantsValues.LimiteGeracaoPixPorClienteMinutoPadrao; chamada++)
+            {
+                HttpResponseMessage primeiro = await _cliente.SendAsync(RequisicaoDeIp(HttpMethod.Post, $"{RotaMeus}/{IdPagamentoPendente}/pix", tokenPrimeiro, ipCompartilhado));
+                Assert.Equal(HttpStatusCode.OK, primeiro.StatusCode);
+            }
+
+            HttpResponseMessage segundo = await _cliente.SendAsync(RequisicaoDeIp(HttpMethod.Post, $"{RotaMeus}/{IdPagamentoDoSegundoCliente}/pix", tokenSegundo, ipCompartilhado));
+
+            Assert.Equal(HttpStatusCode.OK, segundo.StatusCode);
+        }
+
+        [Fact]
+        public async Task GerarPix_OnzeChamadasNoMesmoIp_AOnzeitaResponde429PeloLimiteDoIp()
+        {
+            string ipCompartilhado = IpDeTeste(2);
+            string tokenPrimeiro = TokenDoCliente(IdClienteDoTeste);
+            string tokenSegundo = TokenDoCliente(IdClienteAlheio);
+            string tokenSemCobranca = TokenDoCliente(IdClienteSemCobranca);
+
+            for (int chamada = 1; chamada <= ConstantsValues.LimiteGeracaoPixPorClienteMinutoPadrao; chamada++)
+            {
+                HttpResponseMessage primeiro = await _cliente.SendAsync(RequisicaoDeIp(HttpMethod.Post, $"{RotaMeus}/{IdPagamentoPendente}/pix", tokenPrimeiro, ipCompartilhado));
+                Assert.Equal(HttpStatusCode.OK, primeiro.StatusCode);
+
+                HttpResponseMessage segundo = await _cliente.SendAsync(RequisicaoDeIp(HttpMethod.Post, $"{RotaMeus}/{IdPagamentoDoSegundoCliente}/pix", tokenSegundo, ipCompartilhado));
+                Assert.Equal(HttpStatusCode.OK, segundo.StatusCode);
+            }
+
+            HttpResponseMessage excedido = await _cliente.SendAsync(RequisicaoDeIp(HttpMethod.Post, $"{RotaMeus}/{IdPagamentoPendente}/pix", tokenSemCobranca, ipCompartilhado));
+
+            Assert.Equal(HttpStatusCode.TooManyRequests, excedido.StatusCode);
+            JsonElement corpo = await LerJsonAsync(excedido);
+            Assert.Equal(ConstantsMessage.ErroLimiteRequisicoes, corpo.GetProperty(NomeDetail).GetString());
+        }
+
+        [Fact]
         public async Task Listar_DaLocadora_Devolve200ComAPaginaSemIdTransacao()
         {
             HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Get, $"{RotaPagamentos}?status=PENDENTE", TokenFinanceiro(), null));
@@ -419,13 +648,21 @@ namespace AutoVia.Tests.Api
         {
             ChaveJwt = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
             Pagamentos = new FakePagamentoRepository();
+            PixGateway = new FakePixGateway { Agora = new DateTime(2026, 11, 19, 10, 0, 0) };
+            Log = new FakeLogService();
         }
+
+        /// <summary>Log em memoria do servidor de teste: os testes contam os registros de uma requisicao.</summary>
+        public FakeLogService Log { get; }
 
         /// <summary>Chave JWT usada pelo servidor de teste (gerada a cada instancia).</summary>
         public string ChaveJwt { get; }
 
         /// <summary>Repositorio de cobrancas em memoria; os testes semeiam locacoes, vendas e cobrancas por aqui.</summary>
         public FakePagamentoRepository Pagamentos { get; }
+
+        /// <summary>Gateway PIX de teste (sem provedor e sem rede); o servidor usa este no lugar do gateway real.</summary>
+        public FakePixGateway PixGateway { get; }
 
         /// <summary>Conferencia de sessao simulada: os testes trocam o cargo do funcionario.</summary>
         public FakeSessaoService Sessao { get; } = new FakeSessaoService();
@@ -458,6 +695,10 @@ namespace AutoVia.Tests.Api
                 services.AddSingleton<IRelogio>(new FakeRelogio(new DateTime(2026, 11, 19, 10, 0, 0)));
                 services.RemoveAll<ISessaoService>();
                 services.AddSingleton<ISessaoService>(Sessao);
+                services.RemoveAll<IPixGateway>();
+                services.AddSingleton<IPixGateway>(PixGateway);
+                services.RemoveAll<ILogService>();
+                services.AddSingleton<ILogService>(Log);
             });
         }
     }

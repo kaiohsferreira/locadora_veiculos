@@ -15,7 +15,8 @@ namespace AutoVia.Tests.Fakes
     /// <summary>
     /// Repositorio de cobrancas em memoria, para os testes de servico e HTTP sem PostgreSQL. As listas de locacoes e de vendas
     /// sao as que existem para a locadora do teste (quem nao esta nelas e de outra locadora ou inexistente). Aplica as mesmas
-    /// regras de origem, de status e de posse do repositorio real; as consultas SQL sao provadas por PagamentoConsultasSqlTests.
+    /// regras de origem, de status, de posse e de PIX do repositorio real; as consultas SQL sao provadas por PagamentoConsultasSqlTests.
+    /// Os ganchos (AntesDaTrava, AntesDaGravacao e FalharGravacao) simulam a corrida entre a leitura e a trava.
     /// </summary>
     public class FakePagamentoRepository : IPagamentoRepository
     {
@@ -32,6 +33,21 @@ namespace AutoVia.Tests.Fakes
 
         /// <summary>Quantidade de baixas que chegaram ao repositorio (inclusive as recusadas).</summary>
         public int Baixas { get; private set; }
+
+        /// <summary>Quantidade de gravacoes de PIX que de fato sobrescreveram a cobranca.</summary>
+        public int GravacoesDePix { get; private set; }
+
+        /// <summary>Quando verdadeiro, a baixa falha depois de passar pela consulta (excecao generica, como um erro de banco na trava).</summary>
+        public bool FalharBaixa { get; set; }
+
+        /// <summary>Gancho chamado dentro da trava de reabertura, antes de ler a cobranca (simula outra requisicao).</summary>
+        public Action<Pagamento>? AntesDaTrava { get; set; }
+
+        /// <summary>Gancho chamado dentro da trava da gravacao, antes de conferir a cobranca (simula outra requisicao).</summary>
+        public Action<Pagamento>? AntesDaGravacao { get; set; }
+
+        /// <summary>Quando verdadeiro, a gravacao do PIX falha depois da chamada ao provedor (excecao generica).</summary>
+        public bool FalharGravacao { get; set; }
 
         /// <summary>Grava a cobranca PENDENTE, se a origem existir na locadora do teste; senao recusa com 404.</summary>
         public Task<Pagamento> LancarAtomicamenteAsync(Pagamento pagamento, DateTime agora)
@@ -61,10 +77,15 @@ namespace AutoVia.Tests.Fakes
             return Task.FromResult(pagamento);
         }
 
-        /// <summary>Da baixa como o repositorio real: inexistente ou de origem desativada (404), depois as recusas de status (409).</summary>
-        public Task<Pagamento> BaixarAtomicamenteAsync(int idPagamento, string forma, DateOnly dataPagamento, DateTime agora)
+        /// <summary>Da baixa como o repositorio real: inexistente ou de origem desativada (404), depois as recusas de status (409) e a regra P6 do PIX gerado.</summary>
+        public Task<Pagamento> BaixarAtomicamenteAsync(int idPagamento, string forma, DateOnly dataPagamento, DateTime agora, bool confirmarBaixaComPixGerado, string? idTransacaoCancelado)
         {
             Baixas++;
+
+            if (FalharBaixa)
+            {
+                throw new InvalidOperationException("Falha simulada da baixa.");
+            }
 
             Pagamento? pagamento = ConsultaBaixa(idPagamento).FirstOrDefault();
 
@@ -80,6 +101,16 @@ namespace AutoVia.Tests.Fakes
                 throw new BusinessException(erroDaBaixa);
             }
 
+            if (RegrasPagamento.ExigeConfirmacaoBaixaComPix(pagamento.IdTransacao, forma, confirmarBaixaComPixGerado))
+            {
+                throw new BusinessException(ConstantsMessage.ErroPagamentoBaixaComPixGerado);
+            }
+
+            if (RegrasPagamento.PixValidoSemCancelamento(pagamento.IdTransacao, pagamento.PixExpiraEm, forma, idTransacaoCancelado, agora))
+            {
+                throw new BusinessException(ConstantsMessage.ErroPagamentoBaixaComPixGerado);
+            }
+
             pagamento.Status = StatusPagamento.PAGO;
             pagamento.DataPagamento = dataPagamento;
             pagamento.Forma = forma;
@@ -88,8 +119,8 @@ namespace AutoVia.Tests.Fakes
             return Task.FromResult(pagamento);
         }
 
-        /// <summary>Lista da locadora: predicado, ordem de vencimento e id, com pagina e total.</summary>
-        public Task<(List<Pagamento> Itens, int Total)> ListarPagamentosDaLocadoraAsync(Expression<Func<Pagamento, bool>> predicado, int deslocamento, int tamanho)
+        /// <summary>Lista da locadora: predicado, ordem de vencimento e id, com pagina e total. Devolve a projecao sem o QR.</summary>
+        public Task<(List<PagamentoListagemRegistro> Itens, int Total)> ListarPagamentosDaLocadoraAsync(Expression<Func<Pagamento, bool>> predicado, int deslocamento, int tamanho)
         {
             List<Pagamento> filtrados = Pagamentos
                 .Where(x => x.DisabledAt == null && OrigemAtiva(x))
@@ -99,13 +130,13 @@ namespace AutoVia.Tests.Fakes
                 .ThenBy(x => x.IdPagamento)
                 .ToList();
 
-            List<Pagamento> pagina = filtrados.Skip(deslocamento).Take(tamanho).ToList();
+            List<PagamentoListagemRegistro> pagina = filtrados.Skip(deslocamento).Take(tamanho).Select(ParaRegistro).ToList();
 
             return Task.FromResult((pagina, filtrados.Count));
         }
 
-        /// <summary>Lista do cliente: predicado sobre a consulta base do cliente, ordem decrescente de vencimento e id.</summary>
-        public Task<(List<Pagamento> Itens, int Total)> ListarMeusPagamentosAsync(int idCliente, Expression<Func<Pagamento, bool>> predicado, int deslocamento, int tamanho)
+        /// <summary>Lista do cliente: predicado sobre a consulta base do cliente, ordem decrescente de vencimento e id. Devolve a projecao sem o QR.</summary>
+        public Task<(List<PagamentoListagemRegistro> Itens, int Total)> ListarMeusPagamentosAsync(int idCliente, Expression<Func<Pagamento, bool>> predicado, int deslocamento, int tamanho)
         {
             List<Pagamento> filtrados = ConsultaMeusPagamentos(idCliente)
                 .Where(predicado)
@@ -113,7 +144,7 @@ namespace AutoVia.Tests.Fakes
                 .ThenByDescending(x => x.IdPagamento)
                 .ToList();
 
-            List<Pagamento> pagina = filtrados.Skip(deslocamento).Take(tamanho).ToList();
+            List<PagamentoListagemRegistro> pagina = filtrados.Skip(deslocamento).Take(tamanho).Select(ParaRegistro).ToList();
 
             return Task.FromResult((pagina, filtrados.Count));
         }
@@ -137,6 +168,96 @@ namespace AutoVia.Tests.Fakes
             return Task.FromResult(registro);
         }
 
+        /// <summary>Leitura do PIX pelo cliente, sem trava: cobranca dele, com origem ativa. 404 se nao achou.</summary>
+        public Task<Pagamento> ConsultarCobrancaDoClienteParaPixAsync(int idCliente, int idPagamento)
+        {
+            Pagamento? cobranca = ConsultaMeusPagamentos(idCliente).FirstOrDefault(x => x.IdPagamento == idPagamento);
+
+            return Task.FromResult(Copia(cobranca) ?? throw new NotFoundException(ConstantsMessage.ErroPagamentoNaoEncontrado));
+        }
+
+        /// <summary>Leitura do PIX pela locadora do contexto, sem trava: so cobrancas da locadora do teste. 404 se nao achou.</summary>
+        public Task<Pagamento> ConsultarCobrancaDaLocadoraParaPixAsync(int idPagamento)
+        {
+            Pagamento? cobranca = Pagamentos.FirstOrDefault(x => x.IdPagamento == idPagamento && x.DisabledAt == null && OrigemAtiva(x));
+
+            return Task.FromResult(Copia(cobranca) ?? throw new NotFoundException(ConstantsMessage.ErroPagamentoNaoEncontrado));
+        }
+
+        /// <summary>Trava curta da reabertura: gancho antes da leitura; cliente (posse) ou locadora. 404 se nao achou.</summary>
+        public Task<Pagamento> TravarCobrancaParaPixAsync(int? idCliente, int idPagamento)
+        {
+            Pagamento? original = Pagamentos.FirstOrDefault(x => x.IdPagamento == idPagamento);
+
+            if (original != null)
+            {
+                AntesDaTrava?.Invoke(original);
+            }
+
+            Pagamento? cobranca = Pagamentos.FirstOrDefault(x => x.IdPagamento == idPagamento && x.DisabledAt == null && OrigemAtiva(x) && PertenceAoEscopo(x, idCliente));
+
+            return Task.FromResult(Copia(cobranca) ?? throw new NotFoundException(ConstantsMessage.ErroPagamentoNaoEncontrado));
+        }
+
+        /// <summary>Gravacao do PIX sob trava: repete a regra de geracao (409), nao sobrescreve PIX valido e falha quando pedido.</summary>
+        public Task<(Pagamento Pagamento, bool Gravou)> GravarPixAtomicamenteAsync(int? idCliente, int idPagamento, PixGravacaoRegistro dados, DateTime agora)
+        {
+            if (FalharGravacao)
+            {
+                throw new InvalidOperationException("Falha simulada da gravacao do PIX.");
+            }
+
+            Pagamento? original = Pagamentos.FirstOrDefault(x => x.IdPagamento == idPagamento);
+
+            if (original != null)
+            {
+                AntesDaGravacao?.Invoke(original);
+            }
+
+            Pagamento? cobranca = Pagamentos.FirstOrDefault(x => x.IdPagamento == idPagamento && x.DisabledAt == null && OrigemAtiva(x) && PertenceAoEscopo(x, idCliente));
+
+            if (cobranca == null)
+            {
+                throw new NotFoundException(ConstantsMessage.ErroPagamentoNaoEncontrado);
+            }
+
+            string? erroDaGeracao = RegrasPagamento.ErroDaGeracaoPix(cobranca.Tipo, cobranca.Status);
+
+            if (erroDaGeracao != null)
+            {
+                throw new BusinessException(erroDaGeracao);
+            }
+
+            if (RegrasPagamento.PixAindaValido(cobranca.IdTransacao, cobranca.PixExpiraEm, agora))
+            {
+                return Task.FromResult((Copia(cobranca)!, false));
+            }
+
+            cobranca.IdTransacao = dados.IdentificadorProvedor;
+            cobranca.Forma = AutoVia.Helpers.ConstantsValues.FormaPix;
+            cobranca.QrCodeBase64 = dados.QrCodeBase64;
+            cobranca.PixCopiaECola = dados.CopiaECola;
+            cobranca.PixExpiraEm = dados.ExpiraEm;
+            cobranca.UpdatedAt = agora;
+            GravacoesDePix++;
+
+            return Task.FromResult((Copia(cobranca)!, true));
+        }
+
+        /// <summary>Zera o id do PIX cancelado so se a cobranca ainda o guarda (como o repositorio real, sob trava); a validade fica.</summary>
+        public Task LimparPixCanceladoAsync(int idPagamento, string idTransacaoCancelado, DateTime agora)
+        {
+            Pagamento? cobranca = Pagamentos.FirstOrDefault(x => x.IdPagamento == idPagamento && x.DisabledAt == null && OrigemAtiva(x));
+
+            if (cobranca != null && cobranca.IdTransacao == idTransacaoCancelado)
+            {
+                cobranca.IdTransacao = null;
+                cobranca.UpdatedAt = agora;
+            }
+
+            return Task.CompletedTask;
+        }
+
         /// <summary>Consulta base do cliente, como o repositorio real: nao desativada, origem do cliente e nao desativada.</summary>
         public IQueryable<Pagamento> ConsultaMeusPagamentos(int idCliente)
         {
@@ -151,6 +272,63 @@ namespace AutoVia.Tests.Fakes
             return Pagamentos
                 .Where(x => x.IdPagamento == idPagamento && x.DisabledAt == null && OrigemAtiva(x))
                 .ToList();
+        }
+
+        /// <summary>Posse da trava: sem cliente (locadora do teste) ou com a origem do cliente informado.</summary>
+        private static bool PertenceAoEscopo(Pagamento pagamento, int? idCliente)
+        {
+            return !idCliente.HasValue || OrigemDoCliente(pagamento, idCliente.Value);
+        }
+
+        /// <summary>Copia da cobranca, como o AsNoTracking do repositorio real: alterar a copia nao altera a guardada.</summary>
+        private static Pagamento? Copia(Pagamento? cobranca)
+        {
+            if (cobranca == null)
+            {
+                return null;
+            }
+
+            return new Pagamento
+            {
+                IdPagamento = cobranca.IdPagamento,
+                IdLocacao = cobranca.IdLocacao,
+                IdVenda = cobranca.IdVenda,
+                Tipo = cobranca.Tipo,
+                Valor = cobranca.Valor,
+                DataVencimento = cobranca.DataVencimento,
+                DataPagamento = cobranca.DataPagamento,
+                Forma = cobranca.Forma,
+                Status = cobranca.Status,
+                IdTransacao = cobranca.IdTransacao,
+                QrCodeBase64 = cobranca.QrCodeBase64,
+                PixCopiaECola = cobranca.PixCopiaECola,
+                PixExpiraEm = cobranca.PixExpiraEm,
+                CreatedAt = cobranca.CreatedAt,
+                UpdatedAt = cobranca.UpdatedAt,
+                DisabledAt = cobranca.DisabledAt,
+                Locacao = cobranca.Locacao,
+                Venda = cobranca.Venda
+            };
+        }
+
+        /// <summary>Projecao da listagem: o mesmo que o repositorio real le (sem o QR e sem o id da transacao).</summary>
+        private static PagamentoListagemRegistro ParaRegistro(Pagamento pagamento)
+        {
+            Veiculo? veiculo = pagamento.Locacao?.Veiculo ?? pagamento.Venda?.Veiculo;
+
+            return new PagamentoListagemRegistro
+            {
+                IdPagamento = pagamento.IdPagamento,
+                IdLocacao = pagamento.IdLocacao,
+                IdVenda = pagamento.IdVenda,
+                Tipo = pagamento.Tipo,
+                Valor = pagamento.Valor,
+                DataVencimento = pagamento.DataVencimento,
+                DataPagamento = pagamento.DataPagamento,
+                Forma = pagamento.Forma,
+                Status = pagamento.Status,
+                VeiculoDescricao = veiculo == null ? null : veiculo.Marca + " " + veiculo.Modelo
+            };
         }
 
         /// <summary>Verdadeiro quando a locacao ou a venda de origem existe e nao esta desativada.</summary>

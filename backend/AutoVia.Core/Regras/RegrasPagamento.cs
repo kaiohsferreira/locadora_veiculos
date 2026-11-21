@@ -2,6 +2,7 @@ using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Helpers;
 using System;
+using System.Globalization;
 using System.Linq.Expressions;
 
 namespace AutoVia.Core.Regras
@@ -161,6 +162,143 @@ namespace AutoVia.Core.Regras
             return x => (semStatus || x.Status == valorStatus)
                 && (semDe || x.DataVencimento >= valorDe)
                 && (semAte || x.DataVencimento <= valorAte);
+        }
+
+        /// <summary>
+        /// Recusa da geracao de PIX, nesta ordem: CAUCAO (tipo que nao se paga por PIX), PAGO e CANCELADO (409). Sem recusa,
+        /// devolve nulo e a cobranca pode gerar (ou reabrir) o PIX.
+        /// </summary>
+        public static string? ErroDaGeracaoPix(TipoPagamento tipo, StatusPagamento status)
+        {
+            if (tipo == TipoPagamento.CAUCAO)
+            {
+                return ConstantsMessage.ErroPixTipoNaoPagavel;
+            }
+
+            if (status == StatusPagamento.PAGO)
+            {
+                return ConstantsMessage.ErroPixPagamentoJaPago;
+            }
+
+            if (status == StatusPagamento.CANCELADO)
+            {
+                return ConstantsMessage.ErroPixPagamentoCancelado;
+            }
+
+            return null;
+        }
+
+        /// <summary>Verdadeiro quando a cobranca pode gerar ou reabrir PIX (ver ErroDaGeracaoPix).</summary>
+        public static bool PodeGerarPix(TipoPagamento tipo, StatusPagamento status)
+        {
+            return ErroDaGeracaoPix(tipo, status) == null;
+        }
+
+        /// <summary>
+        /// Referencia enviada ao provedor (chave de idempotencia). Sem PIX gravado: PAG-{id}. Com PIX expirado: PAG-{id}-{validade
+        /// anterior}. Mesma entrada, mesma saida: duas chamadas sobre o mesmo PIX expirado pedem a mesma cobranca.
+        /// </summary>
+        public static string ReferenciaDaCobranca(int idPagamento, DateTime? pixExpiraEmAnterior)
+        {
+            string referencia = ConstantsValues.PixPrefixoReferencia + idPagamento.ToString(CultureInfo.InvariantCulture);
+
+            if (!pixExpiraEmAnterior.HasValue)
+            {
+                return referencia;
+            }
+
+            return referencia + "-" + pixExpiraEmAnterior.Value.ToString(ConstantsValues.PixFormatoSufixoReferencia, CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>Segundos inteiros que faltam ate a validade, para baixo; zero quando ja passou.</summary>
+        public static int SegundosParaExpirar(DateTime expiraEm, DateTime agora)
+        {
+            double restantes = Math.Floor((expiraEm - agora).TotalSeconds);
+
+            if (restantes <= 0)
+            {
+                return 0;
+            }
+
+            return (int)restantes;
+        }
+
+        /// <summary>PIX gravado ainda valido: tem identificador no provedor e a validade e posterior a agora.</summary>
+        public static bool PixAindaValido(string? idTransacao, DateTime? pixExpiraEm, DateTime agora)
+        {
+            bool temIdentificador = !string.IsNullOrWhiteSpace(idTransacao);
+
+            return temIdentificador && pixExpiraEm.HasValue && pixExpiraEm.Value > agora;
+        }
+
+        /// <summary>
+        /// Baixa manual com PIX gerado (P6): com id da transacao gravado, a forma diferente de PIX exige confirmacao explicita.
+        /// A forma e comparada sem espacos e sem diferenca de maiusculas; PIX segue a baixa normal.
+        /// </summary>
+        public static bool ExigeConfirmacaoBaixaComPix(string? idTransacao, string forma, bool confirmar)
+        {
+            bool temPixGerado = !string.IsNullOrWhiteSpace(idTransacao);
+            bool formaPix = string.Equals(forma.Trim(), ConstantsValues.FormaPix, StringComparison.OrdinalIgnoreCase);
+
+            return temPixGerado && !formaPix && !confirmar;
+        }
+
+        /// <summary>
+        /// Baixa manual que cancela o PIX no provedor antes da baixa (decisao 2 de 21/11/2026): forma diferente de PIX,
+        /// confirmacao explicita, baixa permitida pelo tipo e status (ErroDaBaixa nulo) e PIX gravado ainda valido.
+        /// Sem isso, o servico nao chama o provedor.
+        /// </summary>
+        public static bool PrecisaCancelarPixAntesDaBaixa(TipoPagamento tipo, StatusPagamento status, string? idTransacao, DateTime? pixExpiraEm, string forma, bool confirmar, DateTime agora)
+        {
+            return confirmar
+                && !EhFormaPix(forma)
+                && ErroDaBaixa(tipo, status) == null
+                && PixAindaValido(idTransacao, pixExpiraEm, agora);
+        }
+
+        /// <summary>
+        /// Reconferencia dentro da trava (decisao 2 de 21/11/2026): forma diferente de PIX e PIX gravado ainda valido com
+        /// identificador diferente do cancelado (nulo quando nada foi cancelado). Verdadeiro recusa a baixa (409).
+        /// </summary>
+        public static bool PixValidoSemCancelamento(string? idTransacao, DateTime? pixExpiraEm, string forma, string? idTransacaoCancelado, DateTime agora)
+        {
+            return !EhFormaPix(forma)
+                && PixAindaValido(idTransacao, pixExpiraEm, agora)
+                && !string.Equals(idTransacao, idTransacaoCancelado, StringComparison.Ordinal);
+        }
+
+        private static bool EhFormaPix(string forma)
+        {
+            return string.Equals(forma.Trim(), ConstantsValues.FormaPix, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Conferencia do retorno do provedor com o pedido: valor igual (decimal) e referencia igual (ordinal). Devolve o motivo
+        /// (VALOR ou REFERENCIA) ou nulo quando bate. Divergencia nao grava nada.
+        /// </summary>
+        public static string? MotivoDivergenciaRetornoPix(decimal valorPedido, decimal valorRetornado, string referenciaPedida, string? referenciaRetornada)
+        {
+            if (valorPedido != valorRetornado)
+            {
+                return ConstantsValues.MotivoDivergenciaValor;
+            }
+
+            if (!string.Equals(referenciaPedida, referenciaRetornada, StringComparison.Ordinal))
+            {
+                return ConstantsValues.MotivoDivergenciaReferencia;
+            }
+
+            return null;
+        }
+
+        /// <summary>Retorno utilizavel para gravar: copia e cola (ate 512 caracteres), QR preenchido e validade futura.</summary>
+        public static bool RetornoPixUtilizavel(string? copiaECola, string? qrCodeBase64, DateTime? expiraEm, DateTime agora)
+        {
+            bool temCopia = !string.IsNullOrWhiteSpace(copiaECola) && copiaECola.Length <= ConstantsValues.TamanhoMaximoPixCopiaECola;
+            bool temQr = !string.IsNullOrWhiteSpace(qrCodeBase64);
+            bool validadeFutura = expiraEm.HasValue && expiraEm.Value > agora;
+
+            return temCopia && temQr && validadeFutura;
         }
     }
 }

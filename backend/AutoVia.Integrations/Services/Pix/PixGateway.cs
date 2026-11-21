@@ -233,7 +233,7 @@ namespace AutoVia.Integrations.Services.Pix
         // Configuracao da integracao PAGAMENTO
         // ------------------------------------------------------------------
 
-        /// <summary>Expiracao da solicitacao, ou pix_expiracao_segundos da integracao, ou o padrao (3600).</summary>
+        /// <summary>Expiracao da solicitacao, ou pix_expiracao_segundos da integracao, ou o padrao (ConstantsPix.ExpiracaoPadraoSegundos, 900).</summary>
         private static int ObterExpiracao(ConfiguracaoIntegracao configuracao, int? expiracaoSolicitada)
         {
             if (expiracaoSolicitada.HasValue)
@@ -258,7 +258,7 @@ namespace AutoVia.Integrations.Services.Pix
             return expiracao;
         }
 
-        /// <summary>Escolhe o provedor pela chave 'provedor'. FAKE so funciona em SANDBOX.</summary>
+        /// <summary>Escolhe o provedor pela chave 'provedor'. A trava do FAKE (chave, Development e SANDBOX) e do proprio provedor (decisao 1, 21/11/2026).</summary>
         private IPixProvider SelecionarProvedor(ConfiguracaoIntegracao configuracao)
         {
             string nomeProvedor = configuracao.GetRequired(ConstantsPix.ChaveProvedor).Trim();
@@ -268,13 +268,6 @@ namespace AutoVia.Integrations.Services.Pix
             if (provider == null)
             {
                 throw new IntegrationException(configuracao.Codigo, ConstantsPix.ChaveProvedor, ConstantsMessage.ErroPixProvedorNaoSuportado);
-            }
-
-            bool isFake = string.Equals(provider.Nome, ConstantsPix.ProvedorFake, StringComparison.OrdinalIgnoreCase);
-
-            if (isFake && configuracao.Ambiente != AmbienteIntegracao.SANDBOX)
-            {
-                throw new IntegrationException(configuracao.Codigo, ConstantsPix.ChaveProvedor, ConstantsMessage.ErroPixFakeForaDoSandbox);
             }
 
             return provider;

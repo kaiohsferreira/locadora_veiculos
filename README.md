@@ -166,7 +166,7 @@ O `npm run build` local funciona sem `VITE_API_URL`. A exigência de uma URL `ht
 
 | Integração | Provedor de teste (FAKE) | Conta externa para valer |
 |---|---|---|
-| PAGAMENTO (PIX e caução no cartão) | Padrão `FAKE` (simulação em memória, sem chamada à operadora) | Conta no Mercado Pago (`MERCADOPAGO`): `access_token` e `public_key`, preenchidos no banco |
+| PAGAMENTO (PIX e caução no cartão) | Padrão `FAKE` (simulação em memória, sem chamada à operadora). O PIX de teste só responde com a chave `Pagamentos:PermitirProvedorFake` ligada (ver abaixo) | Conta no Mercado Pago (`MERCADOPAGO`): `access_token` e `public_key`, preenchidos no banco |
 | EMAIL (recuperação de senha e avisos) | É o único provedor do código. Só funciona com `ASPNETCORE_ENVIRONMENT=Development` e a integração em `SANDBOX`. Os e-mails viram arquivos `.txt` em `backend/AutoVia.Api/App_Data/email-fake/`. Fora de Development o provedor recusa o envio: nenhum e-mail é gravado e a falha fica só no log | Não há provedor de e-mail real no código |
 | DOCUMENTO (OCR da CNH) | É o único provedor do código | Não há provedor real no código |
 | GOOGLE (login com conta Google) | Padrão `FAKE`. Num banco novo o login com Google fica desligado, porque o `client_id` vem como `DEFINIR_NO_BANCO`. Com o `client_id` preenchido, o `FAKE` só funciona com `ASPNETCORE_ENVIRONMENT=Development` e a integração em `SANDBOX`. Não use o `FAKE` em ambiente publicado: veja o aviso de segurança do passo 3 | Client ID do Google (`client_id`) e `provedor = GOOGLE`, trocados no mesmo passo |
@@ -174,7 +174,9 @@ O `npm run build` local funciona sem `VITE_API_URL`. A exigência de uma URL `ht
 | MULTAS | É o único provedor do código. Exige a integração em `SANDBOX` | Não há provedor real no código |
 | ARMAZENAMENTO (fotos e documentos) | Provedor `DISCO_LOCAL`, a pasta da máquina (padrão do banco novo) | Só para o `S3_COMPATIVEL`: bucket e chaves de uma conta de armazenamento S3 |
 
-Por isso, com o banco novo, sem contas externas e com a API em `Development`, o sistema roda com pagamento, e-mail, OCR, seguradora e multas de teste. Todo provedor `FAKE` exige a integração em `SANDBOX`, que é como as migrations criam todas. Os de EMAIL, GOOGLE e SEGURADORA exigem também a API em `Development` (`ASPNETCORE_ENVIRONMENT=Development`): fora dele, o e-mail e a seguradora de teste param de funcionar, e o Swagger deixa de existir (passo 5). Os valores reais dessas integrações ficam no banco, não no repositório.
+Por isso, com o banco novo, sem contas externas e com a API em `Development`, o sistema roda com e-mail, OCR, seguradora e multas de teste, e com pagamento de teste (o PIX só com a chave `Pagamentos:PermitirProvedorFake` ligada, ver abaixo). Todo provedor `FAKE` exige a integração em `SANDBOX`, que é como as migrations criam todas. Os de EMAIL, GOOGLE e SEGURADORA exigem também a API em `Development` (`ASPNETCORE_ENVIRONMENT=Development`): fora dele, o e-mail e a seguradora de teste param de funcionar, e o Swagger deixa de existir (passo 5). Os valores reais dessas integrações ficam no banco, não no repositório.
+
+O `FAKE` do PIX só responde com a chave `Pagamentos:PermitirProvedorFake`, que nasce desligada (`false` no `appsettings.json`): no seu computador, ligue-a no `appsettings.Local.json` (copie o bloco `Pagamentos` do `appsettings.Local.example.json`) ou pela variável de ambiente `Pagamentos__PermitirProvedorFake=true`; no site publicado ela só é ligada para demonstração.
 
 ---
 

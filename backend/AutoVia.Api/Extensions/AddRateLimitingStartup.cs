@@ -24,7 +24,10 @@ namespace AutoVia.Api.Extensions
     /// disponiveis e catalogo de seminovos; um minuto; numero em Veiculos:LimiteLeituraPublicaPorMinuto, padrao 60) e
     /// AutoViaEnvioFotoVeiculo (envio de foto do veiculo, rota autenticada; um minuto; numero em Veiculos:LimiteEnvioFotoPorMinuto,
     /// padrao 60) e AutoViaLeituraArquivo (leitura publica de arquivo do armazenamento; um minuto; numero em
-    /// Armazenamento:LimiteLeituraPorMinuto, padrao 600; o teto da rota fica em TetoLeituraArquivo, depois deste limite). Um valor menor ou igual a
+    /// Armazenamento:LimiteLeituraPorMinuto, padrao 600; o teto da rota fica em TetoLeituraArquivo, depois deste limite) e
+    /// AutoViaGeracaoPix (geracao de PIX de cobranca, nas rotas da locadora e do cliente; um minuto; por IP; numero em
+    /// Pagamentos:LimiteGeracaoPixPorMinuto, padrao 10; o teto por cliente, TetoGeracaoPixPorCliente, e chamado pela acao
+    /// depois da autenticacao e vale junto com este). Um valor menor ou igual a
     /// zero cai no padrao. O IP vem do cabecalho configurado em Rede:CabecalhoIpCliente (padrao X-Real-IP,
     /// um salto), lido pelo UseForwardedHeaders montado no Program; vazio desliga a leitura e vale o IP do socket.
     /// Um valor que nao e nome de cabecalho HTTP valido impede a subida da API, e com FORWARDEDHEADERS_ENABLED
@@ -50,6 +53,7 @@ namespace AutoVia.Api.Extensions
                 int limiteEnvioDocumento = LerLimite(configuration, ConstantsValues.ChaveLimiteEnvioDocumentoCliente, ConstantsValues.LimiteEnvioDocumentoClientePorMinutoPadrao);
                 int limiteListaDocumento = LerLimite(configuration, ConstantsValues.ChaveLimiteListaDocumentoCliente, ConstantsValues.LimiteListaDocumentoClientePorMinutoPadrao);
                 int limiteListaDocumentoEquipe = LerLimite(configuration, ConstantsValues.ChaveLimiteListaDocumentoEquipe, ConstantsValues.LimiteListaDocumentoEquipePorMinutoPadrao);
+                int limiteGeracaoPix = LerLimite(configuration, ConstantsValues.ChaveLimiteGeracaoPix, ConstantsValues.LimiteGeracaoPixPorMinutoPadrao);
 
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
@@ -62,6 +66,7 @@ namespace AutoVia.Api.Extensions
                 RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteEnvioDocumentoCliente, limiteEnvioDocumento, TimeSpan.FromMinutes(1));
                 RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteListaDocumentoCliente, limiteListaDocumento, TimeSpan.FromMinutes(1));
                 RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteListaDocumentoEquipe, limiteListaDocumentoEquipe, TimeSpan.FromMinutes(1));
+                RegistrarPoliticaPorIp(options, ConstantsValues.PoliticaLimiteGeracaoPix, limiteGeracaoPix, TimeSpan.FromMinutes(1));
 
                 options.OnRejected = async (context, cancellationToken) =>
                 {
@@ -84,6 +89,7 @@ namespace AutoVia.Api.Extensions
 
             // Teto da rota de leitura de arquivo (contador sem IP, consultado pela acao) e registro agregado do seu 429.
             services.AddSingleton<TetoLeituraArquivo>();
+            services.AddSingleton<TetoGeracaoPixPorCliente>();
             services.AddSingleton<RegistroRecusasLimiteLeitura>();
             services.TryAddSingleton(TimeProvider.System);
 

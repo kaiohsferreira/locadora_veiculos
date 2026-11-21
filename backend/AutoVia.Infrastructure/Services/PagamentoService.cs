@@ -9,6 +9,9 @@ using AutoVia.Core.Regras;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
+using AutoVia.Integrations.Communication.Pix;
+using AutoVia.Integrations.Helpers;
+using AutoVia.Integrations.Interfaces;
 using FluentValidation;
 using FluentValidation.Results;
 using System;
@@ -32,14 +35,16 @@ namespace AutoVia.Infrastructure.Services
         private readonly IRelogio _relogio;
         private readonly IContextoEmpresa _contextoEmpresa;
         private readonly ILogService _logService;
+        private readonly IPixGateway _pixGateway;
 
-        public PagamentoService(IPagamentoRepository pagamentoRepository, IMapper mapper, IRelogio relogio, IContextoEmpresa contextoEmpresa, ILogService logService)
+        public PagamentoService(IPagamentoRepository pagamentoRepository, IMapper mapper, IRelogio relogio, IContextoEmpresa contextoEmpresa, ILogService logService, IPixGateway pixGateway)
         {
             _pagamentoRepository = pagamentoRepository;
             _mapper = mapper;
             _relogio = relogio;
             _contextoEmpresa = contextoEmpresa;
             _logService = logService;
+            _pixGateway = pixGateway;
         }
 
         /// <summary>
@@ -119,8 +124,9 @@ namespace AutoVia.Infrastructure.Services
         }
 
         /// <summary>
-        /// Da baixa: forma obrigatoria e pelo nome exato (400); a data da baixa e a de hoje pelo relogio; o repositorio trava a
-        /// cobranca e recusa caucao, pago e cancelado (409) e inexistente (404).
+        /// Da baixa: forma obrigatoria e pelo nome exato (400); a data da baixa e a de hoje pelo relogio. Com PIX gerado valido,
+        /// forma diferente de PIX e confirmacao (decisao 2 de 21/11/2026), cancela o PIX no provedor ANTES, fora de transacao; so
+        /// depois o repositorio trava, reconfere e da a baixa. O repositorio recusa caucao, pago e cancelado (409) e inexistente (404).
         /// </summary>
         public async Task<ReturnPagamentoVO> BaixarAsync(int idPagamento, BaixarPagamentoVO entrada)
         {
@@ -141,7 +147,20 @@ namespace AutoVia.Infrastructure.Services
                 DateTime agora = _relogio.Agora;
                 DateOnly hoje = DateOnly.FromDateTime(agora);
 
-                Pagamento baixado = await _pagamentoRepository.BaixarAtomicamenteAsync(idPagamento, forma, hoje, agora);
+                string? idTransacaoCancelado = await CancelarPixAntesDaBaixaAsync(idPagamento, forma, entrada.ConfirmarBaixaComPixGerado, agora);
+
+                Pagamento baixado;
+
+                try
+                {
+                    baixado = await _pagamentoRepository.BaixarAtomicamenteAsync(idPagamento, forma, hoje, agora, entrada.ConfirmarBaixaComPixGerado, idTransacaoCancelado);
+                }
+                catch (Exception)
+                {
+                    await LimparPixCanceladoAposFalhaDaBaixaAsync(idPagamento, idTransacaoCancelado, agora);
+
+                    throw;
+                }
 
                 string mensagem = string.Format(ConstantsMessage.InfoPagamentoBaixado, baixado.IdPagamento, _contextoEmpresa.IdFuncionario);
                 _logService.WriteInfo(mensagem, GetType().ToString());
@@ -157,6 +176,10 @@ namespace AutoVia.Infrastructure.Services
                 throw;
             }
             catch (ValidationException)
+            {
+                throw;
+            }
+            catch (IntegrationException)
             {
                 throw;
             }
@@ -191,11 +214,11 @@ namespace AutoVia.Infrastructure.Services
 
                 Expression<Func<Pagamento, bool>> predicado = RegrasPagamento.PredicadoDaListagem(status, filtro.VencimentoDe, filtro.VencimentoAte);
 
-                (List<Pagamento> Itens, int Total) consulta = await _pagamentoRepository.ListarPagamentosDaLocadoraAsync(predicado, filtro.Deslocamento, filtro.TamanhoPagina);
+                (List<PagamentoListagemRegistro> Itens, int Total) consulta = await _pagamentoRepository.ListarPagamentosDaLocadoraAsync(predicado, filtro.Deslocamento, filtro.TamanhoPagina);
 
                 List<ReturnPagamentoVO> itens = new List<ReturnPagamentoVO>();
 
-                foreach (Pagamento pagamento in consulta.Itens)
+                foreach (PagamentoListagemRegistro pagamento in consulta.Itens)
                 {
                     itens.Add(_mapper.Map<ReturnPagamentoVO>(pagamento));
                 }
@@ -246,11 +269,11 @@ namespace AutoVia.Infrastructure.Services
                 DateOnly? inicio = RegrasPagamento.InicioDoPeriodo(periodo, hoje);
                 Expression<Func<Pagamento, bool>> predicado = RegrasPagamento.PredicadoDaAba(aba, inicio);
 
-                (List<Pagamento> Itens, int Total) consulta = await _pagamentoRepository.ListarMeusPagamentosAsync(idCliente, predicado, filtro.Deslocamento, filtro.TamanhoPagina);
+                (List<PagamentoListagemRegistro> Itens, int Total) consulta = await _pagamentoRepository.ListarMeusPagamentosAsync(idCliente, predicado, filtro.Deslocamento, filtro.TamanhoPagina);
 
                 List<ReturnMeuPagamentoVO> itens = new List<ReturnMeuPagamentoVO>();
 
-                foreach (Pagamento pagamento in consulta.Itens)
+                foreach (PagamentoListagemRegistro pagamento in consulta.Itens)
                 {
                     itens.Add(MontarMeuPagamento(pagamento, hoje));
                 }
@@ -329,13 +352,127 @@ namespace AutoVia.Infrastructure.Services
         }
 
         /// <summary>Monta a saida do cliente: formatacao pelo Profile e, aqui, a situacao e os dias para vencer pela data de hoje.</summary>
-        private ReturnMeuPagamentoVO MontarMeuPagamento(Pagamento pagamento, DateOnly hoje)
+        private ReturnMeuPagamentoVO MontarMeuPagamento(PagamentoListagemRegistro pagamento, DateOnly hoje)
         {
             ReturnMeuPagamentoVO saida = _mapper.Map<ReturnMeuPagamentoVO>(pagamento);
             saida.Situacao = RegrasPagamento.Situacao(pagamento.Tipo, pagamento.Status, pagamento.DataVencimento, hoje).ToString();
             saida.DiasParaVencer = RegrasPagamento.DiasParaVencer(pagamento.DataVencimento, hoje);
 
             return saida;
+        }
+
+        /// <summary>
+        /// Decisao 2 de 21/11/2026: com confirmacao, forma diferente de PIX e PIX gravado valido, cancela o PIX no provedor antes
+        /// da baixa. Pre-leitura sem trava; so chama o provedor quando a regra pura manda. Devolve o identificador cancelado (para
+        /// a reconferencia da trava) ou nulo quando nao houve cancelamento. Nunca roda dentro de transacao de banco.
+        /// </summary>
+        private async Task<string?> CancelarPixAntesDaBaixaAsync(int idPagamento, string forma, bool confirmar, DateTime agora)
+        {
+            if (!confirmar || string.Equals(forma.Trim(), ConstantsValues.FormaPix, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            Pagamento leitura = await _pagamentoRepository.ConsultarCobrancaDaLocadoraParaPixAsync(idPagamento);
+
+            if (!RegrasPagamento.PrecisaCancelarPixAntesDaBaixa(leitura.Tipo, leitura.Status, leitura.IdTransacao, leitura.PixExpiraEm, forma, confirmar, agora))
+            {
+                return null;
+            }
+
+            string? identificadorProvedor = leitura.IdTransacao;
+
+            if (identificadorProvedor == null)
+            {
+                return null;
+            }
+
+            await CancelarPixNoProvedorAsync(idPagamento, identificadorProvedor);
+
+            return identificadorProvedor;
+        }
+
+        /// <summary>
+        /// Cancela o PIX no provedor. Cancelado ou ja encerrado (CANCELADA, EXPIRADA, RECUSADA) segue; PAGA recusa com 409 e log;
+        /// qualquer falha vira 502 e a baixa nao acontece. Inclui o provedor que nao conhece o PIX (NotFound): decisao do Kaio de 21/11/2026 ('Nao dar baixa').
+        /// </summary>
+        private async Task CancelarPixNoProvedorAsync(int idPagamento, string identificadorProvedor)
+        {
+            PixCobrancaResultado resultado;
+
+            try
+            {
+                resultado = await _pixGateway.CancelarCobrancaAsync(identificadorProvedor);
+            }
+            catch (BusinessException ex) when (string.Equals(ex.Message, ConstantsMessage.ErroPixCancelarCobrancaPaga, StringComparison.Ordinal))
+            {
+                _logService.WriteInfo(string.Format(ConstantsMessage.LogPagamentoBaixaPixJaPagoNoProvedor, idPagamento), GetType().ToString());
+
+                throw new BusinessException(ConstantsMessage.ErroPagamentoBaixaPixJaPago);
+            }
+            catch (BusinessException ex)
+            {
+                // Recusa do provedor no cancelamento (400/422): a baixa nao acontece, com o texto aprovado de falha (502). A causa vai em innerException.
+                throw new IntegrationException(ConstantsIntegration.Pagamento, ConstantsMessage.ErroPagamentoBaixaCancelarPixFalhou, ex);
+            }
+            catch (NotFoundException ex)
+            {
+                // Decisao do Kaio de 21/11/2026 ('Nao dar baixa'): o provedor que nao conhece o PIX e falha de cancelamento; a causa vai em innerException.
+                throw new IntegrationException(ConstantsIntegration.Pagamento, ConstantsMessage.ErroPagamentoBaixaCancelarPixFalhou, ex);
+            }
+            catch (IntegrationException ex)
+            {
+                // A causa (timeout, rede, credencial, FAKE sem a chave) vai em innerException; o middleware registra a cadeia uma vez.
+                throw new IntegrationException(ConstantsIntegration.Pagamento, ConstantsMessage.ErroPagamentoBaixaCancelarPixFalhou, ex);
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBaixarPagamento, GetType().ToString());
+                throw;
+            }
+
+            if (resultado.Status == PixStatusCobranca.PAGA)
+            {
+                _logService.WriteInfo(string.Format(ConstantsMessage.LogPagamentoBaixaPixJaPagoNoProvedor, idPagamento), GetType().ToString());
+
+                throw new BusinessException(ConstantsMessage.ErroPagamentoBaixaPixJaPago);
+            }
+
+            if (!CancelamentoPixAceito(resultado.Status))
+            {
+                throw new IntegrationException(ConstantsIntegration.Pagamento, ConstantsMessage.ErroPagamentoBaixaCancelarPixFalhou);
+            }
+
+            _logService.WriteInfo(string.Format(ConstantsMessage.LogPagamentoPixCanceladoAntesDaBaixa, idPagamento), GetType().ToString());
+        }
+
+        /// <summary>
+        /// Depois de cancelar o PIX no provedor, a baixa falhou: zera o id cancelado (so se ainda for o gravado) para a reabertura
+        /// gerar PIX novo com a validade gravada. Melhor esforco: a falha so registra o id, e a excecao original segue.
+        /// </summary>
+        private async Task LimparPixCanceladoAposFalhaDaBaixaAsync(int idPagamento, string? idTransacaoCancelado, DateTime agora)
+        {
+            if (idTransacaoCancelado == null)
+            {
+                return;
+            }
+
+            try
+            {
+                await _pagamentoRepository.LimparPixCanceladoAsync(idPagamento, idTransacaoCancelado, agora);
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, string.Format(ConstantsMessage.ErroLimparPixCancelado, idPagamento), GetType().ToString());
+            }
+        }
+
+        /// <summary>Estados em que o PIX nao e mais pagavel no provedor: cancelado, expirado ou recusado.</summary>
+        private static bool CancelamentoPixAceito(PixStatusCobranca status)
+        {
+            return status == PixStatusCobranca.CANCELADA
+                || status == PixStatusCobranca.EXPIRADA
+                || status == PixStatusCobranca.RECUSADA;
         }
 
         /// <summary>Monta a excecao de validacao de um campo (400), com a mensagem da regra.</summary>
