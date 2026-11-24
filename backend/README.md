@@ -155,6 +155,8 @@ URL, timeout e credenciais **nunca** vêm de appsettings, de variável de ambien
 
 P7-INT-01 (integração PAGAMENTO): entregue pelo RF-20, com PIX e pré-autorização de caução. Boleto pertence ao RF-32 (P7-BE-02) e webhook ao RF-33 (P7-BE-03, opcional). O registro da caução em pagamento é feito pela P4-BE-04.
 
+A P4-BE-04 foi feita pela equipe. Ao iniciar a locação (`POST /api/locacoes`), o servidor pré-autoriza a caução no cartão do cliente e grava a linha `CAUCAO` em `pagamento` junto com a locação, na mesma gravação: `id_locacao` preenchido, `id_venda` nulo, forma `CARTAO`, status `PENDENTE` e o identificador do provedor em `id_transacao`. Só há caução com `Pagamentos:ValorCaucao` maior que 0, escrito com ponto (por exemplo `1200.00`); com `0`, que é o padrão, a retirada fica como antes. Capturar ou cancelar a caução na devolução fica com a P5-BE-04 (ainda não feita), que vai chamar o gateway com o `id_transacao` gravado; um teste automático prova que esse identificador permite as duas operações. Limite: a prova é só com o provedor de simulação (`FAKE`); o cartão real do Mercado Pago (formulário de cartão, SDK e conta de teste) não foi feito nem medido.
+
 ## Observações
 
 - **AutoMapper 16:** a partir da versão 15, o AutoMapper exige uma chave de licença; sem ela, só registra um aviso no log e continua funcionando. A licença *Community* é gratuita para uso educacional (luckypennysoftware.com). Ficamos na 16 porque a 14, a última gratuita sem chave, tem uma vulnerabilidade alta (GHSA-rvv3-g6hj-g44x) sem correção.

@@ -40,6 +40,12 @@ namespace AutoVia.Integrations.Services.Caucao
             return Regex.IsMatch(identificadorProvedor, ConstantsCaucao.PadraoIdentificadorMercadoPago);
         }
 
+        /// <summary>O Mercado Pago nunca e simulacao: sempre falso, em qualquer ambiente da integracao (contrato integracao-pagamento-caucao v1.3).</summary>
+        public bool SimulacaoLiberada(ConfiguracaoIntegracao configuracao)
+        {
+            return false;
+        }
+
         public async Task<CaucaoResultado> PreAutorizarAsync(ConfiguracaoIntegracao configuracao, CaucaoSolicitacao solicitacao, string chaveIdempotencia, int validadeReservaDias, CancellationToken cancellationToken = default)
         {
             try

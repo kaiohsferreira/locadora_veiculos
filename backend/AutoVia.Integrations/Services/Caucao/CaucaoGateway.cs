@@ -1,5 +1,4 @@
 using AutoVia.Communication.CustomExceptions;
-using AutoVia.Communication.Enums;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Integrations.Communication.Base;
@@ -25,6 +24,7 @@ namespace AutoVia.Integrations.Services.Caucao
     /// Captura e cancelamento que falharem (BusinessException ou IntegrationException) consultam o provedor uma
     /// vez: se o estado pedido ja vale, devolvem o estado; senao relancam a excecao ORIGINAL.
     /// ReservaValidaAte existe somente em RESERVADA.
+    /// O gateway nao confere o ambiente: a trava do FAKE (chave, Development e SANDBOX) e do FakeCaucaoProvider (v1.3).
     /// </summary>
     public class CaucaoGateway : ICaucaoGateway
     {
@@ -315,10 +315,13 @@ namespace AutoVia.Integrations.Services.Caucao
                     }
                 }
 
+                // ModoSimulacao pelo mesmo predicado da trava do FAKE (v1.3): com o FAKE fora das tres condicoes nao lanca, devolve
+                // falso; no Mercado Pago e sempre falso.
                 return new CaucaoConfiguracaoCartao
                 {
                     Provedor = provider.Nome,
-                    ChavePublica = chavePublica
+                    ChavePublica = chavePublica,
+                    ModoSimulacao = provider.SimulacaoLiberada(configuracao)
                 };
             }
             catch (BusinessException)
@@ -595,7 +598,11 @@ namespace AutoVia.Integrations.Services.Caucao
         // Selecao do provedor
         // ------------------------------------------------------------------
 
-        /// <summary>Escolhe o provedor pela chave 'provedor'. FAKE so funciona em SANDBOX.</summary>
+        /// <summary>
+        /// Escolhe o provedor pela chave 'provedor' e so recusa provedor desconhecido. A trava do FAKE (chave
+        /// Pagamentos:PermitirProvedorFake, Development e SANDBOX) fica no proprio FakeCaucaoProvider, ponto unico (decisao 5 de
+        /// 24/11/2026; como o PIX v2 fez com o PixGateway).
+        /// </summary>
         private ICaucaoProvider SelecionarProvedor(ConfiguracaoIntegracao configuracao)
         {
             string nomeProvedor = configuracao.GetRequired(ConstantsCaucao.ChaveProvedor).Trim();
@@ -605,13 +612,6 @@ namespace AutoVia.Integrations.Services.Caucao
             if (provider == null)
             {
                 throw new IntegrationException(configuracao.Codigo, ConstantsCaucao.ChaveProvedor, ConstantsMessage.ErroCaucaoProvedorNaoSuportado);
-            }
-
-            bool isFake = string.Equals(provider.Nome, ConstantsCaucao.ProvedorFake, StringComparison.OrdinalIgnoreCase);
-
-            if (isFake && configuracao.Ambiente != AmbienteIntegracao.SANDBOX)
-            {
-                throw new IntegrationException(configuracao.Codigo, ConstantsCaucao.ChaveProvedor, ConstantsMessage.ErroCaucaoFakeForaDoSandbox);
             }
 
             return provider;

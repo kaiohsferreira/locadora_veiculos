@@ -1,9 +1,11 @@
 using AutoMapper;
 using AutoVia.Api.Controllers;
+using AutoVia.Api.Extensions;
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Locacoes;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Options;
 using AutoVia.Core.Profiles;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
@@ -97,8 +99,10 @@ namespace AutoVia.Tests.Api
             IMapper mapper = configuracao.CreateMapper();
             FakeLogService logService = new FakeLogService();
             FakeRelogio relogio = new FakeRelogio(new DateTime(2026, 11, 19, 9, 30, 0));
-            LocacaoService servico = new LocacaoService(repositorio, relogio, mapper, logService, ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), logService), new FakeClienteDocumentoRepository());
-            LocacaoController controller = new LocacaoController(servico, logService);
+            CaucaoRetiradaOptions semCaucao = new CaucaoRetiradaOptions(0m);
+            CaucaoRetiradaService caucao = new CaucaoRetiradaService(new FakeCaucaoGateway(), repositorio, semCaucao, logService);
+            LocacaoService servico = new LocacaoService(repositorio, relogio, mapper, logService, ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), logService), new FakeClienteDocumentoRepository(), caucao);
+            LocacaoController controller = new LocacaoController(servico, logService, semCaucao, new TetoCaucaoPorFuncionario(ConstantsValues.LimiteCaucaoPorFuncionarioMinutoPadrao, TimeSpan.FromMinutes(ConstantsValues.JanelaEmMinutosLimiteCaucaoPorFuncionario)));
             DefaultHttpContext contexto = new DefaultHttpContext();
 
             if (idFuncionario != null)

@@ -1,3 +1,4 @@
+using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Options;
@@ -5,6 +6,7 @@ using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
+using AutoVia.Integrations.Helpers;
 using AutoVia.Integrations.Interfaces;
 using AutoVia.Tests.Api;
 using AutoVia.Tests.DocumentosCliente;
@@ -305,9 +307,51 @@ namespace AutoVia.Tests.Locacoes
             Assert.Equal(0, fabrica.Armazenamento.AssinaturaLoteCount);
         }
 
+        /// <summary>
+        /// Caucao com Pagamentos:ValorCaucao 0 (o padrao fixado para os testes; contrato caucao-retirada v1.1, correcao f): os cinco
+        /// campos saem neutros, em camelCase, e o gateway da caucao, QUEBRADO nesta fabrica, nao e consultado nem na leitura nem na
+        /// abertura. Os outros testes desta classe, escritos antes da caucao, rodam com a mesma integracao quebrada: a leitura
+        /// continua a de hoje.
+        /// </summary>
+        [Fact]
+        public async Task ValorZero_IntegracaoQuebrada_CamposDaCaucaoNeutrosSemConsultarOGateway()
+        {
+            using RetiradaWebFactory fabrica = new RetiradaWebFactory();
+            using HttpClient cliente = fabrica.CreateClient();
+            string token = Token(fabrica);
+
+            using HttpResponseMessage leitura = await Enviar(cliente, Rota, token);
+            using HttpResponseMessage abertura = await Enviar(cliente, "/api/locacoes", token, "{\"idReserva\":10}");
+
+            Assert.Equal(HttpStatusCode.OK, leitura.StatusCode);
+            JsonElement dados = await LerJson(leitura);
+            Assert.False(dados.GetProperty("caucaoExigida").GetBoolean());
+            Assert.Equal(0m, dados.GetProperty("valorCaucao").GetDecimal());
+            Assert.Equal(StaticMethods.FormateToMonetary(0m), dados.GetProperty("valorCaucaoStr").GetString());
+            Assert.False(dados.GetProperty("caucaoDisponivel").GetBoolean());
+            Assert.False(dados.GetProperty("caucaoModoSimulacao").GetBoolean());
+            Assert.Equal(HttpStatusCode.Created, abertura.StatusCode);
+            Assert.Equal(0, fabrica.Caucao.TotalDeChamadas);
+        }
+
         private static VeiculoFoto CriarFotoDeCapa()
         {
             return new VeiculoFoto { IdVeiculoFoto = 1, IdVeiculo = 40, Ordem = 1, ChaveObjeto = "veiculos/40/capa.jpg", IdFuncionarioEnvio = 20 };
+        }
+
+        /// <summary>Gateway da caucao com a integracao PAGAMENTO quebrada em todas as operacoes (falha do provedor, 502).</summary>
+        private static FakeCaucaoGateway CriarCaucaoQuebrada()
+        {
+            IntegrationException quebrada = new IntegrationException(ConstantsIntegration.Pagamento, ConstantsMessage.ErroCaucaoProvedorIndisponivel);
+            FakeCaucaoGateway gateway = new FakeCaucaoGateway
+            {
+                ExcecaoPreAutorizacao = quebrada,
+                ExcecaoConsulta = quebrada,
+                ExcecaoCancelamento = quebrada,
+                ExcecaoConfiguracao = quebrada
+            };
+
+            return gateway;
         }
 
         private sealed class RetiradaWebFactory : VeiculoWebFactory
@@ -316,6 +360,9 @@ namespace AutoVia.Tests.Locacoes
             public new FakeSessaoService Sessao { get; } = new FakeSessaoService();
             public FakeClienteDocumentoRepository Documentos { get; } = new FakeClienteDocumentoRepository();
             public FakeArmazenamentoGateway Armazenamento { get; } = new FakeArmazenamentoGateway();
+
+            /// <summary>Gateway da caucao com a integracao quebrada: com o valor 0 dos testes, nenhuma rota desta classe o consulta.</summary>
+            public FakeCaucaoGateway Caucao { get; } = CriarCaucaoQuebrada();
 
             public RetiradaWebFactory(Action<Reserva>? configurar = null)
             {
@@ -359,10 +406,12 @@ namespace AutoVia.Tests.Locacoes
                     services.RemoveAll<ISessaoService>();
                     services.RemoveAll<IClienteDocumentoRepository>();
                     services.RemoveAll<IArmazenamentoGateway>();
+                    services.RemoveAll<ICaucaoGateway>();
                     services.AddSingleton<ILocacaoRepository>(Locacoes);
                     services.AddSingleton<ISessaoService>(Sessao);
                     services.AddSingleton<IClienteDocumentoRepository>(Documentos);
                     services.AddSingleton<IArmazenamentoGateway>(Armazenamento);
+                    services.AddSingleton<ICaucaoGateway>(Caucao);
                 });
             }
         }

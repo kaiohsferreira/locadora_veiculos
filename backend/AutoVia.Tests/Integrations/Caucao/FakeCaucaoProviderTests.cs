@@ -5,8 +5,12 @@ using AutoVia.Integrations.Communication.Base;
 using AutoVia.Integrations.Communication.Caucao;
 using AutoVia.Integrations.Helpers;
 using AutoVia.Integrations.Helpers.Caucao;
+using AutoVia.Integrations.Helpers.Pix;
 using AutoVia.Integrations.Services.Caucao;
 using AutoVia.Tests.Fakes;
+using AutoVia.Tests.Integrations.Google;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -43,9 +47,13 @@ namespace AutoVia.Tests.Integrations.Caucao
             };
         }
 
+        /// <summary>Provedor com a trava liberada (chave Pagamentos:PermitirProvedorFake ligada e Development; a configuracao e SANDBOX): padrao dos testes que exercitam o FAKE respondendo.</summary>
         private static FakeCaucaoProvider CriarProvider(CaucaoFakeStore store)
         {
-            return new FakeCaucaoProvider(store, new FakeLogService());
+            Dictionary<string, string?> valores = new Dictionary<string, string?> { { ConstantsPix.ChavePermitirProvedorFake, "true" } };
+            IConfiguration configuracao = new ConfigurationBuilder().AddInMemoryCollection(valores).Build();
+
+            return new FakeCaucaoProvider(store, new GoogleProvaDeTeste.AmbienteFalso(Environments.Development), configuracao, new FakeLogService());
         }
 
         private static Task<CaucaoResultado> Reservar(FakeCaucaoProvider provider, string token = TokenNormal, decimal valor = 500m, int validadeDias = 5)

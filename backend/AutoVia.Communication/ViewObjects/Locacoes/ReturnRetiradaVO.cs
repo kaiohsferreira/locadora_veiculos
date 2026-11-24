@@ -44,5 +44,23 @@ namespace AutoVia.Communication.ViewObjects.Locacoes
         public string LocalRetiradaNome { get; set; } = string.Empty;
         public string LocalRetiradaEndereco { get; set; } = string.Empty;
         public int? IdLocacaoExistente { get; set; }
+
+        // --- Caucao na retirada (contrato caucao-retirada v1.1, leitura_da_retirada): preenchidos pelo servico, nunca pelo profile.
+        // Falam da configuracao do servidor, nao da locacao; nunca levam id_transacao, chave publica, provedor nem dado de cartao.
+
+        /// <summary>Verdadeiro quando o servidor exige caucao na retirada (Pagamentos:ValorCaucao maior que 0).</summary>
+        public bool CaucaoExigida { get; set; }
+
+        /// <summary>Valor da caucao configurado no servidor (0 quando nao exigida). Nunca vem do pedido.</summary>
+        public decimal ValorCaucao { get; set; }
+
+        /// <summary>Valor da caucao formatado (StaticMethods.FormateToMonetary), sempre preenchido; com 0, o texto do zero.</summary>
+        public string ValorCaucaoStr { get; set; } = string.Empty;
+
+        /// <summary>A abertura com caucao pode ser tentada pela tela: caucao exigida e simulacao liberada (so a simulacao existe na tela).</summary>
+        public bool CaucaoDisponivel { get; set; }
+
+        /// <summary>O provedor configurado e o FAKE com a trava liberada: a mesma regra da trava do POST, para o GET e o POST concordarem.</summary>
+        public bool CaucaoModoSimulacao { get; set; }
     }
 }

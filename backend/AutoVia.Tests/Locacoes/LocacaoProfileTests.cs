@@ -162,6 +162,25 @@ namespace AutoVia.Tests.Locacoes
             Assert.Equal(string.Empty, retorno.ComprovanteResidenciaEnviadoEmStr);
         }
 
+        /// <summary>
+        /// Os cinco campos da caucao sao do servico (ICaucaoRetiradaService.PreencherRetiradaAsync): o profile os ignora (a
+        /// configuracao continua valida, LocacaoProfile_ConfiguracaoEValida) e eles saem do mapeamento com o valor inicial.
+        /// </summary>
+        [Fact]
+        public void Retirada_CamposDaCaucaoNaoSaemDoProfile()
+        {
+            IMapper mapper = CriarMapper();
+            Reserva reserva = CriarReservaDeRetirada(new DateTime(2026, 11, 18, 9, 30, 0), new DateTime(2026, 11, 19, 9, 30, 0));
+
+            ReturnRetiradaVO retorno = mapper.Map<ReturnRetiradaVO>(reserva);
+
+            Assert.False(retorno.CaucaoExigida);
+            Assert.Equal(0m, retorno.ValorCaucao);
+            Assert.Equal(string.Empty, retorno.ValorCaucaoStr);
+            Assert.False(retorno.CaucaoDisponivel);
+            Assert.False(retorno.CaucaoModoSimulacao);
+        }
+
         private static Reserva CriarReservaDeRetirada(DateTime retirada, DateTime devolucao)
         {
             Cliente cliente = new Cliente

@@ -53,7 +53,13 @@ namespace AutoVia.Core.Profiles
                 .ForMember(d => d.LocalRetiradaEndereco, o => o.MapFrom(s => RegrasLocacao.MontarEnderecoLocadora(s.Veiculo.Empresa.Logradouro, s.Veiculo.Empresa.Numero, s.Veiculo.Empresa.Bairro, s.Veiculo.Empresa.Cidade, s.Veiculo.Empresa.Uf)))
                 .ForMember(d => d.IdLocacaoExistente, o => o.MapFrom(s => s.Locacoes
                     .Where(l => l.DisabledAt == null && l.IdReserva == s.IdReserva)
-                    .OrderBy(l => l.IdLocacao).Select(l => (int?)l.IdLocacao).FirstOrDefault()));
+                    .OrderBy(l => l.IdLocacao).Select(l => (int?)l.IdLocacao).FirstOrDefault()))
+                // Caucao na retirada: preenchida pelo servico (ICaucaoRetiradaService.PreencherRetiradaAsync), nunca pelo profile.
+                .ForMember(d => d.CaucaoExigida, o => o.Ignore())
+                .ForMember(d => d.ValorCaucao, o => o.Ignore())
+                .ForMember(d => d.ValorCaucaoStr, o => o.Ignore())
+                .ForMember(d => d.CaucaoDisponivel, o => o.Ignore())
+                .ForMember(d => d.CaucaoModoSimulacao, o => o.Ignore());
 
             CreateMap<Locacao, ReturnLocacaoVO>()
                 .ForMember(dest => dest.IdReserva, opt => opt.MapFrom(src => src.IdReserva ?? 0))

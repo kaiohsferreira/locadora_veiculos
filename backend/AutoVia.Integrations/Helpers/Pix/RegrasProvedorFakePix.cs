@@ -4,9 +4,11 @@ using Microsoft.Extensions.Configuration;
 namespace AutoVia.Integrations.Helpers.Pix
 {
     /// <summary>
-    /// Regra unica que libera o provedor de teste (FAKE) do PIX (decisao 1 de 21/11/2026, 'Bloqueado, com chave'). So responde
-    /// quando as tres condicoes valem juntas: integracao PAGAMENTO em SANDBOX, ambiente da API Development e a chave
-    /// Pagamentos:PermitirProvedorFake verdadeira. Usada somente por FakePixProvider.ConferirTravaDupla.
+    /// Regra unica que libera os provedores de teste (FAKE) do PIX (decisao 1 de 21/11/2026, 'Bloqueado, com chave') e da caucao
+    /// (decisao 5 de 24/11/2026, a mesma trava). So responde quando as tres condicoes valem juntas: integracao PAGAMENTO em
+    /// SANDBOX, ambiente da API Development e a chave Pagamentos:PermitirProvedorFake verdadeira. Usada por
+    /// FakePixProvider.ConferirTravaDupla e por FakeCaucaoProvider.ConferirTravaDupla e FakeCaucaoProvider.SimulacaoLiberada: a
+    /// mesma chave liga o PIX e a caucao de teste.
     /// </summary>
     public static class RegrasProvedorFakePix
     {

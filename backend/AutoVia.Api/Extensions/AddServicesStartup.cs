@@ -63,6 +63,8 @@ namespace AutoVia.Api.Extensions
 
             // --- Locacao ---
             services.AddScoped<ILocacaoService, LocacaoService>();
+            // Caucao na abertura (P4-BE-04, RF-20): Scoped, usa o gateway da caucao e o repositorio da requisicao.
+            services.AddScoped<ICaucaoRetiradaService, CaucaoRetiradaService>();
             services.AddScoped<IVistoriaService, VistoriaService>();
             services.AddScoped<IAvariaService, AvariaService>();
 

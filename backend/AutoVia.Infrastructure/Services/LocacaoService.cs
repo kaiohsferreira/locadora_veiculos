@@ -7,8 +7,10 @@ using AutoVia.Core.Regras;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
+using FluentValidation;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading.Tasks;
 
 namespace AutoVia.Infrastructure.Services
@@ -23,8 +25,9 @@ namespace AutoVia.Infrastructure.Services
         private readonly IContextoEmpresa _contextoEmpresa;
         private readonly IFotoCapaVeiculoService _fotoCapaVeiculoService;
         private readonly IClienteDocumentoRepository _clienteDocumentoRepository;
+        private readonly ICaucaoRetiradaService _caucaoRetiradaService;
 
-        public LocacaoService(ILocacaoRepository locacaoRepository, IRelogio relogio, IMapper mapper, ILogService logService, IContextoEmpresa contextoEmpresa, IFotoCapaVeiculoService fotoCapaVeiculoService, IClienteDocumentoRepository clienteDocumentoRepository)
+        public LocacaoService(ILocacaoRepository locacaoRepository, IRelogio relogio, IMapper mapper, ILogService logService, IContextoEmpresa contextoEmpresa, IFotoCapaVeiculoService fotoCapaVeiculoService, IClienteDocumentoRepository clienteDocumentoRepository, ICaucaoRetiradaService caucaoRetiradaService)
         {
             _locacaoRepository = locacaoRepository;
             _relogio = relogio;
@@ -33,9 +36,15 @@ namespace AutoVia.Infrastructure.Services
             _contextoEmpresa = contextoEmpresa;
             _fotoCapaVeiculoService = fotoCapaVeiculoService;
             _clienteDocumentoRepository = clienteDocumentoRepository;
+            _caucaoRetiradaService = caucaoRetiradaService;
         }
 
-        /// <summary>Inicia a locacao de uma reserva valida para um funcionario ativo.</summary>
+        /// <summary>
+        /// Inicia a locacao de uma reserva valida para um funcionario ativo. Sem caucao exigida, o fluxo do RF-17. Com caucao
+        /// exigida (contrato caucao-retirada v1.1): todas as recusas de hoje primeiro, depois a pre-autorizacao FORA da transacao
+        /// e das travas; a retirada e lida depois da confirmacao; a locacao e a linha CAUCAO nascem no mesmo SaveChanges. Se a
+        /// gravacao falhar, compensa so o id novo (nunca o que outra abertura ja gravou).
+        /// </summary>
         public async Task<ReturnLocacaoVO> StartFromReservaAsync(LocacaoVO locacaoVO, int idFuncionario)
         {
             try
@@ -71,12 +80,31 @@ namespace AutoVia.Infrastructure.Services
                     throw new BusinessException(ConstantsMessage.ErroLocacaoFuncionarioNaoEncontrado);
                 }
 
+                CaucaoAberturaRegistro? caucao = null;
+
+                if (_caucaoRetiradaService.CaucaoExigida)
+                {
+                    caucao = await _caucaoRetiradaService.PreAutorizarAsync(reserva, locacaoVO);
+                }
+
+                // Lida depois da confirmacao da caucao: e o instante em que a locacao pode nascer.
                 DateTime dataRetirada = _relogio.Agora;
 
-                Locacao criada = await _locacaoRepository.StartFromReservaAsync(locacaoVO.IdReserva, idFuncionario, dataRetirada);
+                Locacao criada = await AbrirLocacaoAsync(locacaoVO.IdReserva, idFuncionario, dataRetirada, caucao);
+
+                if (caucao != null)
+                {
+                    string registro = string.Format(CultureInfo.InvariantCulture, ConstantsMessage.InfoCaucaoRetiradaGravada, locacaoVO.IdReserva, criada.IdLocacao, caucao.ReferenciaExterna, caucao.IdTransacao);
+                    _logService.WriteInfo(registro, GetType().ToString());
+                }
+
                 ReturnLocacaoVO retorno = _mapper.Map<ReturnLocacaoVO>(criada);
 
                 return retorno;
+            }
+            catch (ValidationException)
+            {
+                throw;
             }
             catch (BusinessException ex)
             {
@@ -95,7 +123,44 @@ namespace AutoVia.Infrastructure.Services
             }
         }
 
-        /// <summary>Prepara a retirada com cadastro local e CNH conforme cargo conferido no servidor.</summary>
+        /// <summary>
+        /// Chama a abertura do repositorio. Sem caucao, exatamente como no RF-17. Com caucao, se a gravacao falhar (erro do banco,
+        /// reconferencia 404/409 depois da trava, perdedor de corrida), compensa: o mesmo id ja gravado responde 409 de locacao
+        /// duplicada sem cancelar; senao o id novo e cancelado no provedor e a excecao ORIGINAL sobe.
+        /// </summary>
+        private async Task<Locacao> AbrirLocacaoAsync(int idReserva, int idFuncionario, DateTime dataRetirada, CaucaoAberturaRegistro? caucao)
+        {
+            if (caucao == null)
+            {
+                Locacao semCaucao = await _locacaoRepository.StartFromReservaAsync(idReserva, idFuncionario, dataRetirada, null);
+
+                return semCaucao;
+            }
+
+            try
+            {
+                Locacao comCaucao = await _locacaoRepository.StartFromReservaAsync(idReserva, idFuncionario, dataRetirada, caucao);
+
+                return comCaucao;
+            }
+            catch (Exception)
+            {
+                bool jaGravada = await _caucaoRetiradaService.CompensarAsync(idReserva, caucao);
+
+                if (jaGravada)
+                {
+                    throw new BusinessException(ConstantsMessage.ErroLocacaoReservaDuplicada);
+                }
+
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Prepara a retirada com cadastro local e CNH conforme cargo conferido no servidor. Por ultimo, depois das conferencias
+        /// do 404 (reserva de outra locadora nunca chega ao gateway), os dados da caucao: o gateway so e consultado com a caucao
+        /// exigida e sem locacao ja aberta, e a falha dele nao derruba a leitura.
+        /// </summary>
         public async Task<ReturnRetiradaVO> GetRetiradaAsync(int idReserva)
         {
             try
@@ -116,6 +181,7 @@ namespace AutoVia.Infrastructure.Services
                 retorno.CnhVencida = RegrasLocacao.CnhVencida(reserva.Cliente.CnhValidade, DateOnly.FromDateTime(_relogio.Agora));
                 await PreencherDocumentosEnviadosAsync(reserva.IdCliente, retorno);
                 await _fotoCapaVeiculoService.PreencherAsync(new List<Veiculo> { reserva.Veiculo }, new List<ReturnRetiradaVO> { retorno });
+                await _caucaoRetiradaService.PreencherRetiradaAsync(retorno);
                 return retorno;
             }
             catch (BusinessException ex)

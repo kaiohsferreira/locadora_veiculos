@@ -1,7 +1,9 @@
 using AutoMapper;
 using AutoVia.Api.Controllers;
+using AutoVia.Api.Extensions;
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.ViewObjects.Locacoes;
+using AutoVia.Core.Options;
 using AutoVia.Core.Profiles;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -35,7 +37,7 @@ namespace AutoVia.Tests.Locacoes
         public async Task RetiradaDeReservaInexistente_ControllerRegistraAoMenosUmLogDeErro()
         {
             FakeLogService log = new FakeLogService();
-            LocacaoController controller = new LocacaoController(new ServicoDeRetiradaNaoEncontrada(), log);
+            LocacaoController controller = new LocacaoController(new ServicoDeRetiradaNaoEncontrada(), log, new CaucaoRetiradaOptions(0m), new TetoCaucaoPorFuncionario(ConstantsValues.LimiteCaucaoPorFuncionarioMinutoPadrao, TimeSpan.FromMinutes(ConstantsValues.JanelaEmMinutosLimiteCaucaoPorFuncionario)));
 
             NotFoundException excecao = await Assert.ThrowsAsync<NotFoundException>(() => controller.GetRetirada(99));
 
@@ -51,7 +53,9 @@ namespace AutoVia.Tests.Locacoes
             IMapper mapper = configuracao.CreateMapper();
             FakeRelogio relogio = new FakeRelogio(AgoraDoRelogio);
 
-            return new LocacaoService(repositorio, relogio, mapper, log, ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), log), new FakeClienteDocumentoRepository());
+            CaucaoRetiradaService semCaucao = new CaucaoRetiradaService(new FakeCaucaoGateway(), repositorio, new CaucaoRetiradaOptions(0m), log);
+
+            return new LocacaoService(repositorio, relogio, mapper, log, ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), log), new FakeClienteDocumentoRepository(), semCaucao);
         }
 
         /// <summary>Servico que sempre responde 404 na retirada; os outros metodos nao sao usados neste teste.</summary>

@@ -20,7 +20,12 @@ namespace AutoVia.Helpers
         // --- Configuracao da integracao PAGAMENTO (IntegrationException, 502) ---
         public const string ErroCaucaoValidadeConfiguracaoInvalida = "A configuração caucao_validade_dias da integração de pagamento não é um número entre 1 e 30.";
         public const string ErroCaucaoProvedorNaoSuportado = "O provedor de caução configurado não é suportado.";
-        public const string ErroCaucaoFakeForaDoSandbox = "O provedor de teste (FAKE) só pode ser usado no ambiente SANDBOX.";
+        /// <summary>
+        /// A trava do FAKE da caucao (a mesma do PIX) recusou: chave desligada, API fora de Development ou integracao fora do SANDBOX.
+        /// Texto NEUTRO, igual para as tres condicoes (ajuste A3 do Kaio, 24/11/2026): o nome da chave fica so no README.
+        /// O texto do PIX (ErroPixFakeForaDoSandbox) nao muda.
+        /// </summary>
+        public const string ErroCaucaoFakeForaDoSandbox = "O provedor de teste (FAKE) da caução não está liberado neste ambiente.";
         public const string ErroCaucaoChavePublicaInvalida = "A chave pública da integração de pagamento é igual a um valor protegido (como o access_token). Corrija a configuração no banco.";
 
         // --- Resposta do provedor (mensagens fixas: nunca texto do provedor) ---

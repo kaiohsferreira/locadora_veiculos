@@ -1,5 +1,6 @@
 using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Helpers;
 using System;
 
@@ -81,11 +82,16 @@ namespace AutoVia.Core.Regras
         }
 
         /// <summary>
-        /// Monta a locacao da abertura: quilometragem de saida = km atual do veiculo, diaria = diaria atual do veiculo,
-        /// caucao 0, status EM_ANDAMENTO. A retirada vem do servico (IRelogio); CreatedAt e UpdatedAt vem do momento do registro.
+        /// Monta a locacao da abertura: quilometragem de saida = km atual do veiculo, diaria = diaria atual do veiculo, status
+        /// EM_ANDAMENTO. Sem caucao (nula): valor_caucao 0 e nenhum pagamento, como no RF-17. Com caucao (contrato caucao-retirada
+        /// v1.1): valor_caucao = valor da caucao e exatamente uma linha CAUCAO em Pagamentos (RegrasCaucaoRetirada.CriarPagamentoCaucao),
+        /// que o EF grava junto com a locacao pela navegacao, no mesmo SaveChanges. E o unico ponto que monta a CAUCAO: uma por
+        /// locacao, por construcao. A retirada vem do servico (IRelogio); CreatedAt e UpdatedAt vem do momento do registro.
         /// </summary>
-        public static Locacao CriarLocacaoDeAbertura(Reserva reserva, Veiculo veiculo, int idFuncionario, DateTime dataRetirada, DateTime momentoRegistro)
+        public static Locacao CriarLocacaoDeAbertura(Reserva reserva, Veiculo veiculo, int idFuncionario, DateTime dataRetirada, DateTime momentoRegistro, CaucaoAberturaRegistro? caucao)
         {
+            decimal valorCaucao = caucao == null ? 0m : caucao.Valor;
+
             Locacao locacao = new Locacao
             {
                 IdReserva = reserva.IdReserva,
@@ -96,12 +102,18 @@ namespace AutoVia.Core.Regras
                 DataDevolucaoPrevista = reserva.DataDevolucaoPrevista,
                 KmSaida = veiculo.KmAtual,
                 ValorDiaria = veiculo.ValorDiaria,
-                ValorCaucao = 0m,
+                ValorCaucao = valorCaucao,
                 Status = StatusLocacao.EM_ANDAMENTO,
                 CreatedAt = momentoRegistro,
                 UpdatedAt = momentoRegistro,
                 DisabledAt = null
             };
+
+            if (caucao != null)
+            {
+                Pagamento pagamentoCaucao = RegrasCaucaoRetirada.CriarPagamentoCaucao(caucao.Valor, caucao.IdTransacao, reserva.DataDevolucaoPrevista, momentoRegistro);
+                locacao.Pagamentos.Add(pagamentoCaucao);
+            }
 
             return locacao;
         }

@@ -3,6 +3,7 @@ using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Locacoes;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Options;
 using AutoVia.Core.Profiles;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -398,7 +399,13 @@ namespace AutoVia.Tests.Locacoes
                 NullLoggerFactory.Instance);
             IMapper mapper = configuracao.CreateMapper();
 
-            return new LocacaoService(repositorio, relogio, mapper, log, ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(armazenamento, log), documentos);
+            return new LocacaoService(repositorio, relogio, mapper, log, ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(armazenamento, log), documentos, CriarCaucaoSemValor(repositorio, log));
+        }
+
+        /// <summary>Caucao com Pagamentos:ValorCaucao 0 (sem caucao): a abertura e a do RF-17 e o gateway nunca e chamado.</summary>
+        private static CaucaoRetiradaService CriarCaucaoSemValor(FakeLocacaoRepository repositorio, FakeLogService log)
+        {
+            return new CaucaoRetiradaService(new FakeCaucaoGateway(), repositorio, new CaucaoRetiradaOptions(0m), log);
         }
 
         private static LocacaoService CriarServico(FakeLocacaoRepository repositorio, FakeLogService? logService = null)
@@ -409,7 +416,7 @@ namespace AutoVia.Tests.Locacoes
             IMapper mapper = configuracao.CreateMapper();
             FakeLogService log = logService ?? new FakeLogService();
             FakeRelogio relogio = new FakeRelogio(AgoraDoRelogio);
-            LocacaoService servico = new LocacaoService(repositorio, relogio, mapper, log, ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), log), new FakeClienteDocumentoRepository());
+            LocacaoService servico = new LocacaoService(repositorio, relogio, mapper, log, ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), log), new FakeClienteDocumentoRepository(), CriarCaucaoSemValor(repositorio, log));
 
             return servico;
         }

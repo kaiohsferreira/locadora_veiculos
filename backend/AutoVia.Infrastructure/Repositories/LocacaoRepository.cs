@@ -1,4 +1,5 @@
 using AutoVia.Communication.CustomExceptions;
+using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Regras;
 using AutoVia.Core.RepositoriesInterface;
@@ -74,7 +75,10 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
-        /// <summary>Busca reserva ativa com veiculo para validacao das regras de inicio.</summary>
+        /// <summary>
+        /// Busca reserva ativa com veiculo e cliente para validacao das regras de inicio. O cliente e o pagador da caucao (e-mail e
+        /// CPF lidos do banco, nunca do pedido); sem caucao exigida ele nao e usado.
+        /// </summary>
         public async Task<Reserva?> FindReservaByIdAsync(int idReserva)
         {
             try
@@ -82,6 +86,7 @@ namespace AutoVia.Infrastructure.Repositories
                 Reserva? reserva = await ConsultaReservaAtiva(idReserva)
                     .AsNoTracking()
                     .Include(x => x.Veiculo)
+                    .Include(x => x.Cliente)
                     .FirstOrDefaultAsync();
 
                 return reserva;
@@ -132,9 +137,11 @@ namespace AutoVia.Infrastructure.Repositories
         /// <summary>
         /// Cria a locacao e muda reserva e veiculo na mesma transacao. Ordem global de travas: veiculo, depois reserva
         /// (o funcionario nunca e travado). A reserva e lida com o filtro da locadora antes de qualquer SQL de trava; a
-        /// releitura depois das travas reconfere tudo, inclusive o status e a locacao existente.
+        /// releitura depois das travas reconfere tudo, inclusive o status e a locacao existente. Com caucao (ja pre-autorizada
+        /// fora desta transacao), a locacao sai da regra pura com valor_caucao e a linha CAUCAO na navegacao Locacao.Pagamentos:
+        /// o EF grava as duas no mesmo SaveChanges e no mesmo commit, ou nenhuma. Caucao nula = abertura do RF-17.
         /// </summary>
-        public async Task<Locacao> StartFromReservaAsync(int idReserva, int idFuncionario, DateTime dataRetirada)
+        public async Task<Locacao> StartFromReservaAsync(int idReserva, int idFuncionario, DateTime dataRetirada, CaucaoAberturaRegistro? caucao)
         {
             try
             {
@@ -208,7 +215,7 @@ namespace AutoVia.Infrastructure.Repositories
                 }
 
                 DateTime momentoRegistro = DateTime.Now;
-                Locacao locacao = RegrasLocacao.CriarLocacaoDeAbertura(reserva, veiculo, idFuncionario, dataRetirada, momentoRegistro);
+                Locacao locacao = RegrasLocacao.CriarLocacaoDeAbertura(reserva, veiculo, idFuncionario, dataRetirada, momentoRegistro, caucao);
 
                 reserva.Status = RegrasLocacao.StatusReservaAposAbertura();
                 reserva.UpdatedAt = momentoRegistro;
@@ -248,6 +255,52 @@ namespace AutoVia.Infrastructure.Repositories
                     .FirstOrDefaultAsync();
 
                 return locacao;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Releitura SEM trava da compensacao da caucao: existe locacao ativa da reserva com pagamento CAUCAO nao desativado de
+        /// mesmo id_transacao? Com o filtro "Empresa" (o do pagamento vale pela locacao) e sem rastreamento.
+        /// </summary>
+        public async Task<bool> ExisteCaucaoGravadaAsync(int idReserva, string idTransacao)
+        {
+            try
+            {
+                bool existe = await ConsultaCaucaoGravadaDaReserva(idReserva, idTransacao)
+                    .AsNoTracking()
+                    .AnyAsync();
+
+                return existe;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Pagamentos CAUCAO nao desativados com o id_transacao informado, de locacao ativa da reserva. Com o filtro "Empresa" do
+        /// pagamento (pela locacao): outra locadora nao devolve linha; sem contexto, nada volta.
+        /// </summary>
+        public IQueryable<Pagamento> ConsultaCaucaoGravadaDaReserva(int idReserva, string idTransacao)
+        {
+            try
+            {
+                IQueryable<Pagamento> consulta = _db.Pagamentos
+                    .Where(x => x.Tipo == TipoPagamento.CAUCAO
+                        && x.IdTransacao == idTransacao
+                        && x.DisabledAt == null
+                        && x.Locacao != null
+                        && x.Locacao.IdReserva == idReserva
+                        && x.Locacao.DisabledAt == null);
+
+                return consulta;
             }
             catch (Exception ex)
             {

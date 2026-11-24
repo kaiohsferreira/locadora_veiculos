@@ -4,7 +4,10 @@ using AutoVia.Helpers;
 using AutoVia.Integrations.Communication.Base;
 using AutoVia.Integrations.Communication.Caucao;
 using AutoVia.Integrations.Helpers.Caucao;
+using AutoVia.Integrations.Helpers.Pix;
 using AutoVia.Integrations.Interfaces;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Text;
@@ -15,16 +18,24 @@ namespace AutoVia.Integrations.Services.Caucao
     /// Provedor de teste (Nome = FAKE). Nao chama rede. Identificador deterministico: FAKE-CAU- +
     /// 12 primeiros hex do SHA-256 da chave de idempotencia, entao a mesma tentativa devolve a mesma caucao.
     /// Regras pelo token: FAKE-RECUSADO recusa (BusinessException), FAKE-ANALISE fica EM_ANALISE, qualquer
-    /// outro reserva. O gateway so o libera em SANDBOX.
+    /// outro reserva.
+    /// TRAVA UNICA (decisao 5 de 24/11/2026, a mesma do PIX): so responde com a chave Pagamentos:PermitirProvedorFake verdadeira,
+    /// IHostEnvironment Development e a integracao em SANDBOX. A regra esta em RegrasProvedorFakePix.PodeResponder e e conferida
+    /// aqui, no inicio das quatro operacoes (ConferirTravaDupla), antes de tocar no CaucaoFakeStore. SimulacaoLiberada usa o
+    /// mesmo predicado, sem lancar.
     /// </summary>
     public class FakeCaucaoProvider : ICaucaoProvider
     {
         private readonly CaucaoFakeStore _store;
+        private readonly IHostEnvironment _hostEnvironment;
+        private readonly IConfiguration _configuration;
         private readonly ILogService _logService;
 
-        public FakeCaucaoProvider(CaucaoFakeStore store, ILogService logService)
+        public FakeCaucaoProvider(CaucaoFakeStore store, IHostEnvironment hostEnvironment, IConfiguration configuration, ILogService logService)
         {
             _store = store;
+            _hostEnvironment = hostEnvironment;
+            _configuration = configuration;
             _logService = logService;
         }
 
@@ -35,10 +46,23 @@ namespace AutoVia.Integrations.Services.Caucao
             return Regex.IsMatch(identificadorProvedor, ConstantsCaucao.PadraoIdentificadorFake);
         }
 
+        /// <summary>
+        /// Mesmo predicado da trava (ConferirTravaDupla), sem lancar: verdadeiro so com a chave Pagamentos:PermitirProvedorFake
+        /// ligada, a API em Development e a integracao em SANDBOX. A chave e relida a cada chamada.
+        /// </summary>
+        public bool SimulacaoLiberada(ConfiguracaoIntegracao configuracao)
+        {
+            bool chavePermitida = RegrasProvedorFakePix.LerChave(_configuration);
+            bool liberada = RegrasProvedorFakePix.PodeResponder(_hostEnvironment.IsDevelopment(), configuracao.Ambiente, chavePermitida);
+
+            return liberada;
+        }
+
         public Task<CaucaoResultado> PreAutorizarAsync(ConfiguracaoIntegracao configuracao, CaucaoSolicitacao solicitacao, string chaveIdempotencia, int validadeReservaDias, CancellationToken cancellationToken = default)
         {
             try
             {
+                ConferirTravaDupla(configuracao);
                 string identificador = GerarIdentificador(chaveIdempotencia);
                 CaucaoResultado caucao = _store.ObterOuCriar(identificador, (DateTime agora) => CriarCaucao(identificador, solicitacao, validadeReservaDias, agora));
 
@@ -72,6 +96,7 @@ namespace AutoVia.Integrations.Services.Caucao
         {
             try
             {
+                ConferirTravaDupla(configuracao);
                 CaucaoResultado? caucao = _store.Obter(identificadorProvedor);
 
                 if (caucao == null)
@@ -104,6 +129,7 @@ namespace AutoVia.Integrations.Services.Caucao
         {
             try
             {
+                ConferirTravaDupla(configuracao);
                 CaucaoResultado capturada = _store.Capturar(identificadorProvedor, valor);
 
                 return Task.FromResult(capturada);
@@ -131,6 +157,7 @@ namespace AutoVia.Integrations.Services.Caucao
         {
             try
             {
+                ConferirTravaDupla(configuracao);
                 CaucaoResultado cancelada = _store.Cancelar(identificadorProvedor);
 
                 return Task.FromResult(cancelada);
@@ -151,6 +178,18 @@ namespace AutoVia.Integrations.Services.Caucao
             {
                 _logService.Write(ex, ConstantsMessage.ErroCaucaoCancelar, GetType().ToString());
                 throw new IntegrationException(configuracao.Codigo, ConstantsMessage.ErroCaucaoCancelar, ex);
+            }
+        }
+
+        /// <summary>
+        /// Trava unica do FAKE da caucao: sem a chave, fora de Development ou fora do SANDBOX nao responde (502, com a mensagem do
+        /// FAKE fora do sandbox). Recusa antes de tocar no CaucaoFakeStore: nada e criado, consultado, capturado nem cancelado.
+        /// </summary>
+        private void ConferirTravaDupla(ConfiguracaoIntegracao configuracao)
+        {
+            if (!SimulacaoLiberada(configuracao))
+            {
+                throw new IntegrationException(configuracao.Codigo, ConstantsMessage.ErroCaucaoFakeForaDoSandbox);
             }
         }
 

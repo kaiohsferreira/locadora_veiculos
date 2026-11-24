@@ -6,11 +6,17 @@ using AutoVia.Integrations.Communication.Caucao;
 using AutoVia.Integrations.Entities;
 using AutoVia.Integrations.Helpers;
 using AutoVia.Integrations.Helpers.Caucao;
+using AutoVia.Integrations.Helpers.Pix;
 using AutoVia.Integrations.Interfaces;
 using AutoVia.Integrations.Services;
 using AutoVia.Integrations.Services.Caucao;
 using AutoVia.Tests.Fakes;
+using AutoVia.Tests.Integrations.Google;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace AutoVia.Tests.Integrations.Caucao
 {
@@ -49,6 +55,14 @@ namespace AutoVia.Tests.Integrations.Caucao
                     : ConstantsCaucao.PadraoIdentificadorMercadoPago;
 
                 return System.Text.RegularExpressions.Regex.IsMatch(identificadorProvedor, padrao);
+            }
+
+            /// <summary>Resposta roteirizada de SimulacaoLiberada (v1.3); padrao falso.</summary>
+            public bool RespostaSimulacaoLiberada { get; set; }
+
+            public bool SimulacaoLiberada(ConfiguracaoIntegracao configuracao)
+            {
+                return RespostaSimulacaoLiberada;
             }
 
             public List<string> ChavesRecebidas { get; } = new List<string>();
@@ -199,6 +213,37 @@ namespace AutoVia.Tests.Integrations.Caucao
             IntegrationResolver resolver = new IntegrationResolver(repositorio, new MemoryCache(new MemoryCacheOptions()), log);
 
             return new CaucaoGateway(resolver, providers, log);
+        }
+
+        /// <summary>FakeCaucaoProvider REAL com o ambiente de hospedagem e a chave Pagamentos:PermitirProvedorFake informados (null = chave ausente).</summary>
+        private static FakeCaucaoProvider CriarFakeReal(CaucaoFakeStore store, string ambienteDeHospedagem, string? valorDaChave)
+        {
+            Dictionary<string, string?> valores = new Dictionary<string, string?>();
+
+            if (valorDaChave != null)
+            {
+                valores.Add(ConstantsPix.ChavePermitirProvedorFake, valorDaChave);
+            }
+
+            IConfiguration configuracao = new ConfigurationBuilder().AddInMemoryCollection(valores).Build();
+
+            return new FakeCaucaoProvider(store, new GoogleProvaDeTeste.AmbienteFalso(ambienteDeHospedagem), configuracao, new FakeLogService());
+        }
+
+        /// <summary>
+        /// Identificador que o FAKE daria a esta solicitacao. A chave de idempotencia sai do proprio gateway (provedor roteirizado,
+        /// sem repetir a regra no teste); o FAKE usa FAKE-CAU- + 12 hex do SHA-256 dela.
+        /// </summary>
+        private static async Task<string> IdentificadorFakeDaSolicitacaoAsync(CaucaoSolicitacao solicitacao)
+        {
+            ProvedorRoteirizado roteirizado = new ProvedorRoteirizado(ConstantsCaucao.ProvedorMercadoPago);
+            CaucaoGateway gateway = CriarGateway(CriarIntegracao(), new FakeLogService(), roteirizado);
+
+            await gateway.PreAutorizarAsync(solicitacao);
+
+            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(roteirizado.ChavesRecebidas[0]));
+
+            return ConstantsCaucao.PrefixoIdentificadorFake + Convert.ToHexString(hash).ToLowerInvariant().Substring(0, ConstantsCaucao.TamanhoHashIdentificadorFake);
         }
 
         private static CaucaoSolicitacao CriarSolicitacao(decimal valor = 500m)
@@ -757,6 +802,7 @@ namespace AutoVia.Tests.Integrations.Caucao
 
             Assert.Equal(ConstantsCaucao.ProvedorMercadoPago, configuracao.Provedor);
             Assert.Equal("APP_USR-publica-123", configuracao.ChavePublica);
+            Assert.False(configuracao.ModoSimulacao);
         }
 
         [Fact]
@@ -810,16 +856,93 @@ namespace AutoVia.Tests.Integrations.Caucao
             Assert.Equal(0, provedor.ChamadasPreAutorizar);
         }
 
+        /// <summary>
+        /// v1.3 (decisao 5 de 24/11/2026): a trava do FAKE e do provedor (ponto unico). Com o FAKE REAL e a integracao fora do
+        /// SANDBOX, a recusa vem do FakeCaucaoProvider, antes de tocar no CaucaoFakeStore: nada e reservado.
+        /// </summary>
         [Fact]
-        public async Task FakeForaDoSandbox_LancaIntegrationExceptionSemChamarOProvedor()
+        public async Task FakeForaDoSandbox_RecusadoPeloProvedorFakeAntesDeTocarNoStore()
+        {
+            CaucaoFakeStore store = new CaucaoFakeStore(() => Agora);
+            FakeCaucaoProvider fake = CriarFakeReal(store, Environments.Development, "true");
+            CaucaoGateway gateway = CriarGateway(CriarIntegracao(provedor: ConstantsCaucao.ProvedorFake, ambiente: AmbienteIntegracao.PRODUCAO, comToken: false), new FakeLogService(), fake);
+            CaucaoSolicitacao solicitacao = CriarSolicitacao();
+            string identificadorFake = await IdentificadorFakeDaSolicitacaoAsync(solicitacao);
+
+            IntegrationException excecao = await Assert.ThrowsAsync<IntegrationException>(() => gateway.PreAutorizarAsync(solicitacao));
+
+            Assert.Equal(ConstantsMessage.ErroCaucaoFakeForaDoSandbox, excecao.Message);
+            Assert.Null(store.Obter(identificadorFake));
+
+            // Controle: o mesmo pedido, no SANDBOX, reserva exatamente com esse identificador (o teste acima nao e vazio).
+            CaucaoGateway gatewaySandbox = CriarGateway(CriarIntegracao(provedor: ConstantsCaucao.ProvedorFake, comToken: false), new FakeLogService(), fake);
+            CaucaoResultado reservada = await gatewaySandbox.PreAutorizarAsync(solicitacao);
+
+            Assert.Equal(identificadorFake, reservada.IdentificadorProvedor);
+            Assert.NotNull(store.Obter(identificadorFake));
+        }
+
+        /// <summary>v1.3: o gateway nao confere mais o ambiente; so escolhe o provedor pelo nome (a recusa e do FAKE real, teste acima).</summary>
+        [Fact]
+        public async Task FakeForaDoSandbox_GatewayNaoRecusaMaisPeloAmbienteEChamaOProvedor()
         {
             ProvedorRoteirizado provedor = new ProvedorRoteirizado(ConstantsCaucao.ProvedorFake);
             CaucaoGateway gateway = CriarGateway(CriarIntegracao(provedor: ConstantsCaucao.ProvedorFake, ambiente: AmbienteIntegracao.PRODUCAO), new FakeLogService(), provedor);
 
-            IntegrationException excecao = await Assert.ThrowsAsync<IntegrationException>(() => gateway.PreAutorizarAsync(CriarSolicitacao()));
+            CaucaoResultado resultado = await gateway.PreAutorizarAsync(CriarSolicitacao());
 
-            Assert.Equal(ConstantsMessage.ErroCaucaoFakeForaDoSandbox, excecao.Message);
-            Assert.Equal(0, provedor.ChamadasPreAutorizar);
+            Assert.Equal(CaucaoStatus.RESERVADA, resultado.Status);
+            Assert.Equal(1, provedor.ChamadasPreAutorizar);
+        }
+
+        /// <summary>v1.3: com o FAKE real e a trava liberada (chave, Development e SANDBOX), ModoSimulacao verdadeiro, com a chave fixa de teste.</summary>
+        [Fact]
+        public async Task ObterConfiguracaoCartao_FakeComATravaLiberada_ModoSimulacaoVerdadeiro()
+        {
+            FakeCaucaoProvider fake = CriarFakeReal(new CaucaoFakeStore(), Environments.Development, "true");
+            CaucaoGateway gateway = CriarGateway(CriarIntegracao(provedor: ConstantsCaucao.ProvedorFake, comToken: false), new FakeLogService(), fake);
+
+            CaucaoConfiguracaoCartao configuracao = await gateway.ObterConfiguracaoCartaoAsync();
+
+            Assert.Equal(ConstantsCaucao.ProvedorFake, configuracao.Provedor);
+            Assert.Equal(ConstantsCaucao.ChavePublicaFake, configuracao.ChavePublica);
+            Assert.True(configuracao.ModoSimulacao);
+        }
+
+        /// <summary>
+        /// v1.3: com o FAKE real fora de qualquer uma das tres condicoes, ObterConfiguracaoCartaoAsync NAO lanca (antes lancava
+        /// ErroCaucaoFakeForaDoSandbox pelo SelecionarProvedor): devolve ModoSimulacao falso, e a tela mostra a caucao indisponivel.
+        /// </summary>
+        [Theory]
+        [InlineData("Development", null, AmbienteIntegracao.SANDBOX)]
+        [InlineData("Development", "false", AmbienteIntegracao.SANDBOX)]
+        [InlineData("Production", "true", AmbienteIntegracao.SANDBOX)]
+        [InlineData("Development", "true", AmbienteIntegracao.PRODUCAO)]
+        [InlineData("Development", "true", AmbienteIntegracao.HOMOLOGACAO)]
+        public async Task ObterConfiguracaoCartao_FakeComATravaFechada_ModoSimulacaoFalsoSemLancar(string ambienteDeHospedagem, string? valorDaChave, AmbienteIntegracao ambienteDaIntegracao)
+        {
+            FakeCaucaoProvider fake = CriarFakeReal(new CaucaoFakeStore(), ambienteDeHospedagem, valorDaChave);
+            CaucaoGateway gateway = CriarGateway(CriarIntegracao(provedor: ConstantsCaucao.ProvedorFake, ambiente: ambienteDaIntegracao, comToken: false), new FakeLogService(), fake);
+
+            CaucaoConfiguracaoCartao configuracao = await gateway.ObterConfiguracaoCartaoAsync();
+
+            Assert.Equal(ConstantsCaucao.ProvedorFake, configuracao.Provedor);
+            Assert.False(configuracao.ModoSimulacao);
+        }
+
+        /// <summary>v1.3: ModoSimulacao repete o SimulacaoLiberada do provedor escolhido (sem regra propria no gateway).</summary>
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ObterConfiguracaoCartao_ModoSimulacaoVemDoProvedor(bool simulacaoLiberada)
+        {
+            ProvedorRoteirizado provedor = new ProvedorRoteirizado(ConstantsCaucao.ProvedorFake);
+            provedor.RespostaSimulacaoLiberada = simulacaoLiberada;
+            CaucaoGateway gateway = CriarGateway(CriarIntegracao(provedor: ConstantsCaucao.ProvedorFake, comToken: false), new FakeLogService(), provedor);
+
+            CaucaoConfiguracaoCartao configuracao = await gateway.ObterConfiguracaoCartaoAsync();
+
+            Assert.Equal(simulacaoLiberada, configuracao.ModoSimulacao);
         }
 
         [Fact]

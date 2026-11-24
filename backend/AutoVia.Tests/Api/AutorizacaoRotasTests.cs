@@ -304,5 +304,28 @@ namespace AutoVia.Tests.Api
                 Assert.False(Attribute.IsDefined(acao, typeof(AllowAnonymousAttribute)), acao.Name);
             }
         }
+
+        /// <summary>
+        /// Caucao na retirada (contrato caucao-retirada v1.1): a politica AberturaLocacao fica SO na acao do POST; a classe continua
+        /// com Funcionario e as leituras (GetById e GetRetirada) nao ganham politica propria nem ficam anonimas.
+        /// </summary>
+        [Fact]
+        public void Locacao_AberturaExigePoliticaAberturaLocacaoNaAcao_LeiturasSoComAClasse()
+        {
+            Type controller = typeof(LocacaoController);
+            AuthorizeAttribute? classe = controller.GetCustomAttribute<AuthorizeAttribute>();
+            MethodInfo abrir = controller.GetMethod(nameof(LocacaoController.StartFromReserva))!;
+            MethodInfo consultar = controller.GetMethod(nameof(LocacaoController.GetById))!;
+            MethodInfo retirada = controller.GetMethod(nameof(LocacaoController.GetRetirada))!;
+
+            Assert.NotNull(classe);
+            Assert.Equal(ConstantsValues.PoliticaFuncionario, classe!.Policy);
+            Assert.Equal(ConstantsValues.PoliticaAberturaLocacao, abrir.GetCustomAttribute<AuthorizeAttribute>()!.Policy);
+            Assert.Null(consultar.GetCustomAttribute<AuthorizeAttribute>());
+            Assert.Null(retirada.GetCustomAttribute<AuthorizeAttribute>());
+            Assert.False(Attribute.IsDefined(consultar, typeof(AllowAnonymousAttribute)));
+            Assert.False(Attribute.IsDefined(retirada, typeof(AllowAnonymousAttribute)));
+            Assert.False(Attribute.IsDefined(abrir, typeof(EnableRateLimitingAttribute)));
+        }
     }
 }

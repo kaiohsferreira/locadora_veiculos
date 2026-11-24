@@ -21,6 +21,12 @@ namespace AutoVia.Helpers
         /// <summary>Politica de quem simula e apura as cobrancas extras (role FUNCIONARIO + cargo ATENDENTE ou ADMINISTRADOR da locadora do contexto).</summary>
         public const string PoliticaApuradorCobrancasExtras = "ApuradorCobrancasExtras";
 
+        /// <summary>
+        /// Politica da abertura da locacao (POST /api/locacoes): role FUNCIONARIO; com caucao exigida, cargo ATENDENTE ou
+        /// ADMINISTRADOR da locadora do contexto. Sem caucao exigida, qualquer funcionario (RF-17 como hoje).
+        /// </summary>
+        public const string PoliticaAberturaLocacao = "AberturaLocacao";
+
         /// <summary>Nome do filtro global de empresa no AutoViaDbContext (unico ponto de bypass nomeado: SemEscopoEmpresa).</summary>
         public const string NomeFiltroEmpresa = "Empresa";
     }

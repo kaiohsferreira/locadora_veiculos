@@ -1,5 +1,6 @@
 using AutoVia.Api.Extensions;
 using AutoVia.Api.Middleware;
+using AutoVia.Core.Options;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Integrations.Extensions;
@@ -25,6 +26,7 @@ builder.Services.AddAuthenticationJwt(builder.Configuration);
 builder.Services.AddRecuperacaoSenha(builder.Configuration, builder.Environment);
 builder.Services.AddLocadoras(builder.Configuration);
 builder.Services.AddClientes(builder.Configuration);
+builder.Services.AddCaucaoRetirada();
 builder.Services.AddLoginGoogle();
 builder.Services.AddRateLimitingPublico(builder.Configuration);
 builder.Services.AddSwaggerDocumentation();
@@ -34,6 +36,11 @@ WebApplication app = builder.Build();
 
 // Guarda do host: FORWARDEDHEADERS_ENABLED verdadeira faria o host anular o controle do IP do limite; a API nao sobe.
 AddRateLimitingStartup.ValidarHostSemCabecalhosAutomaticos(app.Configuration);
+
+// Valor da caucao na retirada (Pagamentos:ValorCaucao, so com ponto decimal): valor invalido impede a subida aqui mesmo.
+// O singleton nasce logo em seguida, com o valor que acabou de ser validado (trocar o valor exige reiniciar a API).
+AddCaucaoRetiradaStartup.ValidarValorCaucao(app.Configuration);
+app.Services.GetRequiredService<CaucaoRetiradaOptions>();
 
 // Sem banco configurado a subida falha aqui, com a mensagem do resolvedor: a conexao so e lida ao criar o contexto.
 app.Configuration.ResolveDatabaseConnection();

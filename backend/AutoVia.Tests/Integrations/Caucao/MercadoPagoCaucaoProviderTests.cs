@@ -172,6 +172,23 @@ namespace AutoVia.Tests.Integrations.Caucao
         }
 
         // ------------------------------------------------------------------
+        // Simulacao (v1.3): o Mercado Pago nunca e simulacao
+        // ------------------------------------------------------------------
+
+        /// <summary>Mesmo com a integracao em SANDBOX, o Mercado Pago nao e a simulacao: SimulacaoLiberada falso, sem chamar o provedor.</summary>
+        [Fact]
+        public void SimulacaoLiberada_SempreFalsoSemChamarOProvedor()
+        {
+            ComunicacaoRoteirizada comunicacao = new ComunicacaoRoteirizada();
+            MercadoPagoCaucaoProvider provider = CriarProvider(comunicacao, new FakeLogService());
+
+            bool liberada = provider.SimulacaoLiberada(CriarConfiguracao());
+
+            Assert.False(liberada);
+            Assert.Empty(comunicacao.Requisicoes);
+        }
+
+        // ------------------------------------------------------------------
         // Pre-autorizacao
         // ------------------------------------------------------------------
 

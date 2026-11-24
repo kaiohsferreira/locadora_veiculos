@@ -1,6 +1,7 @@
 using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Regras;
+using AutoVia.Core.RepositoriesInterface;
 using System;
 
 namespace AutoVia.Tests.Locacoes
@@ -67,7 +68,7 @@ namespace AutoVia.Tests.Locacoes
                 Status = StatusVeiculo.RESERVADO
             };
 
-            Locacao locacao = RegrasLocacao.CriarLocacaoDeAbertura(reserva, veiculo, 20, DataRetiradaDeTeste, MomentoDeTeste);
+            Locacao locacao = RegrasLocacao.CriarLocacaoDeAbertura(reserva, veiculo, 20, DataRetiradaDeTeste, MomentoDeTeste, null);
 
             Assert.Equal<int?>(10, locacao.IdReserva);
             Assert.Equal(30, locacao.IdCliente);
@@ -82,6 +83,54 @@ namespace AutoVia.Tests.Locacoes
             Assert.Equal(MomentoDeTeste, locacao.CreatedAt);
             Assert.Equal(MomentoDeTeste, locacao.UpdatedAt);
             Assert.Null(locacao.DisabledAt);
+            Assert.Empty(locacao.Pagamentos);
+        }
+
+        /// <summary>
+        /// Abertura com caucao (contrato caucao-retirada v1.1, CE-2): valor_caucao = valor da caucao e exatamente uma linha CAUCAO
+        /// em Pagamentos, com as colunas da linha_caucao. O id_locacao vem pela navegacao na gravacao (aqui ainda nulo).
+        /// </summary>
+        [Fact]
+        public void CriarLocacaoDeAbertura_ComCaucao_ValorDaCaucaoEUmaUnicaLinhaCaucao()
+        {
+            Reserva reserva = new Reserva
+            {
+                IdReserva = 42,
+                IdCliente = 30,
+                IdVeiculo = 40,
+                DataDevolucaoPrevista = DataDevolucaoDeTeste,
+                Status = StatusReserva.ATIVA
+            };
+            Veiculo veiculo = new Veiculo
+            {
+                IdVeiculo = 40,
+                KmAtual = 1234,
+                ValorDiaria = 175m,
+                Status = StatusVeiculo.RESERVADO
+            };
+            CaucaoAberturaRegistro caucao = new CaucaoAberturaRegistro(1200.00m, "FAKE-CAU-0123456789ab", "CAUCAO-RES-42");
+
+            Locacao locacao = RegrasLocacao.CriarLocacaoDeAbertura(reserva, veiculo, 20, DataRetiradaDeTeste, MomentoDeTeste, caucao);
+
+            Assert.Equal(1200.00m, locacao.ValorCaucao);
+            Assert.Equal(StatusLocacao.EM_ANDAMENTO, locacao.Status);
+
+            Pagamento pagamento = Assert.Single(locacao.Pagamentos);
+            Assert.Equal(TipoPagamento.CAUCAO, pagamento.Tipo);
+            Assert.Null(pagamento.IdLocacao);
+            Assert.Null(pagamento.IdVenda);
+            Assert.Equal(1200.00m, pagamento.Valor);
+            Assert.Equal("CARTAO", pagamento.Forma);
+            Assert.Equal(StatusPagamento.PENDENTE, pagamento.Status);
+            Assert.Equal("FAKE-CAU-0123456789ab", pagamento.IdTransacao);
+            Assert.Equal(DateOnly.FromDateTime(DataDevolucaoDeTeste), pagamento.DataVencimento);
+            Assert.Null(pagamento.DataPagamento);
+            Assert.Null(pagamento.QrCodeBase64);
+            Assert.Null(pagamento.PixCopiaECola);
+            Assert.Null(pagamento.PixExpiraEm);
+            Assert.Equal(MomentoDeTeste, pagamento.CreatedAt);
+            Assert.Equal(MomentoDeTeste, pagamento.UpdatedAt);
+            Assert.Null(pagamento.DisabledAt);
         }
 
         [Fact]

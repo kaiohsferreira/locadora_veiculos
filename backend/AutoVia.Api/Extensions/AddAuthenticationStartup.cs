@@ -119,6 +119,15 @@ namespace AutoVia.Api.Extensions
                     policy.AddRequirements(new RequisitoApuradorCobrancasExtras());
                 });
 
+                // Abertura da locacao (decisao 4 de 24/11/2026): com caucao exigida, ATENDENTE ou ADMINISTRADOR da locadora do
+                // contexto; sem caucao exigida, qualquer funcionario (RF-17 como hoje). Aplicada so na acao do POST.
+                options.AddPolicy(ConstantsValues.PoliticaAberturaLocacao, policy =>
+                {
+                    policy.RequireAuthenticatedUser();
+                    policy.RequireRole(nameof(PerfilUsuario.FUNCIONARIO));
+                    policy.AddRequirements(new RequisitoAberturaLocacao());
+                });
+
                 // Rota sem nenhuma declaracao exige usuario autenticado (o teste de guarda AutorizacaoRotasTests reprova rota sem declaracao).
                 options.FallbackPolicy = new AuthorizationPolicyBuilder()
                     .RequireAuthenticatedUser()
@@ -134,6 +143,7 @@ namespace AutoVia.Api.Extensions
             services.AddScoped<IAuthorizationHandler, AutorizacaoGestorFrotaHandler>();
             services.AddScoped<IAuthorizationHandler, AutorizacaoFinanceiroHandler>();
             services.AddScoped<IAuthorizationHandler, AutorizacaoApuradorCobrancasExtrasHandler>();
+            services.AddScoped<IAuthorizationHandler, AutorizacaoAberturaLocacaoHandler>();
 
             return services;
         }

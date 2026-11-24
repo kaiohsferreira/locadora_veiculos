@@ -3,11 +3,15 @@ using AutoVia.Integrations.Communication.Caucao;
 using AutoVia.Integrations.Entities;
 using AutoVia.Integrations.Helpers;
 using AutoVia.Integrations.Helpers.Caucao;
+using AutoVia.Integrations.Helpers.Pix;
 using AutoVia.Integrations.Interfaces;
 using AutoVia.Integrations.Services;
 using AutoVia.Integrations.Services.Caucao;
 using AutoVia.Tests.Fakes;
+using AutoVia.Tests.Integrations.Google;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 
 namespace AutoVia.Tests.Integrations.Caucao
 {
@@ -40,7 +44,11 @@ namespace AutoVia.Tests.Integrations.Caucao
 
             FakeLogService log = new FakeLogService();
             IntegrationResolver resolver = new IntegrationResolver(repositorio, new MemoryCache(new MemoryCacheOptions()), log);
-            ICaucaoProvider[] providers = { new FakeCaucaoProvider(store, log) };
+
+            // Trava do FAKE liberada (v1.3): chave Pagamentos:PermitirProvedorFake ligada, Development e a integracao em SANDBOX.
+            Dictionary<string, string?> valores = new Dictionary<string, string?> { { ConstantsPix.ChavePermitirProvedorFake, "true" } };
+            IConfiguration configuracao = new ConfigurationBuilder().AddInMemoryCollection(valores).Build();
+            ICaucaoProvider[] providers = { new FakeCaucaoProvider(store, new GoogleProvaDeTeste.AmbienteFalso(Environments.Development), configuracao, log) };
 
             return new CaucaoGateway(resolver, providers, log);
         }

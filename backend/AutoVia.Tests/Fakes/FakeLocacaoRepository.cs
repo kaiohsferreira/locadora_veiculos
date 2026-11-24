@@ -1,6 +1,9 @@
+using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Regras;
 using AutoVia.Core.RepositoriesInterface;
+using AutoVia.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,13 +11,20 @@ using System.Threading.Tasks;
 
 namespace AutoVia.Tests.Fakes
 {
-    /// <summary>Repositorio de locacao em memoria para testar servico e controller sem PostgreSQL.</summary>
+    /// <summary>
+    /// Repositorio de locacao em memoria para testar servico e controller sem PostgreSQL. A abertura reconfere a reserva e a
+    /// locacao existente "sob trava" (como o repositorio real) e monta a locacao pela mesma regra pura (RegrasLocacao), com a
+    /// linha CAUCAO na navegacao quando vier caucao. Os testes podem programar falhas da abertura e da releitura da caucao e
+    /// congelar a leitura sem trava (corrida de duas aberturas).
+    /// </summary>
     public class FakeLocacaoRepository : ILocacaoRepository
     {
         private readonly List<Reserva> _reservas = new List<Reserva>();
+        private readonly List<Reserva> _reservasComoSemeadas = new List<Reserva>();
         private readonly List<Funcionario> _funcionarios = new List<Funcionario>();
         private readonly List<Locacao> _locacoes = new List<Locacao>();
         private int _proximoIdLocacao = 1;
+        private int _proximoIdPagamento = 1;
 
         public void Adicionar(Reserva reserva)
         {
@@ -31,6 +41,7 @@ namespace AutoVia.Tests.Fakes
 
             copia.IdVeiculo = copia.Veiculo.IdVeiculo;
             _reservas.Add(copia);
+            _reservasComoSemeadas.Add(Copiar(copia));
         }
 
         public void Adicionar(Funcionario funcionario)
@@ -67,6 +78,39 @@ namespace AutoVia.Tests.Fakes
             return reserva == null ? null : Copiar(reserva.Veiculo);
         }
 
+        /// <summary>Copias das locacoes gravadas (com os pagamentos gravados junto), na ordem da gravacao.</summary>
+        public List<Locacao> LocacoesGravadas()
+        {
+            List<Locacao> copias = _locacoes.Select(Copiar).ToList();
+
+            return copias;
+        }
+
+        /// <summary>
+        /// Corrida de duas aberturas: verdadeiro faz a leitura sem trava (FindReservaByIdAsync e ExistsActiveByReservaAsync) ver a
+        /// reserva como foi semeada e nenhuma locacao, como se a outra abertura ainda nao tivesse gravado. A abertura (sob trava)
+        /// continua vendo o estado real.
+        /// </summary>
+        public bool LeituraSemTravaCongelada { get; set; }
+
+        /// <summary>Falhas da abertura, uma por chamada, lancadas antes de gravar (falha do banco ou reconferencia que recusa).</summary>
+        public Queue<Exception> FalhasNaAbertura { get; } = new Queue<Exception>();
+
+        /// <summary>Gancho chamado no inicio da abertura (antes das falhas e da gravacao), com o id da reserva.</summary>
+        public Action<int>? AoAbrir { get; set; }
+
+        /// <summary>
+        /// Roteiro da releitura da caucao: recebe o numero da chamada (1, 2...) e devolve a resposta ou lanca. Sem roteiro, a
+        /// releitura procura nas locacoes gravadas.
+        /// </summary>
+        public Func<int, bool>? RoteiroConferenciaDaCaucao { get; set; }
+
+        /// <summary>Quantas vezes a releitura da caucao foi feita.</summary>
+        public int ChamadasExisteCaucaoGravada { get; private set; }
+
+        /// <summary>Caucao recebida pela ultima abertura (nula = abertura sem caucao).</summary>
+        public CaucaoAberturaRegistro? UltimaCaucao { get; private set; }
+
         public Task<Reserva?> FindReservaParaRetiradaAsync(int idReserva)
         {
             Reserva? reserva = _reservas.FirstOrDefault(x => x.IdReserva == idReserva && x.DisabledAt == null);
@@ -79,7 +123,8 @@ namespace AutoVia.Tests.Fakes
 
         public Task<Reserva?> FindReservaByIdAsync(int idReserva)
         {
-            Reserva? reserva = _reservas.FirstOrDefault(x => x.IdReserva == idReserva && x.DisabledAt == null);
+            List<Reserva> origem = LeituraSemTravaCongelada ? _reservasComoSemeadas : _reservas;
+            Reserva? reserva = origem.FirstOrDefault(x => x.IdReserva == idReserva && x.DisabledAt == null);
             return Task.FromResult(reserva == null ? null : Copiar(reserva));
         }
 
@@ -92,7 +137,7 @@ namespace AutoVia.Tests.Fakes
 
         public Task<bool> ExistsActiveByReservaAsync(int idReserva)
         {
-            bool existe = _locacoes.Any(x => x.IdReserva == idReserva && x.DisabledAt == null);
+            bool existe = !LeituraSemTravaCongelada && _locacoes.Any(x => x.IdReserva == idReserva && x.DisabledAt == null);
             return Task.FromResult(existe);
         }
 
@@ -102,10 +147,12 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Data de retirada recebida pelo repositorio na ultima abertura (vem do servico, pelo IRelogio).</summary>
         public DateTime? UltimaDataRetirada { get; private set; }
 
-        public Task<Locacao> StartFromReservaAsync(int idReserva, int idFuncionario, DateTime dataRetirada)
+        public Task<Locacao> StartFromReservaAsync(int idReserva, int idFuncionario, DateTime dataRetirada, CaucaoAberturaRegistro? caucao)
         {
             ChamadasStartFromReserva++;
             UltimaDataRetirada = dataRetirada;
+            UltimaCaucao = caucao;
+            AoAbrir?.Invoke(idReserva);
 
             Reserva? reserva = _reservas.FirstOrDefault(x => x.IdReserva == idReserva && x.DisabledAt == null);
             if (reserva == null)
@@ -113,25 +160,34 @@ namespace AutoVia.Tests.Fakes
                 throw new InvalidOperationException();
             }
 
-            DateTime agora = DateTime.Now;
-            Locacao locacao = new Locacao
+            if (FalhasNaAbertura.Count > 0)
             {
-                IdLocacao = _proximoIdLocacao,
-                IdReserva = reserva.IdReserva,
-                IdCliente = reserva.IdCliente,
-                IdVeiculo = reserva.Veiculo.IdVeiculo,
-                IdFuncionario = idFuncionario,
-                DataRetirada = dataRetirada,
-                DataDevolucaoPrevista = reserva.DataDevolucaoPrevista,
-                KmSaida = reserva.Veiculo.KmAtual,
-                ValorDiaria = reserva.Veiculo.ValorDiaria,
-                ValorCaucao = 0m,
-                Status = StatusLocacao.EM_ANDAMENTO,
-                CreatedAt = agora,
-                UpdatedAt = agora
-            };
+                throw FalhasNaAbertura.Dequeue();
+            }
 
+            // Reconferencia "sob trava", como o repositorio real: a reserva ja aberta por outra abertura recusa aqui.
+            if (!RegrasLocacao.ReservaPermiteAbrirLocacao(reserva.Status))
+            {
+                throw new BusinessException(ConstantsMessage.ErroLocacaoReservaEstadoInvalido);
+            }
+
+            if (_locacoes.Any(x => x.IdReserva == idReserva && x.DisabledAt == null))
+            {
+                throw new BusinessException(ConstantsMessage.ErroLocacaoReservaDuplicada);
+            }
+
+            DateTime agora = DateTime.Now;
+            Locacao locacao = RegrasLocacao.CriarLocacaoDeAbertura(reserva, reserva.Veiculo, idFuncionario, dataRetirada, agora, caucao);
+            locacao.IdLocacao = _proximoIdLocacao;
             _proximoIdLocacao++;
+
+            foreach (Pagamento pagamento in locacao.Pagamentos)
+            {
+                pagamento.IdPagamento = _proximoIdPagamento;
+                pagamento.IdLocacao = locacao.IdLocacao;
+                _proximoIdPagamento++;
+            }
+
             reserva.Status = StatusReserva.CONCLUIDA;
             reserva.Veiculo.Status = StatusVeiculo.LOCADO;
             _locacoes.Add(Copiar(locacao));
@@ -143,6 +199,25 @@ namespace AutoVia.Tests.Fakes
         {
             Locacao? locacao = _locacoes.FirstOrDefault(x => x.IdLocacao == idLocacao && x.DisabledAt == null);
             return Task.FromResult(locacao == null ? null : Copiar(locacao));
+        }
+
+        public Task<bool> ExisteCaucaoGravadaAsync(int idReserva, string idTransacao)
+        {
+            ChamadasExisteCaucaoGravada++;
+
+            if (RoteiroConferenciaDaCaucao != null)
+            {
+                bool roteirizada = RoteiroConferenciaDaCaucao(ChamadasExisteCaucaoGravada);
+                return Task.FromResult(roteirizada);
+            }
+
+            bool existe = _locacoes.Any(locacao => locacao.IdReserva == idReserva
+                && locacao.DisabledAt == null
+                && locacao.Pagamentos.Any(pagamento => pagamento.Tipo == TipoPagamento.CAUCAO
+                    && pagamento.IdTransacao == idTransacao
+                    && pagamento.DisabledAt == null));
+
+            return Task.FromResult(existe);
         }
 
         private static Reserva Copiar(Reserva origem)
@@ -232,6 +307,32 @@ namespace AutoVia.Tests.Fakes
                 ValorCaucao = origem.ValorCaucao,
                 ValorTotal = origem.ValorTotal,
                 Status = origem.Status,
+                CreatedAt = origem.CreatedAt,
+                UpdatedAt = origem.UpdatedAt,
+                DisabledAt = origem.DisabledAt,
+                Pagamentos = origem.Pagamentos.Select(Copiar).ToList()
+            };
+
+            return copia;
+        }
+
+        private static Pagamento Copiar(Pagamento origem)
+        {
+            Pagamento copia = new Pagamento
+            {
+                IdPagamento = origem.IdPagamento,
+                IdLocacao = origem.IdLocacao,
+                IdVenda = origem.IdVenda,
+                Tipo = origem.Tipo,
+                Valor = origem.Valor,
+                DataVencimento = origem.DataVencimento,
+                DataPagamento = origem.DataPagamento,
+                Forma = origem.Forma,
+                Status = origem.Status,
+                IdTransacao = origem.IdTransacao,
+                QrCodeBase64 = origem.QrCodeBase64,
+                PixCopiaECola = origem.PixCopiaECola,
+                PixExpiraEm = origem.PixExpiraEm,
                 CreatedAt = origem.CreatedAt,
                 UpdatedAt = origem.UpdatedAt,
                 DisabledAt = origem.DisabledAt

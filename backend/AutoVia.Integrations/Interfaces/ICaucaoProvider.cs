@@ -16,6 +16,14 @@ namespace AutoVia.Integrations.Interfaces
         /// <summary>Formato do identificador deste provedor (ex.: numerico no Mercado Pago, FAKE-CAU-... no FAKE). Chamado antes de qualquer chamada externa.</summary>
         bool IdentificadorValido(string identificadorProvedor);
 
+        /// <summary>
+        /// Verdadeiro so quando este provedor e a simulacao e ela pode responder agora (contrato integracao-pagamento-caucao v1.3):
+        /// no FAKE, o mesmo predicado da trava (chave Pagamentos:PermitirProvedorFake, API em Development e integracao em
+        /// SANDBOX); no Mercado Pago, sempre falso. Sem efeito colateral e sem lancar. E o que faz a leitura da retirada e a
+        /// abertura da locacao concordarem.
+        /// </summary>
+        bool SimulacaoLiberada(ConfiguracaoIntegracao configuracao);
+
         public Task<CaucaoResultado> PreAutorizarAsync(ConfiguracaoIntegracao configuracao, CaucaoSolicitacao solicitacao, string chaveIdempotencia, int validadeReservaDias, CancellationToken cancellationToken = default);
 
         public Task<CaucaoResultado> ConsultarAsync(ConfiguracaoIntegracao configuracao, string identificadorProvedor, CancellationToken cancellationToken = default);
