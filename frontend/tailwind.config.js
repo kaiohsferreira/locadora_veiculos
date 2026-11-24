@@ -23,7 +23,7 @@ export default {
         DEFAULT: '#10243E',
         claro: '#1C3A5E',
         escuro: '#0A1829',
-        /** Cadastro de veículo (tela 05): ícones de cabeçalho, botão "Veículo Ativado!" e texto da trilha em foco. */
+        /** Cadastro de veículo (tela 05): ícones de cabeçalho, botão "Veículo Ativado!" e texto da trilha em foco. Retirada (tela 16): selo da situação, interruptor ligado e total previsto. */
         profundo: '#000E23',
         /** Cadastro de veículo (tela 05): hover do botão "Salvar como Rascunho". */
         marinho: '#002542',
@@ -172,8 +172,19 @@ export default {
       financeiro: {
         /** Selo "Venda" da coluna de origem (tertiary do desenho, #000F1F). */
         'origem-venda': '#000F1F',
-        /** Hover do botão "Dar baixa" (on-secondary-container do desenho, #5D1900). */
+        /** Hover do botão "Dar baixa" (on-secondary-container do desenho, #5D1900). Também o texto do selo "Em andamento" da tela 16 (retirada). */
         'acao-hover': '#5D1900',
+      },
+      /**
+       * Retirada do veículo (tela 16): cores do desenho que não existiam no tema. Valores novos, aprovados pelo Kaio em 24/11/2026
+       * (locacao.contract.json, tela_16.valoresNovos). Os outros tons da tela 16 reaproveitam tokens
+       * que já existem (navy.profundo, frota.oficina, frota.disponivel, financeiro.acao-hover, steel.*, orange.acao, texto.*).
+       */
+      retirada: {
+        /** Faixa azul "BRASIL" da placa Mercosul (bg-[#003399] do desenho, html :116). */
+        'placa-faixa': '#003399',
+        /** Ícone do selo da situação da reserva (text-secondary-fixed-dim do desenho, html :95). */
+        'selo-icone': '#FFB59D',
       },
     },
     extend: {

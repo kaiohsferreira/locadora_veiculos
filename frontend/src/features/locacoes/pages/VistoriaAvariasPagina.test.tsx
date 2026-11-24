@@ -16,7 +16,7 @@ type Registro = ReturnType<typeof useRegistrarVistoriaEntrada>;
 const contexto: ContextoVistoriaEntrada = {
   locacao: {
     idLocacao: 42, idReserva: 8, idCliente: 9, idVeiculo: 3, status: 'EM_ANDAMENTO',
-    dataRetiradaStr: '17/11/2026 09:00', dataDevolucaoPrevistaStr: '19/11/2026 09:00',
+    dataRetiradaStr: '17/11/2026 09:00', dataDevolucaoPrevistaStr: '19/11/2026 09:00', kmSaida: 12000,
   },
   vistoria: null,
 };
@@ -48,6 +48,12 @@ describe('tela de vistoria de entrada', () => {
     expect(html).toContain('17/11/2026 09:00');
     expect(html).toContain('Observações (opcional)');
     expect(html).not.toContain('type="file"');
+  });
+
+  it('mostra o km de saída da locação antes da vistoria, para conferir com a tela 16', () => {
+    const html = renderizar({});
+    expect(html).toContain('Quilometragem na retirada');
+    expect(html).toContain('12.000 km');
   });
 
   it('carregamento não abre formulário', () => {

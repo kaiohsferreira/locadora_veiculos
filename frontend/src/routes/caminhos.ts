@@ -42,6 +42,7 @@ export const CAMINHOS = {
   verificacaoCadastros: '/back-office/clientes/verificacao',
   reservas: '/back-office/reservas',
   locacoes: '/back-office/locacoes',
+  retiradas: '/back-office/locacoes/retirada',
   retiradaVeiculo: '/back-office/locacoes/retirada/:reservaId',
   vistoriaLocacao: '/back-office/locacoes/:locacaoId/vistoria',
   contratoLocacao: '/back-office/locacoes/:locacaoId/contrato',

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { abrirLocacao, buscarContextoRetirada } from '@/api/locacoes';
 import type { ContextoRetirada } from '@/types/retirada';
+import { chaveFamiliaPainelOperacional } from './chavesPainelOperacional';
 export const chaveRetirada = (id: number | null) => ['retirada', id] as const;
 export function opcoesRetirada(id: number | null) {
   return { queryKey: chaveRetirada(id), queryFn: () => buscarContextoRetirada(id as number),
@@ -14,6 +15,7 @@ export function opcoesAbrirLocacao(cliente: ReturnType<typeof useQueryClient>, i
       await cliente.cancelQueries({ queryKey: chaveRetirada(idReserva) });
       cliente.setQueryData<ContextoRetirada>(chaveRetirada(idReserva), (anterior) =>
         anterior ? { ...anterior, idLocacaoExistente: locacao.idLocacao } : anterior);
+      await cliente.invalidateQueries({ queryKey: chaveFamiliaPainelOperacional() });
       await cliente.invalidateQueries({ queryKey: ['reservas'] });
     },
     // Recupera também resposta perdida sem repetir automaticamente o POST.

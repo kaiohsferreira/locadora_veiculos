@@ -3,6 +3,8 @@ export const MENSAGENS_VISTORIA = {
   descricao: 'Confira a quilometragem e o combustível do veículo para registrar a vistoria desta locação.',
   sucesso: 'Vistoria de entrada registrada com sucesso.',
   registrada: 'Esta locação já possui vistoria de entrada registrada.',
+  /** Mesmo texto que a tela de devolução já mostra para o mesmo dado (km gravado na abertura). */
+  kmSaida: 'Quilometragem na retirada',
   idInvalido: 'A locação informada é inválida. Volte à lista de locações.',
   kmInvalido: 'Informe a quilometragem inteira entre 0 e 2.147.483.647 km.',
   combustivelInvalido: 'Informe um valor entre 0 e 1, com até duas casas decimais.',

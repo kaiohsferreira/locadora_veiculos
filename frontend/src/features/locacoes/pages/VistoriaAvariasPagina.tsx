@@ -98,6 +98,7 @@ export default function VistoriaAvariasPagina() {
               <div><dt className="text-texto-suave">Veículo</dt><dd>{formatarNumero(contexto.locacao.idVeiculo)}</dd></div>
               <div><dt className="text-texto-suave">Retirada</dt><dd>{contexto.locacao.dataRetiradaStr}</dd></div>
               <div><dt className="text-texto-suave">Devolução prevista</dt><dd>{contexto.locacao.dataDevolucaoPrevistaStr}</dd></div>
+              <div><dt className="text-texto-suave">{M.kmSaida}</dt><dd>{formatarQuilometragem(contexto.locacao.kmSaida)}</dd></div>
             </dl>
           </Cartao>
           {vistoria ? <Cartao titulo="Vistoria registrada">

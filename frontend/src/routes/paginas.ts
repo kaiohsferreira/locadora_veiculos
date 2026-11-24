@@ -38,6 +38,7 @@ export const ListagemFrotaPagina = lazy(() => import('@/features/frota/pages/Lis
 export const CadastroVeiculoPagina = lazy(() => import('@/features/frota/pages/CadastroVeiculoPagina'));
 export const VerificacaoCadastrosPagina = lazy(() => import('@/features/clientes/pages/VerificacaoCadastrosPagina'));
 export const PainelReservasPagina = lazy(() => import('@/features/reservas/pages/PainelReservasPagina'));
+export const EntradaRetiradaPagina = lazy(() => import('@/features/locacoes/pages/EntradaRetiradaPagina'));
 export const RetiradaVeiculoPagina = lazy(() => import('@/features/locacoes/pages/RetiradaVeiculoPagina'));
 export const VistoriaAvariasPagina = lazy(() => import('@/features/locacoes/pages/VistoriaAvariasPagina'));
 export const ContratoDigitalPagina = lazy(() => import('@/features/locacoes/pages/ContratoDigitalPagina'));

@@ -8,6 +8,8 @@ export interface LocacaoDaVistoria {
   idVeiculo: number;
   dataRetiradaStr: string;
   dataDevolucaoPrevistaStr: string;
+  /** Quilometragem de saída gravada na abertura (igual ao km do veículo naquele momento). */
+  kmSaida: number;
   status: StatusLocacao;
 }
 

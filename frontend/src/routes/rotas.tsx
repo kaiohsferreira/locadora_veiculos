@@ -45,6 +45,7 @@ import {
   RecuperarSenhaPagina,
   RedefinirSenhaPagina,
   ResultadosBuscaPagina,
+  EntradaRetiradaPagina,
   RetiradaVeiculoPagina,
   TipoContaPagina,
   VerificacaoCadastrosPagina,
@@ -156,9 +157,11 @@ export const rotas: RouteObject[] = [
             children: [{ path: CAMINHOS.verificacaoCadastros, element: <VerificacaoCadastrosPagina /> }],
           },
 
-          // Reservas e locações: o painel P3-FE-06 é o mesmo nos dois itens do menu.
+          // Reservas: o painel P3-FE-06 (do Lucas, semana 4). Locações: o item do menu abre a página de entrada da retirada
+          // (até o painel de reservas existir como tela 15 própria); o redirecionamento segue o molde de CAMINHOS.clientes.
           { path: CAMINHOS.reservas, element: <PainelReservasPagina /> },
-          { path: CAMINHOS.locacoes, element: <PainelReservasPagina /> },
+          { path: CAMINHOS.locacoes, element: <Navigate to={CAMINHOS.retiradas} replace /> },
+          { path: CAMINHOS.retiradas, element: <EntradaRetiradaPagina /> },
           { path: CAMINHOS.retiradaVeiculo, element: <RetiradaVeiculoPagina /> },
           { path: CAMINHOS.vistoriaLocacao, element: <VistoriaAvariasPagina /> },
           { path: CAMINHOS.contratoLocacao, element: <ContratoDigitalPagina /> },

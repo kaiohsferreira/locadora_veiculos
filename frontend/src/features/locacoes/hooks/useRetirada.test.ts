@@ -3,6 +3,7 @@ import { MutationObserver, QueryClient, QueryObserver } from '@tanstack/react-qu
 import { abrirLocacao, buscarContextoRetirada } from '@/api/locacoes';
 import { ErroApi } from '@/types/api';
 import { chaveRetirada, opcoesAbrirLocacao, opcoesRetirada } from './useRetirada';
+import { chaveRetiradasDeHoje } from './chavesPainelOperacional';
 import { contextoRetiradaTeste as contexto } from '../retirada/contextoRetirada.fixture';
 vi.mock('@/api/locacoes', () => ({ abrirLocacao: vi.fn(), buscarContextoRetirada: vi.fn() }));
 describe('consultas da retirada', () => {
@@ -22,6 +23,17 @@ describe('consultas da retirada', () => {
     await new MutationObserver(cliente, opcoesAbrirLocacao(cliente, 8)).mutate();
     expect(cliente.getQueryData(chaveRetirada(8))).toEqual({ ...contexto, idLocacaoExistente: 42 });
     expect(cliente.getQueryData(['vistoria-entrada', 42])).toEqual({ preservado: true });
+    cliente.clear();
+  });
+  it('sucesso invalida a lista de retiradas de hoje (família do painel operacional) e as reservas', async () => {
+    const cliente = new QueryClient();
+    cliente.setQueryData(chaveRetirada(8), contexto);
+    cliente.setQueryData(chaveRetiradasDeHoje(), { retiradas: [] });
+    cliente.setQueryData(['reservas'], { lista: [] });
+    vi.mocked(abrirLocacao).mockResolvedValueOnce({ idLocacao: 42, idReserva: 8, kmSaida: 12000, status: 'EM_ANDAMENTO' });
+    await new MutationObserver(cliente, opcoesAbrirLocacao(cliente, 8)).mutate();
+    expect(cliente.getQueryState(chaveRetiradasDeHoje())?.isInvalidated).toBe(true);
+    expect(cliente.getQueryState(['reservas'])?.isInvalidated).toBe(true);
     cliente.clear();
   });
   it.each([0, 409])('falha %s refaz contexto e recupera abertura existente sem repetir POST', async (status) => {
