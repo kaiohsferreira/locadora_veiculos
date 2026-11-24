@@ -16,4 +16,21 @@ export const MENSAGENS_COBRANCAS_EXTRAS = {
   salvo: 'Política de cobranças extras salva.',
   desativado: 'Política de cobranças extras desativada.',
   confirmado: 'Apuração de cobranças extras registrada.',
+  /** Caixa de confirmação antes de registrar. Proposta de contrato cobrancas-extras v2 (textos_novos): aprovado pelo Kaio em 24/11/2026. */
+  confirmacao: 'Conferi a política, a versão e as quatro memórias de cálculo. Confirmo o registro das cobranças automáticas, incluindo as estimativas das novas avarias, e o lançamento do pagamento para o cliente.',
+  /**
+   * Caixa de confirmação com total zero: o servidor não lança pagamento de valor zero, então a frase não fala do lançamento.
+   * É o texto que já existia antes (HEAD 5a551c5). Acerto D2, aprovado pelo Kaio em 24/11/2026.
+   */
+  confirmacaoSemPagamento: 'Conferi a política, a versão e as quatro memórias de cálculo. Confirmo o registro das cobranças automáticas, incluindo as estimativas das novas avarias.',
+  /** Linha no cartão da apuração registrada, quando houve pagamento lançado. Proposta de contrato: aprovado pelo Kaio em 24/11/2026. */
+  pagamentoLancado: (idPagamento: number) => `Pagamento nº ${idPagamento} lançado para o cliente.`,
 } as const;
+
+/**
+ * Texto da caixa de confirmação conforme o total da simulação: com total maior que zero o servidor lança o pagamento
+ * (confirmacao); com total zero não lança nada (confirmacaoSemPagamento). Mesma regra do servidor (total > 0).
+ */
+export function mensagemConfirmacaoApuracao(total: number): string {
+  return total > 0 ? MENSAGENS_COBRANCAS_EXTRAS.confirmacao : MENSAGENS_COBRANCAS_EXTRAS.confirmacaoSemPagamento;
+}

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AvisoProvider } from '@/components/ui';
+import { AutenticacaoContexto, type AutenticacaoContextoValor } from '@/routes/autenticacao/AutenticacaoContexto';
 import { ErroApi } from '@/types/api';
 import type { ContextoDevolucao, ComparacaoSaida } from '@/types/devolucao';
 import { useDevolucao, useRegistrarSaida } from '../hooks/useDevolucao';
@@ -17,8 +18,13 @@ const comparacao: ComparacaoSaida = { entrada, saida: { ...entrada, idVistoria: 
 function renderizar(parcial: Partial<Consulta> = {}, id = '42', registro: Partial<Registro> = {}) {
   vi.mocked(useDevolucao).mockReturnValue({ isPending: false, isError: false, isFetching: false, refetch: vi.fn(), data: contexto, ...parcial } as unknown as Consulta);
   vi.mocked(useRegistrarSaida).mockReturnValue({ isPending: false, isError: false, mutateAsync: vi.fn(), ...registro } as unknown as Registro);
-  return renderToStaticMarkup(<AvisoProvider><MemoryRouter initialEntries={[`/devolucao/${id}`]}><Routes><Route path="/devolucao/:locacaoId" element={<CheckoutDevolucaoPagina />} /></Routes></MemoryRouter></AvisoProvider>);
+  return renderToStaticMarkup(<AutenticacaoContexto.Provider value={SESSAO_ATENDENTE}><AvisoProvider><MemoryRouter initialEntries={[`/devolucao/${id}`]}><Routes><Route path="/devolucao/:locacaoId" element={<CheckoutDevolucaoPagina />} /></Routes></MemoryRouter></AvisoProvider></AutenticacaoContexto.Provider>);
 }
+/** Sessão de ATENDENTE: a tela só mostra o simulador (e o botão de apurar) para ATENDENTE e ADMINISTRADOR. */
+const SESSAO_ATENDENTE: AutenticacaoContextoValor = {
+  usuario: { nome: 'Marina Costa', perfil: 'funcionario', cargo: 'ATENDENTE', empresaNomeFantasia: 'Rota Sul Locadora' },
+  autenticado: true, autenticacaoIgnorada: false, entrar: () => undefined, sair: () => undefined, possuiPerfil: () => true,
+};
 describe('tela RF-22', () => {
   beforeEach(() => vi.clearAllMocks());
   it('mostra entrada antes do formulário, checklist e confirmação acessível', () => {

@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Botao, Cartao, EstadoErro, useAviso } from '@/components/ui';
-import { MENSAGENS_COBRANCAS_EXTRAS as M } from '@/lib/mensagensCobrancasExtras';
+import { MENSAGENS_COBRANCAS_EXTRAS as M, mensagemConfirmacaoApuracao } from '@/lib/mensagensCobrancasExtras';
 import { obterMensagemErro } from '@/lib/erros';
 import { ErroApi } from '@/types/api';
 import type { SimulacaoCobrancasExtras } from '@/types/cobrancasExtras';
 import type { ContextoDevolucao } from '@/types/devolucao';
 import { motivoBloqueioSimulacao } from './validacaoCobrancasExtras';
 import { ResultadoSimulacao } from './ResultadoSimulacao';
+import { usePermissoes } from '@/routes/autenticacao/usePermissoes';
+import { podeApurarCobrancasExtras } from './permissaoCobrancasExtras';
 import { useApuracaoCobrancasExtras, useRegistrarApuracaoCobrancasExtras, useSimularCobrancasExtras } from './useCobrancasExtras';
 
 export interface SimuladorCobrancasExtrasProps { contexto: ContextoDevolucao; atualizando: boolean }
@@ -17,6 +19,8 @@ export function SimuladorCobrancasExtras({ contexto, atualizando }: SimuladorCob
   const apuracao = useApuracaoCobrancasExtras(id);
   const simulacao = useSimularCobrancasExtras(id);
   const registro = useRegistrarApuracaoCobrancasExtras(id);
+  // Só ATENDENTE e ADMINISTRADOR simulam e apuram (decisão do Kaio em 24/11/2026). Só afeta a tela: o servidor confere de novo.
+  const podeApurar = podeApurarCobrancasExtras(usePermissoes().cargo);
   const aviso = useAviso();
   const [previa, setPrevia] = useState<PreviaCobrancas | null>(null);
   const [confirmacao, setConfirmacao] = useState(false);
@@ -41,7 +45,7 @@ export function SimuladorCobrancasExtras({ contexto, atualizando }: SimuladorCob
     return falha instanceof ErroApi && falha.status === 409 ? M.erro409 : obterMensagemErro(falha);
   }
   async function simular() {
-    if (ocupado || enviando.current || bloqueio || apuracao.data) return;
+    if (ocupado || enviando.current || bloqueio || apuracao.data || !podeApurar) return;
     enviando.current = true; setPrevia(null); setConfirmacao(false); setErro(null);
     const versao = geracao.current;
     try {
@@ -51,7 +55,7 @@ export function SimuladorCobrancasExtras({ contexto, atualizando }: SimuladorCob
     finally { enviando.current = false; }
   }
   async function registrar() {
-    if (!vigente || !confirmacao || ocupado || enviando.current || bloqueio) return;
+    if (!vigente || !confirmacao || ocupado || enviando.current || bloqueio || !podeApurar) return;
     enviando.current = true; setErro(null);
     const politica = vigente.configuracao;
     setPrevia(null); setConfirmacao(false);
@@ -59,20 +63,22 @@ export function SimuladorCobrancasExtras({ contexto, atualizando }: SimuladorCob
     catch (falha: unknown) { setErro(mensagem(falha)); aviso.erro(mensagem(falha)); }
     finally { enviando.current = false; }
   }
+  // Cargo sem permissão de apurar: sem consulta registrada (ou consultando), o cartão não aparece. Com apuração ou erro, mostra só a leitura.
+  if (!podeApurar && !apuracao.data && !apuracao.isError) return null;
   return <Cartao titulo="Cobranças extras"><div className="min-w-0 w-full space-y-6 break-words" aria-busy={ocupado}>
     {apuracao.isPending ? <output className="block">Consultando apuração registrada…</output>
       : apuracao.isError ? <EstadoErro mensagem={obterMensagemErro(apuracao.error)} aoTentarNovamente={() => { void apuracao.refetch(); }} />
-      : apuracao.data ? <><p>Apuração {apuracao.data.idApuracao} registrada em {apuracao.data.dataApuracaoStr}. Política versão {apuracao.data.versaoConfiguracao} preservada.</p><ResultadoSimulacao resultado={apuracao.data.calculo} /><p>{apuracao.data.cobrancas.length === 0 ? 'Apuração registrada sem cobranças adicionais.' : `${apuracao.data.cobrancas.length} cobrança(s) registrada(s).`}</p></>
-      : <>
+      : apuracao.data ? <><p>Apuração {apuracao.data.idApuracao} registrada em {apuracao.data.dataApuracaoStr}. Política versão {apuracao.data.versaoConfiguracao} preservada.</p><ResultadoSimulacao resultado={apuracao.data.calculo} /><p>{apuracao.data.cobrancas.length === 0 ? 'Apuração registrada sem cobranças adicionais.' : `${apuracao.data.cobrancas.length} cobrança(s) registrada(s).`}</p>{typeof apuracao.data.idPagamentoLancado === 'number' && <p>{M.pagamentoLancado(apuracao.data.idPagamentoLancado)}</p>}</>
+      : podeApurar ? <>
         <p className="rounded-lg bg-status-pendente-fundo p-4">{M.aviso}</p>
         {bloqueio ? <output className="block">{bloqueio}</output> : <>
           <Botao disabled={ocupado} carregando={simulacao.isPending} onClick={() => { void simular(); }}>Simular com política cadastrada</Botao>
           {vigente && <><ResultadoSimulacao resultado={vigente} />
-            <label className="flex items-start gap-4"><input type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-navy" checked={confirmacao} onChange={event => setConfirmacao(event.target.checked)} /><span>Conferi a política, a versão e as quatro memórias de cálculo. Confirmo o registro das cobranças automáticas, incluindo as estimativas das novas avarias.</span></label>
+            <label className="flex items-start gap-4"><input type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-navy" checked={confirmacao} onChange={event => setConfirmacao(event.target.checked)} /><span>{mensagemConfirmacaoApuracao(vigente.total)}</span></label>
             <Botao disabled={!confirmacao || ocupado} onClick={() => { void registrar(); }}>Confirmar e registrar apuração</Botao>
           </>}
         </>}
-      </>}
+      </> : null}
     {registro.isPending && <output className="block">Registrando e conferindo apuração…</output>}
     {erro && <p role="alert" className="text-status-perigo">{erro}</p>}
   </div></Cartao>;
