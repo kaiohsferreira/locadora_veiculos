@@ -39,6 +39,20 @@ namespace AutoVia.Tests.Locacoes
         }
 
         [Fact]
+        public void ConsultaRetiradaTrazCategoriaEmpresaECapaDoVeiculoSemQuebrarOFiltro()
+        {
+            DbContextOptions<AutoViaDbContext> opcoes = new DbContextOptionsBuilder<AutoViaDbContext>().UseNpgsql(Conexao).Options;
+            using AutoViaDbContext db = new AutoViaDbContext(opcoes, ContextoEmpresaDeTeste.Criar(7));
+            LocacaoRepository repositorio = new LocacaoRepository(db, new FakeLogService());
+            string sql = repositorio.ConsultaReservaParaRetirada(77).ToQueryString();
+            Assert.Contains("categoria", sql);
+            Assert.Contains("empresa", sql);
+            Assert.Contains("veiculo_foto", sql);
+            Assert.Contains("ef_filter__IdEmpresaContexto='7'", sql);
+            Assert.Contains("disabled_at IS NULL", sql);
+        }
+
+        [Fact]
         public void SemEmpresaConsultaFalhaFechada()
         {
             DbContextOptions<AutoViaDbContext> opcoes = new DbContextOptionsBuilder<AutoViaDbContext>().UseNpgsql(Conexao).Options;

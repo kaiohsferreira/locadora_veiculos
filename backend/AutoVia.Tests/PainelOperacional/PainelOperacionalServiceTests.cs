@@ -153,6 +153,72 @@ namespace AutoVia.Tests.PainelOperacional
             Assert.Equal("16/11/2026", retorno.DataStr);
         }
 
+        [Fact]
+        public async Task GetPainelDiario_CodigoReservaDoItemDeReservaELocacao()
+        {
+            DateTime hoje = AgoraFixa.Date;
+            FakePainelOperacionalRepository repositorio = new FakePainelOperacionalRepository();
+            repositorio.Reservas.Add(CriarReserva(31, StatusReserva.ATIVA, hoje.AddHours(8), hoje.AddDays(1)));
+            repositorio.Locacoes.Add(CriarLocacaoDeReserva(41, 37, StatusLocacao.EM_ANDAMENTO, hoje.AddHours(9), hoje.AddDays(1)));
+            PainelOperacionalService servico = CriarServico(repositorio, new FakeLogService());
+
+            ReturnPainelDiarioVO retorno = await servico.GetPainelDiarioAsync();
+
+            Assert.Equal("AV-00031", retorno.Retiradas[0].CodigoReserva);
+            Assert.Equal("AV-00037", retorno.Retiradas[1].CodigoReserva);
+            Assert.Null(retorno.Retiradas[1].IdReserva);
+        }
+
+        [Fact]
+        public async Task GetPainelDiario_LocacaoSemReservaDeOrigem_CodigoNulo()
+        {
+            DateTime hoje = AgoraFixa.Date;
+            FakePainelOperacionalRepository repositorio = new FakePainelOperacionalRepository();
+            repositorio.Reservas.Add(CriarReserva(31, StatusReserva.ATIVA, hoje.AddHours(8), hoje.AddDays(1)));
+            repositorio.Locacoes.Add(CriarLocacao(41, StatusLocacao.EM_ANDAMENTO, hoje.AddHours(9), hoje.AddDays(1)));
+            PainelOperacionalService servico = CriarServico(repositorio, new FakeLogService());
+
+            ReturnPainelDiarioVO retorno = await servico.GetPainelDiarioAsync();
+
+            Assert.Equal("AV-00031", retorno.Retiradas[0].CodigoReserva);
+            Assert.Null(retorno.Retiradas[1].CodigoReserva);
+        }
+
+        [Fact]
+        public async Task GetPainelDiario_MesmoRegistroNasDuasListas_MesmoCodigo()
+        {
+            DateTime hoje = AgoraFixa.Date;
+            FakePainelOperacionalRepository repositorio = new FakePainelOperacionalRepository();
+            repositorio.Locacoes.Add(CriarLocacaoDeReserva(41, 37, StatusLocacao.EM_ANDAMENTO, hoje.AddHours(9), hoje.AddHours(18)));
+            PainelOperacionalService servico = CriarServico(repositorio, new FakeLogService());
+
+            ReturnPainelDiarioVO retorno = await servico.GetPainelDiarioAsync();
+
+            Assert.Equal("AV-00037", retorno.Retiradas[0].CodigoReserva);
+            Assert.Equal("AV-00037", retorno.Devolucoes[0].CodigoReserva);
+        }
+
+        [Fact]
+        public async Task GetPainelDiario_IdComSeisDigitos_CodigoSemCortar()
+        {
+            DateTime hoje = AgoraFixa.Date;
+            FakePainelOperacionalRepository repositorio = new FakePainelOperacionalRepository();
+            repositorio.Reservas.Add(CriarReserva(123456, StatusReserva.ATIVA, hoje.AddHours(8), hoje.AddDays(1)));
+            PainelOperacionalService servico = CriarServico(repositorio, new FakeLogService());
+
+            ReturnPainelDiarioVO retorno = await servico.GetPainelDiarioAsync();
+
+            Assert.Equal("AV-123456", retorno.Retiradas[0].CodigoReserva);
+        }
+
+        private static Locacao CriarLocacaoDeReserva(int idLocacao, int idReserva, StatusLocacao status, DateTime dataRetirada, DateTime dataDevolucao)
+        {
+            Locacao locacao = CriarLocacao(idLocacao, status, dataRetirada, dataDevolucao);
+            locacao.IdReserva = idReserva;
+
+            return locacao;
+        }
+
         private static Reserva CriarReserva(int idReserva, StatusReserva status, DateTime dataRetirada, DateTime dataDevolucao)
         {
             Cliente cliente = new Cliente

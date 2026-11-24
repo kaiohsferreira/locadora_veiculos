@@ -8,6 +8,7 @@ using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace AutoVia.Infrastructure.Services
@@ -20,14 +21,18 @@ namespace AutoVia.Infrastructure.Services
         private readonly IMapper _mapper;
         private readonly ILogService _logService;
         private readonly IContextoEmpresa _contextoEmpresa;
+        private readonly IFotoCapaVeiculoService _fotoCapaVeiculoService;
+        private readonly IClienteDocumentoRepository _clienteDocumentoRepository;
 
-        public LocacaoService(ILocacaoRepository locacaoRepository, IRelogio relogio, IMapper mapper, ILogService logService, IContextoEmpresa contextoEmpresa)
+        public LocacaoService(ILocacaoRepository locacaoRepository, IRelogio relogio, IMapper mapper, ILogService logService, IContextoEmpresa contextoEmpresa, IFotoCapaVeiculoService fotoCapaVeiculoService, IClienteDocumentoRepository clienteDocumentoRepository)
         {
             _locacaoRepository = locacaoRepository;
             _relogio = relogio;
             _mapper = mapper;
             _logService = logService;
             _contextoEmpresa = contextoEmpresa;
+            _fotoCapaVeiculoService = fotoCapaVeiculoService;
+            _clienteDocumentoRepository = clienteDocumentoRepository;
         }
 
         /// <summary>Inicia a locacao de uma reserva valida para um funcionario ativo.</summary>
@@ -108,6 +113,9 @@ namespace AutoVia.Infrastructure.Services
                 {
                     retorno.CnhNumero = StaticMethods.MascararCnh(retorno.CnhNumero);
                 }
+                retorno.CnhVencida = RegrasLocacao.CnhVencida(reserva.Cliente.CnhValidade, DateOnly.FromDateTime(_relogio.Agora));
+                await PreencherDocumentosEnviadosAsync(reserva.IdCliente, retorno);
+                await _fotoCapaVeiculoService.PreencherAsync(new List<Veiculo> { reserva.Veiculo }, new List<ReturnRetiradaVO> { retorno });
                 return retorno;
             }
             catch (BusinessException ex)
@@ -125,6 +133,19 @@ namespace AutoVia.Infrastructure.Services
                 _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
                 throw;
             }
+        }
+
+        /// <summary>Preenche a data do envio da CNH e do comprovante de residencia (so a data; nada de link nem de arquivo).</summary>
+        private async Task PreencherDocumentosEnviadosAsync(int idCliente, ReturnRetiradaVO retorno)
+        {
+            List<ClienteDocumento> ativos = await _clienteDocumentoRepository.FindAtivosDoClienteAsync(idCliente);
+            ClienteDocumento? cnh = RegrasClienteDocumento.EscolherAtivoPorTipo(ativos, TipoDocumentoCliente.CNH);
+            ClienteDocumento? comprovante = RegrasClienteDocumento.EscolherAtivoPorTipo(ativos, TipoDocumentoCliente.COMPROVANTE_RESIDENCIA);
+
+            retorno.CnhEnviadaEm = cnh?.CreatedAt;
+            retorno.CnhEnviadaEmStr = cnh == null ? string.Empty : StaticMethods.FormateDateTimeToPTBR(cnh.CreatedAt);
+            retorno.ComprovanteResidenciaEnviadoEm = comprovante?.CreatedAt;
+            retorno.ComprovanteResidenciaEnviadoEmStr = comprovante == null ? string.Empty : StaticMethods.FormateDateTimeToPTBR(comprovante.CreatedAt);
         }
 
         /// <summary>Consulta uma locacao ativa; registros desativados contam como inexistentes.</summary>

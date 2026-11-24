@@ -41,6 +41,12 @@ namespace AutoVia.Infrastructure.Repositories
                     .AsNoTracking()
                     .Where(x => x.Cliente.DisabledAt == null && x.Veiculo.DisabledAt == null)
                     .Include(x => x.Veiculo)
+                    .Include(x => x.Veiculo)
+                        .ThenInclude(x => x.Categoria)
+                    .Include(x => x.Veiculo)
+                        .ThenInclude(x => x.Empresa)
+                    .Include(x => x.Veiculo)
+                        .ThenInclude(x => x.Fotos.Where(foto => foto.DisabledAt == null).OrderBy(foto => foto.Ordem).ThenBy(foto => foto.IdVeiculoFoto).Take(ConstantsValues.QuantidadeFotoCapaPorVeiculo))
                     .Include(x => x.Cliente)
                         .ThenInclude(x => x.Locadoras.Where(v => v.DisabledAt == null))
                     .Include(x => x.Locacoes.Where(l => l.DisabledAt == null));

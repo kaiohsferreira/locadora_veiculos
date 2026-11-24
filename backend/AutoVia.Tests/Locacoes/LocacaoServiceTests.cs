@@ -4,8 +4,10 @@ using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Locacoes;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Profiles;
+using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
+using AutoVia.Tests.DocumentosCliente;
 using AutoVia.Tests.Fakes;
 using Microsoft.Extensions.Logging.Abstractions;
 using System;
@@ -195,6 +197,210 @@ namespace AutoVia.Tests.Locacoes
             return repositorio;
         }
 
+        [Theory]
+        [InlineData(-1, true)]
+        [InlineData(0, false)]
+        [InlineData(1, false)]
+        public async Task RetiradaCnhVencida_SegueORelogioDoServico(int diasAteVencer, bool esperado)
+        {
+            DateTime agora = new DateTime(2026, 11, 24, 10, 0, 0);
+            FakeLocacaoRepository repositorio = new FakeLocacaoRepository();
+            repositorio.Adicionar(CriarReservaParaRetirada(cnhValidade: DateOnly.FromDateTime(agora).AddDays(diasAteVencer)));
+            LocacaoService servico = CriarServicoRetirada(repositorio, new FakeRelogio(agora), new FakeClienteDocumentoRepository(), new FakeArmazenamentoGateway(), new FakeLogService());
+
+            ReturnRetiradaVO retorno = await servico.GetRetiradaAsync(10);
+
+            Assert.Equal(esperado, retorno.CnhVencida);
+        }
+
+        [Fact]
+        public async Task RetiradaSemDocumentoEnviado_DatasDeEnvioNulasEStrVazios()
+        {
+            FakeLocacaoRepository repositorio = new FakeLocacaoRepository();
+            repositorio.Adicionar(CriarReservaParaRetirada());
+            LocacaoService servico = CriarServicoRetirada(repositorio, new FakeRelogio(AgoraDoRelogio), new FakeClienteDocumentoRepository(), new FakeArmazenamentoGateway(), new FakeLogService());
+
+            ReturnRetiradaVO retorno = await servico.GetRetiradaAsync(10);
+
+            Assert.Null(retorno.CnhEnviadaEm);
+            Assert.Equal(string.Empty, retorno.CnhEnviadaEmStr);
+            Assert.Null(retorno.ComprovanteResidenciaEnviadoEm);
+            Assert.Equal(string.Empty, retorno.ComprovanteResidenciaEnviadoEmStr);
+        }
+
+        [Fact]
+        public async Task RetiradaSoComCnhEnviada_DataDaCnhEComprovanteVazio()
+        {
+            FakeLocacaoRepository repositorio = new FakeLocacaoRepository();
+            repositorio.Adicionar(CriarReservaParaRetirada());
+            FakeClienteDocumentoRepository documentos = new FakeClienteDocumentoRepository();
+            documentos.Semear(CriarDocumento(1, TipoDocumentoCliente.CNH, new DateTime(2026, 11, 10, 14, 20, 0)));
+            LocacaoService servico = CriarServicoRetirada(repositorio, new FakeRelogio(AgoraDoRelogio), documentos, new FakeArmazenamentoGateway(), new FakeLogService());
+
+            ReturnRetiradaVO retorno = await servico.GetRetiradaAsync(10);
+
+            Assert.Equal(new DateTime(2026, 11, 10, 14, 20, 0), retorno.CnhEnviadaEm);
+            Assert.Equal("10/11/2026 14:20", retorno.CnhEnviadaEmStr);
+            Assert.Null(retorno.ComprovanteResidenciaEnviadoEm);
+            Assert.Equal(string.Empty, retorno.ComprovanteResidenciaEnviadoEmStr);
+        }
+
+        [Fact]
+        public async Task RetiradaComCnhEComprovante_DatasDosDois()
+        {
+            FakeLocacaoRepository repositorio = new FakeLocacaoRepository();
+            repositorio.Adicionar(CriarReservaParaRetirada());
+            FakeClienteDocumentoRepository documentos = new FakeClienteDocumentoRepository();
+            documentos.Semear(CriarDocumento(1, TipoDocumentoCliente.CNH, new DateTime(2026, 11, 10, 14, 20, 0)));
+            documentos.Semear(CriarDocumento(2, TipoDocumentoCliente.COMPROVANTE_RESIDENCIA, new DateTime(2026, 11, 12, 8, 5, 0)));
+            LocacaoService servico = CriarServicoRetirada(repositorio, new FakeRelogio(AgoraDoRelogio), documentos, new FakeArmazenamentoGateway(), new FakeLogService());
+
+            ReturnRetiradaVO retorno = await servico.GetRetiradaAsync(10);
+
+            Assert.Equal("10/11/2026 14:20", retorno.CnhEnviadaEmStr);
+            Assert.Equal(new DateTime(2026, 11, 12, 8, 5, 0), retorno.ComprovanteResidenciaEnviadoEm);
+            Assert.Equal("12/11/2026 08:05", retorno.ComprovanteResidenciaEnviadoEmStr);
+        }
+
+        [Fact]
+        public async Task RetiradaDocumentoDesativado_EIgnorado()
+        {
+            FakeLocacaoRepository repositorio = new FakeLocacaoRepository();
+            repositorio.Adicionar(CriarReservaParaRetirada());
+            FakeClienteDocumentoRepository documentos = new FakeClienteDocumentoRepository();
+            ClienteDocumento desativado = CriarDocumento(1, TipoDocumentoCliente.CNH, new DateTime(2026, 11, 10, 14, 20, 0));
+            desativado.Disable();
+            documentos.Semear(desativado);
+            LocacaoService servico = CriarServicoRetirada(repositorio, new FakeRelogio(AgoraDoRelogio), documentos, new FakeArmazenamentoGateway(), new FakeLogService());
+
+            ReturnRetiradaVO retorno = await servico.GetRetiradaAsync(10);
+
+            Assert.Null(retorno.CnhEnviadaEm);
+            Assert.Equal(string.Empty, retorno.CnhEnviadaEmStr);
+        }
+
+        [Fact]
+        public async Task RetiradaDoisAtivosDoMesmoTipo_ValeOMaiorId()
+        {
+            FakeLocacaoRepository repositorio = new FakeLocacaoRepository();
+            repositorio.Adicionar(CriarReservaParaRetirada());
+            FakeClienteDocumentoRepository documentos = new FakeClienteDocumentoRepository();
+            documentos.Semear(CriarDocumento(1, TipoDocumentoCliente.CNH, new DateTime(2026, 11, 1, 9, 0, 0)));
+            documentos.Semear(CriarDocumento(2, TipoDocumentoCliente.CNH, new DateTime(2026, 11, 15, 9, 0, 0)));
+            LocacaoService servico = CriarServicoRetirada(repositorio, new FakeRelogio(AgoraDoRelogio), documentos, new FakeArmazenamentoGateway(), new FakeLogService());
+
+            ReturnRetiradaVO retorno = await servico.GetRetiradaAsync(10);
+
+            Assert.Equal("15/11/2026 09:00", retorno.CnhEnviadaEmStr);
+        }
+
+        [Fact]
+        public async Task RetiradaVeiculoSemFoto_CapaNulaESemChamadaAoArmazenamento()
+        {
+            FakeLocacaoRepository repositorio = new FakeLocacaoRepository();
+            repositorio.Adicionar(CriarReservaParaRetirada());
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
+            LocacaoService servico = CriarServicoRetirada(repositorio, new FakeRelogio(AgoraDoRelogio), new FakeClienteDocumentoRepository(), armazenamento, new FakeLogService());
+
+            ReturnRetiradaVO retorno = await servico.GetRetiradaAsync(10);
+
+            Assert.Null(retorno.FotoCapa);
+            Assert.Null(retorno.ErroFotoCapa);
+            Assert.Equal(0, armazenamento.AssinaturaLoteCount);
+        }
+
+        [Fact]
+        public async Task RetiradaVeiculoComFoto_CapaPreenchida()
+        {
+            FakeLocacaoRepository repositorio = new FakeLocacaoRepository();
+            repositorio.Adicionar(CriarReservaParaRetirada(comFoto: true));
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
+            LocacaoService servico = CriarServicoRetirada(repositorio, new FakeRelogio(AgoraDoRelogio), new FakeClienteDocumentoRepository(), armazenamento, new FakeLogService());
+
+            ReturnRetiradaVO retorno = await servico.GetRetiradaAsync(10);
+
+            Assert.NotNull(retorno.FotoCapa);
+            Assert.Null(retorno.ErroFotoCapa);
+            Assert.Equal(1, armazenamento.AssinaturaLoteCount);
+        }
+
+        [Fact]
+        public async Task RetiradaArmazenamentoFalhando_RespondeComErroFotoCapaSemDerrubar()
+        {
+            FakeLocacaoRepository repositorio = new FakeLocacaoRepository();
+            repositorio.Adicionar(CriarReservaParaRetirada(comFoto: true));
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway { FalharAssinatura = true };
+            LocacaoService servico = CriarServicoRetirada(repositorio, new FakeRelogio(AgoraDoRelogio), new FakeClienteDocumentoRepository(), armazenamento, new FakeLogService());
+
+            ReturnRetiradaVO retorno = await servico.GetRetiradaAsync(10);
+
+            Assert.Null(retorno.FotoCapa);
+            Assert.Equal(ConstantsMessage.ErroFotoCapaIndisponivel, retorno.ErroFotoCapa);
+        }
+
+        [Fact]
+        public async Task RetiradaDeOutraLocadora_LancaNotFound_SemLerDocumentosNemArmazenamento()
+        {
+            FakeLocacaoRepository repositorio = new FakeLocacaoRepository();
+            repositorio.Adicionar(CriarReservaParaRetirada(idEmpresaVeiculo: 2, comFoto: true));
+            FakeClienteDocumentoRepository documentos = new FakeClienteDocumentoRepository();
+            documentos.Semear(CriarDocumento(1, TipoDocumentoCliente.CNH, new DateTime(2026, 11, 10, 14, 20, 0)));
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
+            LocacaoService servico = CriarServicoRetirada(repositorio, new FakeRelogio(AgoraDoRelogio), documentos, armazenamento, new FakeLogService());
+
+            NotFoundException excecao = await Assert.ThrowsAsync<NotFoundException>(() => servico.GetRetiradaAsync(10));
+
+            Assert.Equal(ConstantsMessage.ErroReservaNaoEncontrada, excecao.Message);
+            Assert.Equal(0, documentos.ConsultasAtivosDoCliente);
+            Assert.Equal(0, armazenamento.AssinaturaLoteCount);
+        }
+
+        private static Reserva CriarReservaParaRetirada(int idEmpresaVeiculo = 1, DateOnly? cnhValidade = null, bool comFoto = false)
+        {
+            Cliente cliente = new Cliente
+            {
+                IdCliente = 30, Nome = "Maria da Silva", Cpf = "12345678909", CnhNumero = "12345678901",
+                CnhCategoria = CategoriaCnh.B, CnhValidade = cnhValidade ?? new DateOnly(2030, 1, 1)
+            };
+            Veiculo veiculo = new Veiculo
+            {
+                IdVeiculo = 40, IdEmpresa = idEmpresaVeiculo, Placa = "ABC1D23", Marca = "Fiat", Modelo = "Toro", AnoModelo = 2024,
+                KmAtual = 1500, ValorDiaria = 200m, Status = StatusVeiculo.RESERVADO, IdCategoria = 3,
+                Categoria = new Categoria { IdCategoria = 3, Nome = "SUV" },
+                Empresa = new Empresa { IdEmpresa = 1, Ativo = true, NomeFantasia = "Locadora Teste", Logradouro = "Rua das Flores", Numero = "100", Bairro = "Centro", Cidade = "Campinas", Uf = "SP" }
+            };
+            if (comFoto)
+            {
+                veiculo.Fotos.Add(new VeiculoFoto { IdVeiculoFoto = 1, IdVeiculo = 40, Ordem = 1, ChaveObjeto = "veiculos/40/capa.jpg", IdFuncionarioEnvio = 20 });
+            }
+
+            return new Reserva
+            {
+                IdReserva = 10, IdCliente = 30, Cliente = cliente, IdVeiculo = 40, Veiculo = veiculo,
+                DataRetiradaPrevista = new DateTime(2026, 11, 18, 9, 30, 0), DataDevolucaoPrevista = new DateTime(2026, 11, 19, 9, 30, 0),
+                ValorEstimado = 200m, Status = StatusReserva.CONFIRMADA
+            };
+        }
+
+        private static ClienteDocumento CriarDocumento(int id, TipoDocumentoCliente tipo, DateTime criadoEm)
+        {
+            return new ClienteDocumento
+            {
+                IdClienteDocumento = id, IdCliente = 30, Tipo = tipo, ChaveObjeto = "clientes/30/" + id,
+                NomeArquivo = "documento.pdf", TipoConteudo = "application/pdf", TamanhoBytes = 10, CreatedAt = criadoEm, UpdatedAt = criadoEm
+            };
+        }
+
+        private static LocacaoService CriarServicoRetirada(FakeLocacaoRepository repositorio, IRelogio relogio, FakeClienteDocumentoRepository documentos, FakeArmazenamentoGateway armazenamento, FakeLogService log)
+        {
+            MapperConfiguration configuracao = new MapperConfiguration(
+                cfg => cfg.AddProfile<LocacaoProfile>(),
+                NullLoggerFactory.Instance);
+            IMapper mapper = configuracao.CreateMapper();
+
+            return new LocacaoService(repositorio, relogio, mapper, log, ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(armazenamento, log), documentos);
+        }
+
         private static LocacaoService CriarServico(FakeLocacaoRepository repositorio, FakeLogService? logService = null)
         {
             MapperConfiguration configuracao = new MapperConfiguration(
@@ -203,7 +409,7 @@ namespace AutoVia.Tests.Locacoes
             IMapper mapper = configuracao.CreateMapper();
             FakeLogService log = logService ?? new FakeLogService();
             FakeRelogio relogio = new FakeRelogio(AgoraDoRelogio);
-            LocacaoService servico = new LocacaoService(repositorio, relogio, mapper, log, ContextoEmpresaDeTeste.Criar());
+            LocacaoService servico = new LocacaoService(repositorio, relogio, mapper, log, ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), log), new FakeClienteDocumentoRepository());
 
             return servico;
         }

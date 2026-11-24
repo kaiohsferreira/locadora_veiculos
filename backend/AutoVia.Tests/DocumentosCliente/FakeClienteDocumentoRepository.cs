@@ -27,6 +27,9 @@ namespace AutoVia.Tests.DocumentosCliente
         /// <summary>Ultima data passada ao teto de envios.</summary>
         public DateTime? UltimoDesdeConsultado { get; private set; }
 
+        /// <summary>Quantas vezes FindAtivosDoClienteAsync foi chamado (teste: a retirada de outra locadora nao le os documentos).</summary>
+        public int ConsultasAtivosDoCliente { get; private set; }
+
         /// <summary>Semeia um documento (ativo ou desativado) sem passar pelo servico. Id zero recebe um novo id.</summary>
         public ClienteDocumento Semear(ClienteDocumento documento)
         {
@@ -61,6 +64,8 @@ namespace AutoVia.Tests.DocumentosCliente
 
         public Task<List<ClienteDocumento>> FindAtivosDoClienteAsync(int idCliente, CancellationToken cancellationToken = default)
         {
+            ConsultasAtivosDoCliente++;
+
             List<ClienteDocumento> ativos = Armazenados
                 .Where(x => x.IdCliente == idCliente && x.DisabledAt == null)
                 .OrderBy(x => x.IdClienteDocumento)

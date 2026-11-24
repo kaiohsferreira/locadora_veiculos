@@ -1,5 +1,6 @@
 using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Helpers;
 using System;
 
 namespace AutoVia.Core.Regras
@@ -24,6 +25,43 @@ namespace AutoVia.Core.Regras
             bool permite = status == StatusVeiculo.RESERVADO;
 
             return permite;
+        }
+
+        /// <summary>Verdadeiro quando a CNH ja venceu (validade anterior a hoje). A validade de hoje ainda vale.</summary>
+        public static bool CnhVencida(DateOnly validade, DateOnly hoje)
+        {
+            bool vencida = validade < hoje;
+
+            return vencida;
+        }
+
+        /// <summary>Monta o endereco da locadora para a retirada, como texto pronto; parte vazia some junto com o separador.</summary>
+        public static string MontarEnderecoLocadora(string logradouro, string numero, string bairro, string cidade, string uf)
+        {
+            string endereco = AnexarParteEndereco(string.Empty, logradouro, string.Empty);
+            endereco = AnexarParteEndereco(endereco, numero, ConstantsValues.SeparadorNumeroEnderecoLocadora);
+            endereco = AnexarParteEndereco(endereco, bairro, ConstantsValues.SeparadorBairroEnderecoLocadora);
+            endereco = AnexarParteEndereco(endereco, cidade, ConstantsValues.SeparadorCidadeEnderecoLocadora);
+            endereco = AnexarParteEndereco(endereco, uf, ConstantsValues.SeparadorUfEnderecoLocadora);
+
+            return endereco;
+        }
+
+        /// <summary>Acrescenta uma parte aparada ao texto; parte vazia nao acrescenta nada, nem o separador dela.</summary>
+        private static string AnexarParteEndereco(string atual, string parte, string separador)
+        {
+            string limpa = parte.Trim();
+            if (limpa.Length == 0)
+            {
+                return atual;
+            }
+
+            if (atual.Length == 0)
+            {
+                return limpa;
+            }
+
+            return atual + separador + limpa;
         }
 
         /// <summary>Status da reserva depois da abertura da locacao.</summary>

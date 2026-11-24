@@ -5,7 +5,9 @@ using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
+using AutoVia.Integrations.Interfaces;
 using AutoVia.Tests.Api;
+using AutoVia.Tests.DocumentosCliente;
 using AutoVia.Tests.Fakes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -73,8 +75,8 @@ namespace AutoVia.Tests.Locacoes
             Assert.Equal(10, dados.GetProperty("idReserva").GetInt32());
             Assert.Equal(NomeCliente, dados.GetProperty("clienteNome").GetString());
             Assert.Equal("123.***.***-09", dados.GetProperty("clienteCpfMascarado").GetString());
-            Assert.Equal("18/11/2026 09:30", dados.GetProperty("dataRetiradaPrevistaStr").GetString());
-            Assert.Equal("19/11/2026 09:30", dados.GetProperty("dataDevolucaoPrevistaStr").GetString());
+            Assert.Equal("18/11/2026", dados.GetProperty("dataRetiradaPrevistaStr").GetString());
+            Assert.Equal("19/11/2026", dados.GetProperty("dataDevolucaoPrevistaStr").GetString());
             Assert.Equal("01/01/2030", dados.GetProperty("cnhValidadeStr").GetString());
             Assert.Equal(StaticMethods.FormateToMonetary(200m), dados.GetProperty("valorEstimadoStr").GetString());
             Assert.Equal(StaticMethods.FormateToMonetary(200m), dados.GetProperty("valorDiariaStr").GetString());
@@ -202,10 +204,118 @@ namespace AutoVia.Tests.Locacoes
             using HttpResponseMessage resposta = await Enviar(cliente, Rota, Token(fabrica, PerfilUsuario.FUNCIONARIO, 999));
             Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
         }
+        [Fact]
+        public async Task ConsultaTela16TrazCamposNovosComDataSemHoraESemCamposSensiveis()
+        {
+            using RetiradaWebFactory fabrica = new RetiradaWebFactory();
+            using HttpClient cliente = fabrica.CreateClient();
+            using HttpResponseMessage resposta = await Enviar(cliente, Rota, Token(fabrica));
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            string corpo = await resposta.Content.ReadAsStringAsync();
+            JsonElement dados = JsonDocument.Parse(corpo).RootElement;
+            Assert.Equal("SUV", dados.GetProperty("categoriaNome").GetString());
+            Assert.Equal(2024, dados.GetProperty("anoModelo").GetInt32());
+            Assert.Equal(1, dados.GetProperty("diariasPrevistas").GetInt32());
+            Assert.Equal("Locadora Teste", dados.GetProperty("localRetiradaNome").GetString());
+            Assert.Equal("Rua das Flores, 100 - Centro, Campinas - SP", dados.GetProperty("localRetiradaEndereco").GetString());
+            Assert.Equal("2026-11-18", dados.GetProperty("dataRetiradaPrevista").GetString());
+            Assert.Equal("18/11/2026", dados.GetProperty("dataRetiradaPrevistaStr").GetString());
+            Assert.Equal("2026-11-19", dados.GetProperty("dataDevolucaoPrevista").GetString());
+            Assert.Equal("19/11/2026", dados.GetProperty("dataDevolucaoPrevistaStr").GetString());
+            Assert.Equal("2030-01-01", dados.GetProperty("cnhValidade").GetString());
+            Assert.False(dados.GetProperty("cnhVencida").GetBoolean());
+            Assert.Equal(200m, dados.GetProperty("valorDiaria").GetDecimal());
+            Assert.Equal(JsonValueKind.Null, dados.GetProperty("fotoCapa").ValueKind);
+            Assert.Equal(JsonValueKind.Null, dados.GetProperty("erroFotoCapa").ValueKind);
+            Assert.Equal(JsonValueKind.Null, dados.GetProperty("cnhEnviadaEm").ValueKind);
+            Assert.Equal(string.Empty, dados.GetProperty("cnhEnviadaEmStr").GetString());
+            Assert.DoesNotContain("\"url\"", corpo);
+            Assert.DoesNotContain("chaveObjeto", corpo);
+            Assert.DoesNotContain("nomeArquivo", corpo);
+            Assert.DoesNotContain("idClienteDocumento", corpo);
+            Assert.DoesNotContain("12345678909", corpo);
+        }
+
+        [Fact]
+        public async Task DocumentosDoClienteAparecemSoComoDataDeEnvio()
+        {
+            using RetiradaWebFactory fabrica = new RetiradaWebFactory();
+            fabrica.Documentos.Semear(new ClienteDocumento
+            {
+                IdClienteDocumento = 1, IdCliente = 30, Tipo = TipoDocumentoCliente.CNH, ChaveObjeto = "clientes/30/cnh.pdf",
+                NomeArquivo = "cnh.pdf", TipoConteudo = "application/pdf", TamanhoBytes = 10,
+                CreatedAt = new DateTime(2026, 11, 10, 14, 20, 0), UpdatedAt = new DateTime(2026, 11, 10, 14, 20, 0)
+            });
+            using HttpClient cliente = fabrica.CreateClient();
+            using HttpResponseMessage resposta = await Enviar(cliente, Rota, Token(fabrica));
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            string corpo = await resposta.Content.ReadAsStringAsync();
+            JsonElement dados = JsonDocument.Parse(corpo).RootElement;
+            Assert.Equal("10/11/2026 14:20", dados.GetProperty("cnhEnviadaEmStr").GetString());
+            Assert.Equal(JsonValueKind.Null, dados.GetProperty("comprovanteResidenciaEnviadoEm").ValueKind);
+            Assert.DoesNotContain("clientes/30/cnh.pdf", corpo);
+            Assert.DoesNotContain("cnh.pdf", corpo);
+        }
+
+        [Fact]
+        public async Task ArmazenamentoFalhando_Responde200ComErroFotoCapa()
+        {
+            using RetiradaWebFactory fabrica = new RetiradaWebFactory(reserva => reserva.Veiculo.Fotos.Add(CriarFotoDeCapa()));
+            fabrica.Armazenamento.FalharAssinatura = true;
+            using HttpClient cliente = fabrica.CreateClient();
+            using HttpResponseMessage resposta = await Enviar(cliente, Rota, Token(fabrica));
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement dados = await LerJson(resposta);
+            Assert.Equal(JsonValueKind.Null, dados.GetProperty("fotoCapa").ValueKind);
+            Assert.Equal(ConstantsMessage.ErroFotoCapaIndisponivel, dados.GetProperty("erroFotoCapa").GetString());
+        }
+
+        [Fact]
+        public async Task VeiculoComFotoAssinada_CapaSaiComUrlSemChaveDoArquivo()
+        {
+            using RetiradaWebFactory fabrica = new RetiradaWebFactory(reserva => reserva.Veiculo.Fotos.Add(CriarFotoDeCapa()));
+            using HttpClient cliente = fabrica.CreateClient();
+            using HttpResponseMessage resposta = await Enviar(cliente, Rota, Token(fabrica));
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            string corpo = await resposta.Content.ReadAsStringAsync();
+            JsonElement dados = JsonDocument.Parse(corpo).RootElement;
+            Assert.StartsWith("https://storage.example/foto/", dados.GetProperty("fotoCapa").GetProperty("url").GetString());
+            Assert.Equal(JsonValueKind.Null, dados.GetProperty("erroFotoCapa").ValueKind);
+            Assert.DoesNotContain("veiculos/40/capa.jpg", corpo);
+        }
+
+        [Fact]
+        public async Task OutraLocadoraNaoLeDocumentosNemArmazenamentoNoHttp()
+        {
+            using RetiradaWebFactory fabrica = new RetiradaWebFactory(reserva =>
+            {
+                reserva.Veiculo.IdEmpresa = 2;
+                reserva.Veiculo.Fotos.Add(CriarFotoDeCapa());
+            });
+            fabrica.Documentos.Semear(new ClienteDocumento
+            {
+                IdClienteDocumento = 1, IdCliente = 30, Tipo = TipoDocumentoCliente.CNH, ChaveObjeto = "clientes/30/cnh.pdf",
+                NomeArquivo = "cnh.pdf", TipoConteudo = "application/pdf", TamanhoBytes = 10,
+                CreatedAt = new DateTime(2026, 11, 10, 14, 20, 0), UpdatedAt = new DateTime(2026, 11, 10, 14, 20, 0)
+            });
+            using HttpClient cliente = fabrica.CreateClient();
+            using HttpResponseMessage resposta = await Enviar(cliente, Rota, Token(fabrica));
+            Assert.Equal(HttpStatusCode.NotFound, resposta.StatusCode);
+            Assert.Equal(0, fabrica.Documentos.ConsultasAtivosDoCliente);
+            Assert.Equal(0, fabrica.Armazenamento.AssinaturaLoteCount);
+        }
+
+        private static VeiculoFoto CriarFotoDeCapa()
+        {
+            return new VeiculoFoto { IdVeiculoFoto = 1, IdVeiculo = 40, Ordem = 1, ChaveObjeto = "veiculos/40/capa.jpg", IdFuncionarioEnvio = 20 };
+        }
+
         private sealed class RetiradaWebFactory : VeiculoWebFactory
         {
             public FakeLocacaoRepository Locacoes { get; } = new FakeLocacaoRepository();
             public new FakeSessaoService Sessao { get; } = new FakeSessaoService();
+            public FakeClienteDocumentoRepository Documentos { get; } = new FakeClienteDocumentoRepository();
+            public FakeArmazenamentoGateway Armazenamento { get; } = new FakeArmazenamentoGateway();
 
             public RetiradaWebFactory(Action<Reserva>? configurar = null)
             {
@@ -227,7 +337,13 @@ namespace AutoVia.Tests.Locacoes
                     DataRetiradaPrevista = new DateTime(2026, 11, 18, 9, 30, 0),
                     DataDevolucaoPrevista = new DateTime(2026, 11, 19, 9, 30, 0),
                     ValorEstimado = 200m, Status = StatusReserva.CONFIRMADA,
-                    Veiculo = new Veiculo { IdVeiculo = 40, IdEmpresa = 1, Placa = "ABC1D23", Marca = "Fiat", Modelo = "Toro", KmAtual = 1500, ValorDiaria = 200m, Status = StatusVeiculo.RESERVADO }
+                    Veiculo = new Veiculo
+                    {
+                        IdVeiculo = 40, IdEmpresa = 1, Placa = "ABC1D23", Marca = "Fiat", Modelo = "Toro", KmAtual = 1500, ValorDiaria = 200m, Status = StatusVeiculo.RESERVADO,
+                        AnoModelo = 2024, IdCategoria = 3,
+                        Categoria = new Categoria { IdCategoria = 3, Nome = "SUV" },
+                        Empresa = new Empresa { IdEmpresa = 1, NomeFantasia = "Locadora Teste", Logradouro = "Rua das Flores", Numero = "100", Bairro = "Centro", Cidade = "Campinas", Uf = "SP" }
+                    }
                 };
                 configurar?.Invoke(reserva);
                 Locacoes.Adicionar(reserva);
@@ -241,8 +357,12 @@ namespace AutoVia.Tests.Locacoes
                 {
                     services.RemoveAll<ILocacaoRepository>();
                     services.RemoveAll<ISessaoService>();
+                    services.RemoveAll<IClienteDocumentoRepository>();
+                    services.RemoveAll<IArmazenamentoGateway>();
                     services.AddSingleton<ILocacaoRepository>(Locacoes);
                     services.AddSingleton<ISessaoService>(Sessao);
+                    services.AddSingleton<IClienteDocumentoRepository>(Documentos);
+                    services.AddSingleton<IArmazenamentoGateway>(Armazenamento);
                 });
             }
         }

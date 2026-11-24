@@ -6,6 +6,7 @@ namespace AutoVia.Communication.ViewObjects.PainelOperacional
         public string Origem { get; set; } = string.Empty;
         public int? IdReserva { get; set; }
         public int? IdLocacao { get; set; }
+        public string? CodigoReserva { get; set; }
         public string DataHora { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
         public int IdCliente { get; set; }

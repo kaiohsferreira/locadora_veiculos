@@ -83,5 +83,77 @@ namespace AutoVia.Tests.Locacoes
             Assert.Equal(MomentoDeTeste, locacao.UpdatedAt);
             Assert.Null(locacao.DisabledAt);
         }
+
+        [Fact]
+        public void CnhVencida_ValidadeOntem_EhVencida()
+        {
+            bool vencida = RegrasLocacao.CnhVencida(new DateOnly(2026, 11, 23), new DateOnly(2026, 11, 24));
+
+            Assert.True(vencida);
+        }
+
+        [Fact]
+        public void CnhVencida_ValidadeHoje_AindaVale()
+        {
+            bool vencida = RegrasLocacao.CnhVencida(new DateOnly(2026, 11, 24), new DateOnly(2026, 11, 24));
+
+            Assert.False(vencida);
+        }
+
+        [Fact]
+        public void CnhVencida_ValidadeAmanha_NaoEhVencida()
+        {
+            bool vencida = RegrasLocacao.CnhVencida(new DateOnly(2026, 11, 25), new DateOnly(2026, 11, 24));
+
+            Assert.False(vencida);
+        }
+
+        [Fact]
+        public void EnderecoLocadora_TodasAsPartes_NoFormatoDaTela29()
+        {
+            string endereco = RegrasLocacao.MontarEnderecoLocadora("Rua das Flores", "100", "Centro", "Campinas", "SP");
+
+            Assert.Equal("Rua das Flores, 100 - Centro, Campinas - SP", endereco);
+        }
+
+        [Fact]
+        public void EnderecoLocadora_SemNumero_NaoSobraSeparador()
+        {
+            string endereco = RegrasLocacao.MontarEnderecoLocadora("Rua das Flores", "", "Centro", "Campinas", "SP");
+
+            Assert.Equal("Rua das Flores - Centro, Campinas - SP", endereco);
+        }
+
+        [Fact]
+        public void EnderecoLocadora_SemBairro_NaoSobraTraco()
+        {
+            string endereco = RegrasLocacao.MontarEnderecoLocadora("Rua das Flores", "100", "", "Campinas", "SP");
+
+            Assert.Equal("Rua das Flores, 100, Campinas - SP", endereco);
+        }
+
+        [Fact]
+        public void EnderecoLocadora_SoCidadeEUf()
+        {
+            string endereco = RegrasLocacao.MontarEnderecoLocadora("", "", "", "Campinas", "SP");
+
+            Assert.Equal("Campinas - SP", endereco);
+        }
+
+        [Fact]
+        public void EnderecoLocadora_TudoVazio_TextoVazio()
+        {
+            string endereco = RegrasLocacao.MontarEnderecoLocadora("", "", "", "", "");
+
+            Assert.Equal(string.Empty, endereco);
+        }
+
+        [Fact]
+        public void EnderecoLocadora_PartesComEspacoNasPontas_SaemAparadas()
+        {
+            string endereco = RegrasLocacao.MontarEnderecoLocadora("  Rua das Flores  ", " 100 ", "   ", " Campinas ", " SP ");
+
+            Assert.Equal("Rua das Flores, 100, Campinas - SP", endereco);
+        }
     }
 }

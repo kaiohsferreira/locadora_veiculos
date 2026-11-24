@@ -6,6 +6,7 @@ using AutoVia.Core.Profiles;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Services;
+using AutoVia.Tests.DocumentosCliente;
 using AutoVia.Tests.Fakes;
 using Microsoft.Extensions.Logging.Abstractions;
 using System;
@@ -50,7 +51,7 @@ namespace AutoVia.Tests.Locacoes
             IMapper mapper = configuracao.CreateMapper();
             FakeRelogio relogio = new FakeRelogio(AgoraDoRelogio);
 
-            return new LocacaoService(repositorio, relogio, mapper, log, ContextoEmpresaDeTeste.Criar());
+            return new LocacaoService(repositorio, relogio, mapper, log, ContextoEmpresaDeTeste.Criar(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), log), new FakeClienteDocumentoRepository());
         }
 
         /// <summary>Servico que sempre responde 404 na retirada; os outros metodos nao sao usados neste teste.</summary>
