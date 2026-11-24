@@ -2,10 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MutationObserver, QueryClient, QueryObserver } from '@tanstack/react-query';
 import { abrirLocacao, buscarContextoRetirada } from '@/api/locacoes';
 import { ErroApi } from '@/types/api';
+import type { DadosCaucaoAbertura } from '@/types/retirada';
 import { chaveRetirada, opcoesAbrirLocacao, opcoesRetirada } from './useRetirada';
 import { chaveRetiradasDeHoje } from './chavesPainelOperacional';
-import { contextoRetiradaTeste as contexto } from '../retirada/contextoRetirada.fixture';
+import { contextoRetiradaComCaucaoTeste, contextoRetiradaTeste as contexto } from '../retirada/contextoRetirada.fixture';
 vi.mock('@/api/locacoes', () => ({ abrirLocacao: vi.fn(), buscarContextoRetirada: vi.fn() }));
+
+const CAUCAO: DadosCaucaoAbertura = {
+  caucaoTokenCartao: 'FAKE-0123456789abcdef0123456789abcdef',
+  caucaoMetodoPagamentoId: 'visa',
+  caucaoEmissorId: null,
+  caucaoIdentificadorDispositivo: null,
+};
+
 describe('consultas da retirada', () => {
   beforeEach(() => vi.clearAllMocks());
   it('id inválido não consulta', () => {
@@ -20,9 +29,26 @@ describe('consultas da retirada', () => {
     cliente.setQueryData(chaveRetirada(8), contexto);
     cliente.setQueryData(['vistoria-entrada', 42], { preservado: true });
     vi.mocked(abrirLocacao).mockResolvedValueOnce({ idLocacao: 42, idReserva: 8, kmSaida: 12000, status: 'EM_ANDAMENTO' });
-    await new MutationObserver(cliente, opcoesAbrirLocacao(cliente, 8)).mutate();
+    await new MutationObserver(cliente, opcoesAbrirLocacao(cliente, 8)).mutate(null);
     expect(cliente.getQueryData(chaveRetirada(8))).toEqual({ ...contexto, idLocacaoExistente: 42 });
     expect(cliente.getQueryData(['vistoria-entrada', 42])).toEqual({ preservado: true });
+    cliente.clear();
+  });
+  it('sem caução, a mutação abre só com a reserva', async () => {
+    const cliente = new QueryClient();
+    vi.mocked(abrirLocacao).mockResolvedValueOnce({ idLocacao: 42, idReserva: 8, kmSaida: 12000, status: 'EM_ANDAMENTO' });
+    await new MutationObserver(cliente, opcoesAbrirLocacao(cliente, 8)).mutate(null);
+    expect(abrirLocacao).toHaveBeenCalledWith({ idReserva: 8 });
+    cliente.clear();
+  });
+  it('com caução, a mutação repassa os campos do cartão como vieram', async () => {
+    const cliente = new QueryClient();
+    cliente.setQueryData(chaveRetirada(8), contextoRetiradaComCaucaoTeste);
+    vi.mocked(abrirLocacao).mockResolvedValueOnce({ idLocacao: 42, idReserva: 8, kmSaida: 12000, status: 'EM_ANDAMENTO' });
+    await new MutationObserver(cliente, opcoesAbrirLocacao(cliente, 8)).mutate(CAUCAO);
+    expect(abrirLocacao).toHaveBeenCalledTimes(1);
+    expect(abrirLocacao).toHaveBeenCalledWith({ idReserva: 8, caucao: CAUCAO });
+    expect(cliente.getQueryData(chaveRetirada(8))).toEqual({ ...contextoRetiradaComCaucaoTeste, idLocacaoExistente: 42 });
     cliente.clear();
   });
   it('sucesso invalida a lista de retiradas de hoje (família do painel operacional) e as reservas', async () => {
@@ -31,7 +57,7 @@ describe('consultas da retirada', () => {
     cliente.setQueryData(chaveRetiradasDeHoje(), { retiradas: [] });
     cliente.setQueryData(['reservas'], { lista: [] });
     vi.mocked(abrirLocacao).mockResolvedValueOnce({ idLocacao: 42, idReserva: 8, kmSaida: 12000, status: 'EM_ANDAMENTO' });
-    await new MutationObserver(cliente, opcoesAbrirLocacao(cliente, 8)).mutate();
+    await new MutationObserver(cliente, opcoesAbrirLocacao(cliente, 8)).mutate(null);
     expect(cliente.getQueryState(chaveRetiradasDeHoje())?.isInvalidated).toBe(true);
     expect(cliente.getQueryState(['reservas'])?.isInvalidated).toBe(true);
     cliente.clear();
@@ -45,9 +71,24 @@ describe('consultas da retirada', () => {
     vi.mocked(buscarContextoRetirada).mockResolvedValue({ ...contexto, idLocacaoExistente: 42 });
     const erro = new ErroApi({ status, mensagem: 'Não foi possível confirmar.' });
     vi.mocked(abrirLocacao).mockRejectedValueOnce(erro);
-    await expect(new MutationObserver(cliente, opcoesAbrirLocacao(cliente, 8)).mutate()).rejects.toBe(erro);
+    await expect(new MutationObserver(cliente, opcoesAbrirLocacao(cliente, 8)).mutate(null)).rejects.toBe(erro);
     expect(abrirLocacao).toHaveBeenCalledTimes(1);
     expect(cliente.getQueryData(chaveRetirada(8))).toEqual({ ...contexto, idLocacaoExistente: 42 });
+    parar(); cliente.clear();
+  });
+  it.each([0, 409, 429, 502, 504])('com caução, falha %s refaz o contexto e não repete o POST', async (status) => {
+    const cliente = new QueryClient();
+    vi.mocked(buscarContextoRetirada).mockResolvedValue(contextoRetiradaComCaucaoTeste);
+    const consulta = new QueryObserver(cliente, opcoesRetirada(8));
+    const parar = consulta.subscribe(() => {});
+    await consulta.refetch();
+    expect(buscarContextoRetirada).toHaveBeenCalledTimes(1);
+    const erro = new ErroApi({ status, mensagem: 'Não foi possível confirmar.' });
+    vi.mocked(abrirLocacao).mockRejectedValueOnce(erro);
+    await expect(new MutationObserver(cliente, opcoesAbrirLocacao(cliente, 8)).mutate(CAUCAO)).rejects.toBe(erro);
+    expect(abrirLocacao).toHaveBeenCalledTimes(1);
+    expect(abrirLocacao).toHaveBeenCalledWith({ idReserva: 8, caucao: CAUCAO });
+    expect(buscarContextoRetirada).toHaveBeenCalledTimes(2);
     parar(); cliente.clear();
   });
 });

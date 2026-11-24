@@ -51,8 +51,33 @@ export interface ContextoRetirada {
   localRetiradaNome: string;
   localRetiradaEndereco: string;
   idLocacaoExistente: number | null;
+  /**
+   * Caução na retirada (locacao.contract.json v4, caucao_na_retirada_v4.get_retirada). Verdadeiro quando o servidor exige
+   * caução (Pagamentos:ValorCaucao maior que 0). Falso: a tela 16 fica exatamente como sem caução.
+   */
+  caucaoExigida: boolean;
+  /** Valor configurado no servidor; 0 quando a caução não é exigida. Nunca vai no corpo do POST. */
+  valorCaucao: number;
+  /** Valor pronto do servidor (ex.: "R$ 1.200,00"); com 0, "R$ 0,00". A tela só mostra com a caução exigida. */
+  valorCaucaoStr: string;
+  /** A abertura com caução pode ser tentada pela tela (hoje: caução exigida e provedor de simulação liberado). */
+  caucaoDisponivel: boolean;
+  /** Provedor de simulação (FAKE) com a trava liberada: a tela mostra o painel de simulação do cartão. */
+  caucaoModoSimulacao: boolean;
 }
 
-export interface AbrirLocacao { idReserva: number; }
+/**
+ * Campos do cartão mandados no POST /api/locacoes só com a caução exigida (LocacaoVO flat). Simulação: token gerado na
+ * tela ("FAKE-" + aleatório, "FAKE-RECUSADO" ou "FAKE-ANALISE"), bandeira "visa", emissor e dispositivo nulos.
+ */
+export interface DadosCaucaoAbertura {
+  caucaoTokenCartao: string;
+  caucaoMetodoPagamentoId: string;
+  caucaoEmissorId: number | null;
+  caucaoIdentificadorDispositivo: string | null;
+}
+
+/** Abertura da locação: sem caução, só a reserva (como antes); com caução, também os campos do cartão. */
+export interface AbrirLocacao { idReserva: number; caucao?: DadosCaucaoAbertura; }
 /** Subconjunto usado de ReturnLocacaoVO. */
 export interface LocacaoAberta { idLocacao: number; idReserva: number; kmSaida: number; status: StatusLocacao; }

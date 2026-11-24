@@ -2,6 +2,7 @@ import { Etiqueta, Icone, ImagemVeiculo } from '@/components/ui';
 import { formatarQuilometragem } from '@/lib/formatters';
 import { MENSAGENS_RETIRADA as M } from '@/lib/mensagensRetirada';
 import type { ContextoRetirada } from '@/types/retirada';
+import { caucaoPodeSerTentada, mostrarBlocoCaucao } from '../regrasCaucaoRetirada';
 import { mostrarTotalPrevisto, selodaSituacaoEscuro, textoDiarias, textoSituacaoReserva } from '../regrasRetirada';
 import { CartaoRetirada } from './CartaoRetirada';
 import { PlacaRetirada } from './PlacaRetirada';
@@ -9,6 +10,28 @@ import { PlacaRetirada } from './PlacaRetirada';
 export interface ResumoReservaRetiradaProps { contexto: ContextoRetirada; }
 
 const ROTULO_BLOCO = 'text-micro font-semibold uppercase tracking-wider text-texto-apoio';
+
+/**
+ * Caixa "Garantia / Caução" do desenho (html :175-185), dentro da Tarifação, depois do "Total previsto". Só com a caução
+ * exigida e sem locação já aberta. Na linha de baixo, no lugar de "Pré-autorizado no Mastercard final 4018" (cortado: a
+ * tela nunca mostra caução aprovada), a situação: antes do clique ou, curto, indisponível (ajuste A4: o texto inteiro fica
+ * só no item da pré-autorização). O cargo da sessão não muda esta caixa.
+ */
+function GarantiaCaucaoRetirada({ contexto }: ResumoReservaRetiradaProps) {
+  const podeSerTentada = caucaoPodeSerTentada(contexto);
+  return (
+    <div className="flex flex-col gap-1 rounded bg-branco p-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-micro font-semibold uppercase text-texto-apoio">{M.caucaoRotulo}</span>
+        <span className="text-corpo-denso font-bold text-texto-desenho">{contexto.valorCaucaoStr}</span>
+      </div>
+      <span className={`flex items-start gap-1.5 text-micro font-semibold ${podeSerTentada ? 'text-texto-apoio' : 'text-status-perigo'}`}>
+        <Icone nome={podeSerTentada ? 'schedule' : 'block'} tamanho={16} />
+        <span>{podeSerTentada ? M.caucaoSituacaoAoIniciar : M.caucaoIndisponivelCurto}</span>
+      </span>
+    </div>
+  );
+}
 
 /** Coluna da esquerda do desenho 16: código e situação, veículo, condutor, período e local, e tarifa. */
 export function ResumoReservaRetirada({ contexto }: ResumoReservaRetiradaProps) {
@@ -109,6 +132,7 @@ export function ResumoReservaRetirada({ contexto }: ResumoReservaRetiradaProps) 
               <span className="text-valor-destaque font-bold text-navy-profundo">{contexto.valorEstimadoStr}</span>
             </div>
           )}
+          {mostrarBlocoCaucao(contexto) && <GarantiaCaucaoRetirada contexto={contexto} />}
         </div>
       </div>
     </CartaoRetirada>

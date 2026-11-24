@@ -1,5 +1,8 @@
 import type { ContextoRetirada } from '@/types/retirada';
-/** Dados exclusivos dos testes. Datas sem hora (a reserva só guarda a data) e código no formato real. */
+/**
+ * Dados exclusivos dos testes. Datas sem hora (a reserva só guarda a data) e código no formato real. Sem caução: os cinco
+ * campos da caução com os valores neutros que o servidor manda quando Pagamentos:ValorCaucao é 0.
+ */
 export const contextoRetiradaTeste: ContextoRetirada = {
   idReserva: 8, codigoReserva: 'AV-00008', statusReserva: 'ATIVA', idCliente: 9,
   clienteNome: 'Cliente de teste', clienteCpfMascarado: '123.***.***-09', cnhNumero: '*******1234',
@@ -14,4 +17,11 @@ export const contextoRetiradaTeste: ContextoRetirada = {
   valorDiaria: 120, valorDiariaStr: 'R$ 120,00', valorEstimado: 480, valorEstimadoStr: 'R$ 480,00',
   localRetiradaNome: 'AutoVia Congonhas', localRetiradaEndereco: 'Rua Exemplo, 100 - Centro, São Paulo - SP',
   idLocacaoExistente: null,
+  caucaoExigida: false, valorCaucao: 0, valorCaucaoStr: 'R$ 0,00', caucaoDisponivel: false, caucaoModoSimulacao: false,
+};
+
+/** Mesma reserva com a caução exigida (1200.00 no servidor), disponível e em modo de simulação. */
+export const contextoRetiradaComCaucaoTeste: ContextoRetirada = {
+  ...contextoRetiradaTeste,
+  caucaoExigida: true, valorCaucao: 1200, valorCaucaoStr: 'R$ 1.200,00', caucaoDisponivel: true, caucaoModoSimulacao: true,
 };

@@ -1,12 +1,16 @@
 /**
  * Textos da tela 16 (retirada do veículo). Os que vêm do desenho D:/Estudo/TI/telas/16 estão marcados como "desenho";
  * os novos e os ajustados estão marcados como "novo" ou "ajustado" (locacao.contract.json, tela_16.textos), e foram
- * aprovados pelo Kaio em 24/11/2026 ("Aprovo como está").
+ * aprovados pelo Kaio em 24/11/2026 ("Aprovo como está"). Os da caução (marcados "caução") só aparecem com a caução
+ * exigida (locacao.contract.json v4, caucao_na_retirada_v4.tela_16_v4.textos) e também foram aprovados pelo Kaio em
+ * 24/11/2026 ("Aprovo como está"), inclusive os dos ajustes A1 e A4 e o complemento encurtado do 409.
  */
 export const MENSAGENS_RETIRADA = {
   titulo: 'Retirada do veículo',
-  /** novo: substitui a descrição antiga, que falava em "garantias" (caução, cortada). */
+  /** novo: subtítulo SEM caução (e nos estados sem dados), sem "garantias". */
   subtitulo: 'Conferência inicial de documentação e validação de reserva para entrega das chaves.',
+  /** caução, desenho (html :19-21): subtítulo com a caução exigida, com "garantias". */
+  subtituloComCaucao: 'Conferência inicial de documentação, garantias e validação de reserva para entrega das chaves.',
   /** desenho: trilha. "Locações" leva à página de entrada; "Despacho" não tem página. */
   trilhaRotulo: 'Caminho da tela',
   trilhaLocacoes: 'Locações',
@@ -39,8 +43,20 @@ export const MENSAGENS_RETIRADA = {
   tarifacao: 'Tarifação da Reserva',
   diaria: 'Diária:',
   totalPrevisto: 'Total previsto',
+  /** caução, desenho (html :178): rótulo da caixa da caução, dentro da Tarifação. */
+  caucaoRotulo: 'Garantia / Caução',
+  /** caução, novo, aprovado: situação da caução antes do clique (no lugar de "Pré-autorizado no Mastercard final 4018"). */
+  caucaoSituacaoAoIniciar: 'Pré-autorização no cartão do cliente ao iniciar a locação.',
+  /**
+   * caução, novo, aprovado: a caução é exigida, mas a tela não pode tentar (provedor sem simulação liberada). Texto inteiro,
+   * só no item da pré-autorização (ajuste A4).
+   */
+  caucaoIndisponivel: 'Pré-autorização indisponível: o provedor de pagamento não está liberado para a caução. A locação não pode ser iniciada.',
+  /** caução, novo, aprovado (ajuste A4): o mesmo estado, curto, só na caixa "Garantia / Caução" da coluna da esquerda. */
+  caucaoIndisponivelCurto: 'Pré-autorização indisponível.',
   checklist: 'Checklist de Verificação Documental e Presencial',
-  contadorConferidos: (conferidos: number) => `${conferidos}/3 Confirmados`,
+  /** desenho (html :210): o total é 3 sem caução e 4 com a caução exigida. */
+  contadorConferidos: (conferidos: number, total: number) => `${conferidos}/${total} Confirmados`,
   instrucao: 'Instrução ao operador: Certifique-se de validar todos os itens presencialmente antes de liberar o termo para assinatura do cliente.',
   legendaConferencia: 'Documentos apresentados pelo cliente',
   /** novo: aviso de CNH vencida. Só informa; não bloqueia nada. */
@@ -55,6 +71,11 @@ export const MENSAGENS_RETIRADA = {
       /** novo: linha do envio pelo site (com data e hora, ou sem envio). */
       envioComData: (data: string) => `Enviada pelo cliente em ${data}.`,
       semEnvio: 'O cliente não enviou a CNH pelo site.',
+    },
+    /** caução, desenho (html :247-250): quarto atestado, só com a caução exigida. */
+    titularidadeCartao: {
+      titulo: 'Titularidade do cartão de crédito',
+      descricao: 'Titular do cartão corresponde ao condutor principal ou responsável financeiro com procuração reconhecida.',
     },
     comprovanteResidencia: {
       titulo: 'Comprovante de residência atualizado',
@@ -71,6 +92,28 @@ export const MENSAGENS_RETIRADA = {
   conferidoPor: (nome: string) => `Conferido nesta tela por ${nome}`,
   /** novo: variante sem nome, para quando o nome do funcionário não está disponível. */
   conferidoPeloAtendente: 'Conferido nesta tela pelo atendente',
+  /** caução, desenho (html :352, com o valor do servidor): último item da lista, sem interruptor. */
+  preAutorizacaoTitulo: (valorCaucaoStr: string) => `Pré-autorização da caução (${valorCaucaoStr})`,
+  /** caução, ajustado do desenho (html :354, sem "AutoVia Pay"), aprovado. */
+  preAutorizacaoDescricao: 'Bloqueio de garantia financeira no cartão de crédito do cliente, feito quando a locação é iniciada.',
+  /** caução, novo, aprovado: legenda do painel de simulação do cartão (grupo de rádio). */
+  simulacaoTitulo: 'Simulação do cartão',
+  /** caução, novo, aprovado: aviso do painel de simulação. */
+  simulacaoAviso: 'Ambiente de simulação: nenhum valor é reservado em cartão de verdade. Escolha o resultado da pré-autorização.',
+  /** caução, novo, aprovado: as três saídas da simulação. */
+  simulacaoAprovar: 'Aprovar',
+  simulacaoRecusar: 'Recusar',
+  simulacaoAnalise: 'Deixar em análise',
+  /**
+   * caução, novo, aprovado (ajuste A1): no item da pré-autorização, no lugar do painel, quando o cargo da sessão não inicia
+   * a locação com caução (só ATENDENTE e ADMINISTRADOR iniciam).
+   */
+  caucaoCargoSemPermissao: 'Com caução, só atendente ou administrador inicia a locação.',
+  /**
+   * caução, novo, aprovado (encurtado em 24/11/2026: o "A locação não foi iniciada" já vem nos textos do servidor):
+   * complemento do erro 409 com a caução exigida e a retirada ainda disponível.
+   */
+  caucaoTenteNovamente: 'Escolha de novo o resultado da simulação e tente outra vez.',
   /** desenho: aparece só com a retirada pronta. */
   prontoParaDespacho: 'Pronto para despacho de pátio',
   /** Texto de hoje (mantido, aprovado pelo Kaio em 24/11/2026): diz o que o clique faz. */

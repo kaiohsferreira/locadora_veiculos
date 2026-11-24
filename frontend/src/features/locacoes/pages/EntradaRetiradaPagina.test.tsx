@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 import { ErroApi } from '@/types/api';
 import type { ItemPainelOperacional, RespostaPainelOperacionalHoje } from '@/types/painelOperacional';
-import { termosCortadosPresentesRetirada } from '../retirada/termosCortadosRetirada';
+import { termosCortadosPresentesRetirada, termosDaCaucaoPresentesRetirada } from '../retirada/termosCortadosRetirada';
 import { useRetiradasDeHoje } from '../hooks/useRetiradasDeHoje';
 import EntradaRetiradaPagina from './EntradaRetiradaPagina';
 
@@ -103,5 +103,8 @@ describe('EntradaRetiradaPagina (página de entrada da retirada)', () => {
   it('nenhum termo cortado do desenho aparece, com lista cheia ou vazia', () => {
     expect(termosCortadosPresentesRetirada(renderizar({ data: RESPOSTA }))).toEqual([]);
     expect(termosCortadosPresentesRetirada(renderizar({ data: { ...RESPOSTA, retiradas: [] } }))).toEqual([]);
+    // A página de entrada não tem caução: os termos da caução (lista própria desde a v4 da tela 16) também não aparecem.
+    expect(termosDaCaucaoPresentesRetirada(renderizar({ data: RESPOSTA }))).toEqual([]);
+    expect(termosDaCaucaoPresentesRetirada(renderizar({ data: { ...RESPOSTA, retiradas: [] } }))).toEqual([]);
   });
 });
