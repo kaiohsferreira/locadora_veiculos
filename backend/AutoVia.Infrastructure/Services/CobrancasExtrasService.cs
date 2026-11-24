@@ -3,6 +3,7 @@ using AutoVia.Communication.Enums;
 using AutoVia.Communication.Validators.CobrancasExtras;
 using AutoVia.Communication.ViewObjects.CobrancasExtras;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Regras;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -60,13 +61,14 @@ public sealed class CobrancasExtrasService : ICobrancasExtrasService
             SimularCobrancasExtrasVOValidator validator = new SimularCobrancasExtrasVOValidator();
             validator.ValidateAndThrow(model);
             int idLocacao = locacao.IdLocacao;
+            DateTime previsaoEfetiva = RegrasCobrancasExtras.DevolucaoPrevistaEfetiva(locacao.DataRetirada, locacao.DataDevolucaoPrevista);
             if (entrada == null || saida == null || entrada.DisabledAt != null || saida.DisabledAt != null ||
                 entrada.IdLocacao != idLocacao || saida.IdLocacao != idLocacao ||
                 entrada.IdVistoria <= 0 || saida.IdVistoria <= 0 || entrada.IdVistoria == saida.IdVistoria ||
                 entrada.Tipo != TipoVistoria.ENTRADA || saida.Tipo != TipoVistoria.SAIDA ||
                 locacao.KmSaida < 0 || entrada.KmRegistrado < 0 || saida.KmRegistrado < entrada.KmRegistrado ||
                 saida.KmRegistrado < locacao.KmSaida || locacao.DataRetirada == default ||
-                locacao.DataDevolucaoPrevista < locacao.DataRetirada || entrada.DataHora < locacao.DataRetirada ||
+                previsaoEfetiva <= locacao.DataRetirada || entrada.DataHora < locacao.DataRetirada ||
                 saida.DataHora < entrada.DataHora ||
                 !entrada.NivelCombustivel.HasValue || !saida.NivelCombustivel.HasValue ||
                 entrada.NivelCombustivel.Value < 0m || entrada.NivelCombustivel.Value > 1m ||
@@ -98,7 +100,7 @@ public sealed class CobrancasExtrasService : ICobrancasExtrasService
 
             long kmExcedentes = Math.Max((long)saida.KmRegistrado - entrada.KmRegistrado - model.PacoteKmTotal!.Value, 0L);
             decimal fracaoFaltante = Math.Max(entrada.NivelCombustivel.Value - saida.NivelCombustivel.Value, 0m);
-            decimal ticksAtraso = Math.Max((decimal)(saida.DataHora - locacao.DataDevolucaoPrevista).Ticks -
+            decimal ticksAtraso = Math.Max((decimal)(saida.DataHora - previsaoEfetiva).Ticks -
                 model.ToleranciaAtrasoMinutos!.Value * (decimal)TimeSpan.TicksPerMinute, 0m);
             decimal ticksUnidade = model.UnidadeAtraso == ConstantsMessage.CobrancasExtrasHora ? TimeSpan.TicksPerHour : TimeSpan.TicksPerDay;
             decimal unidades = ticksAtraso / ticksUnidade;
@@ -129,7 +131,7 @@ public sealed class CobrancasExtrasService : ICobrancasExtrasService
                 },
                 Atraso = new MemoriaAtrasoVO
                 {
-                    DataPrevistaStr = StaticMethods.FormateDateTimeToPTBR(locacao.DataDevolucaoPrevista),
+                    DataPrevistaStr = StaticMethods.FormateDateTimeToPTBR(previsaoEfetiva), DataPrevista = previsaoEfetiva,
                     DataSaidaStr = StaticMethods.FormateDateTimeToPTBR(saida.DataHora),
                     ToleranciaAtrasoMinutos = model.ToleranciaAtrasoMinutos.Value, UnidadeAtraso = model.UnidadeAtraso!,
                     FracionamentoAtraso = model.FracionamentoAtraso!, UnidadesAposTolerancia = unidades,

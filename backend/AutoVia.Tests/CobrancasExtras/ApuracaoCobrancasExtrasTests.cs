@@ -2,6 +2,7 @@ using AutoMapper;
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.CobrancasExtras;
+using AutoVia.Communication.ViewObjects.Pagamento;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Profiles;
 using AutoVia.Helpers;
@@ -9,6 +10,7 @@ using AutoVia.Infrastructure.Services;
 using AutoVia.Tests.Fakes;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace AutoVia.Tests.CobrancasExtras;
 
@@ -23,15 +25,16 @@ public sealed class ApuracaoCobrancasExtrasTests
     private readonly ConfiguracoesCobrancasExtrasService _configService;
     private readonly Locacao _locacao;
     private readonly ConfiguracaoCobrancaExtra _config;
+    private readonly FakePagamentoService _pagamentos = new FakePagamentoService();
     public ApuracaoCobrancasExtrasTests()
     {
         _contexto = new ContextoEmpresa(_log); _contexto.Definir(1, 20, CargoFuncionario.ADMINISTRADOR, false);
         _repository = new FakeCobrancasExtrasRepository(_contexto);
         _locacoes.Adicionar(new Funcionario { IdFuncionario = 20, IdEmpresa = 1, Ativo = true });
-        _locacao = new Locacao { IdLocacao = 10, DataRetirada = Inicio, DataDevolucaoPrevista = Inicio.AddHours(2), KmSaida = 100,
+        _locacao = new Locacao { IdLocacao = 10, DataRetirada = Inicio, DataDevolucaoPrevista = Inicio.Date.AddDays(1), KmSaida = 100,
             Status = StatusLocacao.EM_ANDAMENTO, Veiculo = new Veiculo { IdVeiculo = 1, IdEmpresa = 1, IdCategoria = 1 } };
         _locacao.Vistorias.Add(new Vistoria { IdVistoria = 1, IdLocacao = 10, Tipo = TipoVistoria.ENTRADA, DataHora = Inicio, KmRegistrado = 100, NivelCombustivel = 1m });
-        _locacao.Vistorias.Add(new Vistoria { IdVistoria = 2, IdLocacao = 10, Tipo = TipoVistoria.SAIDA, DataHora = Inicio.AddHours(4), KmRegistrado = 200, NivelCombustivel = 0.5m, ComparacaoRealizada = true });
+        _locacao.Vistorias.Add(new Vistoria { IdVistoria = 2, IdLocacao = 10, Tipo = TipoVistoria.SAIDA, DataHora = Inicio.Date.AddDays(1).AddHours(10), KmRegistrado = 200, NivelCombustivel = 0.5m, ComparacaoRealizada = true });
         _repository.Locacoes.Add(_locacao);
         _config = new ConfiguracaoCobrancaExtra
         {
@@ -44,8 +47,8 @@ public sealed class ApuracaoCobrancasExtrasTests
         _repository.Configuracoes.Add(_config);
         MapperConfiguration configuracao = new MapperConfiguration(cfg => cfg.AddProfile<CobrancasExtrasProfile>(), NullLoggerFactory.Instance);
         CobrancasExtrasService calculadora = new CobrancasExtrasService(_locacoes, new FakeVistoriaRepository(), new FakeVistoriaSaidaRepository(), _log);
-        FakeRelogio relogio = new FakeRelogio(Inicio.AddHours(5));
-        _service = new ApuracaoCobrancasExtrasService(_repository, _locacoes, calculadora, _contexto, relogio, configuracao.CreateMapper(), _log);
+        FakeRelogio relogio = new FakeRelogio(Inicio.AddDays(1).AddHours(5));
+        _service = new ApuracaoCobrancasExtrasService(_repository, _locacoes, calculadora, _contexto, relogio, configuracao.CreateMapper(), _log, _pagamentos);
         FakeCategoriaRepository categorias = new FakeCategoriaRepository(); categorias.Adicionar(_config.Categoria);
         _configService = new ConfiguracoesCobrancasExtrasService(_repository, categorias, _contexto, relogio, configuracao.CreateMapper(), _log);
     }
@@ -73,6 +76,15 @@ public sealed class ApuracaoCobrancasExtrasTests
         Assert.Null(_locacao.ValorTotal); Assert.Null(_locacao.DataDevolucaoEfetiva); Assert.Null(_locacao.KmChegada);
         Assert.Equal(StatusLocacao.EM_ANDAMENTO, _locacao.Status);
         Assert.Equal(0, _locacoes.ChamadasStartFromReserva);
+        Assert.Equal(new DateTime(2026, 11, 19, 8, 0, 0), registro.Apuracao.Calculo.Atraso.DataPrevista);
+        Assert.Equal("19/11/2026 08:00", registro.Apuracao.Calculo.Atraso.DataPrevistaStr);
+        Assert.Equal(1, _pagamentos.Chamadas);
+        LancarPagamentoVO lancamento = _pagamentos.Lancamentos.Single();
+        Assert.Equal(10, lancamento.IdLocacao);
+        Assert.Equal(TipoPagamento.COBRANCA_EXTRA.ToString(), lancamento.Tipo);
+        Assert.Equal(230m, lancamento.Valor);
+        Assert.Equal(new DateOnly(2026, 11, 19), lancamento.DataVencimento);
+        Assert.Equal(1, registro.Apuracao.IdPagamentoLancado);
     }
 
     [Fact]
@@ -81,14 +93,17 @@ public sealed class ApuracaoCobrancasExtrasTests
         _locacao.Vistorias[1].Avarias.Add(new Avaria { IdAvaria = 4, IdVistoria = 2, Descricao = "Nova avaria", ValorEstimado = 30m });
         ResultadoRegistroApuracaoVO primeira = await _service.RegistrarAsync(10, Pedido());
         Assert.Equal(4, primeira.Apuracao.Cobrancas.Count); Assert.Equal(260m, primeira.Apuracao.Total);
+        Assert.Equal(260m, _pagamentos.Lancamentos.Single().Valor); Assert.Equal(1, primeira.Apuracao.IdPagamentoLancado);
         string esperado = JsonSerializer.Serialize(primeira.Apuracao);
         _config.DisabledAt = Inicio; _config.ValorKmExcedente = 99m;
         _locacao.Status = StatusLocacao.FINALIZADA; _locacao.Vistorias[1].Avarias[0].ValorEstimado = 800m;
         ResultadoRegistroApuracaoVO repetida = await _service.RegistrarAsync(10, Pedido());
         Assert.False(repetida.Criada); Assert.Equal(esperado, JsonSerializer.Serialize(repetida.Apuracao));
+        Assert.Equal(1, _pagamentos.Chamadas); Assert.Equal(1, repetida.Apuracao.IdPagamentoLancado);
         Assert.Equal(esperado, JsonSerializer.Serialize(await _service.BuscarAsync(10)));
         Assert.Equal(1, _repository.Insercoes);
         Assert.Contains("DataRetirada", _repository.Apuracoes[0].SnapshotJson);
+        Assert.Equal(1, _pagamentos.Chamadas);
         Assert.Contains("ComparacaoRealizada", _repository.Apuracoes[0].SnapshotJson);
     }
 
@@ -98,6 +113,7 @@ public sealed class ApuracaoCobrancasExtrasTests
         _config.FranquiaKm = 1000; _config.ToleranciaAtrasoMinutos = 999; _locacao.Vistorias[1].NivelCombustivel = 1m;
         ResultadoRegistroApuracaoVO primeira = await _service.RegistrarAsync(10, Pedido());
         Assert.Equal(0m, primeira.Apuracao.Total); Assert.Empty(primeira.Apuracao.Cobrancas); Assert.Single(_repository.Apuracoes);
+        Assert.Null(primeira.Apuracao.IdPagamentoLancado); Assert.Empty(_pagamentos.Lancamentos);
         _locacao.Vistorias.Clear(); _config.DisabledAt = Inicio;
         ResultadoRegistroApuracaoVO repetida = await _service.RegistrarAsync(10, Pedido());
         Assert.False(repetida.Criada); Assert.Equal(0m, repetida.Apuracao.Total); Assert.Empty(repetida.Apuracao.Cobrancas);
@@ -110,7 +126,7 @@ public sealed class ApuracaoCobrancasExtrasTests
         await Assert.ThrowsAsync<BusinessException>(() => _service.RegistrarAsync(10, Pedido()));
         _config.Versao = 1; _repository.ConflitoManual = true;
         await Assert.ThrowsAsync<BusinessException>(() => _service.RegistrarAsync(10, Pedido()));
-        Assert.Empty(_repository.Apuracoes); Assert.Equal(0, _repository.Insercoes);
+        Assert.Empty(_repository.Apuracoes); Assert.Equal(0, _repository.Insercoes); Assert.Equal(0, _pagamentos.Chamadas);
     }
 
     [Fact]
@@ -148,6 +164,7 @@ public sealed class ApuracaoCobrancasExtrasTests
     {
         ResultadoRegistroApuracaoVO[] resultados = await Task.WhenAll(_service.RegistrarAsync(10, Pedido()), _service.RegistrarAsync(10, Pedido()));
         Assert.Single(resultados, x => x.Criada); Assert.Single(_repository.Apuracoes); Assert.Equal(1, _repository.Insercoes);
+        Assert.Equal(1, _pagamentos.Chamadas); Assert.Single(_pagamentos.Lancamentos);
     }
 
     [Fact]
@@ -157,14 +174,43 @@ public sealed class ApuracaoCobrancasExtrasTests
         await Assert.ThrowsAsync<NotFoundException>(() => _service.BuscarAsync(10));
         await Assert.ThrowsAsync<NotFoundException>(() => _service.RegistrarAsync(10, Pedido()));
         await Assert.ThrowsAsync<NotFoundException>(() => _configService.BuscarAsync(1));
+        Assert.Equal(1, _pagamentos.Chamadas);
         Assert.Equal(1, _repository.Insercoes);
+    }
+
+    [Fact]
+    public async Task FalhaNoLancamentoDoPagamentoDesfazAApuracao()
+    {
+        _pagamentos.FalharLancamento = true;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.RegistrarAsync(10, Pedido()));
+        Assert.Empty(_repository.Apuracoes); Assert.Equal(1, _pagamentos.Chamadas); Assert.Empty(_pagamentos.Lancamentos);
+        Assert.Null(_locacao.ValorTotal); Assert.Equal(StatusLocacao.EM_ANDAMENTO, _locacao.Status);
+    }
+
+    [Fact]
+    public async Task ApuracaoGravadaAntesDaMudancaLeSemPagamentoNemPrevisaoERepeticaoNaoLanca()
+    {
+        await _service.RegistrarAsync(10, Pedido());
+        JsonObject snapshot = (JsonObject)JsonNode.Parse(_repository.Apuracoes[0].SnapshotJson)!;
+        JsonObject resultado = snapshot["Resultado"]!.AsObject();
+        resultado.Remove("IdPagamentoLancado");
+        JsonObject atraso = resultado["Calculo"]!["Atraso"]!.AsObject();
+        atraso.Remove("DataPrevista");
+        atraso["DataPrevistaStr"] = "19/11/2026 00:00";
+        _repository.Apuracoes[0].SnapshotJson = snapshot.ToJsonString();
+        ReturnApuracaoCobrancasExtrasVO lida = await _service.BuscarAsync(10);
+        Assert.Null(lida.IdPagamentoLancado); Assert.Null(lida.Calculo.Atraso.DataPrevista);
+        Assert.Equal("19/11/2026 00:00", lida.Calculo.Atraso.DataPrevistaStr);
+        ResultadoRegistroApuracaoVO repetida = await _service.RegistrarAsync(10, Pedido());
+        Assert.False(repetida.Criada); Assert.Null(repetida.Apuracao.IdPagamentoLancado);
+        Assert.Equal(1, _pagamentos.Chamadas); Assert.Empty(_log.Entries);
     }
 
     [Fact]
     public async Task FranquiaPorDiariaUsaSomentePrazoPrevistoESuportaLong()
     {
         _config.BaseFranquia = ConstantsMessage.CobrancasExtrasPorDiaria; _config.FranquiaKm = int.MaxValue;
-        _locacao.DataDevolucaoPrevista = Inicio.AddHours(25); _locacao.Vistorias[1].DataHora = Inicio.AddHours(80);
+        _locacao.DataDevolucaoPrevista = Inicio.Date.AddDays(2); _locacao.Vistorias[1].DataHora = Inicio.AddHours(80);
         ReturnSimulacaoCobrancasExtrasVO resultado = await _service.SimularAsync(10);
         Assert.Equal(2, resultado.DiariasPrevistas); Assert.Equal((long)int.MaxValue * 2, resultado.Quilometragem.PacoteKmTotal);
     }

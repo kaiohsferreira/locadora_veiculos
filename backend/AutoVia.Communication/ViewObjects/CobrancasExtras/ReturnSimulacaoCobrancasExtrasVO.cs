@@ -39,6 +39,7 @@ public sealed class MemoriaCombustivelVO
 public sealed class MemoriaAtrasoVO
 {
     public string DataPrevistaStr { get; set; } = string.Empty;
+    public DateTime? DataPrevista { get; set; }
     public string DataSaidaStr { get; set; } = string.Empty;
     public int ToleranciaAtrasoMinutos { get; set; }
     public string UnidadeAtraso { get; set; } = string.Empty;

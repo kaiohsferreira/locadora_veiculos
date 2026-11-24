@@ -3,6 +3,7 @@ using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.Enums;
 using AutoVia.Communication.Validators.CobrancasExtras;
 using AutoVia.Communication.ViewObjects.CobrancasExtras;
+using AutoVia.Communication.ViewObjects.Pagamento;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Regras;
 using AutoVia.Core.RepositoriesInterface;
@@ -23,12 +24,14 @@ public sealed class ApuracaoCobrancasExtrasService : IApuracaoCobrancasExtrasSer
     private readonly IRelogio _relogio;
     private readonly IMapper _mapper;
     private readonly ILogService _logService;
+    private readonly IPagamentoService _pagamentos;
 
     public ApuracaoCobrancasExtrasService(ICobrancasExtrasRepository repository, ILocacaoRepository locacoes,
-        ICobrancasExtrasService calculadora, IContextoEmpresa contexto, IRelogio relogio, IMapper mapper, ILogService logService)
+        ICobrancasExtrasService calculadora, IContextoEmpresa contexto, IRelogio relogio, IMapper mapper, ILogService logService,
+        IPagamentoService pagamentos)
     {
         _repository = repository; _locacoes = locacoes; _calculadora = calculadora;
-        _contexto = contexto; _relogio = relogio; _mapper = mapper; _logService = logService;
+        _contexto = contexto; _relogio = relogio; _mapper = mapper; _logService = logService; _pagamentos = pagamentos;
     }
 
     public async Task<ReturnSimulacaoCobrancasExtrasVO> SimularAsync(int idLocacao)
@@ -100,6 +103,14 @@ public sealed class ApuracaoCobrancasExtrasService : IApuracaoCobrancasExtrasSer
                 SnapshotApuracao snapshot = CriarSnapshot(locacao, calculo);
                 apuracao.SnapshotJson = JsonSerializer.Serialize(snapshot);
                 await _repository.InserirApuracaoAsync(apuracao);
+                if (calculo.Total > 0m)
+                {
+                    ReturnPagamentoVO pagamento = await _pagamentos.LancarAsync(new LancarPagamentoVO
+                    {
+                        IdLocacao = idLocacao, Tipo = nameof(TipoPagamento.COBRANCA_EXTRA), Valor = calculo.Total, DataVencimento = DateOnly.FromDateTime(agora)
+                    });
+                    snapshot.Resultado.IdPagamentoLancado = pagamento.IdPagamento;
+                }
                 ReturnApuracaoCobrancasExtrasVO resultado = snapshot.Resultado;
                 resultado.IdApuracao = apuracao.IdApuracao; resultado.IdLocacao = idLocacao;
                 resultado.IdConfiguracao = configuracao.IdConfiguracao; resultado.VersaoConfiguracao = configuracao.Versao;
@@ -146,9 +157,10 @@ public sealed class ApuracaoCobrancasExtrasService : IApuracaoCobrancasExtrasSer
         {
             List<Vistoria> entradas = locacao.Vistorias.Where(x => x.DisabledAt == null && x.Tipo == TipoVistoria.ENTRADA).ToList();
             List<Vistoria> saidas = locacao.Vistorias.Where(x => x.DisabledAt == null && x.Tipo == TipoVistoria.SAIDA).ToList();
-            if (entradas.Count != 1 || saidas.Count != 1 || locacao.DataDevolucaoPrevista <= locacao.DataRetirada)
+            DateTime previsaoEfetiva = RegrasCobrancasExtras.DevolucaoPrevistaEfetiva(locacao.DataRetirada, locacao.DataDevolucaoPrevista);
+            if (entradas.Count != 1 || saidas.Count != 1 || previsaoEfetiva <= locacao.DataRetirada)
                 throw new BusinessException(ConstantsMessage.ErroCobrancasExtrasVistorias);
-            int diarias = checked((int)decimal.Ceiling((locacao.DataDevolucaoPrevista - locacao.DataRetirada).Ticks / (decimal)TimeSpan.TicksPerDay));
+            int diarias = checked((int)decimal.Ceiling((previsaoEfetiva - locacao.DataRetirada).Ticks / (decimal)TimeSpan.TicksPerDay));
             SimularCobrancasExtrasVO parametros = new SimularCobrancasExtrasVO
             {
                 PacoteKmTotal = configuracao.BaseFranquia == ConstantsMessage.CobrancasExtrasPorDiaria ? (long)configuracao.FranquiaKm * diarias : configuracao.FranquiaKm,

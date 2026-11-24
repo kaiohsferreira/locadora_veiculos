@@ -12,6 +12,7 @@ namespace AutoVia.Tests.CobrancasExtras;
 public sealed class CobrancasExtrasServiceTests
 {
     private static readonly DateTime Inicio = new DateTime(2026, 11, 18, 8, 0, 0);
+    private static readonly DateTime PrevistaEfetiva = Inicio.Date.AddDays(1).AddHours(8);
     private readonly FakeLocacaoRepository _locacoes = new FakeLocacaoRepository();
     private readonly FakeVistoriaSaidaRepository _saidas = new FakeVistoriaSaidaRepository();
     private readonly FakeLogService _log = new FakeLogService();
@@ -19,9 +20,9 @@ public sealed class CobrancasExtrasServiceTests
 
     public CobrancasExtrasServiceTests()
     {
-        _locacoes.Adicionar(new Locacao { IdLocacao = 10, KmSaida = 100, DataRetirada = Inicio, DataDevolucaoPrevista = Inicio.AddHours(2) });
+        _locacoes.Adicionar(new Locacao { IdLocacao = 10, KmSaida = 100, DataRetirada = Inicio, DataDevolucaoPrevista = Inicio.Date.AddDays(1) });
         _saidas.Vistorias.Vistorias.Add(new Vistoria { IdVistoria = 1, IdLocacao = 10, Tipo = TipoVistoria.ENTRADA, DataHora = Inicio, KmRegistrado = 100, NivelCombustivel = 1m });
-        _saidas.Vistorias.Vistorias.Add(new Vistoria { IdVistoria = 2, IdLocacao = 10, Tipo = TipoVistoria.SAIDA, DataHora = Inicio.AddHours(4), KmRegistrado = 200, NivelCombustivel = 0.5m, ComparacaoRealizada = true });
+        _saidas.Vistorias.Vistorias.Add(new Vistoria { IdVistoria = 2, IdLocacao = 10, Tipo = TipoVistoria.SAIDA, DataHora = Inicio.Date.AddDays(1).AddHours(10), KmRegistrado = 200, NivelCombustivel = 0.5m, ComparacaoRealizada = true });
         _saidas.Avarias.Add(new Avaria { IdAvaria = 1, IdVistoria = 2, IdAvariaEntrada = 99, ValorEstimado = null });
         _saidas.Avarias.Add(new Avaria { IdAvaria = 2, IdVistoria = 2, Descricao = "Dano novo", ValorEstimado = 30m });
         _service = new CobrancasExtrasService(_locacoes, _saidas.Vistorias, _saidas, _log);
@@ -48,7 +49,7 @@ public sealed class CobrancasExtrasServiceTests
         Assert.True(resultado.Provisorio);
         Assert.True(resultado.Simulacao);
         Assert.Equal(ConstantsMessage.AvisoCobrancasExtrasSimulacao, resultado.Aviso);
-        Assert.Equal("18/11/2026 10:00", resultado.Atraso.DataPrevistaStr);
+        Assert.Equal("19/11/2026 08:00", resultado.Atraso.DataPrevistaStr);
         ReturnSimulacaoCobrancasExtrasVO repetida = await _service.SimularAsync(10, Parametros());
         Assert.Equal(resultado.Total, repetida.Total);
         Locacao locacao = (await _locacoes.FindByIdAsync(10))!;
@@ -137,7 +138,7 @@ public sealed class CobrancasExtrasServiceTests
         parametros.UnidadeAtraso = unidade;
         parametros.FracionamentoAtraso = ConstantsMessage.CobrancasExtrasProporcional;
         parametros.ValorUnidadeAtraso = tarifaCentavos / 100m;
-        _saidas.Vistorias.Vistorias[1].DataHora = Inicio.AddHours(2).AddMinutes(minutos).AddTicks(ajusteTicks);
+        _saidas.Vistorias.Vistorias[1].DataHora = PrevistaEfetiva.AddMinutes(minutos).AddTicks(ajusteTicks);
         ReturnSimulacaoCobrancasExtrasVO resultado = await _service.SimularAsync(10, parametros);
         Assert.Equal(esperadoCentavos / 100m, resultado.Atraso.Valor);
         Assert.Equal(resultado.Quilometragem.Valor + resultado.Combustivel.Valor + resultado.Avarias.Valor + resultado.Atraso.Valor, resultado.Total);
@@ -146,7 +147,7 @@ public sealed class CobrancasExtrasServiceTests
     [Fact]
     public async Task AtrasoUmTickNaoUsaDoubleEUnidadeIniciadaCobraUma()
     {
-        _saidas.Vistorias.Vistorias[1].DataHora = Inicio.AddHours(2).AddTicks(1);
+        _saidas.Vistorias.Vistorias[1].DataHora = PrevistaEfetiva.AddTicks(1);
         SimularCobrancasExtrasVO parametros = Parametros();
         parametros.ToleranciaAtrasoMinutos = 0;
         parametros.FracionamentoAtraso = ConstantsMessage.CobrancasExtrasIniciada;

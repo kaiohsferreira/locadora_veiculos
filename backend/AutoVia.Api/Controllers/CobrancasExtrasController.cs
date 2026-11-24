@@ -26,6 +26,7 @@ public sealed class CobrancasExtrasController : ControllerBase
     { _service = service; _logService = logService; }
 
     /// <summary>Simula os quatro tipos de cobrança usando a configuração cadastrada para a categoria.</summary>
+    [Authorize(Policy = ConstantsValues.PoliticaApuradorCobrancasExtras)]
     [HttpPost("simulacao")]
     [ProducesResponseType(typeof(ReturnSimulacaoCobrancasExtrasVO), StatusCodes.Status200OK)]
     public async Task<IActionResult> Simular(int idLocacao)
@@ -60,6 +61,7 @@ public sealed class CobrancasExtrasController : ControllerBase
     }
 
     /// <summary>Registra cobranças atomicamente; repetições devolvem a apuração anterior.</summary>
+    [Authorize(Policy = ConstantsValues.PoliticaApuradorCobrancasExtras)]
     [HttpPost("apuracao")]
     [ProducesResponseType(typeof(ReturnApuracaoCobrancasExtrasVO), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ReturnApuracaoCobrancasExtrasVO), StatusCodes.Status200OK)]

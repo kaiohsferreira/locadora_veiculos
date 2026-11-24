@@ -9,6 +9,7 @@ public sealed class ApurarCobrancasExtrasVO
 public sealed class ReturnApuracaoCobrancasExtrasVO
 {
     public int IdApuracao { get; set; }
+    public int? IdPagamentoLancado { get; set; }
     public int IdLocacao { get; set; }
     public int IdConfiguracao { get; set; }
     public int VersaoConfiguracao { get; set; }

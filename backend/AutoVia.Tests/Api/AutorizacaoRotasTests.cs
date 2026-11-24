@@ -107,6 +107,37 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
+        public void CobrancasExtras_SimularEApurarExigemPoliticaApuradorNaAcao()
+        {
+            Type controller = typeof(CobrancasExtrasController);
+            AuthorizeAttribute? classe = controller.GetCustomAttribute<AuthorizeAttribute>();
+            MethodInfo simular = controller.GetMethod(nameof(CobrancasExtrasController.Simular))!;
+            MethodInfo apurar = controller.GetMethod(nameof(CobrancasExtrasController.RegistrarApuracao))!;
+            MethodInfo consultar = controller.GetMethod(nameof(CobrancasExtrasController.BuscarApuracao))!;
+
+            Assert.NotNull(classe);
+            Assert.Equal(ConstantsValues.PoliticaFuncionario, classe!.Policy);
+            Assert.Equal(ConstantsValues.PoliticaApuradorCobrancasExtras, simular.GetCustomAttribute<AuthorizeAttribute>()!.Policy);
+            Assert.Equal(ConstantsValues.PoliticaApuradorCobrancasExtras, apurar.GetCustomAttribute<AuthorizeAttribute>()!.Policy);
+            Assert.Null(consultar.GetCustomAttribute<AuthorizeAttribute>());
+        }
+
+        [Fact]
+        public void VistoriaSaida_NaoTemPoliticaApuradorNaClasseNemEmAcao()
+        {
+            Type controller = typeof(VistoriaSaidaController);
+            AuthorizeAttribute? classe = controller.GetCustomAttribute<AuthorizeAttribute>();
+
+            Assert.NotNull(classe);
+            Assert.Equal(ConstantsValues.PoliticaFuncionario, classe!.Policy);
+            foreach (MethodInfo acao in controller.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+            {
+                IEnumerable<AuthorizeAttribute> autorizacoes = acao.GetCustomAttributes<AuthorizeAttribute>();
+                Assert.DoesNotContain(autorizacoes, x => x.Policy == ConstantsValues.PoliticaApuradorCobrancasExtras);
+            }
+        }
+
+        [Fact]
         public void Avaria_ExigeFuncionarioNaClasse()
         {
             AuthorizeAttribute? autorizacao = typeof(AvariaController).GetCustomAttribute<AuthorizeAttribute>();
