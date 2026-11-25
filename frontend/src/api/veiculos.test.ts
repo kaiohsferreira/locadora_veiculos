@@ -54,6 +54,8 @@ describe('buscarVeiculosDisponiveis', () => {
     const filtro = {
       dataRetirada: '2026-12-12',
       dataDevolucao: '2026-12-14',
+      cidade: 'São Paulo',
+      uf: 'SP',
       idCategoria: 3,
       valorDiariaMin: 100,
       valorDiariaMax: 250,

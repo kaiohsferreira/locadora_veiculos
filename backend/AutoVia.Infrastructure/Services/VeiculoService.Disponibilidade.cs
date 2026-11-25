@@ -14,8 +14,8 @@ namespace AutoVia.Infrastructure.Services
         {
             try
             {
-                int total = await _veiculoRepository.CountDisponiveisAsync(filtro.DataRetirada, filtro.DataDevolucao, filtro.IdCategoria, filtro.ValorDiariaMin, filtro.ValorDiariaMax);
-                List<Veiculo> veiculos = await _veiculoRepository.FindDisponiveisAsync(filtro.DataRetirada, filtro.DataDevolucao, filtro.IdCategoria, filtro.ValorDiariaMin, filtro.ValorDiariaMax, filtro.Deslocamento, filtro.TamanhoPagina);
+                int total = await _veiculoRepository.CountDisponiveisAsync(filtro.DataRetirada, filtro.DataDevolucao, filtro.IdCategoria, filtro.ValorDiariaMin, filtro.ValorDiariaMax, filtro.Cidade, filtro.Uf);
+                List<Veiculo> veiculos = await _veiculoRepository.FindDisponiveisAsync(filtro.DataRetirada, filtro.DataDevolucao, filtro.IdCategoria, filtro.ValorDiariaMin, filtro.ValorDiariaMax, filtro.Deslocamento, filtro.TamanhoPagina, filtro.Cidade, filtro.Uf);
                 List<ReturnVeiculoDisponivelVO> itens = _mapper.Map<List<ReturnVeiculoDisponivelVO>>(veiculos);
                 await _fotoCapaVeiculoService.PreencherAsync(veiculos, itens);
                 PaginaVO<ReturnVeiculoDisponivelVO> pagina = new PaginaVO<ReturnVeiculoDisponivelVO>(itens, total, filtro.Pagina, filtro.TamanhoPagina);

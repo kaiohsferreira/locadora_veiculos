@@ -303,6 +303,41 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
+        public void ConsultaDisponiveisComLocal_FiltraEmpresaAntesDaPaginacaoEmTodosOsContextos()
+        {
+            foreach (AutoViaDbContext db in CriarTresContextos())
+            {
+                using AutoViaDbContext contextoDoTeste = db;
+                VeiculoRepository repositorio = new VeiculoRepository(contextoDoTeste, new FakeLogService());
+
+                string sqlBase = repositorio.ConsultaDisponiveis(
+                    RetiradaDoTeste, DevolucaoDoTeste, 1, 20m, 300m, "  SÃO PAULO  ", " sp ").ToQueryString();
+                string sqlPagina = repositorio.ConsultaDisponiveisPaginada(
+                    RetiradaDoTeste, DevolucaoDoTeste, 1, 20m, 300m, 20, 10, "  SÃO PAULO  ", " sp ").ToQueryString();
+
+                AssertLocadoraAtivaNoWhere(sqlBase);
+                AssertLocadoraAtivaNoWhere(sqlPagina);
+                Assert.DoesNotContain(ParametroEmpresa, sqlBase);
+                Assert.DoesNotContain(ParametroEmpresa, sqlPagina);
+                Assert.Contains(Exists, sqlBase);
+                Assert.Contains(Exists, sqlPagina);
+                Assert.Contains("são paulo", sqlBase);
+                Assert.Contains("'SP'", sqlBase);
+                AssertPredicadoLocal(TrechoAPartirDe(sqlBase, PalavraWhere));
+
+                int limite = sqlPagina.IndexOf(Limit, StringComparison.Ordinal);
+                Assert.True(limite >= 0);
+                AssertPredicadoLocal(TrechoAPartirDe(sqlPagina[..limite], PalavraWhere));
+            }
+        }
+
+        private static void AssertPredicadoLocal(string where)
+        {
+            Assert.Matches(@"lower\(btrim\(\w+\.cidade[^)]*\)\) = @", where);
+            Assert.Matches(@"upper\(\w+\.uf\) = @", where);
+        }
+
+        [Fact]
         public void ConsultaCatalogo_NaoCarregaFiltroDeEmpresa_EmTodosOsContextos()
         {
             foreach (AutoViaDbContext db in CriarTresContextos())

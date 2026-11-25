@@ -28,6 +28,7 @@ export interface PainelHistoricoReservasProps {
   aoMudarBusca: (texto: string) => void;
   aoEnviarBusca: () => void;
   aoLimparBusca: () => void;
+  aoFalharFotoCapa?: () => void;
 }
 
 /**
@@ -43,6 +44,7 @@ export function PainelHistoricoReservas({
   aoMudarBusca,
   aoEnviarBusca,
   aoLimparBusca,
+  aoFalharFotoCapa,
 }: PainelHistoricoReservasProps) {
   const { dados, carregando, erro, atualizando, aoTentarNovamente } = estado;
 
@@ -81,7 +83,11 @@ export function PainelHistoricoReservas({
             {MENSAGEM_RESERVAS_ERRO_ATUALIZACAO}
           </p>
         ) : null}
-        <ListaHistoricoReservas itens={dados.itens} carregando={false} />
+        <ListaHistoricoReservas
+          itens={dados.itens}
+          carregando={false}
+          aoFalharFotoCapa={aoFalharFotoCapa}
+        />
         <div className="border-t border-borda bg-steel-fundo [&_nav>ul]:flex-wrap">
           <Paginacao
             pagina={pagina}

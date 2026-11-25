@@ -35,6 +35,7 @@ namespace AutoVia.Tests.Api
     public sealed class ReservaEmailSandboxHttpTests
     {
         private const string RotaReserva = "/api/reservas";
+        private const string CampoIdReserva = "idReserva";
         private const string CampoCodigo = "codigo";
         private const string CampoValorEstimado = "valorEstimado";
         private const string Destinatario = "titular.t-int-01@example.test";
@@ -109,6 +110,28 @@ namespace AutoVia.Tests.Api
             }
         }
 
+        [Fact]
+        public async Task Post_ComFalhaNaNotificacao_PreservaReservaERegistraErroSemEmailDoTitular()
+        {
+            using FabricaEmailSandbox fabrica = new FabricaEmailSandbox(
+                Path.GetTempPath(),
+                clienteAprovado: true,
+                notificacaoDeTeste: new NotificacaoComFalha());
+            using HttpClient cliente = fabrica.CriarClienteAutenticado();
+            using HttpResponseMessage resposta = await CriarReservaAsync(cliente);
+
+            Assert.Equal(HttpStatusCode.Created, resposta.StatusCode);
+            Assert.Equal(1, fabrica.Reservas.ChamadasDeInsercao);
+            Reserva? armazenada = fabrica.Reservas.Armazenada;
+            Assert.NotNull(armazenada);
+            using JsonDocument corpo = JsonDocument.Parse(await resposta.Content.ReadAsStringAsync());
+            Assert.Equal(armazenada.IdReserva, corpo.RootElement.GetProperty(CampoIdReserva).GetInt32());
+
+            List<string> entradas = fabrica.Log.Snapshot();
+            Assert.Contains(entradas, entrada => entrada.Contains(ConstantsMessage.ErroEmailNotificarReservaCriada, StringComparison.Ordinal));
+            Assert.DoesNotContain(entradas, entrada => entrada.Contains(Destinatario, StringComparison.OrdinalIgnoreCase));
+        }
+
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
@@ -135,13 +158,19 @@ namespace AutoVia.Tests.Api
         {
             private readonly string _raizDaCaixa;
             private readonly FakeEmailFila? _filaDeTeste;
+            private readonly INotificacaoTransacionalService? _notificacaoDeTeste;
             private readonly ArmazenamentoClienteLocadora _locadoras = new ArmazenamentoClienteLocadora();
             private readonly FakeIntegrationRepository _integracoes = new FakeIntegrationRepository();
 
-            public FabricaEmailSandbox(string raizDaCaixa, bool clienteAprovado, FakeEmailFila? filaDeTeste = null)
+            public FabricaEmailSandbox(
+                string raizDaCaixa,
+                bool clienteAprovado,
+                FakeEmailFila? filaDeTeste = null,
+                INotificacaoTransacionalService? notificacaoDeTeste = null)
             {
                 _raizDaCaixa = raizDaCaixa;
                 _filaDeTeste = filaDeTeste;
+                _notificacaoDeTeste = notificacaoDeTeste;
 
                 Cliente titular = Repositorio.Clientes[0];
                 titular.Email = Destinatario;
@@ -162,6 +191,8 @@ namespace AutoVia.Tests.Api
 
             public FakeReservaRepository Reservas { get; } = new FakeReservaRepository();
 
+            public FakeLogService Log { get; } = new FakeLogService();
+
             public HttpClient CriarClienteAutenticado()
             {
                 HttpClient cliente = CreateClient();
@@ -181,6 +212,7 @@ namespace AutoVia.Tests.Api
                 builder.ConfigureLogging(logs => logs.ClearProviders());
                 builder.ConfigureTestServices(servicos =>
                 {
+                    servicos.Replace(ServiceDescriptor.Singleton<ILogService>(Log));
                     servicos.Replace(ServiceDescriptor.Singleton<IReservaRepository>(Reservas));
                     servicos.Replace(ServiceDescriptor.Scoped<IClienteLocadoraRepository>(provedor =>
                         new FakeClienteLocadoraRepository(provedor.GetRequiredService<IContextoEmpresa>(), _locadoras)));
@@ -194,6 +226,11 @@ namespace AutoVia.Tests.Api
                     if (_filaDeTeste != null)
                     {
                         servicos.Replace(ServiceDescriptor.Singleton<IEmailFila>(_filaDeTeste));
+                    }
+
+                    if (_notificacaoDeTeste != null)
+                    {
+                        servicos.Replace(ServiceDescriptor.Singleton<INotificacaoTransacionalService>(_notificacaoDeTeste));
                     }
                 });
             }
@@ -216,6 +253,18 @@ namespace AutoVia.Tests.Api
                     }
                 };
             }
+        }
+
+        private sealed class NotificacaoComFalha : INotificacaoTransacionalService
+        {
+            public Task ConfirmarReservaAsync(ReservaCriadaEmail evento)
+            {
+                return Task.FromException(new InvalidOperationException());
+            }
+
+            public Task EmitirReciboDevolucaoAsync(LocacaoFinalizadaEmail evento) => Task.CompletedTask;
+
+            public Task AvisarCobrancaAsync(CobrancaLancadaEmail evento) => Task.CompletedTask;
         }
 
         private sealed class AmbienteCaixa : IHostEnvironment

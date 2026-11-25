@@ -8,8 +8,7 @@ namespace AutoVia.Tests.Reservas
 {
     /// <summary>
     /// Guardas de codigo-fonte do ReservaRepository: (1) todo catch tipado (404 e 409 dentro da transacao) registra no log
-    /// antes de relancar (decisao D-9); (2) todo metodo publico termina em catch com log e throw, com log sanitizado na
-    /// consulta do e-mail;
+    /// antes de relancar (decisao D-9); (2) todo metodo publico termina em catch com log e throw;
     /// (3) o insert da reserva zera o id, preenche CreatedAt e UpdatedAt e deixa DisabledAt nulo. A guarda (3) prova so que o
     /// codigo atribui esses campos; o valor gravado no PostgreSQL nao e provado aqui (roteiro manual).
     /// Os simbolos de bypass do filtro "Empresa" e o SQL direto, por metodo, estao em GuardaPorMetodoRepositoriosTests.
@@ -22,7 +21,6 @@ namespace AutoVia.Tests.Reservas
         private const string PadraoCatchTipadoComLog = @"catch \((BusinessException|NotFoundException) \w+\)\s*\{\s*_logService\.Write\(";
         private const string PadraoCatchTipado = @"catch \((BusinessException|NotFoundException) ";
         private const string PadraoCatchGenericoComLogEThrow = @"catch \(Exception ex\)\s*\{\s*_logService\.Write\(ex, ConstantsMessage\.\w+, GetType\(\)\.ToString\(\)\);\s*throw;\s*\}\s*\}\s*$";
-        private const string PadraoCatchEmailSanitizadoComLogEThrow = @"catch \(Exception\)\s*\{\s*_logService\.Write\(ConstantsMessage\.ErroEmailBuscarTitularReserva, ConstantsMessage\.ErroEmailBuscarTitularReserva, GetType\(\)\.ToString\(\)\);\s*throw;\s*\}\s*\}\s*$";
         private const string MensagemCatchInvalido = "Metodo publico sem o catch esperado com log e throw: {0}";
         private const string InicioDeMetodoPublico = "        public ";
         private const string InicioDeDocumentacao = "///";
@@ -108,10 +106,8 @@ namespace AutoVia.Tests.Reservas
             Assert.Contains(NomeMetodoBuscarEmail, corpos.Keys);
             foreach (KeyValuePair<string, string> metodo in corpos)
             {
-                string padrao = metodo.Key == NomeMetodoBuscarEmail
-                    ? PadraoCatchEmailSanitizadoComLogEThrow
-                    : PadraoCatchGenericoComLogEThrow;
-                Assert.True(Regex.IsMatch(metodo.Value.TrimEnd(), padrao), string.Format(MensagemCatchInvalido, metodo.Key));
+                Assert.True(Regex.IsMatch(metodo.Value.TrimEnd(), PadraoCatchGenericoComLogEThrow),
+                    string.Format(MensagemCatchInvalido, metodo.Key));
             }
         }
 

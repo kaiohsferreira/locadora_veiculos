@@ -1,4 +1,7 @@
+using AutoVia.Communication.ViewObjects.Frota;
 using AutoVia.Core.Entities.PgSql;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace AutoVia.Core.RepositoriesInterface
 {
@@ -8,6 +11,9 @@ namespace AutoVia.Core.RepositoriesInterface
     /// </summary>
     public interface IEmpresaRepository
     {
+        /// <summary>Lista os pares públicos de cidade e UF das locadoras ativas.</summary>
+        Task<List<ReturnCidadeLocadoraVO>> FindCidadesAtivasAsync();
+
         /// <summary>Indica se existe empresa ativa (DisabledAt nulo, ativa ou nao) com o CNPJ informado (so digitos).</summary>
         Task<bool> ExistsByCnpjAsync(string cnpj);
 

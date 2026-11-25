@@ -117,7 +117,9 @@ namespace AutoVia.Tests.Integrations.Email
             // A segunda mensagem so chega ao gateway se o servico sobreviveu a primeira falha.
             Assert.Same(gateway.Concluido.Task, concluidoOuEsgotado);
             Assert.Equal(2, gateway.Recebidas.Count);
-            Assert.Contains(log.Entries, entrada => entrada.Contains(ConstantsMessage.ErroEmailEnviar));
+            string tipoDeFalha = string.Format(ConstantsMessage.LogEmailTipoFalha, nameof(InvalidOperationException));
+            Assert.Contains(log.Entries, entrada => entrada.Contains(ConstantsMessage.ErroEmailEnviar, StringComparison.Ordinal)
+                && entrada.Contains(tipoDeFalha, StringComparison.Ordinal));
             Assert.DoesNotContain(log.Entries, entrada => entrada.Contains(Destinatario));
             Assert.DoesNotContain(log.Entries, entrada => entrada.Contains(Assunto));
             Assert.DoesNotContain(log.Entries, entrada => entrada.Contains("ABC-TOKEN-987"));

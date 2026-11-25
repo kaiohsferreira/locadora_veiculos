@@ -3,6 +3,7 @@ using AutoVia.Communication.Validators.Utils;
 using AutoVia.Helpers;
 using FluentValidation;
 using System;
+using System.Linq;
 
 namespace AutoVia.Communication.Validators.Frota
 {
@@ -18,6 +19,15 @@ namespace AutoVia.Communication.Validators.Frota
             RuleFor(x => x.ValorDiariaMin).GreaterThanOrEqualTo(0m).When(x => x.ValorDiariaMin.HasValue).WithMessage(ConstantsMessage.ErroDisponibilidadeValorInvalido);
             RuleFor(x => x.ValorDiariaMax).GreaterThanOrEqualTo(0m).When(x => x.ValorDiariaMax.HasValue).WithMessage(ConstantsMessage.ErroDisponibilidadeValorInvalido);
             RuleFor(x => x.ValorDiariaMax).GreaterThanOrEqualTo(x => x.ValorDiariaMin).When(x => x.ValorDiariaMin.HasValue && x.ValorDiariaMax.HasValue).WithMessage(ConstantsMessage.ErroDisponibilidadeFaixaInvalida);
+            When(x => x.Cidade != null || x.Uf != null, () =>
+            {
+                RuleFor(x => x.Cidade)
+                    .Must(cidade => cidade != null && cidade.Trim().Length is > 0 and <= ConstantsValues.TamanhoMaximoCidadeLocadora)
+                    .WithMessage(ConstantsMessage.ErroDisponibilidadeCidadeInvalida);
+                RuleFor(x => x.Uf)
+                    .Must(uf => uf != null && ConstantsValues.UfsBrasileiras.Contains(uf.Trim().ToUpperInvariant()))
+                    .WithMessage(ConstantsMessage.ErroDisponibilidadeUfInvalida);
+            });
         }
     }
 }

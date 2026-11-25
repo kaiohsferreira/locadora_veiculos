@@ -1,166 +1,96 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { BotaoLink, EstadoErro, Icone } from '@/components/ui';
 import { useTituloDocumento } from '@/hooks/useTituloDocumento';
+import { MENSAGENS_BUSCA as texto } from '@/lib/mensagensBusca';
 import { CAMINHOS } from '@/routes/caminhos';
-import { Botao, Campo, Icone } from '@/components/ui';
+import { CamposPeriodoBusca } from '../busca/CamposPeriodoBusca';
+import { BUSCA_VAZIA, hojeLocal, montarParametrosBusca, validarBusca, type ErrosBusca, type RascunhoBusca } from '../busca/parametrosBusca';
+import { useCategoriasVeiculos } from '../hooks/useVeiculosDisponiveis';
 
-interface PeriodoBusca {
-  localRetirada: string;
-  dataRetirada: string;
-  dataDevolucao: string;
-}
-
-function dataLocalISO(data: Date): string {
-  const ano = data.getFullYear();
-  const mes = String(data.getMonth() + 1).padStart(2, '0');
-  const dia = String(data.getDate()).padStart(2, '0');
-  return `${ano}-${mes}-${dia}`;
-}
-
-function diaSeguinteISO(dataISO: string): string {
-  const data = new Date(`${dataISO}T00:00:00`);
-  data.setDate(data.getDate() + 1);
-  return dataLocalISO(data);
-}
-
-/** P3-FE-01 · Página inicial com busca de veículos por período. */
+/** P3-FE-01 · Pesquisa de aluguel e acesso ao catálogo de seminovos. */
 export default function InicioPagina() {
-  useTituloDocumento('Alugue seu próximo carro');
+  useTituloDocumento(texto.tituloInicio);
   const navegar = useNavigate();
-  const [hoje] = useState(() => dataLocalISO(new Date()));
-  const [periodo, setPeriodo] = useState<PeriodoBusca>({ localRetirada: '', dataRetirada: '', dataDevolucao: '' });
-  const [erroPeriodo, setErroPeriodo] = useState('');
-  const [erroLocalRetirada, setErroLocalRetirada] = useState('');
+  const hoje = hojeLocal();
+  const categorias = useCategoriasVeiculos();
+  const [rascunho, definirRascunho] = useState<RascunhoBusca>(BUSCA_VAZIA);
+  const [tentouBuscar, definirTentouBuscar] = useState(false);
+  const erros: ErrosBusca = tentouBuscar ? validarBusca(rascunho, hoje) : {};
 
-  function buscarVeiculos(evento: FormEvent<HTMLFormElement>) {
+  function alterar(campo: keyof RascunhoBusca, valor: string) {
+    definirRascunho((atual) => ({ ...atual, [campo]: valor }));
+  }
+
+  function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
-
-    if (periodo.localRetirada.trim() === '') {
-      setErroLocalRetirada('Informe a unidade de retirada.');
-      return;
-    }
-    if (!periodo.dataRetirada || !periodo.dataDevolucao) {
-      setErroPeriodo('Informe as datas de retirada e devolução.');
-      return;
-    }
-    if (periodo.dataRetirada >= periodo.dataDevolucao) {
-      setErroPeriodo('A devolução deve acontecer depois da retirada.');
-      return;
-    }
-
-    setErroPeriodo('');
-    setErroLocalRetirada('');
-    const parametros = new URLSearchParams({
-      localRetirada: periodo.localRetirada.trim(),
-      dataRetirada: periodo.dataRetirada,
-      dataDevolucao: periodo.dataDevolucao,
-    });
-
-    navegar({ pathname: CAMINHOS.resultadosBusca, search: parametros.toString() });
+    definirTentouBuscar(true);
+    if (Object.keys(validarBusca(rascunho, hoje)).length > 0) return;
+    navegar({ pathname: CAMINHOS.resultadosBusca, search: montarParametrosBusca(rascunho).toString() });
   }
 
   return (
-    <div className="overflow-hidden">
-      <section aria-labelledby="titulo-inicio" className="relative isolate bg-navy">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-40 -top-48 -z-10 h-[34rem] w-[34rem] rounded-full bg-navy-claro/70 blur-3xl"
-        />
-        <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-14 lg:px-8 lg:py-24">
-          <div className="max-w-2xl text-branco">
-            <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-branco/20 bg-branco/10 px-3 py-1.5 text-corpo-denso font-medium text-branco">
-              <Icone nome="directions_car" tamanho={18} />
-              Seu caminho começa aqui
-            </p>
-            <h1 id="titulo-inicio" className="text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
-              Liberdade para ir mais longe.
-            </h1>
-            <p className="mt-5 max-w-xl text-lg leading-8 text-branco/80">
-              Escolha as datas da sua viagem e encontre o carro ideal para cada caminho.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-corpo-denso text-branco/90">
-              <span className="inline-flex items-center gap-2"><Icone nome="verified_user" tamanho={19} /> Veículos selecionados</span>
-              <span className="inline-flex items-center gap-2"><Icone nome="event_available" tamanho={19} /> Datas flexíveis</span>
-            </div>
-          </div>
-
-          <div className="rounded-xl bg-branco p-5 shadow-xl sm:p-7">
-            <div className="mb-6">
-              <p className="text-legenda font-semibold uppercase tracking-wider text-orange-escuro">Planeje sua viagem</p>
-              <h2 className="mt-1 text-2xl font-bold text-navy">Quando você precisa do carro?</h2>
-              <p className="mt-2 text-corpo-denso text-texto-suave">Informe a retirada e a devolução para consultar a disponibilidade.</p>
-            </div>
-
-            <form className="space-y-5" onSubmit={buscarVeiculos} noValidate>
-              <Campo
-                rotulo="Unidade de retirada"
-                name="localRetirada"
-                type="text"
-                autoComplete="off"
-                maxLength={100}
-                required
-                placeholder="Digite o nome da unidade"
-                dica="Este local é mantido como contexto da retirada; a disponibilidade consulta a frota global."
-                value={periodo.localRetirada}
-                erro={erroLocalRetirada}
-                onChange={(evento) => {
-                  setPeriodo((atual) => ({ ...atual, localRetirada: evento.target.value }));
-                  setErroLocalRetirada('');
-                }}
-              />
-              <div className="grid gap-5 sm:grid-cols-2">
-                <Campo
-                  rotulo="Data de retirada"
-                  type="date"
-                  name="dataRetirada"
-                  autoComplete="off"
-                  required
-                  min={hoje}
-                  value={periodo.dataRetirada}
-                  onChange={(evento) => {
-                    setPeriodo((atual) => ({ ...atual, dataRetirada: evento.target.value }));
-                    setErroPeriodo('');
-                  }}
-                />
-                <Campo
-                  rotulo="Data de devolução"
-                  type="date"
-                  name="dataDevolucao"
-                  autoComplete="off"
-                  required
-                  min={periodo.dataRetirada ? diaSeguinteISO(periodo.dataRetirada) : hoje}
-                  value={periodo.dataDevolucao}
-                  erro={erroPeriodo}
-                  onChange={(evento) => {
-                    setPeriodo((atual) => ({ ...atual, dataDevolucao: evento.target.value }));
-                    setErroPeriodo('');
-                  }}
-                />
-              </div>
-              <Botao type="submit" tamanho="grande" larguraTotal iconeDireita="arrow_forward">
-                Buscar veículos
-              </Botao>
-              <p className="text-center text-legenda text-texto-suave">
-                A consulta é gratuita. Você escolhe e confirma a reserva na próxima etapa.
-              </p>
-            </form>
-          </div>
+    <div className="bg-offwhite">
+      {/* O protótipo também traz horários, mapa, selos, fotos de categoria, vantagens e indicadores comerciais
+          sem suporte nos dados da página. O preço inicial por categoria segue em decisão. */}
+      <section aria-labelledby="titulo-inicio" className="bg-gradient-to-br from-navy-escuro via-navy to-navy-claro pb-24 pt-12 sm:pt-16 lg:pb-32">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+          <h1 id="titulo-inicio" className="max-w-xl text-titulo-hero text-branco">{texto.tituloInicio}</h1>
         </div>
       </section>
 
-      <section aria-label="Vantagens AutoVia" className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-10 sm:grid-cols-3 sm:px-6 lg:px-8 lg:py-14">
-        <article className="flex gap-4 rounded-lg border border-borda bg-branco p-5">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-steel-claro text-navy"><Icone nome="search" tamanho={22} /></span>
-          <div><h2 className="font-semibold text-navy">Encontre seu carro</h2><p className="mt-1 text-corpo-denso text-texto-suave">Compare opções disponíveis para as datas escolhidas.</p></div>
-        </article>
-        <article className="flex gap-4 rounded-lg border border-borda bg-branco p-5">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-steel-claro text-navy"><Icone nome="event" tamanho={22} /></span>
-          <div><h2 className="font-semibold text-navy">Escolha seu período</h2><p className="mt-1 text-corpo-denso text-texto-suave">Veja veículos livres durante toda a sua viagem.</p></div>
-        </article>
-        <article className="flex gap-4 rounded-lg border border-borda bg-branco p-5">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-steel-claro text-navy"><Icone nome="check_circle" tamanho={22} /></span>
-          <div><h2 className="font-semibold text-navy">Reserve com tranquilidade</h2><p className="mt-1 text-corpo-denso text-texto-suave">A reserva segura o veículo para o período escolhido.</p></div>
-        </article>
+      <div className="mx-auto -mt-12 w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="overflow-hidden rounded-cartao bg-branco shadow-elevado">
+          <nav aria-label={texto.modalidade} className="flex flex-wrap gap-2 bg-steel-fundo px-2 pt-2 sm:px-4">
+            <span aria-current="page" className="inline-flex items-center gap-2 rounded-t-cartao bg-branco px-4 py-3 text-corpo-denso font-semibold text-navy">
+              <Icone nome="car_rental" tamanho={18} /> {texto.alugar}
+            </span>
+            <Link to={CAMINHOS.seminovos} className="inline-flex items-center gap-2 rounded-t-cartao px-4 py-3 text-corpo-denso font-semibold text-navy hover:bg-steel-suave">
+              <Icone nome="sell" tamanho={18} /> {texto.comprar}
+            </Link>
+          </nav>
+          <form noValidate onSubmit={enviar} className="p-4 sm:p-6">
+            <CamposPeriodoBusca rascunho={rascunho} hoje={hoje} erros={erros} aoAlterar={alterar} textoBotao={texto.buscarVeiculos} />
+          </form>
+        </div>
+      </div>
+
+      <section aria-labelledby="titulo-categorias" className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <h2 id="titulo-categorias" className="mb-6 text-titulo text-navy">{texto.categorias}</h2>
+        {categorias.isPending ? (
+          <output className="block text-corpo-denso text-texto-apoio">{texto.carregandoCategorias}</output>
+        ) : categorias.isError ? (
+          <EstadoErro titulo={texto.erroCategorias} aoTentarNovamente={() => void categorias.refetch()} tentando={categorias.isFetching} />
+        ) : categorias.data.itens.length === 0 ? (
+          <p className="text-corpo-denso text-texto-apoio">{texto.semCategorias}</p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {categorias.data.itens.map((categoria) => {
+              const parametros = montarParametrosBusca(rascunho);
+              parametros.set('idCategoria', String(categoria.idCategoria));
+              return (
+                <article key={categoria.idCategoria} className="flex min-w-0 flex-col overflow-hidden rounded-cartao border border-borda bg-branco shadow-cartao">
+                  <div className="flex h-24 items-center justify-center bg-steel-fundo text-navy">
+                    <Icone nome="directions_car" tamanho={48} />
+                  </div>
+                  <div className="flex flex-1 flex-col gap-3 p-4">
+                    <h3 className="break-words text-secao text-navy">{categoria.nome}</h3>
+                    {categoria.descricao && <p className="break-words text-corpo-denso text-texto-apoio">{categoria.descricao}</p>}
+                    <BotaoLink
+                      to={{ pathname: CAMINHOS.resultadosBusca, search: parametros.toString() }}
+                      variante="secundario"
+                      iconeDireita="chevron_right"
+                      className="mt-auto"
+                      aria-label={texto.verCategoriaNome(categoria.nome)}
+                    >
+                      {texto.verCategoria}
+                    </BotaoLink>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
       </section>
     </div>
   );

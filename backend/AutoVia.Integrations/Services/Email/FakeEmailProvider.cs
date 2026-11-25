@@ -71,7 +71,10 @@ namespace AutoVia.Integrations.Services.Email
             }
             catch (Exception ex)
             {
-                _logService.Write(ConstantsMessage.ErroEmailGravarCaixaFake, ConstantsMessage.ErroEmailGravarCaixaFake, GetType().ToString());
+                _logService.Write(
+                    string.Format(ConstantsMessage.LogEmailTipoFalha, ex.GetType().Name),
+                    ConstantsMessage.ErroEmailGravarCaixaFake,
+                    GetType().ToString());
                 throw new IntegrationException(configuracao.Codigo, ConstantsMessage.ErroEmailGravarCaixaFake, ex);
             }
         }

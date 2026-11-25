@@ -79,22 +79,19 @@ describe('PainelHistoricoReservas', () => {
     expect(tabela).toContain('—');
   });
 
-  it('os cartões agrupam os mesmos seis campos em uma lista com nome acessível', () => {
+  it('os cartões mobile mostram status, código e valor antes dos dados do veículo', () => {
     const html = renderizar({ estado: { dados: COM_DADOS } });
-    const cartoes = html.match(/<ul[^>]*aria-label="Histórico de reservas"[^>]*>([\s\S]*?)<\/ul>/)?.[1];
-    expect(cartoes).toContain('<li');
-    const campos = Array.from(
-      cartoes?.matchAll(/<dt[^>]*>([^<]+)<\/dt><dd>([\s\S]*?)<\/dd>/g) ?? [],
-      ([, rotulo, valor]) => ({ rotulo, valor }),
-    );
-    expect(campos).toEqual([
-      { rotulo: 'Reserva / data', valor: expect.stringMatching(/AV-00017.*18\/10\/2026 a 21\/10\/2026/) },
-      { rotulo: 'Veículo e categoria', valor: expect.stringMatching(/Jeep Renegade Longitude.*SUV Compacto Especial/) },
-      { rotulo: 'Locadora', valor: expect.stringMatching(/Locadora Centro.*São Paulo - SP/) },
-      { rotulo: 'Período', valor: expect.stringContaining('3 diárias') },
-      { rotulo: 'Valor estimado', valor: expect.stringContaining('—') },
-      { rotulo: 'Status', valor: expect.stringContaining('Cancelada') },
-    ]);
+    const cartoes = html.match(/<ul[^>]*aria-label="Histórico de reservas"[^>]*>([\s\S]*?)<\/ul>/)?.[1] ?? '';
+    expect(cartoes).toMatch(/Cancelada.*AV-00017.*—.*Jeep Renegade Longitude.*18\/10\/2026 a 21\/10\/2026/);
+    expect(cartoes).toContain('h-12 w-16');
+    expect(cartoes).toContain('São Paulo - SP •');
+  });
+
+  it('o cartão mobile mostra o total de diárias quando falta a placa', () => {
+    const reserva = { ...RESERVA_HISTORICO, placa: '' };
+    const html = renderizar({ estado: { dados: { ...COM_DADOS, itens: [reserva] } } });
+    const cartoes = html.match(/<ul[^>]*aria-label="Histórico de reservas"[^>]*>([\s\S]*?)<\/ul>/)?.[1] ?? '';
+    expect(cartoes).toContain('3 diárias');
   });
 
   it('a busca aparece com o rótulo, o placeholder e o botão Filtrar', () => {

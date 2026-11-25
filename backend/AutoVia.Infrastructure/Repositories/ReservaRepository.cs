@@ -125,9 +125,9 @@ namespace AutoVia.Infrastructure.Repositories
                 string? email = await ConsultaEmailTitularReserva(idReserva, idCliente, idEmpresa).FirstOrDefaultAsync();
                 return email;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                _logService.Write(ConstantsMessage.ErroEmailBuscarTitularReserva, ConstantsMessage.ErroEmailBuscarTitularReserva, GetType().ToString());
+                _logService.Write(ex, ConstantsMessage.ErroEmailBuscarTitularReserva, GetType().ToString());
                 throw;
             }
         }
@@ -418,9 +418,9 @@ namespace AutoVia.Infrastructure.Repositories
                         && reserva.Cliente.DisabledAt == null)
                     .Select(reserva => reserva.Cliente.Email);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                _logService.Write(ConstantsMessage.ErroEmailBuscarTitularReserva, ConstantsMessage.ErroEmailBuscarTitularReserva, GetType().ToString());
+                _logService.Write(ex, ConstantsMessage.ErroEmailBuscarTitularReserva, GetType().ToString());
                 throw;
             }
         }

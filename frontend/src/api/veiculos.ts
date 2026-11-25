@@ -1,6 +1,6 @@
 /**
  * Chamadas da frota de veículos (contrato veiculo.contract.json v3, P1-BE-02). As telas usam estas funções pelos
- * hooks do TanStack Query, nunca direto. Só funcionário chega aqui: o servidor responde 403 para cliente.
+ * hooks do TanStack Query. A disponibilidade é pública; as demais chamadas são do back office.
  */
 import { api } from './client';
 import type { Pagina } from '@/types/api';
@@ -31,7 +31,7 @@ export async function editarVeiculo(idVeiculo: number, requisicao: VeiculoRequis
   await api.put(caminhoVeiculo(idVeiculo), requisicao);
 }
 
-/** Consulta pública de veículos disponíveis por período, categoria e faixa de diária (P3-BE-01). */
+/** Consulta pública de veículos disponíveis por período, cidade/UF, categoria e faixa de diária (P3-BE-01). */
 export async function buscarVeiculosDisponiveis(
   filtro: FiltroVeiculosDisponiveis,
   signal?: AbortSignal,

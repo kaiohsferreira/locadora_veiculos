@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
-import { Esqueleto, Icone } from '@/components/ui';
+import { Esqueleto, Icone, ImagemVeiculo } from '@/components/ui';
 import { ChipSituacaoReserva } from '@/features/area-cliente/reservas/componentes/ChipSituacaoReserva';
 import { calcularDiarias } from '@/features/area-cliente/reservas/calculosReserva';
 import { montarCidadeUf } from '@/features/area-cliente/reservas/enderecoLocadora';
-import { VALOR_AUSENTE } from '@/lib/formatters';
+import { urlDaImagem } from '@/lib/fotosVeiculo';
+import { formatarPlaca, VALOR_AUSENTE } from '@/lib/formatters';
 import {
   mensagemReservasDiarias,
   mensagemReservasPeriodoDatas,
@@ -20,6 +21,7 @@ import type { ReservaCliente } from '@/types/reservas';
 export interface ListaHistoricoReservasProps {
   itens: readonly ReservaCliente[];
   carregando: boolean;
+  aoFalharFotoCapa?: () => void;
 }
 
 type CampoHistorico = 'reserva' | 'veiculo' | 'locadora' | 'periodo' | 'valor' | 'status';
@@ -41,8 +43,7 @@ const COLUNAS: readonly ColunaHistorico[] = [
 
 const LINHAS_ESQUELETO = 5;
 
-/** Cartões em telas estreitas e tabela em telas largas, com os mesmos campos. */
-export function ListaHistoricoReservas({ itens, carregando }: ListaHistoricoReservasProps) {
+export function ListaHistoricoReservas({ itens, carregando, aoFalharFotoCapa }: ListaHistoricoReservasProps) {
   const registros = itens.map((reserva) => ({
     id: reserva.idReserva,
     campos: apresentarCamposHistorico(reserva),
@@ -63,18 +64,9 @@ export function ListaHistoricoReservas({ itens, carregando }: ListaHistoricoRese
                 <Esqueleto className="h-4 w-1/2" />
               </li>
             ))
-          : registros.map(({ id, campos }) => (
-              <li key={id} className="p-4">
-                <dl className="grid grid-cols-2 gap-x-3 gap-y-4">
-                  {COLUNAS.map(({ campo, titulo }) => (
-                    <div key={campo} className={campo === 'periodo' || campo === 'valor' ? '' : 'col-span-2'}>
-                      <dt className="mb-1 text-micro font-semibold uppercase tracking-wider text-texto-suave">
-                        {titulo}
-                      </dt>
-                      <dd>{campos[campo]}</dd>
-                    </div>
-                  ))}
-                </dl>
+          : itens.map((reserva) => (
+              <li key={reserva.idReserva} className="space-y-2 p-4">
+                <CartaoHistoricoReserva reserva={reserva} aoFalharFotoCapa={aoFalharFotoCapa} />
               </li>
             ))}
       </ul>
@@ -116,6 +108,49 @@ export function ListaHistoricoReservas({ itens, carregando }: ListaHistoricoRese
               ))}
         </tbody>
       </table>
+    </>
+  );
+}
+
+function CartaoHistoricoReserva({
+  reserva,
+  aoFalharFotoCapa,
+}: {
+  reserva: ReservaCliente;
+  aoFalharFotoCapa?: () => void;
+}) {
+  const cidadeUf = montarCidadeUf(reserva);
+  const placa = reserva.placa?.trim();
+  const diarias = calcularDiarias(reserva.dataRetirada, reserva.dataDevolucao);
+  const localOuDiarias =
+    cidadeUf && placa ? `${cidadeUf} • ${formatarPlaca(placa)}` : mensagemReservasDiarias(diarias);
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <ChipSituacaoReserva status={reserva.status} variante="tabela" />
+        <span className="text-corpo-denso font-bold tabular-nums text-navy">{reserva.codigo}</span>
+        <span className="ml-auto text-corpo-denso font-bold tabular-nums text-navy">
+          {reserva.valorEstimadoStr || VALOR_AUSENTE}
+        </span>
+      </div>
+      <div className="flex items-center gap-3">
+        <ImagemVeiculo
+          url={reserva.fotoCapa ? urlDaImagem(reserva.fotoCapa) : null}
+          alt=""
+          ajuste="cover"
+          className="h-12 w-16 shrink-0 rounded-sm"
+          tamanhoIcone={24}
+          aoFalhar={aoFalharFotoCapa}
+        />
+        <div className="min-w-0">
+          <p className="text-corpo-denso font-semibold text-navy">{reserva.marca} {reserva.modelo}</p>
+          <p className="text-legenda text-texto-suave">
+            {mensagemReservasPeriodoDatas(reserva.dataRetiradaStr, reserva.dataDevolucaoStr)}
+          </p>
+          <p className="text-micro text-texto-suave">{localOuDiarias}</p>
+        </div>
+      </div>
     </>
   );
 }

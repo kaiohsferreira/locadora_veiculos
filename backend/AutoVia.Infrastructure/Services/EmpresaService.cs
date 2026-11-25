@@ -2,6 +2,7 @@ using AutoMapper;
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Empresas;
+using AutoVia.Communication.ViewObjects.Frota;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
@@ -33,6 +34,29 @@ namespace AutoVia.Infrastructure.Services
             _senhaHasher = senhaHasher;
             _mapper = mapper;
             _logService = logService;
+        }
+
+        /// <summary>Lista as cidades com locadoras ativas.</summary>
+        public async Task<List<ReturnCidadeLocadoraVO>> GetCidadesAsync()
+        {
+            try
+            {
+                List<ReturnCidadeLocadoraVO> cidades = await _empresaRepository.FindCidadesAtivasAsync();
+                return cidades;
+            }
+            catch (BusinessException)
+            {
+                throw;
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarLocadora, GetType().ToString());
+                throw;
+            }
         }
 
         /// <summary>

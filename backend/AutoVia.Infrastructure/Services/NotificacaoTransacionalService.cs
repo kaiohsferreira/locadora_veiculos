@@ -52,9 +52,9 @@ namespace AutoVia.Infrastructure.Services
                     Etiqueta = ConstantsMessage.EmailReservaCriadaEtiqueta
                 });
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                _logService.Write(ConstantsMessage.ErroEmailConfirmarReserva, ConstantsMessage.ErroEmailConfirmarReserva, GetType().ToString());
+                _logService.Write(ex, ConstantsMessage.ErroEmailConfirmarReserva, GetType().ToString());
                 throw;
             }
         }
@@ -81,9 +81,9 @@ namespace AutoVia.Infrastructure.Services
 
                 return Task.CompletedTask;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                _logService.Write(ConstantsMessage.ErroEmailEmitirReciboDevolucao, ConstantsMessage.ErroEmailEmitirReciboDevolucao, GetType().ToString());
+                _logService.Write(ex, ConstantsMessage.ErroEmailEmitirReciboDevolucao, GetType().ToString());
                 throw;
             }
         }
@@ -120,9 +120,9 @@ namespace AutoVia.Infrastructure.Services
 
                 return Task.CompletedTask;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                _logService.Write(ConstantsMessage.ErroEmailAvisarCobranca, ConstantsMessage.ErroEmailAvisarCobranca, GetType().ToString());
+                _logService.Write(ex, ConstantsMessage.ErroEmailAvisarCobranca, GetType().ToString());
                 throw;
             }
         }
@@ -137,9 +137,9 @@ namespace AutoVia.Infrastructure.Services
                     _logService.Write(ConstantsMessage.ErroEmailTransacionalEnfileirar, ConstantsMessage.ErroEmailTransacionalEnfileirar, GetType().ToString());
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                _logService.Write(ConstantsMessage.ErroEmailTransacionalEnfileirar, ConstantsMessage.ErroEmailTransacionalEnfileirar, GetType().ToString());
+                _logService.Write(ex, ConstantsMessage.ErroEmailTransacionalEnfileirar, GetType().ToString());
                 throw;
             }
         }

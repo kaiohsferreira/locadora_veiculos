@@ -1,6 +1,7 @@
 using AutoVia.Api.Filters;
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.ViewObjects.Empresas;
+using AutoVia.Communication.ViewObjects.Frota;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using FluentValidation;
@@ -9,16 +10,14 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace AutoVia.Api.Controllers
 {
     /// <summary>
-    /// Endpoints do cadastro publico de locadora (P10-BE-01), anonimos e sem token: o cadastro da empresa com o
-    /// responsavel ADMINISTRADOR e a verificacao de CNPJ e e-mail. Sem regra de negocio: a entrada e validada pelo
-    /// FluentValidation antes da action, a logica fica no IEmpresaService e a resposta sai somente em VO. Com a
-    /// chave Locadoras:CadastroPublicoHabilitado desligada, as duas rotas respondem 404 antes de validar o corpo.
-    /// Erros viram ProblemDetails no ErrorHandlingMiddleware.
+    /// Cadastro público de locadoras, verificação de CNPJ e e-mail e consulta das cidades com locadoras ativas.
+    /// A chave Locadoras:CadastroPublicoHabilitado controla o cadastro e a verificação. Erros seguem ProblemDetails.
     /// </summary>
     [ApiController]
     [Route("api/empresas")]
@@ -31,6 +30,35 @@ namespace AutoVia.Api.Controllers
         {
             _empresaService = empresaService;
             _logService = logService;
+        }
+
+        /// <summary>Lista as cidades com locadoras ativas, com cidade e UF.</summary>
+        [HttpGet("cidades")]
+        [AllowAnonymous]
+        [EnableRateLimiting(ConstantsValues.PoliticaLimiteLeituraPublica)]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+        [ProducesResponseType(typeof(List<ReturnCidadeLocadoraVO>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Microsoft.AspNetCore.Mvc.ProblemDetails), StatusCodes.Status429TooManyRequests)]
+        public async Task<IActionResult> GetCidades()
+        {
+            try
+            {
+                List<ReturnCidadeLocadoraVO> cidades = await _empresaService.GetCidadesAsync();
+                return Ok(cidades);
+            }
+            catch (BusinessException)
+            {
+                throw;
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarLocadora, GetType().ToString());
+                throw;
+            }
         }
 
         /// <summary>

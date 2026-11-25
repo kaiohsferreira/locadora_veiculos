@@ -263,7 +263,9 @@ namespace AutoVia.Tests.Integrations.Email
 
             Assert.Equal(ConstantsMessage.ErroEmailEnviar, excecao.Message);
             Assert.Same(causa, excecao.InnerException);
-            Assert.Contains(log.Entries, entrada => entrada.Contains(ConstantsMessage.ErroEmailEnviar));
+            string tipoDeFalha = string.Format(ConstantsMessage.LogEmailTipoFalha, nameof(InvalidOperationException));
+            Assert.Contains(log.Entries, entrada => entrada.Contains(ConstantsMessage.ErroEmailEnviar, StringComparison.Ordinal)
+                && entrada.Contains(tipoDeFalha, StringComparison.Ordinal));
             AssertLogSemDadoPessoal(log);
         }
     }

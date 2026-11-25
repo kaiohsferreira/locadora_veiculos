@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace AutoVia.Helpers
 {
     /// <summary>
@@ -29,6 +32,12 @@ namespace AutoVia.Helpers
         public const int TamanhoMaximoCidadeLocadora = 60;
 
         public const int TamanhoUfLocadora = 2;
+
+        public static IReadOnlyList<string> UfsBrasileiras { get; } = Array.AsReadOnly(new string[]
+        {
+            "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
+            "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+        });
 
         public const int TamanhoMaximoResponsavelNome = 120;
 

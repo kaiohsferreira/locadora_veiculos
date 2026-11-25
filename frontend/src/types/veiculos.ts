@@ -80,6 +80,8 @@ export interface VeiculoRetorno {
 
 /** Filtros da consulta pública de disponibilidade (P3-BE-01 / RF-11). */
 export interface FiltroVeiculosDisponiveis {
+  cidade?: string;
+  uf?: string;
   dataRetirada: string;
   dataDevolucao: string;
   idCategoria?: number;

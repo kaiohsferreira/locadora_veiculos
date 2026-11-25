@@ -1,3 +1,4 @@
+using AutoVia.Communication.ViewObjects.Frota;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
@@ -5,13 +6,15 @@ using AutoVia.Helpers;
 using AutoVia.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace AutoVia.Infrastructure.Repositories
 {
     /// <summary>
-    /// Persistencia da empresa no cadastro publico de locadora (P10-BE-01). Empresa e global: as consultas de
-    /// unicidade de CNPJ e e-mail nao usam filtro de locadora. A checagem de CPF do responsavel e na plataforma
+    /// Persistência do cadastro público de locadoras e consulta das cidades com locadoras ativas.
+    /// Empresa é global: as consultas de cidade/UF e de unicidade de CNPJ e e-mail acessam toda a plataforma. A checagem de CPF do responsavel e na plataforma
     /// inteira, por isso e a unica consulta que desliga o filtro "Empresa" (SemEscopoEmpresa, declarado na lista
     /// fechada da guarda de testes). Leituras sem rastreamento e filtradas por DisabledAt nulo. Nenhum metodo
     /// remove a linha fisicamente.
@@ -25,6 +28,42 @@ namespace AutoVia.Infrastructure.Repositories
         {
             _db = db;
             _logService = logService;
+        }
+
+        /// <summary>Lista somente cidade e UF de locadoras ativas, em pares distintos e ordenados.</summary>
+        public async Task<List<ReturnCidadeLocadoraVO>> FindCidadesAtivasAsync()
+        {
+            try
+            {
+                List<ReturnCidadeLocadoraVO> cidades = await ConsultaCidadesAtivas().ToListAsync();
+                return cidades;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarLocadora, GetType().ToString());
+                throw;
+            }
+        }
+
+        internal IQueryable<ReturnCidadeLocadoraVO> ConsultaCidadesAtivas()
+        {
+            try
+            {
+                IReadOnlyList<string> ufsBrasileiras = ConstantsValues.UfsBrasileiras;
+                return _db.Empresas.AsNoTracking()
+                    .Where(x => x.Ativo && x.DisabledAt == null && !string.IsNullOrWhiteSpace(x.Cidade))
+                    .Select(x => new { Cidade = x.Cidade.Trim(), Uf = x.Uf.ToUpper() })
+                    .Where(x => ufsBrasileiras.Contains(x.Uf))
+                    .Distinct()
+                    .OrderBy(x => x.Cidade)
+                    .ThenBy(x => x.Uf)
+                    .Select(x => new ReturnCidadeLocadoraVO { Cidade = x.Cidade, Uf = x.Uf });
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarLocadora, GetType().ToString());
+                throw;
+            }
         }
 
         /// <summary>Indica se existe empresa ativa (DisabledAt nulo) com o CNPJ informado (so digitos).</summary>

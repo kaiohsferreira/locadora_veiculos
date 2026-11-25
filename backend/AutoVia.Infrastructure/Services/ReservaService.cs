@@ -117,9 +117,9 @@ namespace AutoVia.Infrastructure.Services
                         criada.ValorEstimado);
                     await _notificacaoTransacionalService.ConfirmarReservaAsync(evento);
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    _logService.Write(ConstantsMessage.ErroEmailNotificarReservaCriada, ConstantsMessage.ErroEmailNotificarReservaCriada, GetType().ToString());
+                    _logService.Write(ex, ConstantsMessage.ErroEmailNotificarReservaCriada, GetType().ToString());
                 }
 
                 return retorno;
