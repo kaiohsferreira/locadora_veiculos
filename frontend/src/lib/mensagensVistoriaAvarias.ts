@@ -124,5 +124,4 @@ export const MENSAGEM_VISTORIA_STATUS_REGISTRADA = 'Entrada registrada';
 export const MENSAGEM_VISTORIA_REGISTRADA_EM = 'Registrada em';
 export const MENSAGEM_VISTORIA_FUNCIONARIO = 'Funcionário responsável';
 export const MENSAGEM_VISTORIA_KM_REGISTRADO = 'Quilometragem registrada';
-export const MENSAGEM_VISTORIA_COMBUSTIVEL_LEITURA = 'Nível de combustível (0 a 1)';
 export const MENSAGEM_VISTORIA_OBSERVACOES = 'Observações';

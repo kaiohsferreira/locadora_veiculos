@@ -10,7 +10,7 @@ describe('estiloSeloGravidade', () => {
     expect(estiloSeloGravidade('GRAVE').cores).toBe('bg-manutencao-alerta-trilho text-manutencao-alerta-escuro');
   });
 
-  it('ícones: info para Leve, report_problem para Média e error (provisório) para Grave', () => {
+  it('ícones: info para Leve, report_problem para Média e error para Grave', () => {
     expect(estiloSeloGravidade('LEVE').icone).toBe('info');
     expect(estiloSeloGravidade('MEDIA').icone).toBe('report_problem');
     expect(estiloSeloGravidade('GRAVE').icone).toBe('error');

@@ -4,7 +4,7 @@ import type { GravidadeAvaria } from '@/types/enums';
 export interface EstiloSeloGravidade {
   /** Classes de fundo e texto, só com tokens do tailwind.config.js. */
   cores: string;
-  /** Ícone do selo. Grave ainda não tem ícone aprovado: usa "error" (provisório). */
+  /** Ícone do selo. Grave usa "error", aprovado pelo Kaio em 26/11/2026. */
   icone: string;
 }
 

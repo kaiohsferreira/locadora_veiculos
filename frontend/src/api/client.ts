@@ -119,6 +119,10 @@ function lerProblemDetails(dados: unknown): ProblemDetails | null {
   if (typeof corpo.title === 'string') problema.title = corpo.title;
   if (typeof corpo.status === 'number') problema.status = corpo.status;
   if (typeof corpo.detail === 'string') problema.detail = corpo.detail;
+  if (typeof corpo.idAvaria === 'number' && Number.isInteger(corpo.idAvaria) && corpo.idAvaria > 0) {
+    problema.idAvaria = corpo.idAvaria;
+  }
+  if (typeof corpo.retryUploadUrl === 'string') problema.retryUploadUrl = corpo.retryUploadUrl;
 
   if (typeof corpo.errors === 'object' && corpo.errors !== null && !Array.isArray(corpo.errors)) {
     const erros: Record<string, string[]> = {};
@@ -214,5 +218,5 @@ function converterParaErroApi(erro: unknown): ErroApi {
     mensagemAproveitavel(textoSimples) ??
     mensagemPadraoPorStatus(status);
 
-  return new ErroApi({ status, mensagem, erros });
+  return new ErroApi({ status, mensagem, erros, problema: problema ?? undefined });
 }

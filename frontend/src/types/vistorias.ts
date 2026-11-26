@@ -29,6 +29,8 @@ export interface VistoriaEntrada {
   kmRegistrado: number;
   nivelCombustivel: number | null;
   observacoes: string | null;
+  /** Nome abreviado de quem registrou a entrada (vistoria-entrada v3, N10); nulo quando o cadastro não tem nome. Opcional para as telas que montam a vistoria sem ele. */
+  operadorStr?: string | null;
 }
 
 export interface ContextoVistoriaEntrada {
