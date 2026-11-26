@@ -5,11 +5,21 @@ import { ErroApi } from '@/types/api';
 import type { ItemPainelOperacional, RespostaPainelOperacionalHoje } from '@/types/painelOperacional';
 import { termosCortadosPresentesRetirada, termosDaCaucaoPresentesRetirada } from '../retirada/termosCortadosRetirada';
 import { useRetiradasDeHoje } from '../hooks/useRetiradasDeHoje';
+import { useDevolucoesPendentes } from '@/features/devolucao/hooks/useDevolucoesPendentes';
+import { AutenticacaoContexto, type AutenticacaoContextoValor } from '@/routes/autenticacao/AutenticacaoContexto';
+import { MENSAGENS_DEVOLUCAO } from '@/lib/mensagensDevolucao';
 import EntradaRetiradaPagina from './EntradaRetiradaPagina';
 
 vi.mock('../hooks/useRetiradasDeHoje', () => ({ useRetiradasDeHoje: vi.fn() }));
+vi.mock('@/features/devolucao/hooks/useDevolucoesPendentes', () => ({ useDevolucoesPendentes: vi.fn() }));
 
 type Consulta = ReturnType<typeof useRetiradasDeHoje>;
+
+/** Sessão de ATENDENTE: a lista de devoluções pendentes lê o cargo para habilitar o botão. */
+const SESSAO_ATENDENTE: AutenticacaoContextoValor = {
+  usuario: { nome: 'Marina Costa', perfil: 'funcionario', cargo: 'ATENDENTE', empresaNomeFantasia: 'Rota Sul Locadora' },
+  autenticado: true, autenticacaoIgnorada: false, entrar: () => undefined, sair: () => undefined, possuiPerfil: () => true,
+};
 
 const daReserva: ItemPainelOperacional = {
   origem: 'RESERVA', idReserva: 31, idLocacao: null, codigoReserva: 'AV-00031', dataHora: '24/11/2026 00:00',
@@ -31,15 +41,32 @@ function renderizar(parcial: Partial<Consulta>): string {
   vi.mocked(useRetiradasDeHoje).mockReturnValue({
     data: undefined, isPending: false, isError: false, isFetching: false, refetch: vi.fn(), ...parcial,
   } as unknown as Consulta);
+  vi.mocked(useDevolucoesPendentes).mockReturnValue({
+    data: { itens: [], total: 0, pagina: 1, tamanhoPagina: 10 }, isPending: false, isError: false, isFetching: false, refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useDevolucoesPendentes>);
   return renderToStaticMarkup(
-    <MemoryRouter initialEntries={['/back-office/locacoes/retirada']}>
-      <EntradaRetiradaPagina />
-    </MemoryRouter>,
+    <AutenticacaoContexto.Provider value={SESSAO_ATENDENTE}>
+      <MemoryRouter initialEntries={['/back-office/locacoes/retirada']}>
+        <EntradaRetiradaPagina />
+      </MemoryRouter>
+    </AutenticacaoContexto.Provider>,
   );
 }
 
 describe('EntradaRetiradaPagina (página de entrada da retirada)', () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it('mostra o bloco "Devoluções pendentes" abaixo da lista de hoje, com o estado vazio', () => {
+    const html = renderizar({ data: RESPOSTA });
+    expect(html).toContain(MENSAGENS_DEVOLUCAO.pendentes.titulo);
+    expect(html).toContain(MENSAGENS_DEVOLUCAO.pendentes.vazio);
+    expect(html.indexOf('Retiradas previstas para hoje')).toBeLessThan(html.indexOf(MENSAGENS_DEVOLUCAO.pendentes.titulo));
+  });
+
+  it('o subtítulo cita também a lista de devoluções pendentes (texto aprovado em 26/11/2026)', () => {
+    const html = renderizar({ data: RESPOSTA });
+    expect(html).toContain('Abra a retirada pelo código da reserva, pela lista de hoje ou pela lista de devoluções pendentes.');
+  });
 
   it('mostra o campo do código da reserva com a dica e o botão', () => {
     const html = renderizar({ data: RESPOSTA });

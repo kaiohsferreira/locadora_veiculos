@@ -73,3 +73,6 @@ export * from './mensagensVerificacao';
 export * from './mensagensPagamentosCliente';
 export * from './mensagensManutencao';
 export * from './mensagensPainelFinanceiro';
+export * from './mensagensVistoriaAvarias';
+export * from './mensagensContratoLocacao';
+export * from './mensagensLocacoesCliente';

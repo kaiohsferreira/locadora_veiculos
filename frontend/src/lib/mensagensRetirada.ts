@@ -129,7 +129,7 @@ export const MENSAGENS_RETIRADA = {
   recuperar: 'Não foi possível confirmar a abertura. Os dados da reserva foram consultados novamente. Se a locação já foi criada, continue para a vistoria.',
   /** Página de entrada da retirada (locacao.contract.json, pagina_de_entrada_da_retirada.textos_novos): novos, aprovados pelo Kaio em 24/11/2026. */
   entradaTitulo: 'Retirada de veículos',
-  entradaSubtitulo: 'Abra a retirada pelo código da reserva ou pela lista de hoje.',
+  entradaSubtitulo: 'Abra a retirada pelo código da reserva, pela lista de hoje ou pela lista de devoluções pendentes.',
   entradaCampoRotulo: 'Código da reserva',
   entradaCampoDica: 'Exemplo: AV-00042 ou 42.',
   entradaCampoBotao: 'Abrir retirada',

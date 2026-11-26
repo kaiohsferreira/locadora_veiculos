@@ -19,6 +19,7 @@ const LINKS_NAVEGACAO: readonly LinkNavegacao[] = [
   { rotulo: 'Início', para: CAMINHOS.inicio, exato: true },
   { rotulo: 'Seminovos', para: CAMINHOS.seminovos },
   { rotulo: 'Minhas reservas', para: CAMINHOS.minhasReservas },
+  { rotulo: 'Minhas locações', para: CAMINHOS.minhasLocacoes },
   { rotulo: 'Pagamentos', para: CAMINHOS.meusPagamentos },
 ];
 

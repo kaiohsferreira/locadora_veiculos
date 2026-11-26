@@ -12,9 +12,14 @@ import { ResultadoSimulacao } from './ResultadoSimulacao';
 import { SimuladorCobrancasExtras } from './SimuladorCobrancasExtras';
 import { useApuracaoCobrancasExtras } from './useCobrancasExtras';
 vi.mock('./useCobrancasExtras', () => ({ useApuracaoCobrancasExtras: vi.fn(), useSimularCobrancasExtras: () => ({ isPending: false }), useRegistrarApuracaoCobrancasExtras: () => ({ isPending: false }) }));
-const vistoria: VistoriaDevolucao = { idVistoria: 1, idLocacao: 42, idFuncionario: 2, tipo: 'ENTRADA', dataHoraStr: '18/11/2026 10:00', kmRegistrado: 100, nivelCombustivel: 1, observacoes: null };
+const vistoria: VistoriaDevolucao = { idVistoria: 1, idLocacao: 42, idFuncionario: 2, tipo: 'ENTRADA', dataHoraStr: '18/11/2026 10:00', kmRegistrado: 100, nivelCombustivel: 1, observacoes: null, operadorStr: null };
 const comparacao: NonNullable<ContextoDevolucao['comparacao']> = { entrada: vistoria, saida: { ...vistoria, tipo: 'SAIDA', idVistoria: 2 }, comparacaoRealizada: true, avariasPreexistentes: [], avariasNovas: [], avariasIndeterminadas: [] };
-const contexto: ContextoDevolucao = { locacao: { idLocacao: 42, idReserva: 3, idVeiculo: 4, kmSaida: 100, status: 'EM_ANDAMENTO' }, entrada: vistoria, avariasEntrada: [], comparacao };
+const contexto: ContextoDevolucao = {
+  locacao: { idLocacao: 42, idReserva: 3, idVeiculo: 4, kmSaida: 100, status: 'EM_ANDAMENTO', valorCaucao: 0 }, entrada: vistoria, avariasEntrada: [], comparacao,
+  placa: 'ABC1D23', marca: 'Fiat', modelo: 'Toro', diariasPrevistas: 2, valorDiaria: 100, valorDiariaStr: 'R$ 100,00', totalDiarias: 200, totalDiariasStr: 'R$ 200,00',
+  totalExtras: 160, totalExtrasStr: 'R$ 160,00', valorTotalPrevisto: 360, valorTotalPrevistoStr: 'R$ 360,00', idConfiguracao: 3, versaoEsperada: 7,
+  caucao: { situacao: 'SEM_CAUCAO', acao: null },
+};
 const resultado: SimulacaoCobrancasExtras = { idLocacao: 42, idVistoriaEntrada: 1, idVistoriaSaida: 2, simulacao: true, provisorio: true, aviso: 'Provisório', diariasPrevistas: 2, configuracao: { idConfiguracao: 3, versao: 7, idCategoria: 1, categoriaNome: 'Econômico', updatedAtStr: '18/11/2026', baseFranquia: 'TOTAL', franquiaKm: 100, valorKmExcedente: 2, valorTanqueCompleto: 300, toleranciaAtrasoMinutos: 15, unidadeAtraso: 'HORA', fracionamentoAtraso: 'PROPORCIONAL', valorUnidadeAtraso: 20, baseAvarias: 'ESTIMATIVA_VISTORIA' },
   quilometragem: { kmEntrada: 100, kmSaida: 200, pacoteKmTotal: 100, kmExcedentes: 0, valorKmExcedente: 2, valor: 0 },
   combustivel: { nivelEntrada: 1, nivelSaida: 0.5, fracaoFaltante: 0.5, valorTanqueCompleto: 300, valor: 150 },

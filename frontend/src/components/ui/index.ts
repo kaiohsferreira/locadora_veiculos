@@ -34,3 +34,7 @@ export type { AvisoProviderProps } from './aviso/AvisoProvider';
 export { useAviso } from './aviso/useAviso';
 export { useAvisosAcimaDaBarra } from './aviso/useAvisosAcimaDaBarra';
 export type { AvisoContextoValor, TipoAviso } from './aviso/AvisoContexto';
+export { SeloGravidade } from './SeloGravidade';
+export type { SeloGravidadeProps } from './SeloGravidade';
+export { MedidorCombustivel } from './MedidorCombustivel';
+export type { MedidorCombustivelProps } from './MedidorCombustivel';

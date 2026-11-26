@@ -44,6 +44,8 @@ export default {
         alto: '#DCE9FF',
         /** Cadastro: linha do indicador de etapas e trilho da barra de progresso (surface-variant). */
         linha: '#D3E4FE',
+        /** Devolução (tela 06) e contrato (tela 08), e Minhas locações (tela 27): rótulos cinza-azulados (on-primary-container do desenho). Valor novo, aprovado pelo Kaio em 26/11/2026 (N14). */
+        apagado: '#798CAB',
       },
       /** Apenas ações primárias, estados ativos e destaques. */
       orange: {
@@ -185,6 +187,28 @@ export default {
         'placa-faixa': '#003399',
         /** Ícone do selo da situação da reserva (text-secondary-fixed-dim do desenho, html :95). */
         'selo-icone': '#FFB59D',
+      },
+      /**
+       * Gravidade das avarias (telas 06 e 19): selos Leve e Média do desenho 19 que não existiam no tema. Valores novos,
+       * aprovados pelo Kaio em 26/11/2026 (aprovacao-eduardo-finalizar-26-11.md, N14). O Grave reaproveita manutencao.alerta-*.
+       */
+      avaria: {
+        /** Fundo do selo "Leve" (yellow-200 do desenho 19). */
+        'leve-fundo': '#FEF08A',
+        /** Texto do selo "Leve" (yellow-800 do desenho 19). */
+        'leve-texto': '#854D0E',
+        /** Fundo do selo "Média" (orange-200 do desenho 19). */
+        'media-fundo': '#FED7AA',
+        /** Texto do selo "Média" (orange-800 do desenho 19). */
+        'media-texto': '#9A3412',
+      },
+      /**
+       * Vistoria (tela 19): verde de "conferido" (check da trilha, odômetro compatível, selo de combustível). Valor novo,
+       * aprovado pelo Kaio em 26/11/2026 (N14). O verde da frota (frota.disponivel) continua para as outras telas.
+       */
+      vistoria: {
+        /** Verde do desenho 19 (green-600). */
+        conferido: '#16A34A',
       },
     },
     extend: {

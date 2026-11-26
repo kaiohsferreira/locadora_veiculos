@@ -9,6 +9,7 @@ import { formatarPlaca } from '@/lib/formatters';
 import { MENSAGENS_RETIRADA as M, mensagemAcaoLinhaRetirada } from '@/lib/mensagensRetirada';
 import { CAMINHOS } from '@/routes/caminhos';
 import type { ItemPainelOperacional } from '@/types/painelOperacional';
+import { ListaDevolucoesPendentes } from '@/features/devolucao/componentes/ListaDevolucoesPendentes';
 import { useRetiradasDeHoje } from '../hooks/useRetiradasDeHoje';
 import { lerCodigoReserva } from '../retirada/codigoReserva';
 import { acaoDaLinha, ehStatusConhecido, textoColunaReserva } from '../retirada/regrasEntradaRetirada';
@@ -142,6 +143,7 @@ export default function EntradaRetiradaPagina() {
       </header>
       <Cartao><CampoCodigoReserva /></Cartao>
       <ListaRetiradasDeHoje consulta={consulta} />
+      <ListaDevolucoesPendentes />
     </div>
   );
 }

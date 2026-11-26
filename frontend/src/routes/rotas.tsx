@@ -163,8 +163,14 @@ export const rotas: RouteObject[] = [
           { path: CAMINHOS.locacoes, element: <Navigate to={CAMINHOS.retiradas} replace /> },
           { path: CAMINHOS.retiradas, element: <EntradaRetiradaPagina /> },
           { path: CAMINHOS.retiradaVeiculo, element: <RetiradaVeiculoPagina /> },
+          // Contrato (tela 08): emitir e assinar só ATENDENTE e ADMINISTRADOR (D6). O servidor confere de novo.
+          {
+            element: <RotaPorCargo cargosPermitidos={['ATENDENTE', 'ADMINISTRADOR']} />,
+            children: [{ path: CAMINHOS.contratoLocacao, element: <ContratoDigitalPagina /> }],
+          },
+          // Vistoria (tela 19) e devolução (tela 06): abertas a qualquer funcionário (sem cargo nesta rota). A devolução
+          // esconde a apuração e o botão Encerrar para cargo sem permissão, e o servidor confere cada ação.
           { path: CAMINHOS.vistoriaLocacao, element: <VistoriaAvariasPagina /> },
-          { path: CAMINHOS.contratoLocacao, element: <ContratoDigitalPagina /> },
           { path: CAMINHOS.devolucaoLocacao, element: <CheckoutDevolucaoPagina /> },
 
           // Vendas

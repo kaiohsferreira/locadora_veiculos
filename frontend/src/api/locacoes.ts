@@ -1,4 +1,6 @@
 import { api } from './client';
+import type { Pagina } from '@/types/api';
+import type { DevolucaoPendente, FiltroDevolucoesPendentes } from '@/types/devolucao';
 import type { AbrirLocacao, ContextoRetirada, DadosCaucaoAbertura, LocacaoAberta } from '@/types/retirada';
 
 /**
@@ -7,6 +9,17 @@ import type { AbrirLocacao, ContextoRetirada, DadosCaucaoAbertura, LocacaoAberta
  * Sem caução, a chamada continua com o padrão do cliente.
  */
 export const TEMPO_LIMITE_ABERTURA_COM_CAUCAO_MS = 120_000;
+
+/**
+ * Lista de devoluções pendentes da locadora do funcionário (locacao.contract.json, v5 a v7): GET /api/locacoes?status=.
+ * Em andamento traz as em andamento e as atrasadas; ATRASADA traz só as atrasadas. Sem filtro de data.
+ */
+export async function listarDevolucoesPendentes(filtro: FiltroDevolucoesPendentes): Promise<Pagina<DevolucaoPendente>> {
+  const { data } = await api.get<Pagina<DevolucaoPendente>>('/api/locacoes', {
+    params: { status: filtro.status, pagina: filtro.pagina, tamanhoPagina: filtro.tamanhoPagina },
+  });
+  return data;
+}
 
 export async function buscarContextoRetirada(idReserva: number): Promise<ContextoRetirada> {
   const { data } = await api.get<ContextoRetirada>(`/api/locacoes/retirada/${idReserva}`);
