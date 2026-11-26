@@ -49,6 +49,7 @@ namespace AutoVia.Api.Extensions
             // --- Locacao ---
             services.AddScoped<ILocacaoRepository, LocacaoRepository>();
             services.AddScoped<IVistoriaRepository, VistoriaRepository>();
+            services.AddScoped<IContratoLocacaoRepository, ContratoLocacaoRepository>();
             services.AddScoped<IAvariaRepository, AvariaRepository>();
 
             // --- Autenticacao ---

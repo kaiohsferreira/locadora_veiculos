@@ -77,6 +77,9 @@ namespace AutoVia.Infrastructure.Persistence
         public DbSet<ConfiguracaoCobrancaExtra> ConfiguracoesCobrancasExtras { get; set; } = null!;
         public DbSet<ApuracaoCobrancaExtra> ApuracoesCobrancasExtras { get; set; } = null!;
 
+        /// <summary>Contrato digital da locacao (contrato_locacao, desvio D10 do contrato-locacao v5). Filtro "Empresa" pela Locacao.</summary>
+        public DbSet<ContratoLocacao> ContratosLocacao { get; set; } = null!;
+
         // --- Venda e pagamentos ---
         public DbSet<Venda> Vendas { get; set; } = null!;
         public DbSet<Pagamento> Pagamentos { get; set; } = null!;

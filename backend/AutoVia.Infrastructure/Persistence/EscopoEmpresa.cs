@@ -31,7 +31,7 @@ namespace AutoVia.Infrastructure.Persistence
     public partial class AutoViaDbContext
     {
         /// <summary>
-        /// Registra o filtro "Empresa" nas 17 entidades que pertencem a uma locadora (ClienteLocadora tem a condicao dupla: locadora ou cliente). As expressoes leem
+        /// Registra o filtro "Empresa" nas 18 entidades que pertencem a uma locadora (ClienteLocadora tem a condicao dupla: locadora ou cliente; ContratoLocacao entra pela Locacao, contrato-locacao v5). As expressoes leem
         /// IdEmpresaContexto de ESTA instancia (this): o EF troca o this pelo contexto que executa a consulta,
         /// por isso o filtro nao pode capturar outra instancia nem uma variavel local.
         /// </summary>
@@ -92,6 +92,10 @@ namespace AutoVia.Infrastructure.Persistence
             modelBuilder.Entity<Avaria>().HasQueryFilter(
                 ConstantsValues.NomeFiltroEmpresa,
                 x => IdEmpresaContexto > 0 && x.Vistoria.Locacao.Veiculo.IdEmpresa == IdEmpresaContexto);
+
+            modelBuilder.Entity<ContratoLocacao>().HasQueryFilter(
+                ConstantsValues.NomeFiltroEmpresa,
+                x => IdEmpresaContexto > 0 && x.Locacao.Veiculo.IdEmpresa == IdEmpresaContexto);
 
             modelBuilder.Entity<VeiculoFoto>().HasQueryFilter(
                 ConstantsValues.NomeFiltroEmpresa,

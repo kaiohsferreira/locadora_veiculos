@@ -27,6 +27,12 @@ namespace AutoVia.Helpers
         /// </summary>
         public const string PoliticaAberturaLocacao = "AberturaLocacao";
 
+        /// <summary>
+        /// Politica do contrato digital da locacao (GET e POST de /api/locacoes/{id}/contrato, contrato-locacao v5): ATENDENTE ou
+        /// ADMINISTRADOR da locadora do contexto (cargo lido do banco, nunca da claim).
+        /// </summary>
+        public const string PoliticaContratoLocacao = "ContratoLocacao";
+
         /// <summary>Nome do filtro global de empresa no AutoViaDbContext (unico ponto de bypass nomeado: SemEscopoEmpresa).</summary>
         public const string NomeFiltroEmpresa = "Empresa";
     }

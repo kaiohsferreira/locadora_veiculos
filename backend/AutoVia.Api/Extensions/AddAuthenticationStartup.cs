@@ -136,6 +136,14 @@ namespace AutoVia.Api.Extensions
                     policy.AddRequirements(new RequisitoAberturaLocacao());
                 });
 
+                // Contrato digital da locacao (contrato-locacao v5, RF-21): ATENDENTE ou ADMINISTRADOR da locadora do contexto (cargo lido do banco).
+                options.AddPolicy(ConstantsValues.PoliticaContratoLocacao, policy =>
+                {
+                    policy.RequireAuthenticatedUser();
+                    policy.RequireRole(nameof(PerfilUsuario.FUNCIONARIO));
+                    policy.AddRequirements(new RequisitoContratoLocacao());
+                });
+
                 // Rota sem nenhuma declaracao exige usuario autenticado (o teste de guarda AutorizacaoRotasTests reprova rota sem declaracao).
                 options.FallbackPolicy = new AuthorizationPolicyBuilder()
                     .RequireAuthenticatedUser()
@@ -153,6 +161,7 @@ namespace AutoVia.Api.Extensions
             services.AddScoped<IAuthorizationHandler, AutorizacaoEncerramentoLocacaoHandler>();
             services.AddScoped<IAuthorizationHandler, AutorizacaoApuradorCobrancasExtrasHandler>();
             services.AddScoped<IAuthorizationHandler, AutorizacaoAberturaLocacaoHandler>();
+            services.AddScoped<IAuthorizationHandler, AutorizacaoContratoLocacaoHandler>();
 
             return services;
         }

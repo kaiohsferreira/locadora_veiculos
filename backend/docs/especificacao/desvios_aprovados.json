@@ -383,5 +383,34 @@
     },
     "regra_no_servico": "angulo, pos_x e pos_y vem juntos ou os tres vazios (N8, validador do formulario); a avaria copiada da entrada para a saida leva os tres valores; a nova da saida fica sem eles",
     "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico; nenhuma linha existente muda; a migration AdicionarAnguloPosicaoAvaria so acrescenta as tres colunas e os tres CHECKs"
+  },
+  "contrato_locacao": {
+    "migration": ["20261126225459_AdicionarContratoLocacao"],
+    "cobre": ["tabela:contrato_locacao", "fk:fk_contrato_locacao_funcionario", "fk:fk_contrato_locacao_locacao", "indice:idx_contrato_locacao_locacao"],
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "data": "2026-11-26",
+    "tarefa": "P4-BE-05 / P4-FE-03 / RF-21 / tela 08 (contrato digital da locacao), tarefas do Eduardo finalizadas pela equipe",
+    "fonte": "Decisoes D6 e D10 do plano de 26/11/2026 (frase do Kaio: \"Aprovo D1 a D14\") e N9 e N12 (frase do Kaio: \"Aprovo N1 a N14\")",
+    "motivo": "O RF-21 exige que o contrato assinado fique recuperavel depois de assinado. A especificacao nao tem tabela para o contrato. A tabela guarda a copia do documento assinado (JSON), o hash SHA-256 desse texto, os aceites, o nome de quem assinou, a imagem da assinatura e quem coletou.",
+    "tabelas_novas": {
+      "contrato_locacao": {
+        "colunas": {
+          "id_contrato_locacao": "SERIAL PK",
+          "id_locacao": "INT NOT NULL, fk_contrato_locacao_locacao (NO ACTION)",
+          "id_funcionario": "INT NOT NULL, funcionario que coletou a assinatura, fk_contrato_locacao_funcionario (NO ACTION)",
+          "documento_json": "TEXT NOT NULL (copia do documento assinado)",
+          "hash_sha256": "VARCHAR(64) NOT NULL (hexadecimal minusculo do documento_json)",
+          "nome_assinante": "VARCHAR(100) NOT NULL",
+          "aceite_condicoes_gerais": "BOOLEAN NOT NULL",
+          "aceite_politica_combustivel": "BOOLEAN NOT NULL (false quando o documento nao tem a clausula de combustivel)",
+          "assinatura_png_base64": "TEXT NOT NULL (PNG em base64, teto de 87.384 caracteres no servico)",
+          "assinado_em": "TIMESTAMP WITHOUT TIME ZONE NOT NULL (hora local do servidor)"
+        },
+        "indices": ["idx_contrato_locacao_locacao (id_locacao) (comum)"],
+        "auditoria": "created_at, updated_at, disabled_at (BaseEntities)"
+      }
+    },
+    "regra_no_servico": "um contrato ativo por locacao: a assinatura roda sob a trava da locacao (FOR UPDATE) e recusa com 409 o que ja foi assinado; sem indice unico, pela decisao de 04/11/2026; sem IP gravado (D10)",
+    "nao_muda": "demais tabelas, colunas e CHECKs; nenhum CHECK novo; nenhum indice unico; nenhuma linha existente muda; a migration AdicionarContratoLocacao so cria a tabela e o indice"
   }
 }

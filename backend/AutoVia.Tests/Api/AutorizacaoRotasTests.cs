@@ -327,5 +327,23 @@ namespace AutoVia.Tests.Api
             Assert.False(Attribute.IsDefined(retirada, typeof(AllowAnonymousAttribute)));
             Assert.False(Attribute.IsDefined(abrir, typeof(EnableRateLimitingAttribute)));
         }
+
+        /// <summary>
+        /// Contrato digital da locacao (contrato-locacao v5): GET e POST da assinatura declaram PoliticaContratoLocacao na acao;
+        /// nenhuma das duas e anonima nem tem limitador proprio.
+        /// </summary>
+        [Fact]
+        public void ContratoLocacao_GetEPostExigemPoliticaContratoLocacaoNaAcao()
+        {
+            Type controller = typeof(ContratoLocacaoController);
+            MethodInfo consultar = controller.GetMethod(nameof(ContratoLocacaoController.ObterContrato))!;
+            MethodInfo assinar = controller.GetMethod(nameof(ContratoLocacaoController.AssinarContrato))!;
+
+            Assert.Equal(ConstantsValues.PoliticaContratoLocacao, consultar.GetCustomAttribute<AuthorizeAttribute>()!.Policy);
+            Assert.Equal(ConstantsValues.PoliticaContratoLocacao, assinar.GetCustomAttribute<AuthorizeAttribute>()!.Policy);
+            Assert.False(Attribute.IsDefined(consultar, typeof(AllowAnonymousAttribute)));
+            Assert.False(Attribute.IsDefined(assinar, typeof(AllowAnonymousAttribute)));
+            Assert.False(Attribute.IsDefined(assinar, typeof(EnableRateLimitingAttribute)));
+        }
     }
 }

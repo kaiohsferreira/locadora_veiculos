@@ -710,6 +710,82 @@ namespace AutoVia.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.ContratoLocacao", b =>
+                {
+                    b.Property<int>("IdContratoLocacao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id_contrato_locacao");
+
+                    NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdContratoLocacao"));
+
+                    b.Property<bool>("AceiteCondicoesGerais")
+                        .HasColumnType("boolean")
+                        .HasColumnName("aceite_condicoes_gerais");
+
+                    b.Property<bool>("AceitePoliticaCombustivel")
+                        .HasColumnType("boolean")
+                        .HasColumnName("aceite_politica_combustivel");
+
+                    b.Property<DateTime>("AssinadoEm")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("assinado_em");
+
+                    b.Property<string>("AssinaturaPngBase64")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("assinatura_png_base64");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("disabled_at");
+
+                    b.Property<string>("DocumentoJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("documento_json");
+
+                    b.Property<string>("HashSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("hash_sha256");
+
+                    b.Property<int>("IdFuncionario")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_funcionario");
+
+                    b.Property<int>("IdLocacao")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_locacao");
+
+                    b.Property<string>("NomeAssinante")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("nome_assinante");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("IdContratoLocacao")
+                        .HasName("contrato_locacao_pkey");
+
+                    b.HasIndex("IdLocacao")
+                        .HasDatabaseName("idx_contrato_locacao_locacao");
+
+                    b.ToTable("contrato_locacao", (string)null);
+                });
+
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Empresa", b =>
                 {
                     b.Property<int>("IdEmpresa")
@@ -2244,6 +2320,27 @@ namespace AutoVia.Infrastructure.Migrations
                     b.Navigation("Categoria");
 
                     b.Navigation("Empresa");
+                });
+
+            modelBuilder.Entity("AutoVia.Core.Entities.PgSql.ContratoLocacao", b =>
+                {
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Funcionario", "Funcionario")
+                        .WithMany()
+                        .HasForeignKey("IdFuncionario")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_contrato_locacao_funcionario");
+
+                    b.HasOne("AutoVia.Core.Entities.PgSql.Locacao", "Locacao")
+                        .WithMany()
+                        .HasForeignKey("IdLocacao")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired()
+                        .HasConstraintName("fk_contrato_locacao_locacao");
+
+                    b.Navigation("Funcionario");
+
+                    b.Navigation("Locacao");
                 });
 
             modelBuilder.Entity("AutoVia.Core.Entities.PgSql.Funcionario", b =>

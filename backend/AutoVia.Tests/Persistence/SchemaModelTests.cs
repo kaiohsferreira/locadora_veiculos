@@ -39,7 +39,10 @@ namespace AutoVia.Tests.Persistence
             // Desvio aprovado por Kaio em 19/11/2026 (documentos do cliente, RF-08): tabela cliente_documento.
             "cliente_documento",
             // RF-23: cadastro e apuracao autorizados por Eduardo em 18/11/2026.
-            "configuracao_cobranca_extra", "apuracao_cobranca_extra"
+            "configuracao_cobranca_extra", "apuracao_cobranca_extra",
+            // Desvio D10 do contrato-locacao v5 (RF-21, contrato digital): tabela contrato_locacao. Aprovacao do desvio em
+            // backend/docs/especificacao/desvios_aprovados.json pendente com o orquestrador (ainda nao registrada la).
+            "contrato_locacao"
         };
 
         private static readonly string[] TabelasIntegracao = new string[] { "integration", "integration_setting" };
@@ -72,7 +75,9 @@ namespace AutoVia.Tests.Persistence
             // RF-22: vínculo aditivo autorizado por Eduardo Freire em 18/11/2026.
             "idx_avaria_entrada",
             // RF-23: indices comuns do desvio autorizado.
-            "idx_configuracao_extra_empresa_categoria", "idx_apuracao_extra_locacao", "idx_cobranca_apuracao"
+            "idx_configuracao_extra_empresa_categoria", "idx_apuracao_extra_locacao", "idx_cobranca_apuracao",
+            // Desvio D10 (contrato-locacao v5): indice comum por locacao, sem UNIQUE (decisao de 04/11/2026).
+            "idx_contrato_locacao_locacao"
         };
 
         /// <summary>
