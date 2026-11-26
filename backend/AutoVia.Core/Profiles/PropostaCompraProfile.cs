@@ -34,7 +34,8 @@ namespace AutoVia.Core.Profiles
                 .ForMember(dest => dest.Modelo, opt => opt.MapFrom(src => src.Veiculo != null ? src.Veiculo.Modelo : string.Empty))
                 .ForMember(dest => dest.AnoModelo, opt => opt.MapFrom(src => src.Veiculo != null ? (int)src.Veiculo.AnoModelo : 0))
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
-                .ForMember(dest => dest.DataProposta, opt => opt.MapFrom(src => src.CreatedAt));
+                .ForMember(dest => dest.DataProposta, opt => opt.MapFrom(src => src.CreatedAt))
+                .ForMember(dest => dest.DataPropostaStr, opt => opt.MapFrom(src => StaticMethods.FormateDateTimeToPTBR(src.CreatedAt)));
         }
     }
 }

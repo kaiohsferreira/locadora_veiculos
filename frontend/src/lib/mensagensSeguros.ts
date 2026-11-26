@@ -1,20 +1,33 @@
 /** Textos fixos da gestão de seguros (P9-FE-01). As mensagens de erro do servidor chegam prontas (ErroApi). */
-export const SEGUROS_TITULO_PAGINA = 'Gestão de seguros';
+export const SEGUROS_TITULO_DOCUMENTO = 'Gestão de seguros';
+export const SEGUROS_TITULO_PAGINA = 'Seguros';
 export const SEGUROS_SUBTITULO = 'Apólices por veículo, com os vencimentos dos próximos 60 dias em destaque.';
-export const SEGUROS_BOTAO_NOVA = 'Nova apólice';
+export const SEGUROS_BOTAO_NOVA = 'Cadastrar apólice';
 export const SEGUROS_RODAPE_ITENS = 'apólices';
+
+/** Trilha do desenho 13: Operações > Gestão de risco e sinistros > Apólices de seguro. */
+export const SEGUROS_TRILHA: readonly string[] = ['Operações', 'Gestão de risco e sinistros', 'Apólices de seguro'];
+export const SEGUROS_TRILHA_ROTULO = 'Trilha de navegação';
+
+export const SEGUROS_TITULO_LISTA = 'Apólices da Frota em Vigência';
+export const SEGUROS_ITENS_POR_PAGINA = 'Itens por página:';
+export const SEGUROS_SELO_RENOVACAO = 'Requer renovação imediata';
+export const SEGUROS_FILTRO_VENCENDO = 'Vencendo em breve';
+export const SEGUROS_STATUS_VIGENTE = 'Vigente';
+export const SEGUROS_COLUNA_APOLICE = 'Apólice / Cobertura';
+export const SEGUROS_COLUNA_VIGENCIA_PRAZOS = 'Vigência & Prazos';
+export const SEGUROS_COLUNA_STATUS = 'Status';
 
 export const SEGUROS_INDICADOR_CADASTRADAS = 'Apólices cadastradas';
 export const SEGUROS_INDICADOR_CADASTRADAS_DETALHE = 'inclui as vencidas';
-export const SEGUROS_INDICADOR_A_VENCER = 'Vencem em até 60 dias';
-export const SEGUROS_INDICADOR_A_VENCER_DETALHE = 'de hoje até 60 dias';
+export const SEGUROS_INDICADOR_A_VENCER = 'Apólices a vencer (≤ 60 dias)';
+export const SEGUROS_INDICADOR_A_VENCER_DETALHE = 'apólices';
 export const SEGUROS_INDICADOR_A_VENCER_ACAO = 'Ver só as que vencem em até 60 dias';
 
 export const SEGUROS_FILTRO_PLACA = 'Veículo';
 export const SEGUROS_FILTRO_PLACA_EXEMPLO = 'Buscar por placa';
 export const SEGUROS_FILTRO_SITUACAO = 'Situação';
 export const SEGUROS_FILTRO_TODAS = 'Todas';
-export const SEGUROS_FILTRO_A_VENCER = 'A vencer (60 dias)';
 export const SEGUROS_FILTRO_REMOVER_PLACA = 'Remover filtro do veículo';
 export const SEGUROS_FILTRO_PLACA_ETIQUETA = 'Placa';
 export const SEGUROS_BUSCA_SEM_RESULTADO = 'Nenhum veículo com essa placa.';
@@ -72,11 +85,25 @@ export const SEGUROS_ERRO_PREMIO_PRECISAO = 'O valor do prêmio deve ter no máx
 export const SEGUROS_ERRO_COBERTURA_TAMANHO = 'A cobertura deve ter no máximo 200 caracteres.';
 
 export const SEGUROS_VENCE_HOJE = 'Vence hoje';
-export const SEGUROS_EM_DIA = 'Em dia';
 
-/** "Vence em 1 dia" / "Vence em N dias". */
-export function textoVenceEm(dias: number): string {
-  return dias === 1 ? 'Vence em 1 dia' : `Vence em ${dias} dias`;
+/** Pílula com a contagem: "Todas (37)". Sem a contagem (carregando ou falhou), só o rótulo. */
+export function textoPilula(rotulo: string, quantidade: number | undefined): string {
+  return quantidade === undefined ? rotulo : `${rotulo} (${quantidade.toLocaleString('pt-BR')})`;
+}
+
+/** Selo do título da lista: "1 apólice" / "N apólices". */
+export function textoQuantidadeApolices(quantidade: number): string {
+  return quantidade === 1 ? '1 apólice' : `${quantidade.toLocaleString('pt-BR')} apólices`;
+}
+
+/** "Falta 1 dia" / "Faltam N dias" (embaixo da vigência). */
+export function textoFaltam(dias: number): string {
+  return dias === 1 ? 'Falta 1 dia' : `Faltam ${dias} dias`;
+}
+
+/** "Vence em breve (N dias)" (status das que vencem em até 60 dias). */
+export function textoVenceEmBreve(dias: number): string {
+  return dias === 1 ? 'Vence em breve (1 dia)' : `Vence em breve (${dias} dias)`;
 }
 
 /** "Vencida há 1 dia" / "Vencida há N dias". */
@@ -84,7 +111,3 @@ export function textoVencidaHa(dias: number): string {
   return dias === 1 ? 'Vencida há 1 dia' : `Vencida há ${dias} dias`;
 }
 
-/** "até 30/12/2026" (detalhe do "Em dia"). */
-export function textoAte(data: string): string {
-  return `até ${data}`;
-}

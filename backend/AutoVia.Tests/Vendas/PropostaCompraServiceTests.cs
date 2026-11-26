@@ -120,6 +120,33 @@ namespace AutoVia.Tests.Vendas
             Assert.Equal("Renegade", retorno.Modelo);
             Assert.Equal(60000m, retorno.ValorFinanciado);
             Assert.Equal(nameof(StatusPropostaCompra.ENVIADA), retorno.Status);
+            Assert.Equal(gravada.CreatedAt, retorno.DataProposta);
+            Assert.Equal(StaticMethods.FormateDateTimeToPTBR(gravada.CreatedAt), retorno.DataPropostaStr);
+        }
+
+        [Fact]
+        public async Task Criar_ComCadastroEmAnalise_Devolve409ComAMensagemDaPropostaENaoGrava()
+        {
+            Cenario cenario = new Cenario(IdCliente);
+            Veiculo veiculo = cenario.SemearVeiculo(80000m, StatusVeiculo.DISPONIVEL);
+            cenario.Armazenamento.Semear(IdCliente, IdEmpresa, StatusCadastroCliente.PENDENTE);
+
+            BusinessException erro = await Assert.ThrowsAsync<BusinessException>(() => cenario.Servico.CriarAsync(IdCliente, new PropostaCompraVO { IdVeiculo = veiculo.IdVeiculo, ValorEntrada = 20000m, NumeroParcelas = 12 }));
+
+            Assert.Equal(string.Format(ConstantsMessage.ErroPropostaCadastroEmAnalise, "Locadora Um"), erro.Message);
+            Assert.DoesNotContain("reserva", erro.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Empty(cenario.Propostas.Propostas);
+        }
+
+        [Fact]
+        public async Task Criar_SemVinculoNaLocadora_CriaPendenteEDevolveAMensagemDaProposta()
+        {
+            Cenario cenario = new Cenario(IdCliente);
+            Veiculo veiculo = cenario.SemearVeiculo(80000m, StatusVeiculo.DISPONIVEL);
+
+            BusinessException erro = await Assert.ThrowsAsync<BusinessException>(() => cenario.Servico.CriarAsync(IdCliente, new PropostaCompraVO { IdVeiculo = veiculo.IdVeiculo, ValorEntrada = 20000m, NumeroParcelas = 12 }));
+
+            Assert.Equal(string.Format(ConstantsMessage.ErroPropostaCadastroEmAnalise, "Locadora Um"), erro.Message);
         }
 
         [Fact]

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { formatarNumero } from '@/lib/formatters';
 import { MENSAGEM_LISTA_VAZIA } from '@/lib/mensagens';
 import type { Pagina } from '@/types/api';
@@ -10,6 +11,8 @@ export interface PaginacaoProps extends Pick<Pagina<unknown>, 'pagina' | 'tamanh
   desabilitada?: boolean;
   /** Nome dos itens no resumo ("Exibindo 1–10 de 57 veículos"). Padrão: "registros". */
   rotuloItens?: string;
+  /** Conteúdo ao lado do resumo (ex.: o seletor "Itens por página"). */
+  extra?: ReactNode;
 }
 
 type ItemPaginacao = number | 'reticencias';
@@ -43,6 +46,7 @@ export function Paginacao({
   aoMudarPagina,
   desabilitada = false,
   rotuloItens = 'registros',
+  extra,
 }: PaginacaoProps) {
   const totalPaginas = Math.max(1, Math.ceil(total / Math.max(1, tamanhoPagina)));
   const paginaAtual = Math.min(Math.max(1, pagina), totalPaginas);
@@ -60,19 +64,22 @@ export function Paginacao({
       aria-label="Paginação"
       className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
     >
-      <p className="text-corpo-denso text-texto-suave">
-        {total === 0 ? (
-          MENSAGEM_LISTA_VAZIA
-        ) : (
-          <>
-            Exibindo{' '}
-            <span className="font-semibold text-texto">
-              {formatarNumero(inicio)}–{formatarNumero(fim)}
-            </span>{' '}
-            de <span className="font-semibold text-texto">{formatarNumero(total)}</span> {rotuloItens}
-          </>
-        )}
-      </p>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <p className="text-corpo-denso text-texto-suave">
+          {total === 0 ? (
+            MENSAGEM_LISTA_VAZIA
+          ) : (
+            <>
+              Exibindo{' '}
+              <span className="font-semibold text-texto">
+                {formatarNumero(inicio)}–{formatarNumero(fim)}
+              </span>{' '}
+              de <span className="font-semibold text-texto">{formatarNumero(total)}</span> {rotuloItens}
+            </>
+          )}
+        </p>
+        {extra}
+      </div>
 
       <ul className="flex items-center gap-1">
         <li>

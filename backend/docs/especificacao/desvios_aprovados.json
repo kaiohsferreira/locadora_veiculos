@@ -340,7 +340,7 @@
     },
     "filters": "Filtro nomeado Empresa, fail-closed: PropostaCompra pelo Veiculo.IdEmpresa (mesmo caminho de Venda). A locadora so ve propostas dos proprios veiculos.",
     "regra_no_servico": "veiculo DISPONIVEL e com valor_venda; cadastro do cliente APROVADO na locadora do veiculo (como na reserva); parcelas de 1 a 60; parcela minima de R$ 0,01. Valores recalculados no servidor, nunca aceitos do cliente.",
-    "migrations": "Gerada em 21/11/2026 e ainda nao aplicada (computador sem PostgreSQL); aplicar so no banco local da Maria Eduarda; manter todas as anteriores",
+    "migrations": "Gerada em 21/11/2026 e ainda nao aplicada (computador sem PostgreSQL); manter todas as anteriores",
     "dados_existentes": "Nenhum backfill (tabela nova)",
     "unicidade": "Nenhuma: o cliente pode mandar mais de uma proposta; nenhum indice unico",
     "nao_muda": "demais tabelas, colunas e CHECKs; venda continua sendo a venda efetivada"

@@ -19,5 +19,8 @@ namespace AutoVia.Helpers
         public const string ErroRegistrarProposta = "Não foi possível registrar a proposta de compra.";
         public const string ErroBuscarProposta = "Não foi possível consultar a proposta de compra.";
         public const string ErroPropostaBuscarVeiculo = "Não foi possível consultar o veículo à venda.";
+
+        /// <summary>409: cadastro pendente na locadora do veiculo. {0} = nome fantasia da locadora.</summary>
+        public const string ErroPropostaCadastroEmAnalise = "Seu cadastro está em análise pela locadora {0}. Seus dados de cadastro foram compartilhados com ela para a verificação. A proposta de compra fica disponível após a aprovação.";
     }
 }

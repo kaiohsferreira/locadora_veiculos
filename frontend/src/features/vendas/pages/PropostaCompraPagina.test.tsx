@@ -5,7 +5,6 @@ import { AvisoProvider } from '@/components/ui';
 import { useEnviarPropostaCompra } from '@/features/vendas/hooks/useEnviarPropostaCompra';
 import { useSimulacaoParcelamento } from '@/features/vendas/hooks/useSimulacaoParcelamento';
 import { useVeiculoAVenda } from '@/features/vendas/hooks/useVeiculoAVenda';
-import { formatarMoeda } from '@/lib/formatters';
 import { AutenticacaoContexto, type AutenticacaoContextoValor } from '@/routes/autenticacao/AutenticacaoContexto';
 import { ErroApi } from '@/types/api';
 import type { SimulacaoParcelamento, VeiculoAVenda } from '@/types/vendas';
@@ -40,19 +39,20 @@ const VEICULO: VeiculoAVenda = {
   erroFotoCapa: null,
 };
 
+// Textos como o servidor manda: a tela mostra estes, sem formatar de novo no navegador.
 const SIMULACAO: SimulacaoParcelamento = {
   idVeiculo: 4,
   valorVenda: 10000,
-  valorVendaStr: '',
+  valorVendaStr: 'R$ 10.000,00',
   valorEntrada: 0,
-  valorEntradaStr: '',
+  valorEntradaStr: 'R$ 0,00',
   valorFinanciado: 10000,
-  valorFinanciadoStr: '',
-  numeroParcelas: 3,
-  valorParcela: 3333.33,
-  valorParcelaStr: '',
-  valorUltimaParcela: 3333.34,
-  valorUltimaParcelaStr: '',
+  valorFinanciadoStr: 'R$ 10.000,00',
+  numeroParcelas: 12,
+  valorParcela: 833.33,
+  valorParcelaStr: 'R$ 833,33',
+  valorUltimaParcela: 833.37,
+  valorUltimaParcelaStr: 'R$ 833,37',
 };
 
 function autenticacao(autenticado: boolean): AutenticacaoContextoValor {
@@ -113,36 +113,93 @@ describe('PropostaCompraPagina (P6-FE-02)', () => {
     vi.mocked(useEnviarPropostaCompra).mockReset();
   });
 
-  it('mostra o cartão do carro com nome, anos, km, locadora e preço', () => {
+  it('mostra a trilha, o título e o cartão do carro como no desenho', () => {
     const html = renderizar({ veiculo: consulta<ConsultaVeiculo>({ data: VEICULO }) });
 
-    expect(html).toContain('Proposta de compra');
+    expect(html).toContain('Início');
+    expect(html).toContain('Carros à venda');
+    expect(html).toContain('Enviar Proposta de Compra');
+    expect(html).toContain('Proposta de Compra &amp; Simulação');
     expect(html).toContain('Jeep Renegade');
-    expect(html).toContain('2022/2023');
-    expect(html).toContain('30.000 km');
-    expect(html).toContain('Locadora Um');
-    expect(html).toContain('Campinas/SP');
-    expect(html).toContain(formatarMoeda(10000));
+    expect(html).toContain('Valor anunciado à vista');
+    expect(html).toMatch(/R\$ 10\.000<span[^>]*>,00<\/span>/);
+    expect(html).toContain('Ficha Técnica do Veículo');
+    expect(html).toContain('2022 / 2023');
+    expect(html).toContain('Cor Externa');
+    expect(html).toContain('Branco');
+    expect(html).toMatch(/data-testid="km-sobre-foto"[^>]*>30\.000 km/);
+    expect(html).toMatch(/data-testid="cartao-locadora".*Locadora Um.*Campinas\/SP/s);
   });
 
-  it('o resumo mostra exatamente a parcela devolvida pela API e a última parcela diferente', () => {
+  it('com a simulação dos valores dos campos, mostra o resultado do servidor e libera o envio', () => {
     const html = renderizar({ veiculo: consulta<ConsultaVeiculo>({ data: VEICULO }) });
 
-    expect(html).toContain(`3 × ${formatarMoeda(3333.33)}`);
-    expect(html).toContain(`Última parcela: ${formatarMoeda(3333.34)}`);
-    expect(html).toContain(formatarMoeda(10000));
-    expect(html).toContain('Enviar proposta');
+    expect(html).toContain('Simulador Inteligente');
+    expect(html).toContain('12x de R$ 833,33');
+    expect(html).toContain('Última parcela: R$ 833,37');
+    expect(html).not.toContain('Calculando…');
+    expect(html).not.toMatch(/<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*Enviar Proposta de Compra/s);
   });
 
   it('sem diferença de centavos, não mostra a observação da última parcela', () => {
-    const exata = { ...SIMULACAO, numeroParcelas: 2, valorParcela: 5000, valorUltimaParcela: 5000 };
+    const exata = { ...SIMULACAO, valorParcela: 5000, valorParcelaStr: 'R$ 5.000,00', valorUltimaParcela: 5000 };
     const html = renderizar({
       veiculo: consulta<ConsultaVeiculo>({ data: VEICULO }),
       simulacao: consulta<ConsultaSimulacao>({ data: exata }),
     });
 
-    expect(html).toContain(`2 × ${formatarMoeda(5000)}`);
+    expect(html).toContain('12x de R$ 5.000,00');
     expect(html).not.toContain('Última parcela');
+  });
+
+  it('enquanto a simulação não é a dos valores digitados, mostra "Calculando…" e desliga o envio', () => {
+    const antiga = { ...SIMULACAO, numeroParcelas: 24, valorParcelaStr: 'R$ 416,66' };
+    const html = renderizar({
+      veiculo: consulta<ConsultaVeiculo>({ data: VEICULO }),
+      simulacao: consulta<ConsultaSimulacao>({ data: antiga, isFetching: true }),
+    });
+
+    expect(html).toContain('Calculando…');
+    expect(html).not.toContain('R$ 416,66');
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*Enviar Proposta de Compra/s);
+  });
+
+  it('antes da primeira simulação voltar, também mostra "Calculando…"', () => {
+    const html = renderizar({
+      veiculo: consulta<ConsultaVeiculo>({ data: VEICULO }),
+      simulacao: consulta<ConsultaSimulacao>({ isPending: true, isFetching: true }),
+    });
+
+    expect(html).toContain('Calculando…');
+  });
+
+  it('erro da simulação: mostra a mensagem do servidor, sem "Calculando…", e não deixa enviar', () => {
+    const html = renderizar({
+      veiculo: consulta<ConsultaVeiculo>({ data: VEICULO }),
+      simulacao: consulta<ConsultaSimulacao>({
+        isError: true,
+        error: new ErroApi({ status: 400, mensagem: 'Com esse valor financiado, cada parcela ficaria abaixo de R$ 0,01.' }),
+      }),
+    });
+
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('Com esse valor financiado, cada parcela ficaria abaixo de R$ 0,01.');
+    expect(html).not.toContain('Calculando…');
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*Enviar Proposta de Compra/s);
+  });
+
+  it('na volta do login, restaura a entrada e as parcelas do endereço', () => {
+    const simulacaoDaVolta = { ...SIMULACAO, valorEntrada: 3000, numeroParcelas: 48, valorParcelaStr: 'R$ 145,83' };
+    const html = renderizar({
+      veiculo: consulta<ConsultaVeiculo>({ data: VEICULO }),
+      simulacao: consulta<ConsultaSimulacao>({ data: simulacaoDaVolta }),
+      rota: '/seminovos/4/proposta?entrada=3000.00&parcelas=48',
+    });
+
+    expect(html).toContain('value="3.000,00"');
+    expect(html).toMatch(/checked="" value="48"/);
+    expect(html).toContain('48x de R$ 145,83');
+    expect(vi.mocked(useSimulacaoParcelamento)).toHaveBeenCalledWith(4, 3000, 48, 10000);
   });
 
   it('com erroFotoCapa, mostra o aviso do servidor junto da foto', () => {

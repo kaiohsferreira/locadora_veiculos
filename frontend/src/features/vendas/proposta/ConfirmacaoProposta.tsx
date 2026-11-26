@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { BotaoLink, Etiqueta, Icone } from '@/components/ui';
-import { formatarDataHora, formatarMoeda } from '@/lib/formatters';
 import {
+  PROPOSTA_CONFIRMACAO_CODIGO,
   PROPOSTA_CONFIRMACAO_DATA,
   PROPOSTA_CONFIRMACAO_INICIO,
   PROPOSTA_CONFIRMACAO_LOCADORA_PADRAO,
@@ -15,6 +15,7 @@ import {
   PROPOSTA_RESUMO_FINANCIADO,
   PROPOSTA_RESUMO_ULTIMA_PARCELA,
   PROPOSTA_ROTULO_STATUS,
+  textoCodigoProposta,
 } from '@/lib/mensagensProposta';
 import { CAMINHOS } from '@/routes/caminhos';
 import type { PropostaCompra } from '@/types/vendas';
@@ -35,7 +36,10 @@ function Item({ rotulo, children }: { rotulo: string; children: ReactNode }) {
   );
 }
 
-/** Confirmação depois do envio: os números gravados pelo servidor, a data e a situação, com os caminhos de saída. */
+/**
+ * Confirmação depois do envio: o código da proposta, os números gravados pelo servidor (os textos prontos dele), a data
+ * formatada pelo servidor e a situação, com os caminhos de saída.
+ */
 export function ConfirmacaoProposta({ proposta, locadora }: ConfirmacaoPropostaProps) {
   return (
     <section
@@ -55,18 +59,21 @@ export function ConfirmacaoProposta({ proposta, locadora }: ConfirmacaoPropostaP
       </div>
 
       <dl className="w-full divide-y divide-borda rounded-cartao border border-borda px-4 text-left">
+        <Item rotulo={PROPOSTA_CONFIRMACAO_CODIGO}>
+          <span data-testid="codigo-proposta">{textoCodigoProposta(proposta.idPropostaCompra)}</span>
+        </Item>
         <Item rotulo={PROPOSTA_CONFIRMACAO_VEICULO}>
           {proposta.marca} {proposta.modelo} {proposta.anoModelo}
         </Item>
-        <Item rotulo={PROPOSTA_RESUMO_ENTRADA}>{formatarMoeda(proposta.valorEntrada)}</Item>
-        <Item rotulo={PROPOSTA_RESUMO_FINANCIADO}>{formatarMoeda(proposta.valorFinanciado)}</Item>
+        <Item rotulo={PROPOSTA_RESUMO_ENTRADA}>{proposta.valorEntradaStr}</Item>
+        <Item rotulo={PROPOSTA_RESUMO_FINANCIADO}>{proposta.valorFinanciadoStr}</Item>
         <Item rotulo={PROPOSTA_CONFIRMACAO_PARCELAS}>
-          {proposta.numeroParcelas} × {formatarMoeda(proposta.valorParcela)}
+          {proposta.numeroParcelas}x de {proposta.valorParcelaStr}
         </Item>
         {ultimaParcelaDiferente(proposta.valorParcela, proposta.valorUltimaParcela) && (
-          <Item rotulo={PROPOSTA_RESUMO_ULTIMA_PARCELA}>{formatarMoeda(proposta.valorUltimaParcela)}</Item>
+          <Item rotulo={PROPOSTA_RESUMO_ULTIMA_PARCELA}>{proposta.valorUltimaParcelaStr}</Item>
         )}
-        <Item rotulo={PROPOSTA_CONFIRMACAO_DATA}>{formatarDataHora(proposta.dataProposta)}</Item>
+        <Item rotulo={PROPOSTA_CONFIRMACAO_DATA}>{proposta.dataPropostaStr}</Item>
         <Item rotulo={PROPOSTA_CONFIRMACAO_SITUACAO}>
           <Etiqueta rotulo={PROPOSTA_ROTULO_STATUS[proposta.status]} tom="sucesso" />
         </Item>

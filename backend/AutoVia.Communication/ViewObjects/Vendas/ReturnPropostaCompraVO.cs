@@ -25,5 +25,8 @@ namespace AutoVia.Communication.ViewObjects.Vendas
 
         /// <summary>Data e hora do envio (CreatedAt).</summary>
         public DateTime DataProposta { get; set; }
+
+        /// <summary>Data e hora do envio formatadas em pt-BR (StaticMethods.FormateDateTimeToPTBR).</summary>
+        public string DataPropostaStr { get; set; } = string.Empty;
     }
 }

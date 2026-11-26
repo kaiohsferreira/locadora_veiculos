@@ -19,7 +19,7 @@ export interface VeiculoAVenda {
   kmAtual: number;
   categoriaNome: string;
   valorVenda: number;
-  /** Valor em reais formatado pelo back. A tela formata pelo `formatarMoeda`; este campo fica só como referência. */
+  /** Valor em reais formatado pelo servidor ("R$ 104.500,00"). A tela mostra este texto. */
   valorVendaStr: string;
   locadoraNomeFantasia: string;
   locadoraCidade: string;
@@ -68,6 +68,8 @@ export interface PropostaCompra extends SimulacaoParcelamento {
   status: StatusPropostaCompra;
   /** Data e hora do envio, em ISO 8601 (sem fuso: horário do servidor). */
   dataProposta: string;
+  /** Data e hora do envio formatadas pelo servidor ("dd/MM/yyyy HH:mm"). A tela mostra este texto. */
+  dataPropostaStr: string;
 }
 
 /**

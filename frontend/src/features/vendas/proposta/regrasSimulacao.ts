@@ -40,3 +40,50 @@ export function podeSimular(parametros: ParametrosSimulacao | null, valorVenda?:
 export function ultimaParcelaDiferente(valorParcela: number, valorUltimaParcela: number): boolean {
   return valorParcela !== valorUltimaParcela;
 }
+
+/** Cartões de parcelas do simulador (desenho 31): de 12x a 60x. */
+export const OPCOES_PARCELAS: readonly number[] = [12, 24, 36, 48, 60];
+
+/** Atalhos de entrada do simulador (desenho 31): porcentagens do valor do veículo. */
+export const PERCENTUAIS_ENTRADA: readonly number[] = [10, 20, 30, 50];
+
+/** Passo da barra deslizante da entrada, em reais. */
+export const PASSO_BARRA_ENTRADA = 100;
+
+/** Entrada que corresponde à porcentagem do valor do veículo, arredondada ao centavo. */
+export function entradaDoPercentual(valorVenda: number, percentual: number): number {
+  return Math.round(valorVenda * percentual) / CENTAVOS_POR_REAL;
+}
+
+/**
+ * Maior entrada da barra deslizante: o maior múltiplo do passo que fica abaixo do valor de venda (a entrada precisa ser
+ * menor que ele). Para carros abaixo de um passo, a barra vai só até zero.
+ */
+export function entradaMaximaDaBarra(valorVenda: number): number {
+  const passos = Math.ceil(valorVenda / PASSO_BARRA_ENTRADA) - 1;
+  return Math.max(0, passos * PASSO_BARRA_ENTRADA);
+}
+
+/** Porcentagem inteira da entrada sobre o valor de venda (para o texto da barra). */
+export function percentualDaEntrada(valorEntrada: number, valorVenda: number): number {
+  return valorVenda > 0 ? Math.round((valorEntrada / valorVenda) * 100) : 0;
+}
+
+/**
+ * Diz se a simulação recebida é a dos valores que estão nos campos agora. Enquanto não for (a pessoa acabou de digitar
+ * e a consulta nova ainda não voltou), a tela mostra "Calculando…" e não deixa enviar.
+ */
+export function simulacaoEhDosValores(
+  simulacao: Pick<ParametrosSimulacao, 'valorEntrada' | 'numeroParcelas'> & { idVeiculo: number } | null | undefined,
+  idVeiculo: number | null,
+  valorEntrada: number | null,
+  numeroParcelas: number | null,
+): boolean {
+  if (simulacao === null || simulacao === undefined || idVeiculo === null) return false;
+  if (valorEntrada === null || numeroParcelas === null) return false;
+  return (
+    simulacao.idVeiculo === idVeiculo &&
+    Math.round(simulacao.valorEntrada * CENTAVOS_POR_REAL) === Math.round(valorEntrada * CENTAVOS_POR_REAL) &&
+    simulacao.numeroParcelas === numeroParcelas
+  );
+}

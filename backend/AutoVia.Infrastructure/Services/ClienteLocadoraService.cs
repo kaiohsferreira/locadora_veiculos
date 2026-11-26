@@ -52,9 +52,19 @@ namespace AutoVia.Infrastructure.Services
         /// Exige o cadastro APROVADO do cliente na locadora. Ordem: locadora ativa (404); vinculo ativo do par (o teto NAO
         /// vale para quem ja tem vinculo); sem vinculo e nao sendo o proprio cliente, 409 sem contar; sem vinculo e proprio
         /// cliente, teto de pedidos na janela (429, nada gravado); depois cria o PENDENTE (gravado antes do 409). Status
-        /// PENDENTE ou RECUSADO geram 409 com a mensagem da locadora; APROVADO segue sem excecao.
+        /// PENDENTE ou RECUSADO geram 409 com a mensagem da locadora; APROVADO segue sem excecao. O PENDENTE usa a mensagem
+        /// da reserva.
         /// </summary>
-        public async Task ExigirCadastroAprovadoAsync(int idCliente, int idEmpresa)
+        public Task ExigirCadastroAprovadoAsync(int idCliente, int idEmpresa)
+        {
+            return ExigirCadastroAprovadoAsync(idCliente, idEmpresa, ConstantsMessage.ErroReservaCadastroEmAnalise);
+        }
+
+        /// <summary>
+        /// Igual a ExigirCadastroAprovadoAsync(idCliente, idEmpresa), mas o 409 do cadastro PENDENTE usa a mensagem informada
+        /// ({0} = nome fantasia da locadora). A proposta de compra usa a mensagem propria dela.
+        /// </summary>
+        public async Task ExigirCadastroAprovadoAsync(int idCliente, int idEmpresa, string mensagemCadastroEmAnalise)
         {
             try
             {
@@ -81,7 +91,7 @@ namespace AutoVia.Infrastructure.Services
                     vinculo = await CriarPendenteAsync(idCliente, idEmpresa);
                 }
 
-                AvaliarStatusDaReserva(vinculo.Status, empresa.NomeFantasia);
+                AvaliarStatusDaReserva(vinculo.Status, empresa.NomeFantasia, mensagemCadastroEmAnalise);
             }
             catch (BusinessException)
             {
@@ -272,8 +282,11 @@ namespace AutoVia.Infrastructure.Services
             return maisAntigo;
         }
 
-        /// <summary>Decide a reserva pelo status da linha que vale: APROVADO segue; RECUSADO e PENDENTE respondem 409 com o nome da locadora.</summary>
-        private static void AvaliarStatusDaReserva(StatusCadastroCliente status, string nomeFantasia)
+        /// <summary>
+        /// Decide pelo status da linha que vale: APROVADO segue; RECUSADO e PENDENTE respondem 409 com o nome da locadora.
+        /// O PENDENTE usa a mensagem informada (reserva ou proposta de compra).
+        /// </summary>
+        private static void AvaliarStatusDaReserva(StatusCadastroCliente status, string nomeFantasia, string mensagemCadastroEmAnalise)
         {
             if (status == StatusCadastroCliente.APROVADO)
             {
@@ -285,7 +298,7 @@ namespace AutoVia.Infrastructure.Services
                 throw new BusinessException(string.Format(ConstantsMessage.ErroReservaCadastroRecusado, nomeFantasia));
             }
 
-            throw new BusinessException(string.Format(ConstantsMessage.ErroReservaCadastroEmAnalise, nomeFantasia));
+            throw new BusinessException(string.Format(mensagemCadastroEmAnalise, nomeFantasia));
         }
     }
 }

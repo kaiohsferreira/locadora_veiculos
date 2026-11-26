@@ -59,6 +59,16 @@ export function escreverFiltroNoEndereco(filtro: FiltroCatalogo): URLSearchParam
   return parametros;
 }
 
+/**
+ * Página fora do intervalo (ex.: `?pagina=99` com 2 páginas, ou depois que carros saíram do catálogo): devolve a última
+ * página que existe, para a tela ir para ela. Devolve nulo quando a página está certa ou quando o catálogo está vazio.
+ */
+export function paginaCorrigida(pagina: number, total: number, tamanhoPagina: number): number | null {
+  if (total <= 0) return null;
+  const ultimaPagina = Math.max(1, Math.ceil(total / Math.max(1, tamanhoPagina)));
+  return pagina > ultimaPagina ? ultimaPagina : null;
+}
+
 /** Caminho da proposta de compra de um veículo (destino de cada cartão do catálogo). */
 export function caminhoProposta(idVeiculo: number): string {
   return generatePath(CAMINHOS.propostaCompra, { veiculoId: String(idVeiculo) });

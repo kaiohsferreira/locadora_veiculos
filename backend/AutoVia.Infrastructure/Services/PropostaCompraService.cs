@@ -73,7 +73,7 @@ namespace AutoVia.Infrastructure.Services
 
                 try
                 {
-                    await _clienteLocadoraService.ExigirCadastroAprovadoAsync(idCliente, veiculo.IdEmpresa);
+                    await _clienteLocadoraService.ExigirCadastroAprovadoAsync(idCliente, veiculo.IdEmpresa, ConstantsMessage.ErroPropostaCadastroEmAnalise);
                 }
                 catch (NotFoundException)
                 {

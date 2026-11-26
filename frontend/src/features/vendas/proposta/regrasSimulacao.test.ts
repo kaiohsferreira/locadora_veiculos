@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { podeSimular, temAteDuasCasas, ultimaParcelaDiferente } from './regrasSimulacao';
+import {
+  entradaDoPercentual,
+  entradaMaximaDaBarra,
+  percentualDaEntrada,
+  podeSimular,
+  simulacaoEhDosValores,
+  temAteDuasCasas,
+  ultimaParcelaDiferente,
+} from './regrasSimulacao';
 
 describe('temAteDuasCasas', () => {
   it.each([0, 1, 0.29, 0.1, 19999.99, 20000.5])('aceita %s', (valor) => {
@@ -41,5 +49,39 @@ describe('ultimaParcelaDiferente', () => {
   it('só é verdadeiro quando a última parcela muda', () => {
     expect(ultimaParcelaDiferente(3333.33, 3333.34)).toBe(true);
     expect(ultimaParcelaDiferente(5000, 5000)).toBe(false);
+  });
+});
+
+describe('atalhos e barra da entrada', () => {
+  it('entrada do percentual arredonda ao centavo', () => {
+    expect(entradaDoPercentual(104500, 30)).toBe(31350);
+    expect(entradaDoPercentual(99999.99, 10)).toBe(10000);
+  });
+
+  it('o máximo da barra fica abaixo do valor de venda, no passo de R$ 100', () => {
+    expect(entradaMaximaDaBarra(104500)).toBe(104400);
+    expect(entradaMaximaDaBarra(104450.5)).toBe(104400);
+    expect(entradaMaximaDaBarra(50)).toBe(0);
+  });
+
+  it('percentual inteiro da entrada', () => {
+    expect(percentualDaEntrada(31350, 104500)).toBe(30);
+    expect(percentualDaEntrada(0, 0)).toBe(0);
+  });
+});
+
+describe('simulacaoEhDosValores', () => {
+  const simulacao = { idVeiculo: 4, valorEntrada: 1000.1, numeroParcelas: 12 };
+
+  it('só é verdadeiro quando carro, entrada e parcelas são os dos campos', () => {
+    expect(simulacaoEhDosValores(simulacao, 4, 1000.1, 12)).toBe(true);
+    expect(simulacaoEhDosValores(simulacao, 4, 1000.2, 12)).toBe(false);
+    expect(simulacaoEhDosValores(simulacao, 4, 1000.1, 24)).toBe(false);
+    expect(simulacaoEhDosValores(simulacao, 5, 1000.1, 12)).toBe(false);
+  });
+
+  it('sem simulação ou com campo nulo não é', () => {
+    expect(simulacaoEhDosValores(undefined, 4, 0, 12)).toBe(false);
+    expect(simulacaoEhDosValores(simulacao, 4, null, 12)).toBe(false);
   });
 });

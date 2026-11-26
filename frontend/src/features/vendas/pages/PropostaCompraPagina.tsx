@@ -1,33 +1,30 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { BotaoLink, EstadoErro, Esqueleto, Icone } from '@/components/ui';
 import { useAoFalharFotoCapa } from '@/features/area-cliente/hooks/useAoFalharFotoCapa';
 import { useEnviarPropostaCompra } from '@/features/vendas/hooks/useEnviarPropostaCompra';
 import { useSimulacaoParcelamento } from '@/features/vendas/hooks/useSimulacaoParcelamento';
 import { useVeiculoAVenda } from '@/features/vendas/hooks/useVeiculoAVenda';
-import {
-  CAMPOS_SIMULACAO_INICIAIS,
-  camposValidos,
-  converterCampos,
-  validarCampos,
-  type CamposSimulacao,
-} from '@/features/vendas/proposta/camposSimulacao';
+import { camposValidos, converterCampos, validarCampos, type CamposSimulacao } from '@/features/vendas/proposta/camposSimulacao';
 import { CartaoVeiculoProposta } from '@/features/vendas/proposta/CartaoVeiculoProposta';
 import { ConfirmacaoProposta } from '@/features/vendas/proposta/ConfirmacaoProposta';
-import { FormularioSimulacao } from '@/features/vendas/proposta/FormularioSimulacao';
-import { ResumoSimulacao } from '@/features/vendas/proposta/ResumoSimulacao';
+import { decidirAntesDoEnvio, decidirDepoisDoEnvio } from '@/features/vendas/proposta/decisaoEnvio';
+import { lerCamposDoEndereco, montarRetornoLogin } from '@/features/vendas/proposta/enderecoProposta';
+import { simulacaoEhDosValores } from '@/features/vendas/proposta/regrasSimulacao';
+import { SimuladorProposta } from '@/features/vendas/proposta/SimuladorProposta';
 import { lerIdVeiculo } from '@/features/vendas/proposta/textosProposta';
+import { TrilhaProposta } from '@/features/vendas/proposta/TrilhaProposta';
 import { useTituloDocumento } from '@/hooks/useTituloDocumento';
 import { obterMensagemErro } from '@/lib/erros';
 import {
   PROPOSTA_ENTRAR_PARA_ENVIAR,
   PROPOSTA_SO_CLIENTE,
   PROPOSTA_SUBTITULO,
+  PROPOSTA_TITULO_DOCUMENTO,
   PROPOSTA_TITULO_PAGINA,
   PROPOSTA_VEICULO_INDISPONIVEL_TEXTO,
   PROPOSTA_VEICULO_INDISPONIVEL_TITULO,
   PROPOSTA_VER_CATALOGO,
-  PROPOSTA_VOLTAR_CATALOGO,
 } from '@/lib/mensagensProposta';
 import { useAutenticacao } from '@/routes/autenticacao/useAutenticacao';
 import { CAMINHOS, type EstadoRedirecionamentoLogin } from '@/routes/caminhos';
@@ -35,7 +32,6 @@ import { ErroApi } from '@/types/api';
 import type { PropostaCompra } from '@/types/vendas';
 
 const STATUS_NAO_ENCONTRADO = 404;
-const STATUS_NAO_AUTENTICADO = 401;
 const PERFIL_CLIENTE = ['cliente'] as const;
 
 /** Erro 404 da API (veículo fora do catálogo). */
@@ -43,18 +39,11 @@ function ehNaoEncontrado(erro: unknown): boolean {
   return erro instanceof ErroApi && erro.status === STATUS_NAO_ENCONTRADO;
 }
 
-/** Cabeçalho da página: link de volta, título e subtítulo. */
+/** Cabeçalho do desenho 31: título e subtítulo. */
 function Cabecalho() {
   return (
-    <header className="flex flex-col gap-2">
-      <Link
-        to={CAMINHOS.seminovos}
-        className="inline-flex w-fit items-center gap-1 text-corpo-denso font-medium text-navy hover:underline"
-      >
-        <Icone nome="arrow_back" tamanho={18} />
-        {PROPOSTA_VOLTAR_CATALOGO}
-      </Link>
-      <h1 className="text-titulo text-navy">{PROPOSTA_TITULO_PAGINA}</h1>
+    <header className="flex flex-col gap-1">
+      <h1 className="text-titulo font-bold tracking-tight text-navy">{PROPOSTA_TITULO_PAGINA}</h1>
       <p className="text-corpo text-texto-suave">{PROPOSTA_SUBTITULO}</p>
     </header>
   );
@@ -64,25 +53,29 @@ function Cabecalho() {
 function CarregandoProposta() {
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-12" aria-busy="true">
-      <div className="flex flex-col gap-6 lg:col-span-8">
-        <Esqueleto className="aspect-[16/9] w-full rounded-cartao" />
+      <div className="flex flex-col gap-6 lg:col-span-5">
+        <Esqueleto className="aspect-[16/10] w-full rounded-cartao" />
         <Esqueleto className="h-40 w-full rounded-cartao" />
       </div>
-      <div className="lg:col-span-4">
-        <Esqueleto className="h-80 w-full rounded-cartao" />
+      <div className="lg:col-span-7">
+        <Esqueleto className="h-96 w-full rounded-cartao" />
       </div>
     </div>
   );
 }
 
 /**
- * P6-FE-02 · Proposta de compra (RF-27). Sem protótipo: segue o design system e o molde das telas prontas (duas colunas
- * como o cadastro de veículo; contêiner e estados como Minhas reservas). O carro vem de GET /api/veiculos/a-venda/{id};
- * a simulação é refeita enquanto a pessoa digita; o envio exige sessão de cliente e, no sucesso, a confirmação mostra os
- * números gravados pelo servidor.
+ * P6-FE-02 · Proposta de compra (RF-27), desenho 31_proposta_de_compra_jeep_renegade. O carro vem de
+ * GET /api/veiculos/a-venda/{id}; a simulação é refeita no servidor a cada mudança e, enquanto o resultado não é o dos
+ * valores dos campos, a tela mostra "Calculando…" e não deixa enviar. Na ida para o login, a entrada e as parcelas vão no
+ * endereço de volta e são restauradas. O envio exige sessão de cliente; a confirmação mostra o código e os números
+ * gravados pelo servidor.
+ *
+ * Fora do desenho por não existirem no sistema: o selo "AutoVia Seminovos Premium", o "ID Negociação" antes do envio,
+ * "Crédito Pré-aprovado via CPF", a faixa "Ambiente Criptografado" e o aviso final do CPF.
  */
 export default function PropostaCompraPagina() {
-  useTituloDocumento(PROPOSTA_TITULO_PAGINA);
+  useTituloDocumento(PROPOSTA_TITULO_DOCUMENTO);
   const { veiculoId } = useParams<'veiculoId'>();
   const idVeiculo = lerIdVeiculo(veiculoId);
 
@@ -100,7 +93,8 @@ export default function PropostaCompraPagina() {
   });
   const envio = useEnviarPropostaCompra();
 
-  const [campos, setCampos] = useState<CamposSimulacao>(CAMPOS_SIMULACAO_INICIAIS);
+  // Na volta do login, os campos vêm do endereço (montarRetornoLogin); sem eles, R$ 0,00 e 12 parcelas.
+  const [campos, setCampos] = useState<CamposSimulacao>(() => lerCamposDoEndereco(localizacao.search));
   const [propostaEnviada, setPropostaEnviada] = useState<PropostaCompra | null>(null);
   const [erroEnvio, setErroEnvio] = useState<string | null>(null);
 
@@ -114,6 +108,9 @@ export default function PropostaCompraPagina() {
     valido ? valores.numeroParcelas : null,
     veiculo?.valorVenda,
   );
+  const simulacaoAtual =
+    valido && simulacaoEhDosValores(simulacao.data, idVeiculo, valores.valorEntrada, valores.numeroParcelas);
+  const calculando = valido && !simulacaoAtual && !simulacao.isError;
 
   function mudarCampo(campo: keyof CamposSimulacao, valor: string) {
     setCampos((anteriores) => ({ ...anteriores, [campo]: valor }));
@@ -121,17 +118,18 @@ export default function PropostaCompraPagina() {
   }
 
   function irParaLogin() {
-    const estado: EstadoRedirecionamentoLogin = { de: `${localizacao.pathname}${localizacao.search}` };
+    const estado: EstadoRedirecionamentoLogin = { de: montarRetornoLogin(localizacao.pathname, campos) };
     navegar(CAMINHOS.entrar, { state: estado });
   }
 
   function enviar() {
-    if (idVeiculo === null || !valido || valores.valorEntrada === null || valores.numeroParcelas === null) return;
-    if (!autenticado) {
+    if (idVeiculo === null || !simulacaoAtual || valores.valorEntrada === null || valores.numeroParcelas === null) return;
+    const decisao = decidirAntesDoEnvio(autenticado, possuiPerfil(PERFIL_CLIENTE));
+    if (decisao === 'irParaLogin') {
       irParaLogin();
       return;
     }
-    if (!possuiPerfil(PERFIL_CLIENTE)) {
+    if (decisao === 'avisarSoCliente') {
       setErroEnvio(PROPOSTA_SO_CLIENTE);
       return;
     }
@@ -144,7 +142,7 @@ export default function PropostaCompraPagina() {
           window.scrollTo({ top: 0 });
         },
         onError: (erro) => {
-          if (erro instanceof ErroApi && erro.status === STATUS_NAO_AUTENTICADO) {
+          if (decidirDepoisDoEnvio(erro) === 'irParaLogin') {
             irParaLogin();
             return;
           }
@@ -179,30 +177,34 @@ export default function PropostaCompraPagina() {
   } else {
     const erroSimulacao = simulacao.isError && valido ? obterMensagemErro(simulacao.error) : null;
     conteudo = (
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-        <div className="flex min-w-0 flex-col gap-6 lg:col-span-8">
+      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
+        <div className="min-w-0 lg:col-span-5">
           <CartaoVeiculoProposta veiculo={veiculo} aoFalharFoto={aoFalharFoto} />
-          <FormularioSimulacao campos={campos} erros={erros} aoMudar={mudarCampo} desabilitado={envio.isPending} />
         </div>
-        <div className="min-w-0 lg:col-span-4">
-          <div className="lg:sticky lg:top-24">
-            <ResumoSimulacao
-              simulacao={valido ? (simulacao.data ?? null) : null}
-              calculando={valido && simulacao.isFetching}
-              erro={erroEnvio ?? erroSimulacao}
-              aviso={autenticado ? null : PROPOSTA_ENTRAR_PARA_ENVIAR}
-              enviando={envio.isPending}
-              podeEnviar={valido && simulacao.data !== undefined && !simulacao.isError}
-              aoEnviar={enviar}
-            />
-          </div>
+        <div className="min-w-0 lg:col-span-7">
+          <SimuladorProposta
+            veiculo={veiculo}
+            campos={campos}
+            erros={erros}
+            aoMudar={mudarCampo}
+            simulacao={simulacaoAtual ? (simulacao.data ?? null) : null}
+            calculando={calculando}
+            erro={erroEnvio ?? erroSimulacao}
+            aviso={autenticado ? null : PROPOSTA_ENTRAR_PARA_ENVIAR}
+            enviando={envio.isPending}
+            podeEnviar={simulacaoAtual && !simulacao.isError}
+            aoEnviar={enviar}
+          />
         </div>
       </div>
     );
   }
 
+  const nomeVeiculo = veiculo && propostaEnviada === null ? `${veiculo.marca} ${veiculo.modelo}` : null;
+
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      <TrilhaProposta nomeVeiculo={nomeVeiculo} />
       <Cabecalho />
       {conteudo}
     </div>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatarMoeda } from '@/lib/formatters';
-import { escreverFiltroNoEndereco, lerFiltroDoEndereco, caminhoProposta } from './enderecoCatalogo';
+import { escreverFiltroNoEndereco, lerFiltroDoEndereco, caminhoProposta, paginaCorrigida } from './enderecoCatalogo';
 import {
   CAMPOS_FILTRO_VAZIOS,
   camposParaFiltro,
@@ -102,5 +102,21 @@ describe('endereço do catálogo', () => {
 
   it('cada cartão leva à proposta do veículo', () => {
     expect(caminhoProposta(4)).toBe('/seminovos/4/proposta');
+  });
+});
+
+describe('paginaCorrigida', () => {
+  it('página além da última volta para a última que existe', () => {
+    expect(paginaCorrigida(99, 45, 20)).toBe(3);
+    expect(paginaCorrigida(4, 60, 20)).toBe(3);
+  });
+
+  it('página dentro do intervalo não muda', () => {
+    expect(paginaCorrigida(1, 45, 20)).toBeNull();
+    expect(paginaCorrigida(3, 45, 20)).toBeNull();
+  });
+
+  it('catálogo vazio não corrige (a tela mostra que está vazio)', () => {
+    expect(paginaCorrigida(5, 0, 20)).toBeNull();
   });
 });

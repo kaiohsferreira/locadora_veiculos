@@ -3,9 +3,14 @@ import type { FiltroApolices } from '@/types/seguros';
 /** 20 apólices por página (o padrão do servidor). */
 export const TAMANHO_PAGINA_SEGUROS = 20;
 
+/** Opções do seletor "Itens por página" (o servidor aceita até 100). */
+export const OPCOES_ITENS_POR_PAGINA: readonly number[] = [10, 20, 50];
+
 /** Filtros da tela, como ficam no endereço: o veículo leva a placa junto, para a etiqueta não precisar de outra consulta. */
 export interface EstadoFiltrosSeguros {
   pagina: number;
+  /** Itens por página (uma das OPCOES_ITENS_POR_PAGINA). */
+  tamanhoPagina: number;
   apenasAVencer: boolean;
   veiculo: { idVeiculo: number; placa: string } | null;
 }
@@ -17,12 +22,14 @@ function inteiroPositivo(texto: string | null): number | null {
   return numero >= 1 ? numero : null;
 }
 
-/** Lê os filtros do endereço (`?veiculo=7&placa=ABC1D23&aVencer=1&pagina=2`). Valor inválido é ignorado. */
+/** Lê os filtros do endereço (`?veiculo=7&placa=ABC1D23&aVencer=1&pagina=2&itens=50`). Valor inválido é ignorado. */
 export function lerFiltrosSeguros(parametros: URLSearchParams): EstadoFiltrosSeguros {
   const idVeiculo = inteiroPositivo(parametros.get('veiculo'));
   const placa = (parametros.get('placa') ?? '').trim();
+  const itens = inteiroPositivo(parametros.get('itens'));
   return {
     pagina: inteiroPositivo(parametros.get('pagina')) ?? 1,
+    tamanhoPagina: itens !== null && OPCOES_ITENS_POR_PAGINA.includes(itens) ? itens : TAMANHO_PAGINA_SEGUROS,
     apenasAVencer: parametros.get('aVencer') === '1',
     veiculo: idVeiculo !== null ? { idVeiculo, placa } : null,
   };
@@ -37,6 +44,7 @@ export function escreverFiltrosSeguros(estado: EstadoFiltrosSeguros): URLSearchP
   }
   if (estado.apenasAVencer) parametros.set('aVencer', '1');
   if (estado.pagina > 1) parametros.set('pagina', String(estado.pagina));
+  if (estado.tamanhoPagina !== TAMANHO_PAGINA_SEGUROS) parametros.set('itens', String(estado.tamanhoPagina));
   return parametros;
 }
 
@@ -44,7 +52,7 @@ export function escreverFiltrosSeguros(estado: EstadoFiltrosSeguros): URLSearchP
 export function montarFiltroApolices(estado: EstadoFiltrosSeguros): FiltroApolices {
   const filtro: FiltroApolices = {
     pagina: estado.pagina,
-    tamanhoPagina: TAMANHO_PAGINA_SEGUROS,
+    tamanhoPagina: estado.tamanhoPagina,
     apenasAVencer: estado.apenasAVencer,
   };
   if (estado.veiculo !== null) filtro.idVeiculo = estado.veiculo.idVeiculo;

@@ -25,22 +25,20 @@ export interface FormularioFiltrosProps {
   aoLimpar: () => void;
 }
 
-/**
- * Título de um grupo de dois campos ("De" e "Até"). Valores em reais não cabem lado a lado na coluna estreita dos
- * filtros, então o grupo de preço empilha os campos (`empilhado`); os anos, com 4 dígitos, ficam lado a lado.
- */
-function Grupo({ titulo, empilhado = false, children }: { titulo: string; empilhado?: boolean; children: ReactNode }) {
+/** Título de um grupo de dois campos ("De" e "Até"), lado a lado. */
+function Grupo({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
-    <fieldset className="flex flex-col gap-2">
+    <fieldset className="flex min-w-0 flex-col gap-2">
       <legend className="mb-2 text-corpo-denso font-semibold text-navy">{titulo}</legend>
-      <div className={`grid gap-3 ${empilhado ? 'grid-cols-1' : 'grid-cols-2'}`}>{children}</div>
+      <div className="grid grid-cols-2 gap-3">{children}</div>
     </fieldset>
   );
 }
 
 /**
- * Campos dos filtros do catálogo: marca, faixa de preço, ano do modelo (de/até) e km máximo. Os filtros só valem ao
- * aplicar (botão ou Enter), para não buscar a cada tecla. Usado no cartão do computador e na janela do celular.
+ * Campos dos "Filtros Avançados" do catálogo (desenho 24): marca, faixa de preço, ano do modelo (de/até) e km máximo,
+ * em linha no computador e empilhados no celular. Os filtros só valem ao aplicar (botão ou Enter), para não buscar a
+ * cada tecla.
  */
 export function FormularioFiltros({ idBase, campos, erros, aoMudar, aoAplicar, aoLimpar }: FormularioFiltrosProps) {
   function enviar(evento: FormEvent<HTMLFormElement>) {
@@ -50,76 +48,78 @@ export function FormularioFiltros({ idBase, campos, erros, aoMudar, aoAplicar, a
 
   return (
     <form className="flex flex-col gap-6" onSubmit={enviar} noValidate>
-      <Campo
-        id={`${idBase}-marca`}
-        rotulo={CATALOGO_ROTULO_MARCA}
-        placeholder={CATALOGO_EXEMPLO_MARCA}
-        autoComplete="off"
-        value={campos.marca}
-        onChange={(evento) => aoMudar('marca', evento.target.value)}
-        erro={erros.marca}
-      />
-      <Grupo titulo={CATALOGO_ROTULO_FAIXA_PRECO} empilhado>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
         <Campo
-          id={`${idBase}-preco-minimo`}
-          rotulo={CATALOGO_ROTULO_DE}
-          inputMode="decimal"
+          id={`${idBase}-marca`}
+          rotulo={CATALOGO_ROTULO_MARCA}
+          placeholder={CATALOGO_EXEMPLO_MARCA}
           autoComplete="off"
-          mascara={mascararMoedaDigitada}
-          value={campos.precoMinimo}
-          onChange={(evento) => aoMudar('precoMinimo', evento.target.value)}
-          erro={erros.precoMinimo}
+          value={campos.marca}
+          onChange={(evento) => aoMudar('marca', evento.target.value)}
+          erro={erros.marca}
         />
+        <Grupo titulo={CATALOGO_ROTULO_FAIXA_PRECO}>
+          <Campo
+            id={`${idBase}-preco-minimo`}
+            rotulo={CATALOGO_ROTULO_DE}
+            inputMode="decimal"
+            autoComplete="off"
+            mascara={mascararMoedaDigitada}
+            value={campos.precoMinimo}
+            onChange={(evento) => aoMudar('precoMinimo', evento.target.value)}
+            erro={erros.precoMinimo}
+          />
+          <Campo
+            id={`${idBase}-preco-maximo`}
+            rotulo={CATALOGO_ROTULO_ATE}
+            inputMode="decimal"
+            autoComplete="off"
+            mascara={mascararMoedaDigitada}
+            value={campos.precoMaximo}
+            onChange={(evento) => aoMudar('precoMaximo', evento.target.value)}
+            erro={erros.precoMaximo}
+          />
+        </Grupo>
+        <Grupo titulo={CATALOGO_ROTULO_ANO}>
+          <Campo
+            id={`${idBase}-ano-minimo`}
+            rotulo={CATALOGO_ROTULO_DE}
+            inputMode="numeric"
+            autoComplete="off"
+            mascara={mascararAno}
+            value={campos.anoMinimo}
+            onChange={(evento) => aoMudar('anoMinimo', evento.target.value)}
+            erro={erros.anoMinimo}
+          />
+          <Campo
+            id={`${idBase}-ano-maximo`}
+            rotulo={CATALOGO_ROTULO_ATE}
+            inputMode="numeric"
+            autoComplete="off"
+            mascara={mascararAno}
+            value={campos.anoMaximo}
+            onChange={(evento) => aoMudar('anoMaximo', evento.target.value)}
+            erro={erros.anoMaximo}
+          />
+        </Grupo>
         <Campo
-          id={`${idBase}-preco-maximo`}
-          rotulo={CATALOGO_ROTULO_ATE}
-          inputMode="decimal"
-          autoComplete="off"
-          mascara={mascararMoedaDigitada}
-          value={campos.precoMaximo}
-          onChange={(evento) => aoMudar('precoMaximo', evento.target.value)}
-          erro={erros.precoMaximo}
-        />
-      </Grupo>
-      <Grupo titulo={CATALOGO_ROTULO_ANO}>
-        <Campo
-          id={`${idBase}-ano-minimo`}
-          rotulo={CATALOGO_ROTULO_DE}
+          id={`${idBase}-km-maximo`}
+          rotulo={CATALOGO_ROTULO_KM}
+          placeholder={CATALOGO_EXEMPLO_KM}
           inputMode="numeric"
           autoComplete="off"
-          mascara={mascararAno}
-          value={campos.anoMinimo}
-          onChange={(evento) => aoMudar('anoMinimo', evento.target.value)}
-          erro={erros.anoMinimo}
+          mascara={mascararKm}
+          value={campos.kmMaximo}
+          onChange={(evento) => aoMudar('kmMaximo', evento.target.value)}
+          erro={erros.kmMaximo}
         />
-        <Campo
-          id={`${idBase}-ano-maximo`}
-          rotulo={CATALOGO_ROTULO_ATE}
-          inputMode="numeric"
-          autoComplete="off"
-          mascara={mascararAno}
-          value={campos.anoMaximo}
-          onChange={(evento) => aoMudar('anoMaximo', evento.target.value)}
-          erro={erros.anoMaximo}
-        />
-      </Grupo>
-      <Campo
-        id={`${idBase}-km-maximo`}
-        rotulo={CATALOGO_ROTULO_KM}
-        placeholder={CATALOGO_EXEMPLO_KM}
-        inputMode="numeric"
-        autoComplete="off"
-        mascara={mascararKm}
-        value={campos.kmMaximo}
-        onChange={(evento) => aoMudar('kmMaximo', evento.target.value)}
-        erro={erros.kmMaximo}
-      />
-      <div className="flex flex-col gap-2">
-        <Botao type="submit" larguraTotal icone="filter_alt">
-          {CATALOGO_BOTAO_APLICAR}
-        </Botao>
-        <Botao type="button" variante="fantasma" larguraTotal onClick={aoLimpar}>
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <Botao type="button" variante="fantasma" onClick={aoLimpar}>
           {CATALOGO_BOTAO_LIMPAR}
+        </Botao>
+        <Botao type="submit" icone="filter_alt">
+          {CATALOGO_BOTAO_APLICAR}
         </Botao>
       </div>
     </form>
