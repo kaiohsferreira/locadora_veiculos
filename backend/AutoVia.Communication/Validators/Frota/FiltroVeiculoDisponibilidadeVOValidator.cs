@@ -23,7 +23,7 @@ namespace AutoVia.Communication.Validators.Frota
             {
                 RuleFor(x => x.Cidade)
                     .Must(cidade => cidade != null && cidade.Trim().Length is > 0 and <= ConstantsValues.TamanhoMaximoCidadeLocadora)
-                    .WithMessage(ConstantsMessage.ErroDisponibilidadeCidadeInvalida);
+                    .WithMessage(string.Format(ConstantsMessage.ErroDisponibilidadeCidadeInvalida, ConstantsValues.TamanhoMaximoCidadeLocadora));
                 RuleFor(x => x.Uf)
                     .Must(uf => uf != null && ConstantsValues.UfsBrasileiras.Contains(uf.Trim().ToUpperInvariant()))
                     .WithMessage(ConstantsMessage.ErroDisponibilidadeUfInvalida);

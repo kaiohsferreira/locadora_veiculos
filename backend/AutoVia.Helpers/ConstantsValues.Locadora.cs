@@ -39,6 +39,15 @@ namespace AutoVia.Helpers
             "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
         });
 
+        /// <summary>
+        /// Letras acentuadas que a lista de cidades dobra para a ordem (A com acento fica junto do A). Posicao a posicao
+        /// com LetrasSemAcentoCidade. Tabela propria, sem depender da cultura: o resultado e o mesmo com ICU ou invariante.
+        /// </summary>
+        public const string LetrasComAcentoCidade = "àáâãäåÀÁÂÃÄÅçÇèéêëÈÉÊËìíîïÌÍÎÏñÑòóôõöÒÓÔÕÖùúûüÙÚÛÜýÿÝ";
+
+        /// <summary>Letras sem acento, em maiusculas, na mesma posicao de LetrasComAcentoCidade.</summary>
+        public const string LetrasSemAcentoCidade = "AAAAAAAAAAAACCEEEEEEEEIIIIIIIINNOOOOOOOOOOUUUUUUUUYYY";
+
         public const int TamanhoMaximoResponsavelNome = 120;
 
         /// <summary>

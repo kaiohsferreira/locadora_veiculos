@@ -2,6 +2,7 @@ using AutoMapper;
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Empresas;
+using AutoVia.Communication.ViewObjects.Frota;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Profiles;
 using AutoVia.Core.ServicesInterface;
@@ -10,6 +11,7 @@ using AutoVia.Infrastructure.Services;
 using AutoVia.Tests.Fakes;
 using FluentValidation;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Text;
 
 namespace AutoVia.Tests.Empresas
 {
@@ -242,6 +244,166 @@ namespace AutoVia.Tests.Empresas
                 Assert.DoesNotContain(CnpjDigitos, entrada);
                 Assert.DoesNotContain(CpfDigitos, entrada);
             }
+        }
+
+        [Fact]
+        public async Task GetCidades_MesmaCidadeComGrafiasDiferentes_DevolveAMistaMesmoQueChegueDepois()
+        {
+            FakeEmpresaRepository repositorio = new FakeEmpresaRepository
+            {
+                CidadesNaOrdemDevolvida = new List<ReturnCidadeLocadoraVO>
+                {
+                    new ReturnCidadeLocadoraVO { Cidade = "SÃO PAULO", Uf = "SP" },
+                    new ReturnCidadeLocadoraVO { Cidade = "são paulo", Uf = "SP" },
+                    new ReturnCidadeLocadoraVO { Cidade = "São Paulo", Uf = "SP" }
+                }
+            };
+            EmpresaService servico = CriarServico(repositorio, new FakeLogService());
+
+            List<ReturnCidadeLocadoraVO> cidades = await servico.GetCidadesAsync();
+
+            ReturnCidadeLocadoraVO opcao = Assert.Single(cidades);
+            Assert.Equal("São Paulo", opcao.Cidade);
+            Assert.Equal("SP", opcao.Uf);
+        }
+
+        [Fact]
+        public async Task GetCidades_SemGraciaMista_DevolveAMenorEmOrdemOrdinal()
+        {
+            FakeEmpresaRepository repositorio = new FakeEmpresaRepository
+            {
+                CidadesNaOrdemDevolvida = new List<ReturnCidadeLocadoraVO>
+                {
+                    new ReturnCidadeLocadoraVO { Cidade = "são paulo", Uf = "SP" },
+                    new ReturnCidadeLocadoraVO { Cidade = "SÃO PAULO", Uf = "SP" }
+                }
+            };
+            EmpresaService servico = CriarServico(repositorio, new FakeLogService());
+
+            List<ReturnCidadeLocadoraVO> cidades = await servico.GetCidadesAsync();
+
+            ReturnCidadeLocadoraVO opcao = Assert.Single(cidades);
+            Assert.Equal("SÃO PAULO", opcao.Cidade);
+        }
+
+        [Fact]
+        public async Task GetCidades_VariasGraciasMistas_DevolveAMenorEntreAsMistas()
+        {
+            FakeEmpresaRepository repositorio = new FakeEmpresaRepository
+            {
+                CidadesNaOrdemDevolvida = new List<ReturnCidadeLocadoraVO>
+                {
+                    new ReturnCidadeLocadoraVO { Cidade = "SAO PAULO", Uf = "SP" },
+                    new ReturnCidadeLocadoraVO { Cidade = "sao Paulo", Uf = "SP" },
+                    new ReturnCidadeLocadoraVO { Cidade = "Sao Paulo", Uf = "SP" }
+                }
+            };
+            EmpresaService servico = CriarServico(repositorio, new FakeLogService());
+
+            List<ReturnCidadeLocadoraVO> cidades = await servico.GetCidadesAsync();
+
+            ReturnCidadeLocadoraVO opcao = Assert.Single(cidades);
+            Assert.Equal("Sao Paulo", opcao.Cidade);
+        }
+
+        [Fact]
+        public async Task GetCidades_OrdenaPorCidadeSemCaixaEAcentoEDepoisPorUf()
+        {
+            FakeEmpresaRepository repositorio = new FakeEmpresaRepository
+            {
+                CidadesNaOrdemDevolvida = new List<ReturnCidadeLocadoraVO>
+                {
+                    new ReturnCidadeLocadoraVO { Cidade = "curitiba", Uf = "SC" },
+                    new ReturnCidadeLocadoraVO { Cidade = "Curitiba", Uf = "PR" },
+                    new ReturnCidadeLocadoraVO { Cidade = "Águas Claras", Uf = "DF" },
+                    new ReturnCidadeLocadoraVO { Cidade = "Campinas", Uf = "SP" },
+                    new ReturnCidadeLocadoraVO { Cidade = "Bauru", Uf = "SP" }
+                }
+            };
+            EmpresaService servico = CriarServico(repositorio, new FakeLogService());
+
+            List<ReturnCidadeLocadoraVO> cidades = await servico.GetCidadesAsync();
+
+            List<string> pares = cidades.Select(cidade => cidade.Cidade + "/" + cidade.Uf).ToList();
+            Assert.Equal(new List<string> { "Águas Claras/DF", "Bauru/SP", "Campinas/SP", "Curitiba/PR", "curitiba/SC" }, pares);
+        }
+
+        [Fact]
+        public async Task GetCidades_CidadeSemAcentoOuOutraUf_FicaEmOpcaoSeparadaNaOrdemCerta()
+        {
+            FakeEmpresaRepository repositorio = new FakeEmpresaRepository();
+            repositorio.AdicionarEmpresa(new Empresa { Cidade = "São Paulo", Uf = "SP" });
+            repositorio.AdicionarEmpresa(new Empresa { Cidade = "Sao Paulo", Uf = "SP" });
+            repositorio.AdicionarEmpresa(new Empresa { Cidade = "São Paulo", Uf = "RJ" });
+            EmpresaService servico = CriarServico(repositorio, new FakeLogService());
+
+            List<ReturnCidadeLocadoraVO> cidades = await servico.GetCidadesAsync();
+
+            List<string> pares = cidades.Select(cidade => cidade.Cidade + "/" + cidade.Uf).ToList();
+            Assert.Equal(new List<string> { "São Paulo/RJ", "Sao Paulo/SP", "São Paulo/SP" }, pares);
+        }
+
+        [Fact]
+        public async Task GetCidades_CidadeVaziaDepoisDeAparada_NaoEntraNaLista()
+        {
+            FakeEmpresaRepository repositorio = new FakeEmpresaRepository
+            {
+                CidadesNaOrdemDevolvida = new List<ReturnCidadeLocadoraVO>
+                {
+                    new ReturnCidadeLocadoraVO { Cidade = "   ", Uf = "SP" },
+                    new ReturnCidadeLocadoraVO { Cidade = "Campinas", Uf = "SP" }
+                }
+            };
+            EmpresaService servico = CriarServico(repositorio, new FakeLogService());
+
+            List<ReturnCidadeLocadoraVO> cidades = await servico.GetCidadesAsync();
+
+            List<string> pares = cidades.Select(cidade => cidade.Cidade + "/" + cidade.Uf).ToList();
+            Assert.Equal(new List<string> { "Campinas/SP" }, pares);
+        }
+
+        [Fact]
+        public void TabelaDeAcentosDaOrdemTemOMesmoTamanhoNosDoisLados()
+        {
+            Assert.Equal(ConstantsValues.LetrasComAcentoCidade.Length, ConstantsValues.LetrasSemAcentoCidade.Length);
+            Assert.Equal('A', ConstantsValues.LetrasSemAcentoCidade[ConstantsValues.LetrasComAcentoCidade.IndexOf('Ã')]);
+            Assert.Equal('A', ConstantsValues.LetrasSemAcentoCidade[ConstantsValues.LetrasComAcentoCidade.IndexOf('Á')]);
+            Assert.Equal('C', ConstantsValues.LetrasSemAcentoCidade[ConstantsValues.LetrasComAcentoCidade.IndexOf('Ç')]);
+        }
+
+        /// <summary>Confere as 53 posicoes: cada letra acentuada tem de trocar pela sua base sem acento (decomposicao FormD) em maiuscula.</summary>
+        [Fact]
+        public void TabelaDeAcentosDaOrdemTrocaCadaLetraPelaBaseSemAcento()
+        {
+            List<string> divergencias = new List<string>();
+
+            for (int posicao = 0; posicao < ConstantsValues.LetrasComAcentoCidade.Length; posicao++)
+            {
+                char letraComAcento = ConstantsValues.LetrasComAcentoCidade[posicao];
+                string decomposta = letraComAcento.ToString().Normalize(NormalizationForm.FormD);
+                char baseSemAcento = char.ToUpperInvariant(decomposta[0]);
+                char esperada = ConstantsValues.LetrasSemAcentoCidade[posicao];
+
+                if (baseSemAcento != esperada)
+                {
+                    divergencias.Add(letraComAcento + " deveria virar " + esperada + " e virou " + baseSemAcento);
+                }
+            }
+
+            Assert.Empty(divergencias);
+        }
+
+        [Fact]
+        public async Task GetCidades_FalhaDoBanco_RelancaELogaComAMensagemDaConsulta()
+        {
+            FakeEmpresaRepository repositorio = new FakeEmpresaRepository { ExcecaoAoConsultar = new InvalidOperationException("falha simulada do banco") };
+            FakeLogService log = new FakeLogService();
+            EmpresaService servico = CriarServico(repositorio, log);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => servico.GetCidadesAsync());
+
+            List<string> entradas = log.Snapshot();
+            Assert.Contains(entradas, entrada => entrada.StartsWith(ConstantsMessage.ErroConsultarLocadora, StringComparison.Ordinal));
         }
 
         [Fact]

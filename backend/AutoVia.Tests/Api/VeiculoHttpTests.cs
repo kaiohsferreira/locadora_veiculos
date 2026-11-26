@@ -52,17 +52,32 @@ namespace AutoVia.Tests.Api
         }
 
         [Theory]
-        [InlineData("&cidade=")]
-        [InlineData("&uf=%20")]
-        [InlineData("&cidade=&uf=")]
-        [InlineData("&cidade=Curitiba")]
-        [InlineData("&cidade=Curitiba&uf=XX")]
-        public async Task Disponibilidade_LocalInvalido_Devolve400ProblemJson(string consulta)
+        [InlineData("&cidade=", true)]
+        [InlineData("&uf=%20", true)]
+        [InlineData("&cidade=&uf=", true)]
+        [InlineData("&cidade=Curitiba", false)]
+        [InlineData("&cidade=Curitiba&uf=XX", false)]
+        public async Task Disponibilidade_LocalInvalido_Devolve400ProblemJsonComAMensagemDoCampo(string consulta, bool erroDeCidade)
         {
             using HttpResponseMessage resposta = await _cliente.GetAsync(RotaDisponiveis + consulta);
 
             Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
             Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            string mensagemEsperada = erroDeCidade
+                ? string.Format(ConstantsMessage.ErroDisponibilidadeCidadeInvalida, ConstantsValues.TamanhoMaximoCidadeLocadora)
+                : ConstantsMessage.ErroDisponibilidadeUfInvalida;
+            Assert.Equal(mensagemEsperada, corpo.GetProperty("detail").GetString());
+        }
+
+        /// <summary>O texto que o usuario le na cidade invalida continua o mesmo: a montagem com o limite nao muda a frase.</summary>
+        [Fact]
+        public async Task Disponibilidade_CidadeInvalida_TextoFinalContinuaComOLimiteDe60()
+        {
+            using HttpResponseMessage resposta = await _cliente.GetAsync(RotaDisponiveis + "&cidade=");
+
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal("Informe uma cidade de até 60 caracteres para filtrar pela localização.", corpo.GetProperty("detail").GetString());
         }
 
         [Fact]

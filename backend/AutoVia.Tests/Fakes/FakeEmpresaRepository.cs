@@ -61,9 +61,22 @@ namespace AutoVia.Tests.Fakes
             _armazenamento.AdicionarFuncionario(funcionario);
         }
 
+        /// <summary>
+        /// Quando nao for null, FindCidadesAtivasAsync devolve estas linhas nesta ordem, sem reordenar. Serve para provar a
+        /// regra da grafia e da ordem no servico (a grafia vencedora pode chegar por ultimo), e nao a ordem da consulta.
+        /// </summary>
+        public List<ReturnCidadeLocadoraVO>? CidadesNaOrdemDevolvida { get; set; }
+
         public Task<List<ReturnCidadeLocadoraVO>> FindCidadesAtivasAsync()
         {
             Lancar();
+
+            if (CidadesNaOrdemDevolvida != null)
+            {
+                List<ReturnCidadeLocadoraVO> naOrdemFixa = new List<ReturnCidadeLocadoraVO>(CidadesNaOrdemDevolvida);
+
+                return Task.FromResult(naOrdemFixa);
+            }
 
             List<ReturnCidadeLocadoraVO> cidades = Empresas
                 .Where(x => x.Ativo && x.DisabledAt == null && !string.IsNullOrWhiteSpace(x.Cidade))

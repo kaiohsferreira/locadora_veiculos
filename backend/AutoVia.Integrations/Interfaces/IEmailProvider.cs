@@ -4,7 +4,7 @@ using AutoVia.Integrations.Communication.Email;
 namespace AutoVia.Integrations.Interfaces
 {
     /// <summary>
-    /// Provedor concreto de e-mail (FAKE nesta tarefa; o real entra na T-INT-01). Escolhido pelo
+    /// Provedor concreto de e-mail. Nesta entrega so existe o provedor FAKE (decisao do Kaio em 24/11); o real fica fora desta entrega. Escolhido pelo
     /// EmailGateway pelo valor da chave 'provedor' da integracao EMAIL.
     /// </summary>
     public interface IEmailProvider

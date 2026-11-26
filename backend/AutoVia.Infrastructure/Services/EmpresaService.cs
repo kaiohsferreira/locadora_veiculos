@@ -11,6 +11,7 @@ using FluentValidation;
 using FluentValidation.Results;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace AutoVia.Infrastructure.Services
@@ -36,13 +37,19 @@ namespace AutoVia.Infrastructure.Services
             _logService = logService;
         }
 
-        /// <summary>Lista as cidades com locadoras ativas.</summary>
+        /// <summary>
+        /// Lista as cidades com locadoras ativas. Cidades iguais sem diferenciar maiusculas e espacos nas pontas viram
+        /// uma opcao so (mesmo criterio do filtro de veiculos), com a grafia mista entre as variantes (ou a menor em
+        /// ordem ordinal, se nenhuma for mista). A lista sai ordenada por cidade, depois por UF.
+        /// </summary>
         public async Task<List<ReturnCidadeLocadoraVO>> GetCidadesAsync()
         {
             try
             {
                 List<ReturnCidadeLocadoraVO> cidades = await _empresaRepository.FindCidadesAtivasAsync();
-                return cidades;
+                List<ReturnCidadeLocadoraVO> agrupadas = AgruparCidades(cidades);
+                List<ReturnCidadeLocadoraVO> ordenadas = OrdenarCidades(agrupadas);
+                return ordenadas;
             }
             catch (BusinessException)
             {
@@ -199,6 +206,115 @@ namespace AutoVia.Infrastructure.Services
                 _logService.Write(ex, ConstantsMessage.ErroVerificarCadastroLocadora, GetType().ToString());
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Agrupa as cidades pelo criterio do filtro de veiculos (cidade aparada e em minusculas, UF em maiusculas).
+        /// Cada grupo sai uma vez, com a grafia escolhida por EhGrafiaPreferida. Cidade vazia depois de aparada e
+        /// ignorada (defesa: o repositorio ja filtra). A ordem de saida ainda e a da consulta; OrdenarCidades fecha a ordem.
+        /// </summary>
+        private static List<ReturnCidadeLocadoraVO> AgruparCidades(List<ReturnCidadeLocadoraVO> cidades)
+        {
+            Dictionary<(string Cidade, string Uf), string> grafiaEscolhida = new Dictionary<(string Cidade, string Uf), string>();
+            List<(string Cidade, string Uf)> chavesNaOrdem = new List<(string Cidade, string Uf)>();
+
+            foreach (ReturnCidadeLocadoraVO cidade in cidades)
+            {
+                if (string.IsNullOrWhiteSpace(cidade.Cidade))
+                {
+                    continue;
+                }
+
+                string grafia = cidade.Cidade.Trim();
+                (string Cidade, string Uf) chave = (grafia.ToLowerInvariant(), cidade.Uf.ToUpperInvariant());
+
+                if (!grafiaEscolhida.ContainsKey(chave))
+                {
+                    grafiaEscolhida[chave] = grafia;
+                    chavesNaOrdem.Add(chave);
+                }
+                else if (EhGrafiaPreferida(grafia, grafiaEscolhida[chave]))
+                {
+                    grafiaEscolhida[chave] = grafia;
+                }
+            }
+
+            List<ReturnCidadeLocadoraVO> agrupadas = new List<ReturnCidadeLocadoraVO>();
+
+            foreach ((string Cidade, string Uf) chave in chavesNaOrdem)
+            {
+                ReturnCidadeLocadoraVO opcao = new ReturnCidadeLocadoraVO
+                {
+                    Cidade = grafiaEscolhida[chave],
+                    Uf = chave.Uf
+                };
+                agrupadas.Add(opcao);
+            }
+
+            return agrupadas;
+        }
+
+        /// <summary>
+        /// Indica se a grafia candidata deve trocar a atual do grupo: a mista (nem toda maiuscula nem toda minuscula)
+        /// vence a que nao e; entre duas do mesmo tipo, vence a menor em ordem ordinal. Assim a escolha nao depende da
+        /// ordem em que a consulta devolveu as linhas.
+        /// </summary>
+        private static bool EhGrafiaPreferida(string candidata, string atual)
+        {
+            bool candidataEhMista = EhGrafiaMista(candidata);
+            bool atualEhMista = EhGrafiaMista(atual);
+
+            if (candidataEhMista != atualEhMista)
+            {
+                return candidataEhMista;
+            }
+
+            return string.CompareOrdinal(candidata, atual) < 0;
+        }
+
+        /// <summary>Grafia mista: diferente da versao toda em maiusculas e diferente da versao toda em minusculas.</summary>
+        private static bool EhGrafiaMista(string grafia)
+        {
+            string todaMaiuscula = grafia.ToUpperInvariant();
+            string todaMinuscula = grafia.ToLowerInvariant();
+            bool mista = grafia != todaMaiuscula && grafia != todaMinuscula;
+
+            return mista;
+        }
+
+        /// <summary>
+        /// Ordena por cidade sem diferenciar maiusculas e com acento no lugar certo (A acentuado junto dos A), depois por
+        /// UF e, so por ultimo, pela grafia em ordem ordinal (desempate de cidades iguais em outra grafia na mesma UF).
+        /// Os nomes sao comparados em ordem ordinal sobre uma chave dobrada pela tabela de ConstantsValues, e nao pela
+        /// cultura: o projeto nao liga InvariantGlobalization, mas o resultado seria o mesmo se ligasse.
+        /// </summary>
+        private static List<ReturnCidadeLocadoraVO> OrdenarCidades(List<ReturnCidadeLocadoraVO> cidades)
+        {
+            List<ReturnCidadeLocadoraVO> ordenadas = cidades
+                .OrderBy(cidade => ChaveDeOrdenacaoCidade(cidade.Cidade), StringComparer.Ordinal)
+                .ThenBy(cidade => cidade.Uf, StringComparer.Ordinal)
+                .ThenBy(cidade => cidade.Cidade, StringComparer.Ordinal)
+                .ToList();
+
+            return ordenadas;
+        }
+
+        /// <summary>Chave de ordenacao da cidade: maiusculas e letras acentuadas trocadas pela base (Á vira A, Ç vira C).</summary>
+        private static string ChaveDeOrdenacaoCidade(string cidade)
+        {
+            char[] letras = cidade.ToCharArray();
+
+            for (int posicao = 0; posicao < letras.Length; posicao++)
+            {
+                int indice = ConstantsValues.LetrasComAcentoCidade.IndexOf(letras[posicao]);
+                letras[posicao] = indice >= 0
+                    ? ConstantsValues.LetrasSemAcentoCidade[indice]
+                    : char.ToUpperInvariant(letras[posicao]);
+            }
+
+            string chave = new string(letras);
+
+            return chave;
         }
 
         /// <summary>E-mail gravado e consultado aparado e em minusculas.</summary>

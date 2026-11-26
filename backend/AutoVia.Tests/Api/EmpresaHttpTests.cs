@@ -1,12 +1,16 @@
 using AutoVia.Api.Controllers;
 using AutoVia.Communication.ViewObjects.Empresas;
+using AutoVia.Communication.ViewObjects.Frota;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Helpers;
 using AutoVia.Tests.Fakes;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -92,6 +96,42 @@ namespace AutoVia.Tests.Api
             Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
             JsonElement corpo = await LerJsonAsync(resposta);
             Assert.Equal(0, corpo.GetArrayLength());
+        }
+
+        [Fact]
+        public async Task Cidades_MesmaCidadeComAcentoECaixaDiferentes_ListaUmaOpcao()
+        {
+            FakeEmpresaRepository empresas = _fabrica.RepositorioEmpresas;
+            empresas.CidadesNaOrdemDevolvida = new List<ReturnCidadeLocadoraVO>
+            {
+                new ReturnCidadeLocadoraVO { Cidade = "SÃO PAULO", Uf = "SP" },
+                new ReturnCidadeLocadoraVO { Cidade = "São Paulo", Uf = "SP" }
+            };
+
+            using HttpResponseMessage resposta = await _cliente.GetAsync(RotaCidades);
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(1, corpo.GetArrayLength());
+            ConferirCidade(corpo[0], "São Paulo", "SP");
+        }
+
+        /// <summary>A rota de cidades e anonima, usa a politica de leitura publica, declara o 429 e sai com no-store.</summary>
+        [Fact]
+        public void GetCidades_TemAnonimaPoliticaDeLeituraPublica429ENoStore()
+        {
+            MethodInfo? metodo = typeof(EmpresaController).GetMethod(nameof(EmpresaController.GetCidades));
+
+            Assert.NotNull(metodo);
+            Assert.NotNull(metodo.GetCustomAttribute<AllowAnonymousAttribute>());
+            EnableRateLimitingAttribute? limite = metodo.GetCustomAttribute<EnableRateLimitingAttribute>();
+            Assert.NotNull(limite);
+            Assert.Equal(ConstantsValues.PoliticaLimiteLeituraPublica, limite.PolicyName);
+            Assert.Contains(metodo.GetCustomAttributes<ProducesResponseTypeAttribute>(),
+                atributo => atributo.StatusCode == StatusCodes.Status429TooManyRequests);
+            ResponseCacheAttribute? cache = metodo.GetCustomAttribute<ResponseCacheAttribute>();
+            Assert.NotNull(cache);
+            Assert.True(cache.NoStore);
         }
 
         private static void ConferirCidade(JsonElement item, string cidade, string uf)

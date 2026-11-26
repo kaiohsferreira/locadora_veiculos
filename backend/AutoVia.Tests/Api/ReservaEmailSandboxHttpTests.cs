@@ -53,6 +53,7 @@ namespace AutoVia.Tests.Api
         private static readonly DateOnly Devolucao = new DateOnly(2026, 12, 15);
         private static readonly DateTime Agora = new DateTime(2026, 11, 20, 12, 0, 0);
         private const decimal ValorDiaria = 150m;
+        private const string MensagemFalhaNotificacaoTeste = "Falha simulada na notificacao de teste, sem dados do titular.";
 
         [Fact]
         public async Task Post_CaixaSandboxRecebeConfirmacaoComMesmoCodigoQueO201()
@@ -128,7 +129,8 @@ namespace AutoVia.Tests.Api
             Assert.Equal(armazenada.IdReserva, corpo.RootElement.GetProperty(CampoIdReserva).GetInt32());
 
             List<string> entradas = fabrica.Log.Snapshot();
-            Assert.Contains(entradas, entrada => entrada.Contains(ConstantsMessage.ErroEmailNotificarReservaCriada, StringComparison.Ordinal));
+            Assert.Contains(entradas, entrada => entrada.Contains(ConstantsMessage.ErroEmailNotificarReservaCriada, StringComparison.Ordinal)
+                && entrada.Contains(MensagemFalhaNotificacaoTeste, StringComparison.Ordinal));
             Assert.DoesNotContain(entradas, entrada => entrada.Contains(Destinatario, StringComparison.OrdinalIgnoreCase));
         }
 
@@ -259,7 +261,7 @@ namespace AutoVia.Tests.Api
         {
             public Task ConfirmarReservaAsync(ReservaCriadaEmail evento)
             {
-                return Task.FromException(new InvalidOperationException());
+                return Task.FromException(new InvalidOperationException(MensagemFalhaNotificacaoTeste));
             }
 
             public Task EmitirReciboDevolucaoAsync(LocacaoFinalizadaEmail evento) => Task.CompletedTask;
