@@ -1,5 +1,6 @@
 using AutoVia.Api.Requests.Avaria;
 using AutoVia.Communication.CustomExceptions;
+using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Avarias;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -47,7 +48,10 @@ namespace AutoVia.Api.Controllers
             {
                 (byte[] conteudo, string contentType) = await LerFotoAsync(request.Foto, HttpContext.RequestAborted);
                 decimal? valorEstimado = ConverterValorEstimado(request.ValorEstimado);
-                ReturnAvariaVO criada = await _avariaService.CriarAsync(idVistoria, request.Descricao, request.Gravidade, valorEstimado, conteudo, contentType, HttpContext.RequestAborted);
+                AnguloAvaria? angulo = ConverterAngulo(request.Angulo);
+                decimal? posX = ConverterPosicao(request.PosX);
+                decimal? posY = ConverterPosicao(request.PosY);
+                ReturnAvariaVO criada = await _avariaService.CriarAsync(idVistoria, request.Descricao, request.Gravidade, valorEstimado, conteudo, contentType, angulo, posX, posY, HttpContext.RequestAborted);
                 return CreatedAtAction(nameof(GetById), new { idVistoria, idAvaria = criada.IdAvaria }, criada);
             }
             catch (AvariaUploadException ex)
@@ -66,6 +70,27 @@ namespace AutoVia.Api.Controllers
             catch (Exception ex)
             {
                 _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroCriarAvaria, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Lista as avarias ativas da vistoria, cada uma com a foto quando o arquivo existe.</summary>
+        [HttpGet]
+        [ProducesResponseType(typeof(List<ReturnAvariaVO>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status502BadGateway)]
+        public async Task<IActionResult> Listar(int idVistoria)
+        {
+            try
+            {
+                List<ReturnAvariaVO> avarias = await _avariaService.ListarAsync(idVistoria, HttpContext.RequestAborted);
+                return Ok(avarias);
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroConsultarAvaria, GetType().ToString());
                 throw;
             }
         }
@@ -160,6 +185,24 @@ namespace AutoVia.Api.Controllers
             decimal? valor;
             if (!ConversorValorEstimadoFormulario.TentarConverter(texto, out valor))
                 throw new ValidationException(ConstantsMessage.ErroAvariaValorEstimadoInvalido);
+            return valor;
+        }
+
+        /// <summary>Converte o angulo do formulario com a mesma regra do validador; texto fora da lista vira 400 (o validador ja o recusa antes).</summary>
+        private static AnguloAvaria? ConverterAngulo(string? texto)
+        {
+            AnguloAvaria? angulo;
+            if (!ConversorAnguloAvariaFormulario.TentarConverter(texto, out angulo))
+                throw new ValidationException(ConstantsMessage.ErroAvariaAnguloInvalido);
+            return angulo;
+        }
+
+        /// <summary>Converte a posicao X ou Y do formulario com a mesma regra do validador; texto fora do formato vira 400 (o validador ja o recusa antes).</summary>
+        private static decimal? ConverterPosicao(string? texto)
+        {
+            decimal? valor;
+            if (!ConversorValorEstimadoFormulario.TentarConverter(texto, out valor))
+                throw new ValidationException(ConstantsMessage.ErroAvariaPosicaoInvalida);
             return valor;
         }
 

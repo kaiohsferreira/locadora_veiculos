@@ -56,6 +56,27 @@ public sealed class VistoriaSaidaHttpTests : IDisposable
     }
 
     [Fact]
+    public async Task CopiadaDaEntradaLevaAnguloEPosicaoNaComparacaoEANovaFicaNula()
+    {
+        _fabrica.Saidas.Avarias[0].Angulo = AnguloAvaria.FRENTE;
+        _fabrica.Saidas.Avarias[0].PosX = 42.50m;
+        _fabrica.Saidas.Avarias[0].PosY = 17m;
+
+        using HttpResponseMessage post = await Enviar(HttpMethod.Post, Rota, Token(), Payload);
+
+        Assert.Equal(HttpStatusCode.Created, post.StatusCode);
+        JsonElement comparacao = await Ler(post);
+        JsonElement preexistente = comparacao.GetProperty("avariasPreexistentes")[0];
+        Assert.Equal("FRENTE", preexistente.GetProperty("angulo").GetString());
+        Assert.Equal(42.5m, preexistente.GetProperty("posX").GetDecimal());
+        Assert.Equal(17m, preexistente.GetProperty("posY").GetDecimal());
+        JsonElement nova = comparacao.GetProperty("avariasNovas")[0];
+        Assert.Equal(JsonValueKind.Null, nova.GetProperty("angulo").ValueKind);
+        Assert.Equal(JsonValueKind.Null, nova.GetProperty("posX").ValueKind);
+        Assert.Equal(JsonValueKind.Null, nova.GetProperty("posY").ValueKind);
+    }
+
+    [Fact]
     public async Task UmaEntradaDuasSaidaSomenteUmaNovaLocationEReabertura()
     {
         string corpo = Payload[..^1] + ",\"idFuncionario\":999,\"tipo\":\"ENTRADA\",\"comparacaoRealizada\":false}";

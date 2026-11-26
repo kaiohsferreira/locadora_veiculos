@@ -112,6 +112,11 @@ namespace AutoVia.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseSerialColumn(b.Property<int>("IdAvaria"));
 
+                    b.Property<string>("Angulo")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("angulo");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")
@@ -144,6 +149,16 @@ namespace AutoVia.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("id_vistoria");
 
+                    b.Property<decimal?>("PosX")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("pos_x");
+
+                    b.Property<decimal?>("PosY")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("pos_y");
+
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")
@@ -163,7 +178,13 @@ namespace AutoVia.Infrastructure.Migrations
 
                     b.ToTable("avaria", null, t =>
                         {
+                            t.HasCheckConstraint("ck_avaria_angulo", "angulo IS NULL OR angulo IN ('FRENTE', 'TRASEIRA', 'LATERAL_ESQUERDA', 'LATERAL_DIREITA')");
+
                             t.HasCheckConstraint("ck_avaria_gravidade", "gravidade IN ('LEVE', 'MEDIA', 'GRAVE')");
+
+                            t.HasCheckConstraint("ck_avaria_pos_x", "pos_x IS NULL OR (pos_x >= 0 AND pos_x <= 100)");
+
+                            t.HasCheckConstraint("ck_avaria_pos_y", "pos_y IS NULL OR (pos_y >= 0 AND pos_y <= 100)");
                         });
                 });
 

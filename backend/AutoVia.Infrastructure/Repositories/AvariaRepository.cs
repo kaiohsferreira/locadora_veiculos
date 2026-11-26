@@ -33,12 +33,40 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
+        public async Task<Vistoria?> FindVistoriaAtivaAsync(int idVistoria, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                Vistoria? vistoria = await ConsultaVistoriaAtiva(idVistoria).AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+                return vistoria;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarAvaria, GetType().ToString());
+                throw;
+            }
+        }
+
         public async Task<Avaria?> FindAtivaAsync(int idVistoria, int idAvaria, CancellationToken cancellationToken = default)
         {
             try
             {
                 Avaria? avaria = await ConsultaAvariaAtiva(idVistoria, idAvaria).AsNoTracking().FirstOrDefaultAsync(cancellationToken);
                 return avaria;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarAvaria, GetType().ToString());
+                throw;
+            }
+        }
+
+        public async Task<List<Avaria>> FindAtivasByVistoriaAsync(int idVistoria, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                List<Avaria> avarias = await ConsultaAvariasAtivasDaVistoria(idVistoria).AsNoTracking().ToListAsync(cancellationToken);
+                return avarias;
             }
             catch (Exception ex)
             {
@@ -117,6 +145,27 @@ namespace AutoVia.Infrastructure.Repositories
             {
                 IQueryable<Avaria> consulta = _db.Avarias
                     .Where(x => x.IdVistoria == idVistoria && x.IdAvaria == idAvaria && x.DisabledAt == null);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarAvaria, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta das avarias ativas (nao desativadas) de uma vistoria, com o filtro "Empresa" pela vistoria e ordem por IdAvaria crescente
+        /// dentro da propria consulta. So monta a consulta, sem executar: a leitura fica em FindAtivasByVistoriaAsync. Publica para o teste de SQL por ToQueryString.
+        /// </summary>
+        public IQueryable<Avaria> ConsultaAvariasAtivasDaVistoria(int idVistoria)
+        {
+            try
+            {
+                IQueryable<Avaria> consulta = _db.Avarias
+                    .Where(x => x.IdVistoria == idVistoria && x.DisabledAt == null)
+                    .OrderBy(x => x.IdAvaria);
 
                 return consulta;
             }

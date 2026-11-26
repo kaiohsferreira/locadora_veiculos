@@ -101,7 +101,10 @@ namespace AutoVia.Infrastructure.Services
                     DisabledAt = null
                 };
                 Vistoria criada = await _vistoriaRepository.InsertAsync(vistoria);
-                return criada;
+                // Relida dentro da trava, na mesma transacao (ve a linha inserida), com o Funcionario do Include do repositorio:
+                // o objeto que o INSERT devolve nao traz o operador, e o 201 precisa do operadorStr.
+                Vistoria? gravada = await _vistoriaRepository.FindEntradaByLocacaoAsync(idLocacao);
+                return gravada ?? criada;
             }
             catch (BusinessException)
             {

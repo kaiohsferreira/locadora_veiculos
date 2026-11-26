@@ -141,7 +141,8 @@ public sealed class VistoriaSaidaService : IVistoriaSaidaService
                 saida.Avarias.Add(new Avaria
                 {
                     IdAvariaEntrada = origem.IdAvaria, Descricao = origem.Descricao, Gravidade = origem.Gravidade,
-                    ValorEstimado = origem.ValorEstimado, CreatedAt = agora, UpdatedAt = agora, DisabledAt = null
+                    ValorEstimado = origem.ValorEstimado, Angulo = origem.Angulo, PosX = origem.PosX, PosY = origem.PosY,
+                    CreatedAt = agora, UpdatedAt = agora, DisabledAt = null
                 });
             }
             foreach (NovaAvariaSaidaVO nova in model.NovasAvarias!)

@@ -24,13 +24,13 @@ Além disso, o casamento é só pelo nome: um item de `cobre` aceita qualquer ti
 
 ## Quadro: Apêndice A -> hoje
 
-Números do modo literal (Apêndice A, sem decisões) e do modelo atual com as decisões, conferidos em 20/11/2026:
+Números do modo literal (Apêndice A, sem decisões) e do modelo atual com as decisões, conferidos em 26/11/2026:
 
 | Item | Apêndice A | Hoje (Apêndice + decisões) |
 |---|---|---|
 | Tabelas | 16 | 24 (+8: `redefinicao_senha`, `empresa`, `cliente_locadora`, `sinistro_historico`, `veiculo_foto`, `cliente_documento`, `configuracao_cobranca_extra`, `apuracao_cobranca_extra`) |
-| Colunas | 148 | 304 |
-| CHECK | 32 | 48 |
+| Colunas | 148 | 307 |
+| CHECK | 32 | 51 |
 | Chaves estrangeiras | 22 | 44 |
 | Índices | 11 | 41 (11 do Apêndice + 15 que eram UNIQUE + 15 novos) |
 | UNIQUE | 15 | 0 |
@@ -54,6 +54,7 @@ Uma linha por decisão registrada (em `desvios_aprovados.json`):
 | `pagamento_pix_qr_copia_validade` | 20/11/2026 | `20261121000527_AdicionarPixPagamento` | `pagamento.qr_code_base64` TEXT NULL; `pagamento.pix_copia_e_cola` VARCHAR(512) NULL; `pagamento.pix_expira_em` TIMESTAMP NULL (3 colunas, sem indice e sem CHECK) |
 | `vistoria_saida_comparacao` | 20/11/2026 | `20261118163147_VincularAvariasVistoriaSaida` | `vistoria.comparacao_realizada` BOOLEAN NOT NULL DEFAULT FALSE; `avaria.id_avaria_entrada` INT NULL (FK `fk_avaria_entrada`, índice `idx_avaria_entrada`) |
 | `cobrancas_extras_configuradas` | 20/11/2026 | `20261119023757_CadastrarRegrasEApurarCobrancasExtras` | tabelas `configuracao_cobranca_extra` (5 CHECK, 2 FK, 1 índice) e `apuracao_cobranca_extra` (2 CHECK, 5 FK, 1 índice); `cobranca_extra.id_apuracao` (FK `fk_cobranca_apuracao`, índice `idx_cobranca_apuracao`) |
+| `avaria_angulo_posicao` | 26/11/2026 | `20261126222013_AdicionarAnguloPosicaoAvaria` | `avaria.angulo` VARCHAR(20) NULL; `avaria.pos_x` e `avaria.pos_y` NUMERIC(5,2) NULL; CHECKs `ck_avaria_angulo`, `ck_avaria_pos_x` e `ck_avaria_pos_y` (3 colunas e 3 CHECK, sem índice) |
 
 Os três blocos antigos (`colunas_auditoria`, `unique_para_indice` e `colunas_acesso`) não têm o campo `migration` no JSON: o script os aplica pelo código e não precisam de `cobre`.
 
@@ -61,13 +62,13 @@ Os 16 do Apêndice A estão em dois arquivos: 14 tabelas de negócio em `apendic
 
 A especificação diz "dez índices" num ponto e 11 em outro. O Apêndice tem 11, e é esse número que o quadro usa.
 
-Os números 148 colunas e 11 índices são do Apêndice A puro. Os números 193 e 26 da saída do segundo comando são o Apêndice com os desvios: 148 + 43 colunas de auditoria + 2 `senha_hash` = 193, e 11 + 15 UNIQUE convertidos em índice = 26. O quadro mostra o número de hoje (304 colunas e 41 índices).
+Os números 148 colunas e 11 índices são do Apêndice A puro. Os números 193 e 26 da saída do segundo comando são o Apêndice com os desvios: 148 + 43 colunas de auditoria + 2 `senha_hash` = 193, e 11 + 15 UNIQUE convertidos em índice = 26. O quadro mostra o número de hoje (307 colunas e 41 índices).
 
-Números da cadeia de migrations (`dotnet ef migrations script 0`, sem banco), medidos em 20/11/2026: 24 CREATE TABLE além do histórico, 0 DROP TABLE, 56 CREATE INDEX (15 únicos) e 15 DROP INDEX; no fim, 41 índices e nenhum único. O histórico tem 21 registros. (Medição de 19/11/2026, antes das migrations do Eduardo: 22, 52, 37 e 18.)
+Números da cadeia de migrations (`dotnet ef migrations script 0`, sem banco), medidos em 20/11/2026: 24 CREATE TABLE além do histórico, 0 DROP TABLE, 56 CREATE INDEX (15 únicos) e 15 DROP INDEX; no fim, 41 índices e nenhum único. O histórico tem 21 registros. (Medição de 19/11/2026, antes das migrations do Eduardo: 22, 52, 37 e 18.) Em 26/11/2026 entrou a migration `AdicionarAnguloPosicaoAvaria`, que não cria tabela nem índice (só 3 colunas e 3 CHECK): o histórico passa a 22 registros. A cadeia inteira não foi medida de novo nessa data.
 
-## Migrations do projeto (21)
+## Migrations do projeto (22)
 
-Lista das 21 migrations, na ordem. "Esquema" muda tabela, coluna, CHECK, FK ou índice; "dados" só mexe em linhas. A coluna "Script" é o arquivo em `docs/sql`.
+Lista das 22 migrations, na ordem. "Esquema" muda tabela, coluna, CHECK, FK ou índice; "dados" só mexe em linhas. A coluna "Script" é o arquivo em `docs/sql`.
 
 | Nº | MigrationId | Esquema ou dados | Script |
 |---|---|---|---|
@@ -92,8 +93,9 @@ Lista das 21 migrations, na ordem. "Esquema" muda tabela, coluna, CHECK, FK ou �
 | 21 | `20261118163147_VincularAvariasVistoriaSaida` | esquema | `21_VincularAvariasVistoriaSaida.sql` |
 | 22 | `20261119023757_CadastrarRegrasEApurarCobrancasExtras` | esquema | `22_CadastrarRegrasEApurarCobrancasExtras.sql` |
 | 23 | `20261121000527_AdicionarPixPagamento` | esquema | `23_AdicionarPixPagamento.sql` |
+| 25 | `20261126222013_AdicionarAnguloPosicaoAvaria` | esquema | `25_AdicionarAnguloPosicaoAvaria.sql` |
 
-Os números 09 e 10 não existem (ver "Números 09 e 10 dos scripts"). Os números 21 e 22 são as migrations do Eduardo (ids 20261118163147 e 20261119023757): seguem a ordem de chegada ao projeto, por isso a tabela não está em ordem de id.
+Os números 09 e 10 não existem (ver "Números 09 e 10 dos scripts"). Os números 21 e 22 são as migrations do Eduardo (ids 20261118163147 e 20261119023757): seguem a ordem de chegada ao projeto, por isso a tabela não está em ordem de id. O número 24 é script de dado do PIX (não é migration), por isso a tabela pula de 23 para 25.
 
 ## Como conferir de novo (20/11/2026)
 
@@ -105,7 +107,7 @@ dotnet ef dbcontext script --project AutoVia.Infrastructure --startup-project Au
 python -I tools/compare_schema.py docs/especificacao/apendice_A_tabelas_negocio.sql docs/especificacao/apendice_B_tabelas_integracoes.sql docs/sql/00_ModeloAtual.sql docs/especificacao/desvios_aprovados.json
 ```
 
-Nas linhas `gerado=`, o número vem de um arquivo: `docs/sql/01_Inicial.sql` ou `docs/sql/00_ModeloAtual.sql`. Nenhuma delas lê o banco. O `00_ModeloAtual.sql` é gerado pelo `dotnet ef dbcontext script` (sem banco) e foi ajustado à mão em 16/11/2026, em 19/11/2026 e em 20/11/2026, como dizem os blocos de desvio abaixo. Em 20/11/2026 as adições das duas migrations do Eduardo foram acrescentadas à mão. Houve um movimento de bloco: `cobranca_extra` saiu de entre `locacao` e `pagamento` e foi para depois de `apuracao_cobranca_extra`, porque a FK `fk_cobranca_apuracao` fica dentro do `CREATE TABLE` (o `compare_schema.py` só lê CONSTRAINT dentro dele) e a apuração depende da vistoria. Nenhum outro bloco foi movido. Por isso a ordem das tabelas no arquivo não é a do EF, que reordena por dependência. O Kaio decide se aceita o movimento de `cobranca_extra`. Esta conferência compara arquivo com arquivo. Em 20/11/2026 o modelo foi gerado de novo pela ferramenta, num arquivo à parte, e o script deu a mesma saída para ele e para o `00_ModeloAtual.sql`.
+Nas linhas `gerado=`, o número vem de um arquivo: `docs/sql/01_Inicial.sql` ou `docs/sql/00_ModeloAtual.sql`. Nenhuma delas lê o banco. O `00_ModeloAtual.sql` é gerado pelo `dotnet ef dbcontext script` (sem banco) e foi ajustado à mão em 16/11/2026, em 19/11/2026, em 20/11/2026 e em 26/11/2026, como dizem os blocos de desvio abaixo. Em 20/11/2026 as adições das duas migrations do Eduardo foram acrescentadas à mão. Houve um movimento de bloco: `cobranca_extra` saiu de entre `locacao` e `pagamento` e foi para depois de `apuracao_cobranca_extra`, porque a FK `fk_cobranca_apuracao` fica dentro do `CREATE TABLE` (o `compare_schema.py` só lê CONSTRAINT dentro dele) e a apuração depende da vistoria. Nenhum outro bloco foi movido. Por isso a ordem das tabelas no arquivo não é a do EF, que reordena por dependência. O Kaio decide se aceita o movimento de `cobranca_extra`. Esta conferência compara arquivo com arquivo. Em 20/11/2026 o modelo foi gerado de novo pela ferramenta, num arquivo à parte, e o script deu a mesma saída para ele e para o `00_ModeloAtual.sql`. Em 26/11/2026 o mesmo foi feito, com a mesma saída.
 
 Saída real do primeiro comando (modo literal, 20/11/2026):
 
@@ -119,23 +121,23 @@ Indices:  especificacao=11 gerado=11
 Diferencas: 0
 ```
 
-Resumo real do segundo comando (modo com decisões, 20/11/2026; a lista completa de cada diferença, com o bloco que a cobre, sai no terminal):
+Resumo real do segundo comando (modo com decisões, 26/11/2026; a lista completa de cada diferença, com o bloco que a cobre, sai no terminal):
 
 ```text
 Desvios aprovados aplicados a especificacao: 60
 Tabelas:  especificacao=16 gerado=24
-Colunas:  especificacao=193 gerado=304
-CHECK:    especificacao=32 gerado=48
+Colunas:  especificacao=193 gerado=307
+CHECK:    especificacao=32 gerado=51
 FK:       especificacao=22 gerado=44
 UNIQUE:   especificacao=0 gerado=0
 Indices:  especificacao=26 gerado=41
-Diferencas registradas: 76
+Diferencas registradas: 82
 Diferencas nao registradas: 0
 Registros sem diferenca: 0
 Blocos sem registro: 0
 ```
 
-Os 76 são as 8 tabelas novas, 14 colunas, 17 CHECK, 22 FKs e 15 índices (as três colunas do PIX, de 20/11/2026, estão entre as 14). As 8 linhas de "tabela diferente" repetem colunas e não contam em dobro. (Antes das migrations do Eduardo, em 19/11/2026, eram 48: 6 tabelas, 8 colunas, 10 CHECK, 13 FKs e 11 índices.)
+Os 82 são as 8 tabelas novas, 17 colunas, 20 CHECK, 22 FKs e 15 índices (as três colunas do PIX, de 20/11/2026, e as três da avaria, de 26/11/2026, estão entre as 17; os três CHECK da avaria estão entre os 20). Em 20/11/2026 eram 76: 8 tabelas, 14 colunas, 17 CHECK, 22 FKs e 15 índices. As 8 linhas de "tabela diferente" repetem colunas e não contam em dobro. (Antes das migrations do Eduardo, em 19/11/2026, eram 48: 6 tabelas, 8 colunas, 10 CHECK, 13 FKs e 11 índices.)
 
 ## Números 09 e 10 dos scripts
 
@@ -157,11 +159,12 @@ Os trechos marcados como HISTORICO abaixo são de datas anteriores. Não foram a
 | `especificacao/apendice_B_tabelas_integracoes.sql` | Especificação das 2 tabelas da biblioteca de integrações |
 | `sql/01_Inicial.sql` | SQL gerado pela migration `Inicial` |
 | `sql/02_SeedIntegracoes.sql` | SQL gerado pela migration `SeedIntegracoes` |
-| `sql/00_ModeloAtual.sql` | SQL do modelo atual, gerado pelo `dotnet ef dbcontext script` (sem banco) e ajustado à mão em 16/11, 19/11 e 20/11/2026 |
+| `sql/00_ModeloAtual.sql` | SQL do modelo atual, gerado pelo `dotnet ef dbcontext script` (sem banco) e ajustado à mão em 16/11, 19/11, 20/11 e 26/11/2026 |
 | `sql/21_VincularAvariasVistoriaSaida.sql` | SQL da migration `VincularAvariasVistoriaSaida` (Eduardo), gerado pelo `dotnet ef migrations script` (sem banco) |
 | `sql/22_CadastrarRegrasEApurarCobrancasExtras.sql` | SQL da migration `CadastrarRegrasEApurarCobrancasExtras` (Eduardo), gerado pelo `dotnet ef migrations script` (sem banco) |
 | `sql/23_AdicionarPixPagamento.sql` | SQL da migration `AdicionarPixPagamento`, gerado pelo `dotnet ef migrations script` (sem banco) |
 | `sql/24_ConfigurarExpiracaoPix900.sql` | Script de DADO (nao e migration, sem linha no historico): chave `pix_expiracao_segundos` da integracao PAGAMENTO para 900 |
+| `sql/25_AdicionarAnguloPosicaoAvaria.sql` | SQL da migration `AdicionarAnguloPosicaoAvaria`, gerado pelo `dotnet ef migrations script` (sem banco) |
 | `especificacao/desvios_aprovados.json` | Desvios aprovados pelo dono; cada bloco que muda o esquema tem `migration` e `cobre` |
 | `../tools/compare_schema.py` | Script que compara a especificação com o SQL gerado |
 
@@ -431,3 +434,23 @@ Indices:  inalterado
 ```
 
 Medido em 20/11/2026: antes do bloco novo, o script acusava 3 diferenças não registradas (as três colunas). Depois do bloco, no modo com decisões: `Diferencas registradas: 76`, `Diferencas nao registradas: 0`, `Registros sem diferenca: 0`, `Blocos sem registro: 0`, código 0. O modo literal contra `01_Inicial.sql` continua com `Diferencas: 0`.
+
+## Desvio de 26/11/2026: ângulo e posição da avaria (P4-BE-03, tela 19)
+
+Aprovado pelo Kaio em 26/11/2026 (decisão D9 do plano, frase dele: "Aprovo D1 a D14"; regra de tudo-ou-nada na N8, frase dele: "Aprovo N1 a N14"; bloco `avaria_angulo_posicao` em `especificacao/desvios_aprovados.json`). A tela 19 marca cada avaria num dos quatro lados do carro e no ponto do desenho.
+- Colunas novas em `avaria`, todas anuláveis, sem valor padrão e sem índice: `angulo` VARCHAR(20) (FRENTE, TRASEIRA, LATERAL_ESQUERDA ou LATERAL_DIREITA), `pos_x` e `pos_y` NUMERIC(5,2) (percentual de 0 a 100). Avarias antigas e as novas da vistoria de saída ficam sem os três valores; a avaria copiada da entrada para a saída leva os três.
+- CHECKs novos: `ck_avaria_angulo`, `ck_avaria_pos_x` e `ck_avaria_pos_y` (nulo, ou dentro da lista e da faixa).
+- Migration `20261126222013_AdicionarAnguloPosicaoAvaria`: só gerada na data da geração; quem aplica é o Kaio. O `Up` só acrescenta as três colunas e os três CHECKs e o `Down` só os remove. Script `sql/25_AdicionarAnguloPosicaoAvaria.sql`, gerado com `dotnet ef migrations script` entre `20261121000527_AdicionarPixPagamento` e a nova. `dotnet ef migrations has-pending-model-changes` respondeu "No changes have been made to the model since the last migration".
+
+Contagens depois do desvio (`sql/00_ModeloAtual.sql` ajustado à mão em 26/11/2026, com as três colunas logo depois de `valor_estimado` e os CHECKs em ordem alfabética, como na saída de `dotnet ef dbcontext script`):
+
+```text
+Tabelas:  inalterado
+Colunas:  +3 (avaria.angulo, avaria.pos_x, avaria.pos_y); 304 -> 307
+CHECK:    +3 (ck_avaria_angulo, ck_avaria_pos_x, ck_avaria_pos_y); 48 -> 51
+FK:       inalterado
+UNIQUE:   0 (inalterado)
+Indices:  inalterado
+```
+
+Medido em 26/11/2026: no modo com decisões, `Diferencas registradas: 82`, `Diferencas nao registradas: 0`, `Registros sem diferenca: 0`, `Blocos sem registro: 0`, código 0. O modelo gerado de novo pela ferramenta, num arquivo à parte, deu a mesma saída. Prova contrária numa cópia do JSON sem o item `check:ck_avaria_pos_y`: 1 diferença não registrada e código 1. O modo literal contra `01_Inicial.sql` continua com `Diferencas: 0`.

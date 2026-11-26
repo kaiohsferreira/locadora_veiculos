@@ -191,8 +191,9 @@ namespace AutoVia.Tests.Persistence
             int totalChecks = model.GetEntityTypes().SelectMany(x => x.GetCheckConstraints()).Count();
 
             // 35 anteriores + 4 da sinistro_historico (desvio aprovado por Kaio em 16/11/2026) + 1 da veiculo_foto (mesmo desvio de fotos)
-            // + 1 da cliente_documento (desvio aprovado por Kaio em 19/11/2026) + 7 do RF-23 (5 da configuracao e 2 da apuracao de cobrancas extras).
-            Assert.Equal(48, totalChecks);
+            // + 1 da cliente_documento (desvio aprovado por Kaio em 19/11/2026) + 7 do RF-23 (5 da configuracao e 2 da apuracao de cobrancas extras)
+            // + 3 da avaria (ck_avaria_angulo, ck_avaria_pos_x e ck_avaria_pos_y; desvio D9 aprovado por Kaio em 26/11/2026, P4-BE-03).
+            Assert.Equal(51, totalChecks);
         }
 
         [Fact]

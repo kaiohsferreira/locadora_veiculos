@@ -129,6 +129,110 @@ namespace AutoVia.Tests.Avarias
             Assert.Contains(resultado.Errors, x => x.ErrorMessage == ConstantsMessage.ErroAvariaFotoFormatoInvalido);
         }
 
+        [Theory]
+        [InlineData("frente")]
+        [InlineData("DIANTEIRA")]
+        [InlineData("0")]
+        public async Task AnguloForaDaListaOuMinusculo_EInvalidoEmAngulo(string angulo)
+        {
+            CriarAvariaRequestValidator validator = new CriarAvariaRequestValidator();
+            FluentValidation.Results.ValidationResult resultado = await validator.ValidateAsync(CriarRequestComPosicao(angulo, "10", "10"));
+
+            Assert.False(resultado.IsValid);
+            Assert.Contains(resultado.Errors, x => x.PropertyName == "Angulo" && x.ErrorMessage == ConstantsMessage.ErroAvariaAnguloInvalido);
+        }
+
+        [Theory]
+        [InlineData("-1")]
+        [InlineData("100.01")]
+        [InlineData("50,5")]
+        [InlineData("1e2")]
+        public async Task PosXForaDaFaixaOuDoFormato_EInvalidaEmPosX(string posX)
+        {
+            CriarAvariaRequestValidator validator = new CriarAvariaRequestValidator();
+            FluentValidation.Results.ValidationResult resultado = await validator.ValidateAsync(CriarRequestComPosicao("FRENTE", posX, "10"));
+
+            Assert.False(resultado.IsValid);
+            Assert.Contains(resultado.Errors, x => x.PropertyName == "PosX" && x.ErrorMessage == ConstantsMessage.ErroAvariaPosicaoInvalida);
+        }
+
+        [Fact]
+        public async Task PosYForaDaFaixa_EInvalidaEmPosY()
+        {
+            CriarAvariaRequestValidator validator = new CriarAvariaRequestValidator();
+            FluentValidation.Results.ValidationResult resultado = await validator.ValidateAsync(CriarRequestComPosicao("FRENTE", "10", "100.01"));
+
+            Assert.False(resultado.IsValid);
+            Assert.Contains(resultado.Errors, x => x.PropertyName == "PosY" && x.ErrorMessage == ConstantsMessage.ErroAvariaPosicaoInvalida);
+        }
+
+        [Fact]
+        public async Task AnguloForaDaListaSemPosicao_TemExatamenteUmaMensagemEmAngulo()
+        {
+            CriarAvariaRequestValidator validator = new CriarAvariaRequestValidator();
+            FluentValidation.Results.ValidationResult resultado = await validator.ValidateAsync(CriarRequestComPosicao("DIANTEIRA", null, null));
+
+            List<FluentValidation.Results.ValidationFailure> doAngulo = resultado.Errors.Where(x => x.PropertyName == "Angulo").ToList();
+            Assert.Single(doAngulo);
+            Assert.Equal(ConstantsMessage.ErroAvariaAnguloInvalido, doAngulo[0].ErrorMessage);
+        }
+
+        [Fact]
+        public async Task SoPosXPreenchida_EParcialEAponta_EmAngulo()
+        {
+            CriarAvariaRequestValidator validator = new CriarAvariaRequestValidator();
+            FluentValidation.Results.ValidationResult resultado = await validator.ValidateAsync(CriarRequestComPosicao(null, "10", null));
+
+            Assert.False(resultado.IsValid);
+            Assert.Contains(resultado.Errors, x => x.PropertyName == "Angulo" && x.ErrorMessage == ConstantsMessage.ErroAvariaPosicaoIncompleta);
+        }
+
+        [Fact]
+        public async Task AnguloEPosYSemPosX_EParcial()
+        {
+            CriarAvariaRequestValidator validator = new CriarAvariaRequestValidator();
+            FluentValidation.Results.ValidationResult resultado = await validator.ValidateAsync(CriarRequestComPosicao("TRASEIRA", null, "40"));
+
+            Assert.False(resultado.IsValid);
+            Assert.Contains(resultado.Errors, x => x.ErrorMessage == ConstantsMessage.ErroAvariaPosicaoIncompleta);
+        }
+
+        [Fact]
+        public async Task TresCamposVazios_SaoAceitos()
+        {
+            CriarAvariaRequestValidator validator = new CriarAvariaRequestValidator();
+            FluentValidation.Results.ValidationResult resultado = await validator.ValidateAsync(CriarRequestComPosicao(null, null, null));
+
+            Assert.True(resultado.IsValid);
+        }
+
+        [Fact]
+        public async Task AnguloEPosicoesNosLimites_SaoAceitos()
+        {
+            CriarAvariaRequestValidator validator = new CriarAvariaRequestValidator();
+
+            FluentValidation.Results.ValidationResult zero = await validator.ValidateAsync(CriarRequestComPosicao("LATERAL_DIREITA", "0", "0"));
+            FluentValidation.Results.ValidationResult cem = await validator.ValidateAsync(CriarRequestComPosicao("LATERAL_ESQUERDA", "100", "100.00"));
+            FluentValidation.Results.ValidationResult meio = await validator.ValidateAsync(CriarRequestComPosicao("FRENTE", "42.50", "17"));
+
+            Assert.True(zero.IsValid);
+            Assert.True(cem.IsValid);
+            Assert.True(meio.IsValid);
+        }
+
+        private static CriarAvariaRequest CriarRequestComPosicao(string? angulo, string? posX, string? posY)
+        {
+            return new CriarAvariaRequest
+            {
+                Descricao = "Dano",
+                Gravidade = "LEVE",
+                Angulo = angulo,
+                PosX = posX,
+                PosY = posY,
+                Foto = CriarFoto("image/jpeg", new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 })
+            };
+        }
+
         private static CriarAvariaRequest CriarRequest(string contentType, byte[] bytes)
         {
             return new CriarAvariaRequest

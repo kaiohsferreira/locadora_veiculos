@@ -19,10 +19,19 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Gancho opcional: roda depois de entrar na trava e antes da operacao (simula mudanca feita por outra requisicao).</summary>
         public Action? AoEntrarNaTrava { get; set; }
 
+        /// <summary>Funcionarios que o Include(Funcionario) do repositorio real carrega na leitura da entrada (operadorStr).</summary>
+        public List<Funcionario> Funcionarios { get; } = new List<Funcionario>();
+
         public Task<Vistoria?> FindEntradaByLocacaoAsync(int idLocacao)
         {
             LeituraSemTrava |= !SobTrava;
             Vistoria? vistoria = Vistorias.FirstOrDefault(x => x.IdLocacao == idLocacao && x.Tipo == TipoVistoria.ENTRADA && x.DisabledAt == null);
+            // Simula o Include do repositorio real: a leitura traz o funcionario; o objeto que o INSERT devolve nao traz.
+            Funcionario? funcionario = vistoria == null ? null : Funcionarios.FirstOrDefault(x => x.IdFuncionario == vistoria.IdFuncionario);
+            if (vistoria != null && funcionario != null && vistoria.Funcionario == null)
+            {
+                vistoria.Funcionario = funcionario;
+            }
             return Task.FromResult(vistoria);
         }
 

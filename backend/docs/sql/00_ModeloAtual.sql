@@ -430,12 +430,18 @@ CREATE TABLE avaria (
     descricao character varying(200) NOT NULL,
     gravidade character varying(15) NOT NULL DEFAULT 'LEVE',
     valor_estimado numeric(10,2),
+    angulo character varying(20),
+    pos_x numeric(5,2),
+    pos_y numeric(5,2),
     id_avaria_entrada integer,
     created_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     updated_at timestamp without time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     disabled_at timestamp without time zone,
     CONSTRAINT avaria_pkey PRIMARY KEY (id_avaria),
+    CONSTRAINT ck_avaria_angulo CHECK (angulo IS NULL OR angulo IN ('FRENTE', 'TRASEIRA', 'LATERAL_ESQUERDA', 'LATERAL_DIREITA')),
     CONSTRAINT ck_avaria_gravidade CHECK (gravidade IN ('LEVE', 'MEDIA', 'GRAVE')),
+    CONSTRAINT ck_avaria_pos_x CHECK (pos_x IS NULL OR (pos_x >= 0 AND pos_x <= 100)),
+    CONSTRAINT ck_avaria_pos_y CHECK (pos_y IS NULL OR (pos_y >= 0 AND pos_y <= 100)),
     CONSTRAINT fk_avaria_entrada FOREIGN KEY (id_avaria_entrada) REFERENCES avaria (id_avaria),
     CONSTRAINT fk_avaria_vistoria FOREIGN KEY (id_vistoria) REFERENCES vistoria (id_vistoria) ON DELETE CASCADE
 );

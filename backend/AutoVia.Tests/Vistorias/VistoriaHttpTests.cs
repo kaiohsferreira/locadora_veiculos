@@ -88,6 +88,7 @@ namespace AutoVia.Tests.Vistorias
             Assert.Equal(Rota, post.Headers.Location?.AbsolutePath);
             JsonElement criado = await LerJson(post);
             Assert.Equal(20, criado.GetProperty("idFuncionario").GetInt32());
+            Assert.Equal("Ana S.", criado.GetProperty("operadorStr").GetString());
             Assert.Equal("ENTRADA", criado.GetProperty("tipo").GetString());
             Assert.Equal("17/11/2026 10:30", criado.GetProperty("dataHoraStr").GetString());
             Assert.Equal("Bom estado", criado.GetProperty("observacoes").GetString());
@@ -181,6 +182,7 @@ namespace AutoVia.Tests.Vistorias
                 FakeLocacaoRepository locacoes = new FakeLocacaoRepository();
                 locacoes.Adicionar(new Locacao { IdLocacao = 10, Status = StatusDaLocacao, KmSaida = KmSaidaDaLocacao });
                 locacoes.Adicionar(new Funcionario { IdFuncionario = 20, Ativo = true });
+                Vistorias.Funcionarios.Add(new Funcionario { IdFuncionario = 20, Nome = "Ana Souza", Ativo = true });
                 services.RemoveAll<ILocacaoRepository>();
                 services.RemoveAll<IVistoriaRepository>();
                 services.RemoveAll<IRelogio>();

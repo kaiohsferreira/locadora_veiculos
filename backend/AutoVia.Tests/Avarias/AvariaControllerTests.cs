@@ -1,6 +1,7 @@
 using AutoVia.Api.Controllers;
 using AutoVia.Api.Requests.Avaria;
 using AutoVia.Communication.CustomExceptions;
+using AutoVia.Communication.Enums;
 using AutoVia.Communication.ViewObjects.Avarias;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -108,20 +109,94 @@ namespace AutoVia.Tests.Avarias
             Assert.Equal<long?>(ConstantsValues.TamanhoMaximoCorpoFotoAvaria, metadadoTamanho.MaxRequestBodySize);
         }
 
+        [Fact]
+        public async Task Criar_ConverteAnguloEPosicaoEPassaParaOServico()
+        {
+            FakeAvariaControllerService servico = new FakeAvariaControllerService();
+            AvariaController controller = CriarController(servico);
+
+            IActionResult resultado = await controller.Criar(IdVistoriaDoTeste, new CriarAvariaRequest
+            {
+                Descricao = "Risco",
+                Gravidade = "LEVE",
+                Angulo = "TRASEIRA",
+                PosX = "42.50",
+                PosY = "17",
+                Foto = CriarFotoValida()
+            });
+
+            Assert.IsType<CreatedAtActionResult>(resultado);
+            Assert.Equal(AnguloAvaria.TRASEIRA, servico.UltimoAngulo);
+            Assert.Equal(42.50m, servico.UltimoPosX);
+            Assert.Equal(17m, servico.UltimoPosY);
+        }
+
+        [Fact]
+        public async Task Criar_SemAnguloNemPosicao_PassaNulos()
+        {
+            FakeAvariaControllerService servico = new FakeAvariaControllerService();
+            AvariaController controller = CriarController(servico);
+
+            await controller.Criar(IdVistoriaDoTeste, new CriarAvariaRequest
+            {
+                Descricao = "Risco",
+                Gravidade = "LEVE",
+                Foto = CriarFotoValida()
+            });
+
+            Assert.Null(servico.UltimoAngulo);
+            Assert.Null(servico.UltimoPosX);
+            Assert.Null(servico.UltimoPosY);
+        }
+
+        [Fact]
+        public async Task Listar_DevolveOkComAListaDoServico()
+        {
+            FakeAvariaControllerService servico = new FakeAvariaControllerService();
+            servico.Lista.Add(new ReturnAvariaVO { IdAvaria = 7, IdVistoria = IdVistoriaDoTeste, Angulo = AnguloAvaria.FRENTE, ErroFoto = ConstantsMessage.ErroAvariaFotoSemArquivo });
+            AvariaController controller = CriarController(servico);
+
+            IActionResult resultado = await controller.Listar(IdVistoriaDoTeste);
+
+            OkObjectResult ok = Assert.IsType<OkObjectResult>(resultado);
+            List<ReturnAvariaVO> lista = Assert.IsType<List<ReturnAvariaVO>>(ok.Value);
+            Assert.Single(lista);
+            Assert.Equal(7, lista[0].IdAvaria);
+            Assert.Equal(ConstantsMessage.ErroAvariaFotoSemArquivo, lista[0].ErroFoto);
+            Assert.Equal(1, servico.ListarCount);
+        }
+
         private sealed class FakeAvariaControllerService : IAvariaService
         {
             public bool UploadFalha { get; set; }
             public int CriarCount { get; private set; }
             public int RetryCount { get; private set; }
 
-            public Task<ReturnAvariaVO> CriarAsync(int idVistoria, string descricao, string gravidade, decimal? valorEstimado, byte[]? foto, string? contentType, CancellationToken cancellationToken = default)
+            public AnguloAvaria? UltimoAngulo { get; private set; }
+            public decimal? UltimoPosX { get; private set; }
+            public decimal? UltimoPosY { get; private set; }
+            public int ListarCount { get; private set; }
+
+            /// <summary>Lista que o fake devolve no GET da lista (vazia por padrao).</summary>
+            public List<ReturnAvariaVO> Lista { get; } = new List<ReturnAvariaVO>();
+
+            public Task<ReturnAvariaVO> CriarAsync(int idVistoria, string descricao, string gravidade, decimal? valorEstimado, byte[]? foto, string? contentType, AnguloAvaria? angulo = null, decimal? posX = null, decimal? posY = null, CancellationToken cancellationToken = default)
             {
                 CriarCount++;
+                UltimoAngulo = angulo;
+                UltimoPosX = posX;
+                UltimoPosY = posY;
                 if (UploadFalha) throw new AvariaUploadException(idVistoria, IdAvariaDoTeste, ConstantsMessage.ErroUploadAvariaPendente, new InvalidOperationException());
-                return Task.FromResult(new ReturnAvariaVO { IdAvaria = IdAvariaDoTeste, IdVistoria = idVistoria });
+                return Task.FromResult(new ReturnAvariaVO { IdAvaria = IdAvariaDoTeste, IdVistoria = idVistoria, Angulo = angulo, PosX = posX, PosY = posY });
             }
 
             public Task<ReturnAvariaVO> GetByIdAsync(int idVistoria, int idAvaria, CancellationToken cancellationToken = default) => Task.FromResult(new ReturnAvariaVO());
+
+            public Task<List<ReturnAvariaVO>> ListarAsync(int idVistoria, CancellationToken cancellationToken = default)
+            {
+                ListarCount++;
+                return Task.FromResult(Lista);
+            }
 
             public Task<ReturnAvariaVO> RetryUploadAsync(int idVistoria, int idAvaria, byte[] foto, string contentType, CancellationToken cancellationToken = default)
             {

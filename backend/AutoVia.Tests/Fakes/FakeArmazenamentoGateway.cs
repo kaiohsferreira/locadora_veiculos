@@ -23,6 +23,12 @@ namespace AutoVia.Tests.Fakes
 
         public bool ObjetoExiste(string chave) => _objetos.Contains(chave);
 
+        /// <summary>Marca um objeto como existente no armazenamento, sem passar por EnviarAsync (para testar a lista).</summary>
+        public void RegistrarObjeto(string chave) => _objetos.Add(chave);
+
+        /// <summary>Quando verdadeiro, ObterUrlAsync lanca a falha de integracao (armazenamento fora do ar, como o gateway real).</summary>
+        public bool FalharObterUrl { get; set; }
+
         /// <summary>Quantas vezes AssinarUrlsAsync foi chamado com pelo menos uma chave.</summary>
         public int AssinaturaLoteCount { get; private set; }
 
@@ -65,6 +71,7 @@ namespace AutoVia.Tests.Fakes
         public Task<ArquivoArmazenado?> ObterUrlAsync(string chave, CancellationToken cancellationToken = default)
         {
             HeadCount++;
+            if (FalharObterUrl) throw new IntegrationException(ConstantsIntegration.Armazenamento, ConstantsMessage.ErroArmazenamentoObterUrl);
             return Task.FromResult(_objetos.Contains(chave) ? CriarUrl() : null);
         }
 

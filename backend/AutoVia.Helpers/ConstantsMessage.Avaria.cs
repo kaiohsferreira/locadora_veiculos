@@ -19,5 +19,10 @@ namespace AutoVia.Helpers
         public const string ErroArmazenarFotoAvaria = "Não foi possível armazenar a foto da avaria.";
         public const string ErroRemoverFotoAvaria = "Não foi possível remover a foto da avaria.";
         public const string ErroUploadAvariaPendente = "A avaria foi criada, mas o upload da foto falhou. Repita o envio pela rota informada.";
+        public const string ErroAvariaAnguloInvalido = "O ângulo da avaria deve ser FRENTE, TRASEIRA, LATERAL_ESQUERDA ou LATERAL_DIREITA.";
+        public const string ErroAvariaPosicaoInvalida = "A posição da avaria deve ser um número de 0 a 100, com até 2 casas decimais e ponto como separador.";
+        public const string ErroAvariaPosicaoIncompleta = "Informe o ângulo e as posições X e Y da avaria, ou deixe os três em branco.";
+        public const string ErroAvariaFotoSemArquivo = "Não foi possível carregar esta foto. Se o problema continuar, remova a foto e envie de novo.";
+        public const string ErroAvariaListaFotosSemArquivo = "O armazenamento não tem o arquivo de {0} foto(s) da lista de avarias da vistoria.";
     }
 }

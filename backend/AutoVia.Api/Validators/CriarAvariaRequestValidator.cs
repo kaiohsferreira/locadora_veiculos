@@ -25,6 +25,15 @@ namespace AutoVia.Api.Validators
                 .WithMessage(ConstantsMessage.ErroAvariaGravidadeInvalida);
             RuleFor(x => x.ValorEstimado).Must(ValorEstimadoValido)
                 .WithMessage(ConstantsMessage.ErroAvariaValorEstimadoInvalido);
+            RuleFor(x => x.Angulo).Must(AnguloValido)
+                .WithMessage(ConstantsMessage.ErroAvariaAnguloInvalido);
+            // Tudo ou nada (N8): angulo, posX e posY vem juntos ou todos vazios; a parcial aponta em angulo.
+            RuleFor(x => x.Angulo).Must((request, angulo) => PosicaoCompletaOuAusente(request))
+                .WithMessage(ConstantsMessage.ErroAvariaPosicaoIncompleta);
+            RuleFor(x => x.PosX).Must(PosicaoValida)
+                .WithMessage(ConstantsMessage.ErroAvariaPosicaoInvalida);
+            RuleFor(x => x.PosY).Must(PosicaoValida)
+                .WithMessage(ConstantsMessage.ErroAvariaPosicaoInvalida);
             RuleFor(x => x.Foto).NotNull().WithMessage(ConstantsMessage.ErroAvariaFotoObrigatoria)
                 .MustAsync(ValidarFotoAsync).WithMessage(ConstantsMessage.ErroAvariaFotoFormatoInvalido);
         }
@@ -36,6 +45,40 @@ namespace AutoVia.Api.Validators
             if (!ConversorValorEstimadoFormulario.TentarConverter(texto, out valor))
                 return false;
             return !valor.HasValue || (valor.Value >= 0m && valor.Value <= ConstantsValues.LimiteValorEstimadoAvaria);
+        }
+
+        /// <summary>Angulo vazio ou um dos quatro nomes exatos do enum (maiusculas).</summary>
+        private static bool AnguloValido(string? texto)
+        {
+            AnguloAvaria? angulo;
+            return ConversorAnguloAvariaFormulario.TentarConverter(texto, out angulo);
+        }
+
+        /// <summary>Posicao vazia, ou texto no formato do valor estimado e dentro da faixa de 0 a 100.</summary>
+        private static bool PosicaoValida(string? texto)
+        {
+            decimal? valor;
+            if (!ConversorValorEstimadoFormulario.TentarConverter(texto, out valor))
+                return false;
+            return !valor.HasValue || (valor.Value >= ConstantsValues.LimitePosicaoAvariaMinima && valor.Value <= ConstantsValues.LimitePosicaoAvariaMaxima);
+        }
+
+        /// <summary>Tudo ou nada: sem nenhum dos tres campos, ou com os tres. Angulo preenchido e fora da lista fica so com ErroAvariaAnguloInvalido.</summary>
+        private static bool PosicaoCompletaOuAusente(CriarAvariaRequest request)
+        {
+            if (!string.IsNullOrEmpty(request.Angulo) && !AnguloValido(request.Angulo))
+                return true;
+            return !TemAlgumaPosicao(request) || TodasAsPosicoesPreenchidas(request);
+        }
+
+        private static bool TemAlgumaPosicao(CriarAvariaRequest request)
+        {
+            return !string.IsNullOrEmpty(request.Angulo) || !string.IsNullOrEmpty(request.PosX) || !string.IsNullOrEmpty(request.PosY);
+        }
+
+        private static bool TodasAsPosicoesPreenchidas(CriarAvariaRequest request)
+        {
+            return !string.IsNullOrEmpty(request.Angulo) && !string.IsNullOrEmpty(request.PosX) && !string.IsNullOrEmpty(request.PosY);
         }
 
         private static bool GravidadePermitida(string valor)

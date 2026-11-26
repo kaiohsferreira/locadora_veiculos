@@ -32,10 +32,31 @@ namespace AutoVia.Tests.Fakes
             return Task.FromResult(vistoria);
         }
 
+        public Task<Vistoria?> FindVistoriaAtivaAsync(int idVistoria, CancellationToken cancellationToken = default)
+        {
+            Vistoria? vistoria = _saidas.Vistorias.Vistorias.FirstOrDefault(x => x.IdVistoria == idVistoria && x.DisabledAt == null);
+            return Task.FromResult(vistoria);
+        }
+
         public Task<Avaria?> FindAtivaAsync(int idVistoria, int idAvaria, CancellationToken cancellationToken = default)
         {
             Avaria? avaria = _avarias.TryGetValue(idAvaria, out Avaria? encontrada) && encontrada.IdVistoria == idVistoria ? encontrada : null;
             return Task.FromResult(avaria);
+        }
+
+        public Task<List<Avaria>> FindAtivasByVistoriaAsync(int idVistoria, CancellationToken cancellationToken = default)
+        {
+            List<Avaria> avarias = _avarias.Values
+                .Where(x => x.IdVistoria == idVistoria && x.DisabledAt == null)
+                .OrderBy(x => x.IdAvaria)
+                .ToList();
+            return Task.FromResult(avarias);
+        }
+
+        /// <summary>Semeia uma avaria ativa sem passar pelo servico (para testar a lista).</summary>
+        public void Semear(Avaria avaria)
+        {
+            _avarias.Add(avaria.IdAvaria, avaria);
         }
 
         public Task<Avaria> CriarAsync(Avaria avaria, CancellationToken cancellationToken = default)

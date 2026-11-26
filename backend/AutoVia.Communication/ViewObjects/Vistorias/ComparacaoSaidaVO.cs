@@ -12,6 +12,15 @@ public class AvariaComparacaoVO
     public GravidadeAvaria Gravidade { get; set; }
     public decimal? ValorEstimado { get; set; }
     public string ValorEstimadoStr { get; set; } = string.Empty;
+
+    /// <summary>Lado do carro: copiado da avaria de entrada; nulo nas novas da saida (N8).</summary>
+    public AnguloAvaria? Angulo { get; set; }
+
+    /// <summary>Posicao X de 0 a 100, copiada da avaria de entrada; nula nas novas da saida.</summary>
+    public decimal? PosX { get; set; }
+
+    /// <summary>Posicao Y de 0 a 100, copiada da avaria de entrada; nula nas novas da saida.</summary>
+    public decimal? PosY { get; set; }
 }
 
 public class ComparacaoSaidaVO

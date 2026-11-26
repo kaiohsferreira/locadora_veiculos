@@ -32,6 +32,12 @@ namespace AutoVia.Helpers
         /// </summary>
         public const string PadraoValorEstimadoFormulario = @"\A[0-9]+(\.[0-9]{1,2})?\z";
 
+        /// <summary>Menor posicao (percentual) do marcador da avaria no quadrante do desenho da vistoria (eixo X e eixo Y).</summary>
+        public const decimal LimitePosicaoAvariaMinima = 0m;
+
+        /// <summary>Maior posicao (percentual) do marcador da avaria no quadrante do desenho da vistoria (eixo X e eixo Y).</summary>
+        public const decimal LimitePosicaoAvariaMaxima = 100m;
+
         /// <summary>Teto (R$) da soma dos valores estimados das avarias novas de uma saida; o mesmo limite da apuracao (ErroCobrancasExtrasLimite).</summary>
         public const decimal LimiteSomaValorEstimadoNovasAvariasSaida = 99999999.99m;
     }

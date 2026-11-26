@@ -378,6 +378,208 @@ namespace AutoVia.Tests.Avarias
             return saidas;
         }
 
+        [Fact]
+        public async Task CriarAsync_GravaAnguloEPosicaoEDevolveOsTres()
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            AvariaService servico = CriarServico(repositorio, saidas, new FakeArmazenamentoGateway());
+
+            AutoVia.Communication.ViewObjects.Avarias.ReturnAvariaVO retorno = await servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "LEVE", null, JpegValido(), "image/jpeg", AnguloAvaria.FRENTE, 42.50m, 17m);
+
+            Assert.Equal(AnguloAvaria.FRENTE, repositorio.UltimaCriada?.Angulo);
+            Assert.Equal(42.50m, repositorio.UltimaCriada?.PosX);
+            Assert.Equal(17m, repositorio.UltimaCriada?.PosY);
+            Assert.Equal(AnguloAvaria.FRENTE, retorno.Angulo);
+            Assert.Equal(42.50m, retorno.PosX);
+            Assert.Equal(17m, retorno.PosY);
+        }
+
+        [Fact]
+        public async Task CriarAsync_SemAnguloNemPosicao_GravaNulos()
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            AvariaService servico = CriarServico(repositorio, saidas, new FakeArmazenamentoGateway());
+
+            await servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "LEVE", null, JpegValido(), "image/jpeg");
+
+            Assert.Null(repositorio.UltimaCriada?.Angulo);
+            Assert.Null(repositorio.UltimaCriada?.PosX);
+            Assert.Null(repositorio.UltimaCriada?.PosY);
+        }
+
+        [Fact]
+        public async Task CriarAsync_PosicaoParcial_RecusaEmAnguloSemGravarNemEnviar()
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
+
+            FluentValidation.ValidationException excecao = await Assert.ThrowsAsync<FluentValidation.ValidationException>(() => servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "LEVE", null, JpegValido(), "image/jpeg", AnguloAvaria.FRENTE, 42.5m, null));
+
+            Assert.Contains(excecao.Errors, x => x.PropertyName == "angulo" && x.ErrorMessage == ConstantsMessage.ErroAvariaPosicaoIncompleta);
+            Assert.Equal(0, repositorio.CriacaoCount);
+            Assert.Equal(0, armazenamento.UploadCount);
+        }
+
+        [Fact]
+        public async Task CriarAsync_PosicaoForaDaFaixa_RecusaSemGravar()
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            AvariaService servico = CriarServico(repositorio, saidas, new FakeArmazenamentoGateway());
+
+            FluentValidation.ValidationException excecao = await Assert.ThrowsAsync<FluentValidation.ValidationException>(() => servico.CriarAsync(IdVistoriaDoTeste, "Arranhão", "LEVE", null, JpegValido(), "image/jpeg", AnguloAvaria.FRENTE, 100.5m, 10m));
+
+            Assert.Contains(excecao.Errors, x => x.PropertyName == "posX" && x.ErrorMessage == ConstantsMessage.ErroAvariaPosicaoInvalida);
+            Assert.Equal(0, repositorio.CriacaoCount);
+        }
+
+        [Fact]
+        public async Task ListarAsync_VistoriaSemAvarias_DevolveListaVaziaSemConsultarArmazenamento()
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
+            AvariaService servico = CriarServico(new FakeAvariaRepository(saidas), saidas, armazenamento);
+
+            List<AutoVia.Communication.ViewObjects.Avarias.ReturnAvariaVO> lista = await servico.ListarAsync(IdVistoriaDoTeste);
+
+            Assert.Empty(lista);
+            Assert.Equal(0, armazenamento.HeadCount);
+        }
+
+        [Fact]
+        public async Task ListarAsync_DevolveEmOrdemDeIdAvaria()
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
+            repositorio.Semear(CriarAvaria(3));
+            repositorio.Semear(CriarAvaria(1));
+            repositorio.Semear(CriarAvaria(2));
+            armazenamento.RegistrarObjeto(CriarChaveDaAvaria(1));
+            armazenamento.RegistrarObjeto(CriarChaveDaAvaria(2));
+            armazenamento.RegistrarObjeto(CriarChaveDaAvaria(3));
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
+
+            List<AutoVia.Communication.ViewObjects.Avarias.ReturnAvariaVO> lista = await servico.ListarAsync(IdVistoriaDoTeste);
+
+            Assert.Equal(new[] { 1, 2, 3 }, lista.Select(x => x.IdAvaria).ToArray());
+        }
+
+        [Fact]
+        public async Task ListarAsync_FotoPresente_DevolveUrlEExpiraEmELevaAnguloEPosicao()
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
+            Avaria avaria = CriarAvaria(1);
+            avaria.Angulo = AnguloAvaria.LATERAL_DIREITA;
+            avaria.PosX = 10m;
+            avaria.PosY = 90m;
+            repositorio.Semear(avaria);
+            armazenamento.RegistrarObjeto(ChaveDaFoto);
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
+
+            List<AutoVia.Communication.ViewObjects.Avarias.ReturnAvariaVO> lista = await servico.ListarAsync(IdVistoriaDoTeste);
+
+            AutoVia.Communication.ViewObjects.Avarias.ReturnAvariaVO item = Assert.Single(lista);
+            Assert.Equal("https://storage.example/foto", item.Foto?.Url);
+            Assert.False(string.IsNullOrEmpty(item.Foto?.ExpiraEm));
+            Assert.Null(item.ErroFoto);
+            Assert.Equal(AnguloAvaria.LATERAL_DIREITA, item.Angulo);
+            Assert.Equal(10m, item.PosX);
+            Assert.Equal(90m, item.PosY);
+        }
+
+        [Fact]
+        public async Task ListarAsync_AvariaDeEntradaSemArquivo_TrazErroFotoELoga()
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            FakeLogService log = new FakeLogService();
+            repositorio.Semear(CriarAvaria(1));
+            AvariaService servico = CriarServico(repositorio, saidas, new FakeArmazenamentoGateway(), log);
+
+            List<AutoVia.Communication.ViewObjects.Avarias.ReturnAvariaVO> lista = await servico.ListarAsync(IdVistoriaDoTeste);
+
+            AutoVia.Communication.ViewObjects.Avarias.ReturnAvariaVO item = Assert.Single(lista);
+            Assert.Null(item.Foto);
+            Assert.Equal(ConstantsMessage.ErroAvariaFotoSemArquivo, item.ErroFoto);
+            Assert.Contains(log.Entries, entrada => entrada.Contains("de 1 foto(s)"));
+        }
+
+        [Fact]
+        public async Task ListarAsync_AvariaDeSaidaSemArquivo_NaoTrazErroFotoNemLoga()
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas(TipoVistoria.SAIDA);
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            FakeLogService log = new FakeLogService();
+            repositorio.Semear(CriarAvaria(1));
+            AvariaService servico = CriarServico(repositorio, saidas, new FakeArmazenamentoGateway(), log);
+
+            List<AutoVia.Communication.ViewObjects.Avarias.ReturnAvariaVO> lista = await servico.ListarAsync(IdVistoriaDoTeste);
+
+            AutoVia.Communication.ViewObjects.Avarias.ReturnAvariaVO item = Assert.Single(lista);
+            Assert.Null(item.Foto);
+            Assert.Null(item.ErroFoto);
+            Assert.DoesNotContain(log.Entries, entrada => entrada.Contains("foto(s)"));
+        }
+
+        [Fact]
+        public async Task ListarAsync_FalhaDoArmazenamento_LancaIntegracaoSemListaParcial()
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeAvariaRepository repositorio = new FakeAvariaRepository(saidas);
+            repositorio.Semear(CriarAvaria(1));
+            repositorio.Semear(CriarAvaria(2));
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway { FalharObterUrl = true };
+            AvariaService servico = CriarServico(repositorio, saidas, armazenamento);
+
+            await Assert.ThrowsAsync<IntegrationException>(() => servico.ListarAsync(IdVistoriaDoTeste));
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-3)]
+        public async Task ListarAsync_IdVistoriaZeroOuNegativo_Responde404SemConsultarArmazenamento(int idVistoria)
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
+            AvariaService servico = CriarServico(new FakeAvariaRepository(saidas), saidas, armazenamento);
+
+            NotFoundException excecao = await Assert.ThrowsAsync<NotFoundException>(() => servico.ListarAsync(idVistoria));
+
+            Assert.Equal(ConstantsMessage.ErroAvariaVistoriaNaoEncontrada, excecao.Message);
+            Assert.Equal(0, armazenamento.HeadCount);
+        }
+
+        [Fact]
+        public async Task ListarAsync_VistoriaDesativada_Responde404SemConsultarArmazenamento()
+        {
+            FakeVistoriaSaidaRepository saidas = CriarSaidas();
+            saidas.Vistorias.Vistorias[0].DisabledAt = DateTime.Now;
+            FakeArmazenamentoGateway armazenamento = new FakeArmazenamentoGateway();
+            AvariaService servico = CriarServico(new FakeAvariaRepository(saidas), saidas, armazenamento);
+
+            NotFoundException excecao = await Assert.ThrowsAsync<NotFoundException>(() => servico.ListarAsync(IdVistoriaDoTeste));
+
+            Assert.Equal(ConstantsMessage.ErroAvariaVistoriaNaoEncontrada, excecao.Message);
+            Assert.Equal(0, armazenamento.HeadCount);
+        }
+
+        private static Avaria CriarAvaria(int idAvaria)
+        {
+            return new Avaria { IdAvaria = idAvaria, IdVistoria = IdVistoriaDoTeste, Descricao = "Dano " + idAvaria, Gravidade = GravidadeAvaria.LEVE };
+        }
+
+        private static string CriarChaveDaAvaria(int idAvaria)
+        {
+            return "vistorias/" + IdVistoriaDoTeste + "/avarias/" + idAvaria + "/foto";
+        }
+
         /// <summary>Semeia a vistoria 14 (locacao 10), e opcionalmente uma saida ativa na mesma locacao.</summary>
         private static void AdicionarVistoria(FakeVistoriaSaidaRepository saidas, TipoVistoria tipo, StatusLocacao status, bool comSaidaAtiva)
         {

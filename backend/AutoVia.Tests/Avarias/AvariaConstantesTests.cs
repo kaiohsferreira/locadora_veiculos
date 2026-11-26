@@ -13,6 +13,13 @@ namespace AutoVia.Tests.Avarias
         }
 
         [Fact]
+        public void LimitesDaPosicao_SaoZeroECem()
+        {
+            Assert.Equal(0m, ConstantsValues.LimitePosicaoAvariaMinima);
+            Assert.Equal(100m, ConstantsValues.LimitePosicaoAvariaMaxima);
+        }
+
+        [Fact]
         public void ValoresDoContrato_SaoOsDoAvariaContract()
         {
             Assert.Equal(10551296, ConstantsValues.TamanhoMaximoCorpoFotoAvaria);

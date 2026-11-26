@@ -56,6 +56,27 @@ public class VistoriaSaidaServiceTests
     }
 
     [Fact]
+    public async Task AvariaCopiadaDaEntradaLevaAnguloEPosicao_NovaDaSaidaFicaNula()
+    {
+        FakeVistoriaSaidaRepository saidas = Preparar();
+        saidas.Avarias[0].Angulo = AnguloAvaria.FRENTE;
+        saidas.Avarias[0].PosX = 42.50m;
+        saidas.Avarias[0].PosY = 17m;
+        VistoriaSaidaService service = Criar(saidas);
+
+        ComparacaoSaidaVO retorno = await service.RegistrarSaidaAsync(10, Payload(), 20);
+
+        AvariaComparacaoVO preexistente = Assert.Single(retorno.AvariasPreexistentes);
+        Assert.Equal(AnguloAvaria.FRENTE, preexistente.Angulo);
+        Assert.Equal(42.50m, preexistente.PosX);
+        Assert.Equal(17m, preexistente.PosY);
+        AvariaComparacaoVO nova = Assert.Single(retorno.AvariasNovas);
+        Assert.Null(nova.Angulo);
+        Assert.Null(nova.PosX);
+        Assert.Null(nova.PosY);
+    }
+
+    [Fact]
     public async Task SnapshotComVinculoPreexistenteEMesmoTextoSemVinculoNova()
     {
         FakeVistoriaSaidaRepository saidas = Preparar();

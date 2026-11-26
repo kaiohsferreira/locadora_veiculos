@@ -35,19 +35,20 @@ namespace AutoVia.Infrastructure.Services
             _logService = logService;
         }
 
-        public async Task<ReturnAvariaVO> CriarAsync(int idVistoria, string descricao, string gravidade, decimal? valorEstimado, byte[]? foto, string? contentType, CancellationToken cancellationToken = default)
+        public async Task<ReturnAvariaVO> CriarAsync(int idVistoria, string descricao, string gravidade, decimal? valorEstimado, byte[]? foto, string? contentType, AnguloAvaria? angulo = null, decimal? posX = null, decimal? posY = null, CancellationToken cancellationToken = default)
         {
             try
             {
-                // Ordem: id da vistoria, campos, vistoria no banco e so depois a foto (a decodificacao fica por ultimo).
+                // Ordem: id da vistoria, campos (com angulo e posicao), vistoria no banco e so depois a foto (a decodificacao fica por ultimo).
                 if (idVistoria <= 0) throw new NotFoundException(ConstantsMessage.ErroAvariaVistoriaNaoEncontrada);
                 ValidarCampos(descricao, gravidade, valorEstimado);
+                ValidarPosicao(angulo, posX, posY);
                 Vistoria vistoria = await ObterVistoriaAtivaAsync(idVistoria, cancellationToken);
                 await ValidarRegraDaVistoriaAsync(vistoria);
                 foto = ValidarFoto(foto, contentType);
 
                 Avaria criada = await _vistoriaRepository.ExecutarComLocacaoBloqueadaAsync(vistoria.IdLocacao,
-                    () => CriarSobTravaAsync(idVistoria, descricao, gravidade, valorEstimado, cancellationToken));
+                    () => CriarSobTravaAsync(idVistoria, descricao, gravidade, valorEstimado, angulo, posX, posY, cancellationToken));
                 return await EnviarFotoAsync(criada, foto!, contentType!, cancellationToken);
             }
             catch (ValidationException ex)
@@ -89,6 +90,55 @@ namespace AutoVia.Infrastructure.Services
                 Avaria avaria = await ObterAvariaAsync(idVistoria, idAvaria, cancellationToken);
                 ArquivoArmazenado? foto = await _armazenamentoGateway.ObterUrlAsync(CriarChave(idVistoria, idAvaria), cancellationToken);
                 return Mapear(avaria, foto);
+            }
+            catch (NotFoundException ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarAvaria, GetType().ToString());
+                throw;
+            }
+            catch (IntegrationException ex)
+            {
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroConsultarAvaria, GetType().ToString());
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroConsultarAvaria, GetType().ToString());
+                throw;
+            }
+        }
+
+        public async Task<List<ReturnAvariaVO>> ListarAsync(int idVistoria, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                // Ordem: id da vistoria (404 sem consultar o armazenamento), vistoria ativa da locadora, avarias, e so entao a URL de cada foto.
+                if (idVistoria <= 0) throw new NotFoundException(ConstantsMessage.ErroAvariaVistoriaNaoEncontrada);
+                Vistoria vistoria = await ObterVistoriaParaListaAsync(idVistoria, cancellationToken);
+                List<Avaria> avarias = await _avariaRepository.FindAtivasByVistoriaAsync(idVistoria, cancellationToken);
+
+                List<ReturnAvariaVO> lista = new List<ReturnAvariaVO>();
+                int semArquivoNaEntrada = 0;
+                foreach (Avaria avaria in avarias)
+                {
+                    ArquivoArmazenado? foto = await _armazenamentoGateway.ObterUrlAsync(CriarChave(idVistoria, avaria.IdAvaria), cancellationToken);
+                    ReturnAvariaVO item = Mapear(avaria, foto);
+                    // Entrada exige foto no POST; na saida nao ha foto (a copiada da entrada nao tem arquivo proprio), entao so a entrada leva erroFoto.
+                    if (foto == null && vistoria.Tipo == TipoVistoria.ENTRADA)
+                    {
+                        item.ErroFoto = ConstantsMessage.ErroAvariaFotoSemArquivo;
+                        semArquivoNaEntrada++;
+                    }
+                    lista.Add(item);
+                }
+
+                if (semArquivoNaEntrada > 0)
+                {
+                    // So log, nunca chega ao usuario: a mensagem leva so a contagem (nada de chave, URL ou excecao do armazenamento).
+                    string mensagemLog = string.Format(CultureInfo.InvariantCulture, ConstantsMessage.ErroAvariaListaFotosSemArquivo, semArquivoNaEntrada);
+                    _logService.Write(new InvalidOperationException(mensagemLog), ConstantsMessage.ErroConsultarAvaria, GetType().ToString());
+                }
+                return lista;
             }
             catch (NotFoundException ex)
             {
@@ -207,6 +257,26 @@ namespace AutoVia.Infrastructure.Services
             }
         }
 
+        /// <summary>Vistoria ativa da locadora para a lista, sem a locacao carregada (a leitura nao depende do status da locacao); 404 quando nao existe.</summary>
+        private async Task<Vistoria> ObterVistoriaParaListaAsync(int idVistoria, CancellationToken cancellationToken)
+        {
+            try
+            {
+                Vistoria? vistoria = await _avariaRepository.FindVistoriaAtivaAsync(idVistoria, cancellationToken);
+                if (vistoria == null) throw new NotFoundException(ConstantsMessage.ErroAvariaVistoriaNaoEncontrada);
+                return vistoria;
+            }
+            catch (NotFoundException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(CriarErroSanitizado(ex), ConstantsMessage.ErroConsultarAvaria, GetType().ToString());
+                throw;
+            }
+        }
+
         /// <summary>Regra da vistoria (RegrasVistoria.MotivoRecusaAvaria): 409 quando a vistoria ou a locacao nao aceitam avaria nova.</summary>
         private async Task ValidarRegraDaVistoriaAsync(Vistoria vistoria)
         {
@@ -230,7 +300,7 @@ namespace AutoVia.Infrastructure.Services
         /// <summary>
         /// Dentro da trava da locacao: relê a vistoria, repete a regra com o estado relido e grava a avaria. A foto e enviada depois, fora da trava.
         /// </summary>
-        private async Task<Avaria> CriarSobTravaAsync(int idVistoria, string descricao, string gravidade, decimal? valorEstimado, CancellationToken cancellationToken)
+        private async Task<Avaria> CriarSobTravaAsync(int idVistoria, string descricao, string gravidade, decimal? valorEstimado, AnguloAvaria? angulo, decimal? posX, decimal? posY, CancellationToken cancellationToken)
         {
             try
             {
@@ -242,7 +312,10 @@ namespace AutoVia.Infrastructure.Services
                     IdVistoria = idVistoria,
                     Descricao = descricao.Trim(),
                     Gravidade = ParseGravidade(gravidade),
-                    ValorEstimado = valorEstimado
+                    ValorEstimado = valorEstimado,
+                    Angulo = angulo,
+                    PosX = posX,
+                    PosY = posY
                 };
                 return await _avariaRepository.CriarAsync(avaria, cancellationToken);
             }
@@ -296,8 +369,26 @@ namespace AutoVia.Infrastructure.Services
                 Descricao = avaria.Descricao,
                 Gravidade = avaria.Gravidade,
                 ValorEstimado = avaria.ValorEstimado,
+                Angulo = avaria.Angulo,
+                PosX = avaria.PosX,
+                PosY = avaria.PosY,
                 Foto = foto == null ? null : new FotoAvariaVO { Url = foto.Url, ExpiraEm = foto.ExpiraEm.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture) }
             };
+        }
+
+        /// <summary>Angulo e posicao sao tudo ou nada (N8): ou os tres vazios, ou os tres preenchidos; a faixa da posicao e de 0 a 100.</summary>
+        private static void ValidarPosicao(AnguloAvaria? angulo, decimal? posX, decimal? posY)
+        {
+            bool algum = angulo.HasValue || posX.HasValue || posY.HasValue;
+            bool todos = angulo.HasValue && posX.HasValue && posY.HasValue;
+            if (algum && !todos) throw CriarValidacao(ConstantsMessage.ErroAvariaPosicaoIncompleta, nameof(angulo));
+            if (posX.HasValue && !PosicaoNaFaixa(posX.Value)) throw CriarValidacao(ConstantsMessage.ErroAvariaPosicaoInvalida, nameof(posX));
+            if (posY.HasValue && !PosicaoNaFaixa(posY.Value)) throw CriarValidacao(ConstantsMessage.ErroAvariaPosicaoInvalida, nameof(posY));
+        }
+
+        private static bool PosicaoNaFaixa(decimal valor)
+        {
+            return valor >= ConstantsValues.LimitePosicaoAvariaMinima && valor <= ConstantsValues.LimitePosicaoAvariaMaxima;
         }
 
         private static void ValidarCampos(string descricao, string gravidade, decimal? valorEstimado)

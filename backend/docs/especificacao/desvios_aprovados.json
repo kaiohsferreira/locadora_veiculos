@@ -362,5 +362,26 @@
     },
     "regra_no_servico": "a validade de 900 s e dado (script 24, chave pix_expiracao_segundos), nao esquema; a unicidade de PIX valido por cobranca fica na trava do servico, nao no banco",
     "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico; a migration AdicionarPixPagamento so acrescenta as tres colunas"
+  },
+  "avaria_angulo_posicao": {
+    "migration": ["20261126222013_AdicionarAnguloPosicaoAvaria"],
+    "cobre": ["coluna:avaria.angulo", "coluna:avaria.pos_x", "coluna:avaria.pos_y", "check:ck_avaria_angulo", "check:ck_avaria_pos_x", "check:ck_avaria_pos_y"],
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "data": "2026-11-26",
+    "tarefa": "P4-BE-03 / P4-FE-02 / tela 19 (avarias da vistoria de entrada), tarefas do Eduardo finalizadas pela equipe",
+    "fonte": "Decisao D9 do plano de 26/11/2026 (frase do Kaio: \"Aprovo D1 a D14\") e N8 (frase do Kaio: \"Aprovo N1 a N14\")",
+    "motivo": "A tela 19 marca cada avaria num dos quatro lados do carro e no ponto do desenho. A especificacao nao tem essas colunas. Colunas anulaveis (avarias antigas e as novas da vistoria de saida ficam sem angulo e sem posicao), sem indice e sem valor padrao.",
+    "colunas_novas": {
+      "avaria.angulo": "VARCHAR(20) NULL (enum AnguloAvaria gravado como texto: FRENTE, TRASEIRA, LATERAL_ESQUERDA ou LATERAL_DIREITA)",
+      "avaria.pos_x": "NUMERIC(5,2) NULL, percentual de 0 a 100 na largura do lado do carro",
+      "avaria.pos_y": "NUMERIC(5,2) NULL, percentual de 0 a 100 na altura do lado do carro"
+    },
+    "checks": {
+      "ck_avaria_angulo": "angulo IS NULL OR angulo IN ('FRENTE', 'TRASEIRA', 'LATERAL_ESQUERDA', 'LATERAL_DIREITA')",
+      "ck_avaria_pos_x": "pos_x IS NULL OR (pos_x >= 0 AND pos_x <= 100)",
+      "ck_avaria_pos_y": "pos_y IS NULL OR (pos_y >= 0 AND pos_y <= 100)"
+    },
+    "regra_no_servico": "angulo, pos_x e pos_y vem juntos ou os tres vazios (N8, validador do formulario); a avaria copiada da entrada para a saida leva os tres valores; a nova da saida fica sem eles",
+    "nao_muda": "demais tabelas, colunas e CHECKs; nenhum indice unico; nenhuma linha existente muda; a migration AdicionarAnguloPosicaoAvaria so acrescenta as tres colunas e os tres CHECKs"
   }
 }

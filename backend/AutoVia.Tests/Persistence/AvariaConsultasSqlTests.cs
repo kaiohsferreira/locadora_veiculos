@@ -110,6 +110,45 @@ namespace AutoVia.Tests.Persistence
         }
 
         [Fact]
+        public void ConsultaAvariasAtivasDaVistoria_ComContextoDaEmpresa_TraduzOFiltroComOIdDaEmpresaEDesativadasFora()
+        {
+            using AutoViaDbContext db = CriarDbComContextoDeFuncionario(EmpresaDoTeste);
+            AvariaRepository repositorio = new AvariaRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaAvariasAtivasDaVistoria(IdVistoriaDoTeste).ToQueryString();
+
+            Assert.Contains($"{ParametroEmpresa}='{EmpresaDoTeste}'", sql);
+            Assert.Contains(GuardaVerdadeiro, sql);
+            Assert.Contains(DisabledAtNulo, sql);
+        }
+
+        [Fact]
+        public void ConsultaAvariasAtivasDaVistoria_OrdenaPorIdAvariaDentroDaPropriaConsulta()
+        {
+            using AutoViaDbContext db = CriarDbComContextoDeFuncionario(EmpresaDoTeste);
+            AvariaRepository repositorio = new AvariaRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaAvariasAtivasDaVistoria(IdVistoriaDoTeste).ToQueryString();
+
+            int inicioOrdenacao = sql.IndexOf("ORDER BY", StringComparison.Ordinal);
+            Assert.True(inicioOrdenacao >= 0);
+            Assert.Contains("id_avaria", sql.Substring(inicioOrdenacao));
+        }
+
+        [Fact]
+        public void ConsultaAvariasAtivasDaVistoria_SemContexto_FailClosedComIdZeroEGuardaFalsa()
+        {
+            using AutoViaDbContext db = CriarDbSemContexto();
+            AvariaRepository repositorio = new AvariaRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaAvariasAtivasDaVistoria(IdVistoriaDoTeste).ToQueryString();
+
+            Assert.Contains($"{ParametroEmpresa}='{ContextoSemEmpresa}'", sql);
+            Assert.Contains(GuardaFalso, sql);
+            Assert.DoesNotContain($"{ParametroEmpresa}='{EmpresaDoTeste}'", sql);
+        }
+
+        [Fact]
         public void ConsultaAvariaAtiva_SemContexto_FailClosedComIdZeroEGuardaFalsa()
         {
             using AutoViaDbContext db = CriarDbSemContexto();
