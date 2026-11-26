@@ -15,7 +15,7 @@ namespace AutoVia.Tests.Integrations.Email
         private const string CorpoTexto = "Link secreto ABC-TOKEN-987";
         private const int EsperaMaximaMs = 5000;
 
-        /// <summary>Gateway de teste: conta as chamadas e falha em todas, com excecao de mensagem neutra.</summary>
+        /// <summary>Gateway de teste: conta as chamadas e falha em todas, com uma excecao que carrega dados da mensagem.</summary>
         private sealed class GatewayQueFalha : IEmailGateway
         {
             private readonly int _esperadas;
@@ -42,7 +42,8 @@ namespace AutoVia.Tests.Integrations.Email
                     Concluido.TrySetResult(true);
                 }
 
-                return Task.FromException(new InvalidOperationException("falha simulada do provedor"));
+                string detalhe = string.Join(Environment.NewLine, mensagem.DestinatarioEmail, mensagem.Assunto, mensagem.CorpoTexto);
+                return Task.FromException(new InvalidOperationException(detalhe));
             }
         }
 
@@ -116,7 +117,9 @@ namespace AutoVia.Tests.Integrations.Email
             // A segunda mensagem so chega ao gateway se o servico sobreviveu a primeira falha.
             Assert.Same(gateway.Concluido.Task, concluidoOuEsgotado);
             Assert.Equal(2, gateway.Recebidas.Count);
-            Assert.Contains(log.Entries, entrada => entrada.Contains(ConstantsMessage.ErroEmailEnviar));
+            string tipoDeFalha = string.Format(ConstantsMessage.LogEmailTipoFalha, nameof(InvalidOperationException));
+            Assert.Contains(log.Entries, entrada => entrada.Contains(ConstantsMessage.ErroEmailEnviar, StringComparison.Ordinal)
+                && entrada.Contains(tipoDeFalha, StringComparison.Ordinal));
             Assert.DoesNotContain(log.Entries, entrada => entrada.Contains(Destinatario));
             Assert.DoesNotContain(log.Entries, entrada => entrada.Contains(Assunto));
             Assert.DoesNotContain(log.Entries, entrada => entrada.Contains("ABC-TOKEN-987"));

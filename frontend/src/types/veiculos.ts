@@ -102,3 +102,34 @@ export interface VeiculoRetorno {
   /** Texto pronto do servidor quando a capa não pôde ser carregada (só na listagem, com foto cadastrada). */
   erroFotoCapa?: string | null;
 }
+
+/** Filtros da consulta pública de disponibilidade (P3-BE-01 / RF-11). */
+export interface FiltroVeiculosDisponiveis {
+  cidade?: string;
+  uf?: string;
+  dataRetirada: string;
+  dataDevolucao: string;
+  idCategoria?: number;
+  valorDiariaMin?: number;
+  valorDiariaMax?: number;
+  pagina: number;
+  tamanhoPagina: number;
+}
+
+/** Veículo elegível para locação no período solicitado, conforme ReturnVeiculoDisponivelVO. */
+export interface VeiculoDisponivel {
+  idVeiculo: number;
+  idCategoria: number;
+  categoriaNome: string;
+  marca: string;
+  modelo: string;
+  anoModelo: number;
+  cor: string | null;
+  valorDiaria: number;
+  valorDiariaStr: string;
+  locadoraNomeFantasia: string;
+  locadoraCidade: string;
+  locadoraUf: string;
+  fotoCapa?: FotoCapaVeiculo | null;
+  erroFotoCapa?: string | null;
+}

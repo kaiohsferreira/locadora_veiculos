@@ -19,7 +19,8 @@ namespace AutoVia.Helpers
         public const string ErroEmailGravarCaixaFake = "Não foi possível gravar a mensagem de e-mail de teste.";
         public const string ErroEmailProcessarFila = "Não foi possível processar a fila de e-mails.";
 
-        // --- Registro tecnico (log). Campos: provedor, etiqueta, identificador. Nunca dado pessoal. ---
+        // --- Registro tecnico (log): tipo da falha ou provedor, etiqueta e identificador do envio. ---
+        public const string LogEmailTipoFalha = "Tipo da falha: {0}.";
         public const string LogEmailEnviado = "E-mail enviado: provedor {0}, etiqueta {1}, identificador {2}.";
     }
 }

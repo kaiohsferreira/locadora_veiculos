@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/api/client';
-import { cadastrarLocadora, verificarCadastroEmpresa } from '@/api/empresas';
+import { cadastrarLocadora, listarCidadesLocadoras, verificarCadastroEmpresa } from '@/api/empresas';
 
 vi.mock('@/api/client', () => ({
-  api: { post: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn() },
 }));
 
 const postMock = vi.mocked(api.post);
@@ -83,5 +83,16 @@ describe('cadastrarLocadora', () => {
     const [url, corpo] = postMock.mock.calls[0];
     expect(url).toBe('/api/empresas');
     expect(corpo).toEqual(requisicao);
+  });
+});
+
+describe('listarCidadesLocadoras', () => {
+  it('lê os pares da rota pública e repassa cancelamento', async () => {
+    const signal = new AbortController().signal;
+    const cidades = [{ cidade: 'São Paulo', uf: 'SP' }];
+    vi.mocked(api.get).mockResolvedValueOnce({ data: cidades });
+
+    await expect(listarCidadesLocadoras(signal)).resolves.toEqual(cidades);
+    expect(api.get).toHaveBeenCalledWith('/api/empresas/cidades', { signal });
   });
 });

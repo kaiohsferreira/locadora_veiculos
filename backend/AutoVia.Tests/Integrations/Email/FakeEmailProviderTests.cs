@@ -131,6 +131,40 @@ namespace AutoVia.Tests.Integrations.Email
         }
 
         [Fact]
+        public async Task EnviarAsync_FalhaAoGravar_RegistraTipoSemEnderecoOuConteudo()
+        {
+            string raiz = CriarPastaTemporaria();
+            try
+            {
+                string raizBloqueada = Path.Combine(raiz, DestinatarioEmail);
+                File.WriteAllText(raizBloqueada, string.Empty);
+
+                FakeLogService log = new FakeLogService();
+                EmailFakeStore store = new EmailFakeStore();
+                FakeEmailProvider provider = new FakeEmailProvider(store, new AmbienteFalso(Environments.Development, raizBloqueada), log);
+                EmailMensagem mensagem = CriarMensagem();
+
+                IntegrationException excecao = await Assert.ThrowsAsync<IntegrationException>(() =>
+                    provider.EnviarAsync(CriarConfiguracao(AmbienteIntegracao.SANDBOX), mensagem, RemetenteEmail, RemetenteNome));
+
+                Exception? causa = excecao.InnerException;
+                Assert.NotNull(causa);
+                Assert.Contains(DestinatarioEmail, causa.Message, StringComparison.OrdinalIgnoreCase);
+                string entrada = Assert.Single(log.Entries);
+                Assert.Contains(ConstantsMessage.ErroEmailGravarCaixaFake, entrada, StringComparison.Ordinal);
+                Assert.Contains(string.Format(ConstantsMessage.LogEmailTipoFalha, causa.GetType().Name), entrada, StringComparison.Ordinal);
+                Assert.DoesNotContain(DestinatarioEmail, entrada, StringComparison.OrdinalIgnoreCase);
+                Assert.DoesNotContain(mensagem.Assunto, entrada, StringComparison.Ordinal);
+                Assert.DoesNotContain(mensagem.CorpoTexto, entrada, StringComparison.Ordinal);
+                Assert.Equal(0, store.Quantidade);
+            }
+            finally
+            {
+                Directory.Delete(raiz, true);
+            }
+        }
+
+        [Fact]
         public async Task EnviarAsync_ForaDeDevelopmentMesmoComSandbox_RecusaSemGravar()
         {
             string raiz = CriarPastaTemporaria();

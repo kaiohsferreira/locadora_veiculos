@@ -1,5 +1,10 @@
+using AutoVia.Communication.ViewObjects.Frota;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.RepositoriesInterface;
+using AutoVia.Helpers;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace AutoVia.Tests.Fakes
 {
@@ -54,6 +59,22 @@ namespace AutoVia.Tests.Fakes
         public void AdicionarFuncionario(Funcionario funcionario)
         {
             _armazenamento.AdicionarFuncionario(funcionario);
+        }
+
+        public Task<List<ReturnCidadeLocadoraVO>> FindCidadesAtivasAsync()
+        {
+            Lancar();
+
+            List<ReturnCidadeLocadoraVO> cidades = Empresas
+                .Where(x => x.Ativo && x.DisabledAt == null && !string.IsNullOrWhiteSpace(x.Cidade))
+                .Select(x => new ReturnCidadeLocadoraVO { Cidade = x.Cidade.Trim(), Uf = x.Uf.ToUpperInvariant() })
+                .Where(x => ConstantsValues.UfsBrasileiras.Contains(x.Uf))
+                .Distinct()
+                .OrderBy(x => x.Cidade)
+                .ThenBy(x => x.Uf)
+                .ToList();
+
+            return Task.FromResult(cidades);
         }
 
         /// <summary>Indica se existe empresa ativa (DisabledAt nulo) com o CNPJ informado.</summary>

@@ -254,15 +254,18 @@ namespace AutoVia.Tests.Integrations.Email
         public async Task EnviarAsync_FalhaInesperadaDoProvedor_LancaIntegrationExceptionComInner_SemDadoPessoalNoLog()
         {
             ProvedorRoteirizado provedor = new ProvedorRoteirizado(NomeProvedorTeste);
-            provedor.Excecao = new InvalidOperationException("falha interna do provedor");
+            InvalidOperationException causa = new InvalidOperationException(string.Join(Environment.NewLine, Destinatario, DestinatarioNome, Assunto, CorpoTexto));
+            provedor.Excecao = causa;
             FakeLogService log = new FakeLogService();
             EmailGateway gateway = CriarGateway(CriarRepositorio(CriarIntegracao(NomeProvedorTeste, AmbienteIntegracao.SANDBOX)), log, provedor);
 
             IntegrationException excecao = await Assert.ThrowsAsync<IntegrationException>(() => gateway.EnviarAsync(CriarMensagem()));
 
             Assert.Equal(ConstantsMessage.ErroEmailEnviar, excecao.Message);
-            Assert.IsType<InvalidOperationException>(excecao.InnerException);
-            Assert.Contains(log.Entries, entrada => entrada.Contains(ConstantsMessage.ErroEmailEnviar));
+            Assert.Same(causa, excecao.InnerException);
+            string tipoDeFalha = string.Format(ConstantsMessage.LogEmailTipoFalha, nameof(InvalidOperationException));
+            Assert.Contains(log.Entries, entrada => entrada.Contains(ConstantsMessage.ErroEmailEnviar, StringComparison.Ordinal)
+                && entrada.Contains(tipoDeFalha, StringComparison.Ordinal));
             AssertLogSemDadoPessoal(log);
         }
     }

@@ -16,7 +16,8 @@ namespace AutoVia.Integrations.Services.Email
     /// EMAIL, le 'provedor', 'remetente_email' e 'remetente_nome', escolhe o IEmailProvider pelo Nome e
     /// repassa a entrega. Falha do provedor vira IntegrationException (502) com a excecao original.
     ///
-    /// Log: so provedor, etiqueta e um identificador sem dado pessoal. Nunca destinatario, assunto ou corpo.
+    /// Log: provedor, etiqueta e identificador nos envios; tipo da excecao nas falhas inesperadas.
+    /// Nunca destinatario, assunto ou corpo.
     /// </summary>
     public class EmailGateway : IEmailGateway
     {
@@ -66,7 +67,10 @@ namespace AutoVia.Integrations.Services.Email
             }
             catch (Exception ex)
             {
-                _logService.Write(ex, ConstantsMessage.ErroEmailEnviar, GetType().ToString());
+                _logService.Write(
+                    string.Format(ConstantsMessage.LogEmailTipoFalha, ex.GetType().Name),
+                    ConstantsMessage.ErroEmailEnviar,
+                    GetType().ToString());
                 throw new IntegrationException(ConstantsIntegration.Email, ConstantsMessage.ErroEmailEnviar, ex);
             }
         }

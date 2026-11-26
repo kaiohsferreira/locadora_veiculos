@@ -19,11 +19,11 @@ namespace AutoVia.Infrastructure.Repositories
     public partial class VeiculoRepository
     {
         /// <summary>Conta os veiculos disponiveis no periodo, de todas as locadoras ativas, com os filtros da busca.</summary>
-        public async Task<int> CountDisponiveisAsync(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax)
+        public async Task<int> CountDisponiveisAsync(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax, string? cidade = null, string? uf = null)
         {
             try
             {
-                int total = await ConsultaDisponiveis(retirada, devolucao, idCategoria, valorMin, valorMax).CountAsync();
+                int total = await ConsultaDisponiveis(retirada, devolucao, idCategoria, valorMin, valorMax, cidade, uf).CountAsync();
                 return total;
             }
             catch (Exception ex)
@@ -34,11 +34,11 @@ namespace AutoVia.Infrastructure.Repositories
         }
 
         /// <summary>Lista a pagina dos veiculos disponiveis no periodo, com a categoria e a locadora, ordenada por id.</summary>
-        public async Task<List<Veiculo>> FindDisponiveisAsync(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax, int deslocamento, int quantidade)
+        public async Task<List<Veiculo>> FindDisponiveisAsync(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax, int deslocamento, int quantidade, string? cidade = null, string? uf = null)
         {
             try
             {
-                List<Veiculo> veiculos = await ConsultaDisponiveisPaginada(retirada, devolucao, idCategoria, valorMin, valorMax, deslocamento, quantidade)
+                List<Veiculo> veiculos = await ConsultaDisponiveisPaginada(retirada, devolucao, idCategoria, valorMin, valorMax, deslocamento, quantidade, cidade, uf)
                     .ToListAsync();
                 return veiculos;
             }
@@ -54,7 +54,7 @@ namespace AutoVia.Infrastructure.Repositories
         /// com status DISPONIVEL ou RESERVADO e sem reserva ativa ou confirmada que se sobreponha ao periodo. O bypass
         /// do filtro de locadora vale para a consulta inteira, inclusive a subconsulta de reservas. Sem rastreamento.
         /// </summary>
-        public IQueryable<Veiculo> ConsultaDisponiveis(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax)
+        public IQueryable<Veiculo> ConsultaDisponiveis(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax, string? cidade = null, string? uf = null)
         {
             try
             {
@@ -84,6 +84,14 @@ namespace AutoVia.Infrastructure.Repositories
                     consulta = consulta.Where(x => x.ValorDiaria <= maximo);
                 }
 
+                if (cidade != null && uf != null)
+                {
+                    string cidadeNormalizada = cidade.Trim().ToLowerInvariant();
+                    string ufNormalizada = uf.Trim().ToUpperInvariant();
+                    consulta = consulta.Where(x => x.Empresa.Cidade.Trim().ToLower() == cidadeNormalizada
+                        && x.Empresa.Uf.ToUpper() == ufNormalizada);
+                }
+
                 return consulta;
             }
             catch (Exception ex)
@@ -98,11 +106,11 @@ namespace AutoVia.Infrastructure.Repositories
         /// por ordem) carregadas, ordenada por id do veiculo, com deslocamento e quantidade. A capa vem no mesmo filtro publico
         /// da consulta, sem parametro de empresa.
         /// </summary>
-        public IQueryable<Veiculo> ConsultaDisponiveisPaginada(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax, int deslocamento, int quantidade)
+        public IQueryable<Veiculo> ConsultaDisponiveisPaginada(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax, int deslocamento, int quantidade, string? cidade = null, string? uf = null)
         {
             try
             {
-                IQueryable<Veiculo> pagina = ConsultaDisponiveis(retirada, devolucao, idCategoria, valorMin, valorMax)
+                IQueryable<Veiculo> pagina = ConsultaDisponiveis(retirada, devolucao, idCategoria, valorMin, valorMax, cidade, uf)
                     .Include(x => x.Categoria)
                     .Include(x => x.Empresa)
                     .Include(x => x.Fotos.Where(foto => foto.DisabledAt == null).OrderBy(foto => foto.Ordem).ThenBy(foto => foto.IdVeiculoFoto).Take(ConstantsValues.QuantidadeFotoCapaPorVeiculo))

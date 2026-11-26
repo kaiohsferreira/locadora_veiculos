@@ -13,6 +13,7 @@ namespace AutoVia.Tests.Fakes
     {
         private int _proximoId = 1;
         private readonly List<Reserva> _reservas = new List<Reserva>();
+        private readonly Dictionary<int, string> _emailPorTitular = new Dictionary<int, string>();
         private Veiculo? _veiculoVinculado;
         public Reserva? Armazenada { get; private set; }
         public Veiculo? VeiculoPersistido { get { return _veiculoVinculado; } }
@@ -54,6 +55,28 @@ namespace AutoVia.Tests.Fakes
         public void VincularVeiculo(Veiculo veiculo)
         {
             _veiculoVinculado = veiculo;
+        }
+
+        public void VincularEmailTitular(int idCliente, string email)
+        {
+            _emailPorTitular[idCliente] = email;
+        }
+
+        public Task<string?> FindEmailTitularAsync(int idReserva, int idCliente, int idEmpresa)
+        {
+            Reserva? reserva = _reservas.FirstOrDefault(x => x.IdReserva == idReserva
+                && x.IdCliente == idCliente
+                && x.DisabledAt == null);
+            Veiculo? veiculo = reserva?.Veiculo ?? _veiculoVinculado;
+            if (reserva == null || veiculo == null || veiculo.IdVeiculo != reserva.IdVeiculo
+                || veiculo.IdEmpresa != idEmpresa || veiculo.DisabledAt != null
+                || reserva.Cliente?.DisabledAt != null)
+            {
+                return Task.FromResult<string?>(null);
+            }
+
+            _emailPorTitular.TryGetValue(idCliente, out string? email);
+            return Task.FromResult(email);
         }
 
         public Task<Reserva?> FindByIdAsync(int idReserva, int idCliente)

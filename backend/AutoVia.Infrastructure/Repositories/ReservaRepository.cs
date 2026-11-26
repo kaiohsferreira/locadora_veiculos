@@ -116,6 +116,21 @@ namespace AutoVia.Infrastructure.Repositories
             }
         }
 
+        /// <summary>Consulta somente o e-mail do titular ativo, pela reserva e pela empresa confirmada na criação.</summary>
+        public async Task<string?> FindEmailTitularAsync(int idReserva, int idCliente, int idEmpresa)
+        {
+            try
+            {
+                string? email = await ConsultaEmailTitularReserva(idReserva, idCliente, idEmpresa).FirstOrDefaultAsync();
+                return email;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroEmailBuscarTitularReserva, GetType().ToString());
+                throw;
+            }
+        }
+
         /// <summary>Reserva do cliente (posse pela consulta nomeada), com veiculo, categoria e locadora. Desativadas ficam fora.</summary>
         public async Task<Reserva?> FindByIdAsync(int idReserva, int idCliente)
         {
@@ -385,6 +400,26 @@ namespace AutoVia.Infrastructure.Repositories
             catch (Exception ex)
             {
                 _logService.Write(ex, ConstantsMessage.ErroBuscarVeiculoReserva, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Composição da projeção usada pela leitura do destinatário, sem executar a consulta.</summary>
+        internal IQueryable<string> ConsultaEmailTitularReserva(int idReserva, int idCliente, int idEmpresa)
+        {
+            try
+            {
+                return ConsultaReservasDoClienteLogado(idCliente)
+                    .AsNoTracking()
+                    .Where(reserva => reserva.IdReserva == idReserva
+                        && reserva.Veiculo.IdEmpresa == idEmpresa
+                        && reserva.Veiculo.DisabledAt == null
+                        && reserva.Cliente.DisabledAt == null)
+                    .Select(reserva => reserva.Cliente.Email);
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroEmailBuscarTitularReserva, GetType().ToString());
                 throw;
             }
         }

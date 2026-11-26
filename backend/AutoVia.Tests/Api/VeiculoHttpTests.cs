@@ -32,6 +32,7 @@ namespace AutoVia.Tests.Api
     public class VeiculoHttpTests : IDisposable
     {
         private const string RotaVeiculos = "/api/veiculos";
+        private const string RotaDisponiveis = RotaVeiculos + "/disponiveis?dataRetirada=2026-12-10&dataDevolucao=2026-12-12";
         private const string MediaProblema = "application/problem+json";
         private const string VersaoSessaoDeTeste = "versao-de-teste";
 
@@ -48,6 +49,20 @@ namespace AutoVia.Tests.Api
         {
             _cliente.Dispose();
             _fabrica.Dispose();
+        }
+
+        [Theory]
+        [InlineData("&cidade=")]
+        [InlineData("&uf=%20")]
+        [InlineData("&cidade=&uf=")]
+        [InlineData("&cidade=Curitiba")]
+        [InlineData("&cidade=Curitiba&uf=XX")]
+        public async Task Disponibilidade_LocalInvalido_Devolve400ProblemJson(string consulta)
+        {
+            using HttpResponseMessage resposta = await _cliente.GetAsync(RotaDisponiveis + consulta);
+
+            Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+            Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
         }
 
         [Fact]

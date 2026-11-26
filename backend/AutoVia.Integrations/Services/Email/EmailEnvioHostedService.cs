@@ -41,7 +41,10 @@ namespace AutoVia.Integrations.Services.Email
             }
             catch (Exception ex)
             {
-                _logService.Write(ex, ConstantsMessage.ErroEmailProcessarFila, GetType().ToString());
+                _logService.Write(
+                    string.Format(ConstantsMessage.LogEmailTipoFalha, ex.GetType().Name),
+                    ConstantsMessage.ErroEmailProcessarFila,
+                    GetType().ToString());
             }
         }
 
@@ -61,7 +64,10 @@ namespace AutoVia.Integrations.Services.Email
             }
             catch (Exception ex)
             {
-                _logService.Write(ex, ConstantsMessage.ErroEmailEnviar, GetType().ToString());
+                _logService.Write(
+                    string.Format(ConstantsMessage.LogEmailTipoFalha, ex.GetType().Name),
+                    ConstantsMessage.ErroEmailEnviar,
+                    GetType().ToString());
             }
         }
     }

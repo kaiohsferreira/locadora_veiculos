@@ -71,3 +71,9 @@ export interface RequisicaoVerificarEmpresa {
 export interface RespostaVerificarEmpresa {
   existe: boolean;
 }
+
+/** Cidade e UF com pelo menos uma locadora ativa, conforme o contrato público de disponibilidade. */
+export interface CidadeLocadora {
+  cidade: string;
+  uf: string;
+}

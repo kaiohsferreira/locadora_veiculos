@@ -1,5 +1,6 @@
 using AutoVia.Api.Controllers;
 using AutoVia.Communication.ViewObjects.Empresas;
+using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Helpers;
 using AutoVia.Tests.Fakes;
@@ -27,6 +28,7 @@ namespace AutoVia.Tests.Api
     public class EmpresaHttpTests : IDisposable
     {
         private const string RotaEmpresas = "/api/empresas";
+        private const string RotaCidades = RotaEmpresas + "/cidades";
         private const string RotaVerificacao = "/api/empresas/verificar-cadastro";
         private const string RotaLogin = "/api/auth/login";
         private const string MediaProblema = "application/problem+json";
@@ -54,6 +56,49 @@ namespace AutoVia.Tests.Api
         {
             _cliente.Dispose();
             _fabrica.Dispose();
+        }
+
+        [Fact]
+        public async Task Cidades_SemTokenECadastroDesligado_ListaParesDistintosSemDadosPrivados()
+        {
+            using EmpresaWebFactory fabrica = new EmpresaWebFactory(habilitado: false);
+            using HttpClient cliente = fabrica.CreateClient();
+            FakeEmpresaRepository empresas = fabrica.RepositorioEmpresas;
+            empresas.AdicionarEmpresa(new Empresa { Cidade = "Recife", Uf = "PE" });
+            empresas.AdicionarEmpresa(new Empresa { Cidade = "  Curitiba  ", Uf = "pr" });
+            empresas.AdicionarEmpresa(new Empresa { Cidade = "Curitiba", Uf = "PR" });
+            empresas.AdicionarEmpresa(new Empresa { Cidade = "Curitiba", Uf = "SC" });
+            empresas.AdicionarEmpresa(new Empresa { Cidade = "Sem local", Uf = "XX" });
+            empresas.AdicionarEmpresa(new Empresa { Cidade = "  ", Uf = "PR" });
+            empresas.AdicionarEmpresa(new Empresa { Cidade = "Londrina", Uf = "PR", Ativo = false });
+            empresas.AdicionarEmpresa(new Empresa { Cidade = "Maringá", Uf = "PR", DisabledAt = new DateTime(2026, 12, 10) });
+
+            using HttpResponseMessage resposta = await cliente.GetAsync(RotaCidades);
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(3, corpo.GetArrayLength());
+            Assert.Collection(corpo.EnumerateArray(),
+                item => ConferirCidade(item, "Curitiba", "PR"),
+                item => ConferirCidade(item, "Curitiba", "SC"),
+                item => ConferirCidade(item, "Recife", "PE"));
+        }
+
+        [Fact]
+        public async Task Cidades_SemLocadoras_DevolveListaVazia()
+        {
+            using HttpResponseMessage resposta = await _cliente.GetAsync(RotaCidades);
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(0, corpo.GetArrayLength());
+        }
+
+        private static void ConferirCidade(JsonElement item, string cidade, string uf)
+        {
+            Assert.Equal(2, item.EnumerateObject().Count());
+            Assert.Equal(cidade, item.GetProperty("cidade").GetString());
+            Assert.Equal(uf, item.GetProperty("uf").GetString());
         }
 
         [Fact]

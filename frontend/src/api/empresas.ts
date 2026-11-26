@@ -4,6 +4,7 @@
  */
 import { api } from './client';
 import type {
+  CidadeLocadora,
   RequisicaoCadastroLocadora,
   RequisicaoVerificarEmpresa,
   RespostaEmpresa,
@@ -36,5 +37,11 @@ export async function verificarCadastroEmpresa(
     { campo: requisicao.campo, valor: requisicao.valor },
     { signal, timeout: TEMPO_LIMITE_VERIFICACAO_MS },
   );
+  return resposta.data;
+}
+
+/** Cidades com locadora ativa para a busca pública de veículos (200). */
+export async function listarCidadesLocadoras(signal?: AbortSignal): Promise<CidadeLocadora[]> {
+  const resposta = await api.get<CidadeLocadora[]>('/api/empresas/cidades', { signal });
   return resposta.data;
 }

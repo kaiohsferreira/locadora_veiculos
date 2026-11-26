@@ -92,7 +92,7 @@ namespace AutoVia.Tests.Reservas
             FakeRelogio relogio = new FakeRelogio(new DateTime(2026, 11, 16, 10, 0, 0));
             ClienteLocadoraService clienteLocadora = new ClienteLocadoraService(repositorioLocadora, contexto, relogio, mapper, log, new ClientesOptions());
 
-            return new ReservaService(repositorio, clienteLocadora, relogio, mapper, log, new FotoCapaVeiculoService(gateway, log));
+            return new ReservaService(repositorio, clienteLocadora, relogio, mapper, log, new FotoCapaVeiculoService(gateway, log), new FakeNotificacaoTransacionalService());
         }
 
         private static FakeReservaRepository CriarRepositorioComDuasReservas()
@@ -113,7 +113,7 @@ namespace AutoVia.Tests.Reservas
             FakeRelogio relogio = new FakeRelogio(new DateTime(2026, 11, 16, 10, 0, 0));
             ClienteLocadoraService clienteLocadora = new ClienteLocadoraService(repositorioLocadora, contexto, relogio, mapper, log, new ClientesOptions());
 
-            return new ReservaService(repositorio, clienteLocadora, relogio, mapper, log, new FotoCapaVeiculoService(gateway, log));
+            return new ReservaService(repositorio, clienteLocadora, relogio, mapper, log, new FotoCapaVeiculoService(gateway, log), new FakeNotificacaoTransacionalService());
         }
 
         [Fact]

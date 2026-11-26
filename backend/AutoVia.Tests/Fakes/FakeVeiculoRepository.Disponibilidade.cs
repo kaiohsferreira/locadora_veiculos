@@ -12,25 +12,25 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Falha simulada da busca publica: quando informada, CountDisponiveisAsync e FindDisponiveisAsync a relancam (teste de log).</summary>
         public Exception? ExcecaoAoConsultarDisponiveis { get; set; }
 
-        public Task<int> CountDisponiveisAsync(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax)
+        public Task<int> CountDisponiveisAsync(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax, string? cidade = null, string? uf = null)
         {
             if (ExcecaoAoConsultarDisponiveis != null)
             {
                 throw ExcecaoAoConsultarDisponiveis;
             }
 
-            int total = FiltrarDisponiveis(retirada, devolucao, idCategoria, valorMin, valorMax).Count();
+            int total = FiltrarDisponiveis(retirada, devolucao, idCategoria, valorMin, valorMax, cidade, uf).Count();
             return Task.FromResult(total);
         }
 
-        public Task<List<Veiculo>> FindDisponiveisAsync(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax, int deslocamento, int quantidade)
+        public Task<List<Veiculo>> FindDisponiveisAsync(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax, int deslocamento, int quantidade, string? cidade = null, string? uf = null)
         {
             if (ExcecaoAoConsultarDisponiveis != null)
             {
                 throw ExcecaoAoConsultarDisponiveis;
             }
 
-            List<Veiculo> veiculos = FiltrarDisponiveis(retirada, devolucao, idCategoria, valorMin, valorMax)
+            List<Veiculo> veiculos = FiltrarDisponiveis(retirada, devolucao, idCategoria, valorMin, valorMax, cidade, uf)
                 .OrderBy(x => x.IdVeiculo)
                 .Skip(deslocamento)
                 .Take(quantidade)
@@ -43,7 +43,7 @@ namespace AutoVia.Tests.Fakes
         /// Regra da busca publica: veiculo ativo DISPONIVEL ou RESERVADO, sem reserva ativa ou confirmada que se sobreponha,
         /// de locadora ativa e nao desativada (RF-72). Veiculo semeado sem a navegacao Empresa conta como de locadora ativa.
         /// </summary>
-        private IEnumerable<Veiculo> FiltrarDisponiveis(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax)
+        private IEnumerable<Veiculo> FiltrarDisponiveis(DateOnly retirada, DateOnly devolucao, int? idCategoria, decimal? valorMin, decimal? valorMax, string? cidade, string? uf)
         {
             DateTime inicio = retirada.ToDateTime(TimeOnly.MinValue);
             DateTime fim = devolucao.ToDateTime(TimeOnly.MinValue);
@@ -68,6 +68,14 @@ namespace AutoVia.Tests.Fakes
             {
                 decimal maximo = valorMax.Value;
                 consulta = consulta.Where(x => x.ValorDiaria <= maximo);
+            }
+            if (cidade != null && uf != null)
+            {
+                string cidadeNormalizada = cidade.Trim();
+                string ufNormalizada = uf.Trim();
+                consulta = consulta.Where(x => x.Empresa != null
+                    && string.Equals(x.Empresa.Cidade.Trim(), cidadeNormalizada, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(x.Empresa.Uf, ufNormalizada, StringComparison.OrdinalIgnoreCase));
             }
             return consulta;
         }

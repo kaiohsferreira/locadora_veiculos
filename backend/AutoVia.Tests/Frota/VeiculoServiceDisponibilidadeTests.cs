@@ -3,6 +3,7 @@ using AutoVia.Communication.Enums;
 using AutoVia.Communication.Validators.Frota;
 using AutoVia.Communication.ViewObjects.Frota;
 using AutoVia.Communication.ViewObjects.Utils;
+using FluentValidation.Results;
 using AutoVia.Core.Entities.PgSql;
 using AutoVia.Core.Profiles;
 using AutoVia.Helpers;
@@ -151,6 +152,97 @@ namespace AutoVia.Tests.Frota
             Assert.Equal("Fiat", item.Marca);
             Assert.Equal(150m, item.ValorDiaria);
             Assert.DoesNotContain(item.GetType().GetProperties(), x => x.Name.Contains("Chassi") || x.Name.Contains("Renavam") || x.Name.Contains("Placa") || x.Name.Contains("KmAtual") || x.Name.Contains("ValorVenda"));
+        }
+
+        [Fact]
+        public async Task FiltroLocalCombinaCidadeUfCategoriaEDiariaAntesDeContarEPaginar()
+        {
+            FakeVeiculoRepository repositorio = new FakeVeiculoRepository();
+            Categoria suv = new Categoria { IdCategoria = 1, Nome = "SUV" };
+            Categoria economico = new Categoria { IdCategoria = 2, Nome = "Econômico" };
+            Empresa saoPaulo = new Empresa { Cidade = "São Paulo", Uf = "SP" };
+            AdicionarDisponivel(repositorio, suv, 120m, saoPaulo);
+            AdicionarDisponivel(repositorio, suv, 150m, new Empresa { Cidade = "SÃO PAULO", Uf = "SP" });
+            AdicionarDisponivel(repositorio, suv, 120m, new Empresa { Cidade = "Sao Paulo", Uf = "SP" });
+            AdicionarDisponivel(repositorio, suv, 120m, new Empresa { Cidade = "São Paulo", Uf = "PR" });
+            AdicionarDisponivel(repositorio, economico, 120m, saoPaulo);
+            AdicionarDisponivel(repositorio, suv, 160m, saoPaulo);
+            AdicionarDisponivel(repositorio, suv, 120m, new Empresa { Cidade = "São Paulo", Uf = "SP", Ativo = false });
+
+            VeiculoService servico = CriarServico(repositorio);
+            PaginaVO<ReturnVeiculoDisponivelVO> pagina = await servico.GetDisponiveisAsync(new FiltroVeiculoDisponibilidadeVO
+            {
+                DataRetirada = new DateOnly(2026, 12, 10),
+                DataDevolucao = new DateOnly(2026, 12, 12),
+                Cidade = "  são PAULO  ",
+                Uf = " sp ",
+                IdCategoria = suv.IdCategoria,
+                ValorDiariaMin = 100m,
+                ValorDiariaMax = 150m,
+                Pagina = 2,
+                TamanhoPagina = 1
+            });
+
+            Assert.Equal(2, pagina.Total);
+            ReturnVeiculoDisponivelVO veiculo = Assert.Single(pagina.Itens);
+            Assert.Equal(150m, veiculo.ValorDiaria);
+            Assert.Equal("SÃO PAULO", veiculo.LocadoraCidade);
+        }
+
+        private static void AdicionarDisponivel(FakeVeiculoRepository repositorio, Categoria categoria, decimal diaria, Empresa empresa)
+        {
+            Veiculo veiculo = CriarVeiculo(categoria, StatusVeiculo.DISPONIVEL, diaria);
+            veiculo.Empresa = empresa;
+            repositorio.Adicionar(veiculo);
+        }
+
+        [Theory]
+        [InlineData(null, null, null)]
+        [InlineData("  São Paulo  ", " sp ", null)]
+        [InlineData("Brasília", "DF", null)]
+        [InlineData(null, "MG", nameof(FiltroVeiculoDisponibilidadeVO.Cidade))]
+        [InlineData("Curitiba", null, nameof(FiltroVeiculoDisponibilidadeVO.Uf))]
+        [InlineData("  ", "PR", nameof(FiltroVeiculoDisponibilidadeVO.Cidade))]
+        [InlineData("Curitiba", "XX", nameof(FiltroVeiculoDisponibilidadeVO.Uf))]
+        [InlineData("Curitiba", "S P", nameof(FiltroVeiculoDisponibilidadeVO.Uf))]
+        public void ValidadorExigeParDeCidadeEUfValido(string? cidade, string? uf, string? campoInvalido)
+        {
+            FiltroVeiculoDisponibilidadeVOValidator validador = new FiltroVeiculoDisponibilidadeVOValidator();
+            ValidationResult resultado = validador.Validate(new FiltroVeiculoDisponibilidadeVO
+            {
+                DataRetirada = new DateOnly(2026, 12, 10),
+                DataDevolucao = new DateOnly(2026, 12, 12),
+                Cidade = cidade,
+                Uf = uf
+            });
+
+            if (campoInvalido == null)
+            {
+                Assert.True(resultado.IsValid);
+            }
+            else
+            {
+                ValidationFailure falha = Assert.Single(resultado.Errors);
+                Assert.Equal(campoInvalido, falha.PropertyName);
+            }
+        }
+
+        [Theory]
+        [InlineData(1, true)]
+        [InlineData(60, true)]
+        [InlineData(61, false)]
+        public void ValidadorMedeCidadeDepoisDeApararEspacos(int tamanho, bool valido)
+        {
+            FiltroVeiculoDisponibilidadeVOValidator validador = new FiltroVeiculoDisponibilidadeVOValidator();
+            ValidationResult resultado = validador.Validate(new FiltroVeiculoDisponibilidadeVO
+            {
+                DataRetirada = new DateOnly(2026, 12, 10),
+                DataDevolucao = new DateOnly(2026, 12, 12),
+                Cidade = " " + new string('a', tamanho) + " ",
+                Uf = "PR"
+            });
+
+            Assert.Equal(valido, resultado.IsValid);
         }
 
         [Fact]

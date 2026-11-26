@@ -279,7 +279,7 @@ namespace AutoVia.Tests.Reservas
             FakeClienteLocadoraRepository repositorioLocadora = new FakeClienteLocadoraRepository(contexto, new ArmazenamentoClienteLocadora());
             FakeRelogio relogio = new FakeRelogio(new DateTime(2026, 11, 16, 10, 0, 0));
             ClienteLocadoraService clienteLocadora = new ClienteLocadoraService(repositorioLocadora, contexto, relogio, mapper, log, new ClientesOptions());
-            return new ReservaService(repositorio, clienteLocadora, relogio, mapper, new FakeLogService(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), new FakeLogService()));
+            return new ReservaService(repositorio, clienteLocadora, relogio, mapper, new FakeLogService(), new FotoCapaVeiculoService(new FakeArmazenamentoGateway(), new FakeLogService()), new FakeNotificacaoTransacionalService());
         }
 
         private static VeiculoService CriarServicoDisponibilidade(FakeVeiculoRepository repositorio)

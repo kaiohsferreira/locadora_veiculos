@@ -29,7 +29,7 @@ namespace AutoVia.Api.Controllers
 
         /// <summary>
         /// GetDisponiveis - Lista os veiculos disponiveis para aluguel no periodo, de todas as locadoras ativas, com filtros
-        /// opcionais por categoria e faixa de diaria. Rota publica, limitada por IP (60 por minuto por padrao).
+        /// opcionais por categoria, faixa de diária e cidade/UF. Rota publica, limitada por IP (60 por minuto por padrao).
         /// </summary>
         [HttpGet]
         [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]

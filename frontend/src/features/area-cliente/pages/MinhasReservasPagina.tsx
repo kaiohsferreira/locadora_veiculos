@@ -180,6 +180,7 @@ export default function MinhasReservasPagina() {
               aoMudarBusca={setBuscaDigitada}
               aoEnviarBusca={enviarBusca}
               aoLimparBusca={limparBusca}
+              aoFalharFotoCapa={aoFalharFotoCapa}
             />
           )}
         </div>

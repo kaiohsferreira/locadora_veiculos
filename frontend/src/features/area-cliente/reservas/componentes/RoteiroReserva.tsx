@@ -47,18 +47,7 @@ export function RoteiroReserva({ reserva, diarias }: RoteiroReservaProps) {
               {reserva.locadoraNomeFantasia}
             </p>
             {endereco && <p className="break-words text-legenda text-status-neutro">{endereco}</p>}
-            {endereco && (
-              <a
-                href={montarLinkMapa(reserva)}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 pt-1 text-rotulo font-semibold text-navy transition-colors hover:text-orange-escuro focus-visible:outline focus-visible:outline-2 focus-visible:outline-steel"
-              >
-                <Icone nome="near_me" tamanho={14} />
-                <span>{MENSAGEM_RESERVAS_COMO_CHEGAR}</span>
-                <span className="sr-only">{MENSAGEM_RESERVAS_COMO_CHEGAR_NOVA_ABA}</span>
-              </a>
-            )}
+            {endereco && <LinkMapaReserva reserva={reserva} className="hidden pt-1 md:inline-flex" />}
           </div>
         </li>
         <li className="relative pl-8">
@@ -79,5 +68,20 @@ export function RoteiroReserva({ reserva, diarias }: RoteiroReservaProps) {
         </li>
       </ol>
     </>
+  );
+}
+
+export function LinkMapaReserva({ reserva, className }: { reserva: ReservaCliente; className: string }) {
+  return (
+    <a
+      href={montarLinkMapa(reserva)}
+      target="_blank"
+      rel="noreferrer"
+      className={`items-center gap-1 text-rotulo font-semibold text-navy transition-colors hover:text-orange-escuro focus-visible:outline focus-visible:outline-2 focus-visible:outline-steel ${className}`}
+    >
+      <Icone nome="near_me" tamanho={14} />
+      <span>{MENSAGEM_RESERVAS_COMO_CHEGAR}</span>
+      <span className="sr-only">{MENSAGEM_RESERVAS_COMO_CHEGAR_NOVA_ABA}</span>
+    </a>
   );
 }

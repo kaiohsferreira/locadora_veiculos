@@ -13,6 +13,9 @@ namespace AutoVia.Core.RepositoriesInterface
         /// <summary>Cria a reserva em transacao, com a trava do veiculo, a locadora ativa e o conflito de periodo.</summary>
         Task<Reserva> InsertAtomicallyAsync(Reserva reserva);
 
+        /// <summary>Projeta o e-mail do titular ativo da reserva do cliente autenticado e da empresa indicada.</summary>
+        Task<string?> FindEmailTitularAsync(int idReserva, int idCliente, int idEmpresa);
+
         /// <summary>Reserva do proprio cliente, com veiculo, categoria e locadora; null quando nao acha.</summary>
         Task<Reserva?> FindByIdAsync(int idReserva, int idCliente);
 

@@ -54,25 +54,44 @@ const COM_DADOS: RespostaReservas = {
 describe('PainelHistoricoReservas', () => {
   it('tabela com 6 colunas e sem coluna de ações', () => {
     const html = renderizar({ estado: { dados: COM_DADOS } });
-    expect(html.match(/<th /g)?.length).toBe(6);
-    expect(html).toContain('Reserva / data');
-    expect(html).toContain('Veículo e categoria');
-    expect(html).toContain('Locadora');
-    expect(html).toContain('Período');
-    expect(html).toContain('Valor estimado');
-    expect(html).toContain('Status');
-    expect(html).not.toContain('Ações');
+    const tabela = html.match(/<table\b[^>]*>([\s\S]*?)<\/table>/)?.[1] ?? '';
+    expect(tabela.match(/<th /g)?.length).toBe(6);
+    expect(tabela).toContain('Reserva / data');
+    expect(tabela).toContain('Veículo e categoria');
+    expect(tabela).toContain('Locadora');
+    expect(tabela).toContain('Período');
+    expect(tabela).toContain('Valor estimado');
+    expect(tabela).toContain('Status');
+    expect(tabela).not.toContain('Ações');
   });
 
   it('a linha mostra código, período com datas, diárias, locadora, status e "—" quando o valor é nulo', () => {
     const html = renderizar({ estado: { dados: COM_DADOS } });
-    expect(html).toContain('AV-00017');
-    expect(html).toContain('18/10/2026 a 21/10/2026');
-    expect(html).toContain('3 diárias');
-    expect(html).toContain('Locadora Centro');
-    expect(html).toContain('São Paulo - SP');
-    expect(html).toContain('Cancelada');
-    expect(html).toContain('—');
+    const tabela = html.match(/<table\b[^>]*>([\s\S]*?)<\/table>/)?.[1] ?? '';
+    expect(tabela).toContain('AV-00017');
+    expect(tabela).toContain('18/10/2026 a 21/10/2026');
+    expect(tabela).toContain('3 diárias');
+    expect(tabela).toContain('Jeep Renegade Longitude');
+    expect(tabela).toContain('SUV Compacto Especial');
+    expect(tabela).toContain('Locadora Centro');
+    expect(tabela).toContain('São Paulo - SP');
+    expect(tabela).toContain('Cancelada');
+    expect(tabela).toContain('—');
+  });
+
+  it('os cartões mobile mostram status, código e valor antes dos dados do veículo', () => {
+    const html = renderizar({ estado: { dados: COM_DADOS } });
+    const cartoes = html.match(/<ul[^>]*aria-label="Histórico de reservas"[^>]*>([\s\S]*?)<\/ul>/)?.[1] ?? '';
+    expect(cartoes).toMatch(/Cancelada.*AV-00017.*—.*Jeep Renegade Longitude.*18\/10\/2026 a 21\/10\/2026/);
+    expect(cartoes).toContain('h-12 w-16');
+    expect(cartoes).toContain('São Paulo - SP •');
+  });
+
+  it('o cartão mobile mostra o total de diárias quando falta a placa', () => {
+    const reserva = { ...RESERVA_HISTORICO, placa: '' };
+    const html = renderizar({ estado: { dados: { ...COM_DADOS, itens: [reserva] } } });
+    const cartoes = html.match(/<ul[^>]*aria-label="Histórico de reservas"[^>]*>([\s\S]*?)<\/ul>/)?.[1] ?? '';
+    expect(cartoes).toContain('3 diárias');
   });
 
   it('a busca aparece com o rótulo, o placeholder e o botão Filtrar', () => {
