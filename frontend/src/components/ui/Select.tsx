@@ -43,6 +43,8 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   variante?: Extract<VarianteCampo, 'padrao' | 'cartao' | 'desenho' | 'frota'>;
   /** Só na variante `desenho`: texto em destaque laranja e seminegrito (status do veículo). */
   destaque?: boolean;
+  /** Nome do ícone Material Symbols mostrado dentro da lista, à esquerda (variante `padrao`). Opcional. */
+  iconeInicial?: string;
 }
 
 /**
@@ -61,6 +63,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     opcaoVazia = 'Selecione',
     variante = 'padrao',
     destaque = false,
+    iconeInicial,
     id,
     className = '',
     ...props
@@ -73,6 +76,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   const idDica = `${idCampo}-dica`;
   const desenho = variante === 'desenho';
   const frota = variante === 'frota';
+  const comIconeInicial = iconeInicial !== undefined && variante === 'padrao';
 
   return (
     <div className={classesEnvoltorioCampo(variante)}>
@@ -97,7 +101,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
               ? `${classesSelectDesenho(Boolean(erro), destaque)} ${className}`
               : frota
                 ? `${classesSelectFrota(Boolean(erro))} ${className}`
-                : `${variante === 'cartao' ? classesControleCartao(Boolean(erro)) : classesControle(Boolean(erro))} appearance-none pr-10 ${className}`
+                : `${variante === 'cartao' ? classesControleCartao(Boolean(erro)) : classesControle(Boolean(erro))} appearance-none pr-10${comIconeInicial ? ' pl-10' : ''} ${className}`
           }
         >
           {opcaoVazia !== false && <option value="">{opcaoVazia}</option>}
@@ -107,6 +111,13 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
             </option>
           ))}
         </select>
+        {comIconeInicial && (
+          <Icone
+            nome={iconeInicial}
+            tamanho={20}
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-texto-suave"
+          />
+        )}
         <Icone
           nome="expand_more"
           tamanho={frota ? 18 : undefined}

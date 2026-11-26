@@ -24,8 +24,14 @@ export const MENSAGENS_BUSCA = {
   sliderMin: 'Valor mínimo da diária em reais',
   sliderMax: 'Valor máximo da diária em reais',
   semLimite: 'Sem limite',
+  placeholderMinimo: '0',
+  /** Valor em reais da faixa de diária (ex.: "R$ 100"). */
+  valorReais: (valor: string) => `R$ ${valor}`,
+  /** Maior valor aberto da faixa, sem limite: o limite do controle seguido de "+" (ex.: "R$ 500+"). */
+  maximoAberto: (valor: string) => `${valor}+`,
+  /** Leitura do intervalo ao lado do título "Faixa de diária" (ex.: "R$ 100 – R$ 500+"). */
+  leituraFaixaDiaria: (minimo: string, maximo: string) => `${minimo} – ${maximo}`,
   qualquerCidade: 'Todas as cidades',
-  selecionandoCidade: 'Selecione a cidade',
   carregandoCidades: 'Carregando cidades…',
   erroCidades: 'Não foi possível carregar as cidades.',
   semCidades: 'Nenhuma cidade cadastrada para retirada.',

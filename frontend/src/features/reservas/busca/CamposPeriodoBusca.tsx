@@ -12,6 +12,9 @@ export interface CamposPeriodoBuscaProps {
   buscando?: boolean;
 }
 
+/** Pílula "N diárias" no fim da linha do rótulo da devolução, como nos desenhos 03 e 04. */
+const CLASSES_PILULA_DIARIAS = 'whitespace-nowrap rounded bg-steel-suave px-1.5 py-0.5 text-micro font-semibold text-navy';
+
 export function CamposPeriodoBusca({ rascunho, hoje, erros, aoAlterar, textoBotao, buscando }: CamposPeriodoBuscaProps) {
   const cidades = useCidadesLocadoras();
   const periodo = avaliarPeriodo(rascunho, hoje);
@@ -35,6 +38,7 @@ export function CamposPeriodoBusca({ rascunho, hoje, erros, aoAlterar, textoBota
           opcaoVazia={texto.qualquerCidade}
           erro={erros.local}
           value={rascunho.local}
+          iconeInicial="location_on"
           onChange={(evento) => aoAlterar('local', evento.target.value)}
         />
         <Campo
@@ -48,6 +52,7 @@ export function CamposPeriodoBusca({ rascunho, hoje, erros, aoAlterar, textoBota
           max="9999-12-30"
           erro={erros.dataRetirada}
           value={rascunho.dataRetirada}
+          iconeInicial="calendar_today"
           onChange={(evento) => aoAlterar('dataRetirada', evento.target.value)}
         />
         <div className="min-w-0">
@@ -62,17 +67,16 @@ export function CamposPeriodoBusca({ rascunho, hoje, erros, aoAlterar, textoBota
             max="9999-12-31"
             erro={erros.dataDevolucao}
             value={rascunho.dataDevolucao}
+            iconeInicial="event_repeat"
+            apoioRotulo={periodo.diarias > 0 ? texto.numeroDiarias(periodo.diarias) : undefined}
+            apoioRotuloClasse={CLASSES_PILULA_DIARIAS}
+            apoioRotuloEmLinha
             onChange={(evento) => aoAlterar('dataDevolucao', evento.target.value)}
           />
         </div>
         <Botao type="submit" larguraTotal icone="search" className="!text-navy lg:mt-6" carregando={buscando}>
           {textoBotao}
         </Botao>
-        {periodo.diarias > 0 && (
-          <p className="rounded bg-steel-suave px-2 py-1 text-legenda font-semibold text-navy md:col-start-2 md:justify-self-end lg:col-start-3" aria-live="polite">
-            {texto.numeroDiarias(periodo.diarias)}
-          </p>
-        )}
       </div>
       {cidades.isPending && <output className="block text-legenda text-texto-apoio">{texto.carregandoCidades}</output>}
       {cidades.isError && <p role="alert" className="text-legenda text-status-perigo">{texto.erroCidades}</p>}

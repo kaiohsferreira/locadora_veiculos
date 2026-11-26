@@ -43,7 +43,7 @@ export default function InicioPagina() {
         <div className="overflow-hidden rounded-cartao bg-branco shadow-elevado">
           <nav aria-label={texto.modalidade} className="flex flex-wrap gap-2 bg-steel-fundo px-2 pt-2 sm:px-4">
             <span aria-current="page" className="inline-flex items-center gap-2 rounded-t-cartao bg-branco px-4 py-3 text-corpo-denso font-semibold text-navy">
-              <Icone nome="car_rental" tamanho={18} /> {texto.alugar}
+              <Icone nome="car_rental" tamanho={18} className="text-frota-oficina" /> {texto.alugar}
             </span>
             <Link to={CAMINHOS.seminovos} className="inline-flex items-center gap-2 rounded-t-cartao px-4 py-3 text-corpo-denso font-semibold text-navy hover:bg-steel-suave">
               <Icone nome="sell" tamanho={18} /> {texto.comprar}
@@ -56,7 +56,7 @@ export default function InicioPagina() {
       </div>
 
       <section aria-labelledby="titulo-categorias" className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <h2 id="titulo-categorias" className="mb-6 text-titulo text-navy">{texto.categorias}</h2>
+        <h2 id="titulo-categorias" className="mb-6 text-titulo-acesso text-navy">{texto.categorias}</h2>
         {categorias.isPending ? (
           <output className="block text-corpo-denso text-texto-apoio">{texto.carregandoCategorias}</output>
         ) : categorias.isError ? (
@@ -74,8 +74,8 @@ export default function InicioPagina() {
                     <Icone nome="directions_car" tamanho={48} />
                   </div>
                   <div className="flex flex-1 flex-col gap-3 p-4">
-                    <h3 className="break-words text-secao text-navy">{categoria.nome}</h3>
-                    {categoria.descricao && <p className="break-words text-corpo-denso text-texto-apoio">{categoria.descricao}</p>}
+                    <h3 className="break-words text-titulo-md font-bold text-navy">{categoria.nome}</h3>
+                    {categoria.descricao && <p className="break-words text-apoio text-texto-apoio">{categoria.descricao}</p>}
                     <BotaoLink
                       to={{ pathname: CAMINHOS.resultadosBusca, search: parametros.toString() }}
                       variante="secundario"

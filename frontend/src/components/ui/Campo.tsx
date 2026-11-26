@@ -44,6 +44,10 @@ export interface CampoProps extends InputHTMLAttributes<HTMLInputElement> {
   ocultarAsterisco?: boolean;
   /** Texto de apoio na linha do rótulo, à direita (ex.: "Conforme documento oficial"). Opcional. */
   apoioRotulo?: string;
+  /** Classes do texto de apoio do rótulo (ex.: a pílula "4 diárias" da busca). Sem ela, vale o estilo padrão do apoio. Opcional. */
+  apoioRotuloClasse?: string;
+  /** Mantém o apoio do rótulo na mesma linha em qualquer largura (também abaixo de `sm`, como nos desenhos). Opcional. */
+  apoioRotuloEmLinha?: boolean;
   /** Mostra o ícone de "conferido" à direita, dentro do campo (valor válido). Opcional. */
   valido?: boolean;
   /** Ícone Material Symbols antes do texto de ajuda (`dica`). Opcional. */
@@ -94,6 +98,8 @@ export const Campo = forwardRef<HTMLInputElement, CampoProps>(function Campo(
     variante = 'padrao',
     ocultarAsterisco = false,
     apoioRotulo,
+    apoioRotuloClasse,
+    apoioRotuloEmLinha = false,
     valido,
     dicaIcone,
     prefixo,
@@ -148,9 +154,11 @@ export const Campo = forwardRef<HTMLInputElement, CampoProps>(function Campo(
 
   // Na variante desenho, rótulo e apoio ficam numa linha só, nas pontas, sem quebra de linha e sem espaço fixo entre eles.
   const semQuebraComApoio = desenho && apoioRotulo !== undefined ? ' whitespace-nowrap' : '';
-  const classeLinhaRotulo = desenho
-    ? 'flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between'
-    : 'flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2';
+  const classeLinhaRotulo = apoioRotuloEmLinha
+    ? 'flex items-center justify-between gap-2'
+    : desenho
+      ? 'flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between'
+      : 'flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2';
 
   const elementoRotulo = (
     <label htmlFor={idCampo} className={(ocultarRotulo ? 'sr-only' : classesRotulo(variante)) + semQuebraComApoio}>
@@ -170,7 +178,7 @@ export const Campo = forwardRef<HTMLInputElement, CampoProps>(function Campo(
       ) : (
         <div className={classeLinhaRotulo}>
           {elementoRotulo}
-          <span id={idApoio} className={classesApoioRotulo(variante) + semQuebraComApoio}>{apoioRotulo}</span>
+          <span id={idApoio} className={(apoioRotuloClasse ?? classesApoioRotulo(variante)) + semQuebraComApoio}>{apoioRotulo}</span>
         </div>
       )}
       {!comEnvoltorio ? (

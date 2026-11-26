@@ -155,3 +155,93 @@ describe('ResultadosBuscaPagina', () => {
     expect(html).toContain('Renault Kwid');
   });
 });
+
+describe('acertos da busca pública (telas 03 e 04)', () => {
+  it('mostra "N diárias" na linha do rótulo da devolução, à direita, e só com período válido', () => {
+    const html = renderizarResultados();
+    expect(html).toMatch(/Data de devolução[\s\S]*?<\/label><span [^>]*whitespace-nowrap[^>]*>3 diárias<\/span>/);
+    expect(renderizarResultados('idCategoria=3')).not.toContain('diárias');
+  });
+
+  it('mostra os ícones dos campos de local e datas', () => {
+    const html = renderizarInicio();
+    expect(html).toContain('location_on');
+    expect(html).toContain('calendar_today');
+    expect(html).toContain('event_repeat');
+  });
+
+  it('mostra a leitura do intervalo da faixa com dois controles de passo R$ 1', () => {
+    const html = renderizarResultados(`${PERIODO}&valorDiariaMin=100`);
+    expect(html).toContain('R$ 100 – R$ 500+');
+    expect(html.match(/type="range"[^>]*step="1"/g)).toHaveLength(2);
+  });
+
+  it('mostra o máximo digitado na leitura e o mínimo vazio como R$ 0', () => {
+    expect(renderizarResultados(`${PERIODO}&valorDiariaMax=800`)).toContain('R$ 0 – R$ 800');
+    expect(renderizarResultados(`${PERIODO}&valorDiariaMin=100&valorDiariaMax=350`)).toContain('R$ 100 – R$ 350');
+  });
+
+  it('mostra o erro da data passada já na abertura do link, no próprio campo', () => {
+    const html = renderizarResultados('cidade=S%C3%A3o+Paulo&uf=SP&dataRetirada=2020-01-10&dataDevolucao=2099-06-13');
+    expect(html).toContain('A retirada deve ser a partir de hoje.');
+    expect(html).toContain('Informe um período para começar');
+    expect(html).toContain('aria-invalid="true"');
+  });
+
+  it('não mostra "Nenhum veículo encontrado" quando a página passou da última (espera a volta)', () => {
+    simularDisponibilidade({ data: pagina([VEICULO]) });
+    const html = renderizarResultados(`${PERIODO}&pagina=5`);
+    expect(html).not.toContain('Nenhum veículo encontrado');
+    expect(html).toContain('Carregando veículos');
+  });
+
+  it('usa o tamanho do desenho no título dos resultados e no subtítulo', () => {
+    simularDisponibilidade({ data: pagina([VEICULO]) });
+    const html = renderizarResultados();
+    expect(html).toMatch(/<h1 id="titulo-resultados" class="text-nome-veiculo /);
+    expect(html).toMatch(/<p class="mt-1 text-apoio /);
+  });
+
+  it('usa os tokens de tamanho do desenho no preço, no nome do veículo e no título das categorias', () => {
+    simularDisponibilidade({ data: pagina([VEICULO]) });
+    expect(renderizarResultados()).toMatch(/text-titulo-hero text-navy">R\$ 129,90/);
+    expect(renderizarResultados()).toMatch(/<h2 class="break-words text-marca text-navy">Fiat Argo/);
+    expect(renderizarInicio()).toMatch(/<h2 id="titulo-categorias" class="mb-6 text-titulo-acesso text-navy">/);
+    expect(renderizarInicio()).toMatch(/text-titulo-md font-bold text-navy">Econômico/);
+  });
+
+  it('põe a devolução com a pílula de diárias na mesma linha do rótulo, em qualquer largura', () => {
+    const html = renderizarResultados();
+    expect(html).toMatch(/<div class="flex items-center justify-between gap-2"><label[^>]*>Data de devolução/);
+    expect(html).not.toMatch(/<div class="flex flex-col gap-0\.5 sm:flex-row[^"]*"><label[^>]*>Data de devolução/);
+  });
+
+  it('põe o ícone da aba ativa, a leitura da faixa e "Limpar tudo" no laranja do desenho (token já existente)', () => {
+    expect(renderizarInicio()).toMatch(/text-frota-oficina[^>]*>car_rental</);
+    const html = renderizarResultados(`${PERIODO}&valorDiariaMin=100`);
+    expect(html).toMatch(/class="text-dado-tabular font-bold text-frota-oficina" aria-hidden="true">R\$ 100 – R\$ 500\+</);
+    expect(html).toMatch(/class="min-h-10 text-rotulo font-semibold text-frota-oficina hover:underline">Limpar tudo</);
+    expect(html).not.toContain('text-status-pendente');
+  });
+
+  it('não anuncia a leitura da faixa a cada passo: a leitura fica escondida de leitor de tela', () => {
+    const html = renderizarResultados(`${PERIODO}&valorDiariaMin=100`);
+    const grupo = html.split('<legend').find((trecho) => trecho.includes('Faixa de diária'))?.split('</legend>')[0] ?? '';
+    expect(grupo).toContain('Faixa de diária');
+    expect(grupo).not.toContain('aria-live');
+    expect(grupo).toMatch(/aria-hidden="true">R\$ 100 – R\$ 500\+</);
+  });
+
+  it('mostra o máximo no fim do trilho como "Sem limite", com o valor do controle no limite', () => {
+    const html = renderizarResultados(PERIODO);
+    expect(html).toContain('aria-valuetext="Sem limite"');
+    expect(html.match(/type="range"[^>]*value="500"/)).not.toBeNull();
+    expect(html).toContain('placeholder="0"');
+  });
+
+  it('mostra o erro da data inexistente vinda da URL já na abertura', () => {
+    const html = renderizarResultados('cidade=S%C3%A3o+Paulo&uf=SP&dataRetirada=2028-02-30&dataDevolucao=2099-06-13');
+    expect(html).toContain('Informe uma data de retirada válida.');
+    expect(html).toContain('aria-invalid="true"');
+  });
+});
