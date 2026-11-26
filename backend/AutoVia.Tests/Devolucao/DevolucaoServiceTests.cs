@@ -276,6 +276,61 @@ public class DevolucaoServiceTests
         Assert.Empty(cenario.Gateway.Cancelamentos);
     }
 
+    /// <summary>Apuracao cuja pre-validacao falha por integracao (fora da caucao): so TotalParaEncerramentoAsync e usado pelo teste.</summary>
+    private sealed class ApuracaoComFalhaDeIntegracao : IApuracaoCobrancasExtrasService
+    {
+        private readonly IntegrationException _falha;
+
+        public ApuracaoComFalhaDeIntegracao(IntegrationException falha)
+        {
+            _falha = falha;
+        }
+
+        public Task<ReturnSimulacaoCobrancasExtrasVO> SimularAsync(int idLocacao)
+        {
+            return Task.FromException<ReturnSimulacaoCobrancasExtrasVO>(_falha);
+        }
+
+        public Task<ReturnApuracaoCobrancasExtrasVO> BuscarAsync(int idLocacao)
+        {
+            return Task.FromException<ReturnApuracaoCobrancasExtrasVO>(_falha);
+        }
+
+        public Task<ResultadoRegistroApuracaoVO> RegistrarAsync(int idLocacao, ApurarCobrancasExtrasVO model)
+        {
+            return Task.FromException<ResultadoRegistroApuracaoVO>(_falha);
+        }
+
+        public Task<PreValidacaoEncerramentoRegistro> TotalParaEncerramentoAsync(int idLocacao, int idConfiguracao, int versaoEsperada)
+        {
+            return Task.FromException<PreValidacaoEncerramentoRegistro>(_falha);
+        }
+
+        public Task<TotaisContextoApuracaoRegistro> TotaisDoContextoAsync(int idLocacao)
+        {
+            return Task.FromException<TotaisContextoApuracaoRegistro>(_falha);
+        }
+    }
+
+    [Fact]
+    public async Task Encerrar_FalhaDeIntegracaoDaApuracao_Devolve502ComTextoAprovadoGuardandoAFalhaOriginal()
+    {
+        Cenario cenario = Cenario.ComCaucao(500m, 0m);
+        IntegrationException original = new IntegrationException(ConstantsIntegration.Pagamento, "falha simulada da apuracao");
+        DevolucaoService servico = new DevolucaoService(cenario.Locacoes, cenario.Saidas, new ApuracaoComFalhaDeIntegracao(original),
+            new CaucaoDevolucaoService(cenario.Gateway, cenario.Log), new FakeRelogio(Agora), cenario.Log);
+
+        IntegrationException erro = await Assert.ThrowsAsync<IntegrationException>(() => servico.EncerrarAsync(10, Modelo(200m)));
+
+        Assert.Equal(ConstantsMessage.ErroDevolucaoProvedorIndisponivel, erro.Message);
+        Assert.Equal(ConstantsIntegration.Pagamento, erro.CodigoIntegracao);
+        Assert.Same(original, erro.InnerException);
+        Assert.Equal(0, cenario.Locacoes.ChamadasEncerrarAtomicamente);
+        Assert.Equal(StatusLocacao.EM_ANDAMENTO, cenario.Locacoes.LocacoesGravadas().Single().Status);
+        Assert.Empty(cenario.Gateway.Capturas);
+        Assert.Empty(cenario.Gateway.Cancelamentos);
+    }
+
     [Fact]
     public async Task Encerrar_ApuracaoAntigaComCaucaoEmFalhaDeRede_NaoLancaACobrancaQueFalta()
     {

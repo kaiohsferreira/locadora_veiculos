@@ -172,7 +172,7 @@ public sealed class DevolucaoService : IDevolucaoService
         catch (IntegrationException ex)
         {
             _logService.Write(ex, ConstantsMessage.ErroDevolucaoProvedorIndisponivel, GetType().ToString());
-            throw;
+            throw new IntegrationException(ex.CodigoIntegracao, ConstantsMessage.ErroDevolucaoProvedorIndisponivel, ex);
         }
         catch (Exception ex)
         {
