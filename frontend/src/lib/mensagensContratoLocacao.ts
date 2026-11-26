@@ -42,6 +42,14 @@ export const MENSAGENS_CONTRATO_LOCACAO = {
   veiculoRenavam: 'Renavam:',
   /** TROCAR (anexo): rótulo do resumo "Valores Fechados". */
   valoresPrevistos: 'Valores previstos',
+  /** NOVO (anexo, N12): cartão "Diárias", com o texto "{n} x R$ {valor da diária}". */
+  diariasRotulo: 'Diárias',
+  diariasCartao: (quantidade: number, valorDiariaStr: string) => `${quantidade} x ${valorDiariaStr}`,
+  /** TROCAR (anexo): frase antes do quadro de valores da cláusula de valores. */
+  valoresPrevistosFrase: (totalStr: string) => `O valor previsto da locação é de ${totalStr}, assim discriminado:`,
+  /** NOVO (anexo): frase depois do quadro de valores; as extras ficam fora do total previsto. */
+  cobrancasForaDoTotal:
+    'Cobranças extras (quilometragem excedente, combustível, atraso e avarias) são apuradas na devolução e não estão incluídas no total previsto.',
   /** desenho: título do resumo (mantido). */
   resumoTitulo: 'Resumo Executivo dos Termos',
   /** TROCAR (anexo): cartão "Quilometragem" vira "Franquia de km". */
@@ -88,8 +96,12 @@ export const MENSAGENS_CONTRATO_LOCACAO = {
   assinanteCpf: (cpfMascarado: string) => `CPF: ${cpfMascarado}`,
   /** TROCAR (anexo): título do registro, só depois de assinado. */
   registroTitulo: 'Registro da assinatura',
-  registroLinha: (dataHora: string, funcionario: string) =>
-    `Assinado na tela em ${dataHora} • Coletado por ${funcionario}`,
+  /** Linha do bloco "Registro da assinatura" (anexo tela 08, "Estado assinado"; aprovada pelo Kaio em 26/11/2026). */
+  registroLinha: (dataHora: string, nomeAssinante: string, funcionario: string) =>
+    `Assinado em ${dataHora} por ${nomeAssinante} • coletado por ${funcionario}`,
+  /** Carimbo logo abaixo da imagem da assinatura, só depois de assinado (anexo tela 08, aprovado em 26/11/2026). */
+  carimboAssinatura: (dataHora: string, funcionario: string) =>
+    `Assinado na tela em ${dataHora} • Coletado por ${funcionario}.`,
   /** desenho: botão de limpar o quadro (mantido). */
   limparAssinatura: 'Limpar Assinatura',
   /** TROCAR (anexo): botão principal. */
@@ -111,8 +123,6 @@ export const MENSAGENS_CONTRATO_LOCACAO = {
   assinadoComSucesso: 'Contrato assinado com sucesso.',
   /** NOVO (anexo): estado assinado. */
   seloAssinado: 'Contrato assinado',
-  assinadoEm: (dataHora: string, nome: string, funcionario: string) =>
-    `Assinado em ${dataHora} por ${nome} • coletado por ${funcionario}`,
   hashRotulo: 'Hash SHA-256 do documento',
   /** TROCAR (anexo): rodapé do papel, só com o contrato assinado. */
   hashPapel: (hash: string) => `Hash SHA-256: ${hash}`,
