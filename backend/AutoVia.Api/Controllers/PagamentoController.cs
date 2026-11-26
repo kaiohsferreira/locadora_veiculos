@@ -1,10 +1,12 @@
 using AutoVia.Api.Extensions;
 using AutoVia.Communication.CustomExceptions;
+using AutoVia.Communication.Regras;
 using AutoVia.Communication.ViewObjects.Pagamento;
 using AutoVia.Communication.ViewObjects.Utils;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -56,6 +58,11 @@ namespace AutoVia.Api.Controllers
         {
             try
             {
+                if (RegrasEntradaPagamento.TipoRecusadoNaRotaManual(lancarPagamentoVO.Tipo, lancarPagamentoVO.IdLocacao))
+                {
+                    throw new ValidationException(new[] { new ValidationFailure(nameof(LancarPagamentoVO.Tipo), ConstantsMessage.ErroPagamentoTipoGeradoPelaLocacao) });
+                }
+
                 ReturnPagamentoVO criado = await _pagamentoService.LancarAsync(lancarPagamentoVO);
 
                 return StatusCode(StatusCodes.Status201Created, criado);

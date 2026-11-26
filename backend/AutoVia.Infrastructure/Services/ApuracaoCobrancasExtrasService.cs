@@ -10,6 +10,7 @@ using AutoVia.Core.RepositoriesInterface;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
 using FluentValidation;
+using System.Globalization;
 using System.Text.Json;
 
 namespace AutoVia.Infrastructure.Services;
@@ -76,17 +77,7 @@ public sealed class ApuracaoCobrancasExtrasService : IApuracaoCobrancasExtrasSer
                 if (anterior != null)
                     return new ResultadoRegistroApuracaoVO { Criada = false, Apuracao = LerSnapshot(anterior) };
                 Locacao locacao = await ObterLocacaoAsync(idLocacao);
-                Funcionario? funcionario = await _locacoes.FindActiveFuncionarioByIdAsync(_contexto.IdFuncionario);
-                if (funcionario == null || _contexto.IdFuncionario <= 0 || _contexto.IdEmpresa <= 0)
-                    throw new BusinessException(ConstantsMessage.ErroVistoriaFuncionarioInativo);
-                if (!RegrasVistoria.LocacaoAceitaVistoria(locacao.Status))
-                    throw new BusinessException(ConstantsMessage.ErroApuracaoCobrancasExtrasStatus);
-                ConfiguracaoCobrancaExtra configuracao = await ObterConfiguracaoAsync(locacao);
-                if (configuracao.IdConfiguracao != model.IdConfiguracao || configuracao.Versao != model.VersaoEsperada)
-                    throw new BusinessException(ConstantsMessage.ErroConfiguracaoCobrancasExtrasVersao);
-                if (await _repository.ExistemCobrancasConflitantesAsync(idLocacao))
-                    throw new BusinessException(ConstantsMessage.ErroApuracaoCobrancasExtrasConflito);
-                ReturnSimulacaoCobrancasExtrasVO calculo = Calcular(locacao, configuracao);
+                (ConfiguracaoCobrancaExtra configuracao, ReturnSimulacaoCobrancasExtrasVO calculo) = await ConferirNovaApuracaoAsync(idLocacao, locacao, model.IdConfiguracao ?? 0, model.VersaoEsperada ?? 0);
                 calculo.Simulacao = false; calculo.Provisorio = false; calculo.Aviso = ConstantsMessage.AvisoCobrancasExtrasApuradas;
                 DateTime agora = _relogio.Agora;
                 ApuracaoCobrancaExtra apuracao = new ApuracaoCobrancaExtra
@@ -128,6 +119,116 @@ public sealed class ApuracaoCobrancasExtrasService : IApuracaoCobrancasExtrasSer
         }
         catch (BusinessException) { throw; }
         catch (NotFoundException) { throw; }
+        catch (Exception ex) { _logService.Write(ex, ConstantsMessage.ErroApuracaoCobrancasExtras, GetType().ToString()); throw; }
+    }
+
+    public async Task<PreValidacaoEncerramentoRegistro> TotalParaEncerramentoAsync(int idLocacao, int idConfiguracao, int versaoEsperada)
+    {
+        try
+        {
+            PreValidacaoEncerramentoRegistro pre = await _repository.ComLocacaoBloqueadaAsync<PreValidacaoEncerramentoRegistro>(idLocacao, async () =>
+            {
+                ApuracaoCobrancaExtra? anterior = await _repository.BuscarApuracaoAsync(idLocacao);
+                Locacao locacao = await ObterLocacaoAsync(idLocacao);
+                int quantidadePendentes = await ContarCobrancasPendentesAsync(idLocacao);
+                if (anterior != null)
+                {
+                    ReturnApuracaoCobrancasExtrasVO snapshot = LerSnapshot(anterior);
+                    PreValidacaoEncerramentoRegistro existente = new PreValidacaoEncerramentoRegistro
+                    {
+                        Total = snapshot.Total, ApuracaoExistente = true,
+                        IdPagamentoLancado = snapshot.IdPagamentoLancado, QuantidadeCobrancasPendentes = quantidadePendentes
+                    };
+                    return existente;
+                }
+                (ConfiguracaoCobrancaExtra configuracao, ReturnSimulacaoCobrancasExtrasVO calculo) = await ConferirNovaApuracaoAsync(idLocacao, locacao, idConfiguracao, versaoEsperada);
+                PreValidacaoEncerramentoRegistro nova = new PreValidacaoEncerramentoRegistro
+                {
+                    Total = calculo.Total, ApuracaoExistente = false, IdPagamentoLancado = null, QuantidadeCobrancasPendentes = quantidadePendentes
+                };
+                return nova;
+            });
+            return pre;
+        }
+        catch (BusinessException) { throw; }
+        catch (NotFoundException) { throw; }
+        catch (Exception ex) { _logService.Write(ex, ConstantsMessage.ErroApuracaoCobrancasExtras, GetType().ToString()); throw; }
+    }
+
+    public async Task<TotaisContextoApuracaoRegistro> TotaisDoContextoAsync(int idLocacao)
+    {
+        try
+        {
+            TotaisContextoApuracaoRegistro totais = new TotaisContextoApuracaoRegistro();
+            Locacao locacao = await ObterLocacaoAsync(idLocacao);
+            ConfiguracaoCobrancaExtra? configuracao = await _repository.BuscarConfiguracaoCategoriaAsync(locacao.Veiculo.IdCategoria, false);
+            bool configuracaoValida = configuracao != null && configuracao.IdEmpresa == _contexto.IdEmpresa && configuracao.DisabledAt == null;
+            if (configuracaoValida)
+            {
+                totais.IdConfiguracao = configuracao!.IdConfiguracao;
+                totais.VersaoEsperada = configuracao.Versao;
+            }
+            ApuracaoCobrancaExtra? anterior = await _repository.BuscarApuracaoAsync(idLocacao);
+            if (anterior != null)
+            {
+                totais.TotalExtras = LerSnapshot(anterior).Total;
+                return totais;
+            }
+            if (!configuracaoValida)
+            {
+                _logService.WriteInfo(string.Format(CultureInfo.InvariantCulture, ConstantsMessage.LogDevolucaoTotaisSemCalculo, idLocacao), GetType().ToString());
+                return totais;
+            }
+            try
+            {
+                ReturnSimulacaoCobrancasExtrasVO calculo = Calcular(locacao, configuracao!);
+                totais.TotalExtras = calculo.Total;
+            }
+            catch (BusinessException)
+            {
+                _logService.WriteInfo(string.Format(CultureInfo.InvariantCulture, ConstantsMessage.LogDevolucaoTotaisSemCalculo, idLocacao), GetType().ToString());
+            }
+            return totais;
+        }
+        catch (BusinessException) { throw; }
+        catch (NotFoundException) { throw; }
+        catch (Exception ex) { _logService.Write(ex, ConstantsMessage.ErroApuracaoCobrancasExtras, GetType().ToString()); throw; }
+    }
+
+    /// <summary>
+    /// Conferencias da apuracao nova, na mesma ordem para o registro e para a pre-validacao do encerramento (uma regra so):
+    /// funcionario ativo, status, politica e versao, conflitos de cobrancas soltas e recusas do calculo. Sem gravar.
+    /// </summary>
+    private async Task<(ConfiguracaoCobrancaExtra Configuracao, ReturnSimulacaoCobrancasExtrasVO Calculo)> ConferirNovaApuracaoAsync(int idLocacao, Locacao locacao, int idConfiguracao, int versaoEsperada)
+    {
+        try
+        {
+            Funcionario? funcionario = await _locacoes.FindActiveFuncionarioByIdAsync(_contexto.IdFuncionario);
+            if (funcionario == null || _contexto.IdFuncionario <= 0 || _contexto.IdEmpresa <= 0)
+                throw new BusinessException(ConstantsMessage.ErroVistoriaFuncionarioInativo);
+            if (!RegrasVistoria.LocacaoAceitaVistoria(locacao.Status))
+                throw new BusinessException(ConstantsMessage.ErroApuracaoCobrancasExtrasStatus);
+            ConfiguracaoCobrancaExtra configuracao = await ObterConfiguracaoAsync(locacao);
+            if (configuracao.IdConfiguracao != idConfiguracao || configuracao.Versao != versaoEsperada)
+                throw new BusinessException(ConstantsMessage.ErroConfiguracaoCobrancasExtrasVersao);
+            if (await _repository.ExistemCobrancasConflitantesAsync(idLocacao))
+                throw new BusinessException(ConstantsMessage.ErroApuracaoCobrancasExtrasConflito);
+            ReturnSimulacaoCobrancasExtrasVO calculo = Calcular(locacao, configuracao);
+            return (configuracao, calculo);
+        }
+        catch (BusinessException) { throw; }
+        catch (Exception ex) { _logService.Write(ex, ConstantsMessage.ErroApuracaoCobrancasExtras, GetType().ToString()); throw; }
+    }
+
+    /// <summary>Quantidade de COBRANCA_EXTRA PENDENTE ativas da locacao (conta a regra do encerramento).</summary>
+    private async Task<int> ContarCobrancasPendentesAsync(int idLocacao)
+    {
+        try
+        {
+            List<Pagamento> pagamentos = await _locacoes.ListarPagamentosAtivosDaLocacaoAsync(idLocacao);
+            int quantidade = pagamentos.Count(x => x.Tipo == TipoPagamento.COBRANCA_EXTRA && x.Status == StatusPagamento.PENDENTE);
+            return quantidade;
+        }
         catch (Exception ex) { _logService.Write(ex, ConstantsMessage.ErroApuracaoCobrancasExtras, GetType().ToString()); throw; }
     }
 

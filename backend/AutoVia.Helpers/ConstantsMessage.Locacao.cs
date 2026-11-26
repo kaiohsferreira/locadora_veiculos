@@ -11,5 +11,7 @@ namespace AutoVia.Helpers
         public const string ErroLocacaoFuncionarioNaoEncontrado = "O funcionário autenticado não está ativo.";
         public const string ErroBuscarLocacao = "Não foi possível consultar a locação.";
         public const string ErroSalvarLocacao = "Não foi possível iniciar a locação.";
+        public const string ErroFiltroDevolucaoPendenteInvalido = "O filtro de devoluções é inválido. Escolha em andamento ou atrasada.";
+        public const string ErroListarDevolucoesPendentes = "Erro ao listar as devoluções pendentes.";
     }
 }

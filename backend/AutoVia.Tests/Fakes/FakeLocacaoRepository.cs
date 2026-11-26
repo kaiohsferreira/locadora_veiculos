@@ -201,6 +201,162 @@ namespace AutoVia.Tests.Fakes
             return Task.FromResult(locacao == null ? null : Copiar(locacao));
         }
 
+        /// <summary>Cobrancas extras por locacao, semeadas pelo teste (leitura do GET de cobrancas e da repeticao).</summary>
+        public List<CobrancaExtra> CobrancasExtrasSemeadas { get; } = new List<CobrancaExtra>();
+
+        /// <summary>Simula outra reserva ATIVA ou CONFIRMADA do veiculo (LOCADO vira RESERVADO no encerramento).</summary>
+        public bool OutraReservaEmAberto { get; set; }
+
+        /// <summary>Quantas vezes a transacao final do encerramento foi chamada.</summary>
+        public int ChamadasEncerrarAtomicamente { get; private set; }
+
+        /// <summary>Ultimo registro recebido pela transacao final (para conferir o que foi decidido).</summary>
+        public EncerramentoRegistro? UltimoEncerramento { get; private set; }
+
+        public Task<Locacao?> FindParaEncerramentoAsync(int idLocacao)
+        {
+            Locacao? locacao = _locacoes.FirstOrDefault(x => x.IdLocacao == idLocacao && x.DisabledAt == null);
+
+            return Task.FromResult(locacao);
+        }
+
+        public Task<List<Pagamento>> ListarPagamentosAtivosDaLocacaoAsync(int idLocacao)
+        {
+            Locacao? locacao = _locacoes.FirstOrDefault(x => x.IdLocacao == idLocacao && x.DisabledAt == null);
+            List<Pagamento> pagamentos = locacao == null
+                ? new List<Pagamento>()
+                : locacao.Pagamentos.Where(x => x.DisabledAt == null).OrderBy(x => x.IdPagamento).ToList();
+
+            return Task.FromResult(pagamentos);
+        }
+
+        public Task<List<CobrancaExtra>> ListarCobrancasExtrasAtivasDaLocacaoAsync(int idLocacao)
+        {
+            List<CobrancaExtra> cobrancas = CobrancasExtrasSemeadas
+                .Where(x => x.IdLocacao == idLocacao && x.DisabledAt == null)
+                .OrderBy(x => x.IdCobranca)
+                .ToList();
+
+            return Task.FromResult(cobrancas);
+        }
+
+        /// <summary>
+        /// Transacao final em memoria: aplica o registro (locacao, veiculo, caucao, alvo, cobranca que faltava e diaria) como o
+        /// repositorio real. Locacao ja FINALIZADA devolve Criada = falso sem gravar.
+        /// </summary>
+        public Task<ResultadoEncerramento> EncerrarAtomicamenteAsync(EncerramentoRegistro registro)
+        {
+            ChamadasEncerrarAtomicamente++;
+            UltimoEncerramento = registro;
+            Locacao locacao = _locacoes.First(x => x.IdLocacao == registro.IdLocacao);
+
+            if (locacao.Status == StatusLocacao.FINALIZADA)
+            {
+                ResultadoEncerramento repeticao = new ResultadoEncerramento
+                {
+                    Locacao = Copiar(locacao), Criada = false, StatusVeiculo = locacao.Veiculo.Status, KmAtualVeiculo = locacao.Veiculo.KmAtual
+                };
+
+                return Task.FromResult(repeticao);
+            }
+
+            if (registro.QuitarAlvo)
+            {
+                Pagamento? alvoConferido = locacao.Pagamentos.FirstOrDefault(x => x.IdPagamento == registro.IdPagamentoAlvo && x.Tipo == TipoPagamento.COBRANCA_EXTRA);
+
+                if (alvoConferido == null || !RegrasDevolucao.AlvoRetencaoEmAberto(alvoConferido.Status))
+                {
+                    throw new BusinessException(ConstantsMessage.ErroApuracaoCobrancasExtrasConflito);
+                }
+            }
+
+            locacao.Status = StatusLocacao.FINALIZADA;
+            locacao.KmChegada = registro.KmChegada;
+            locacao.DataDevolucaoEfetiva = registro.DataDevolucaoEfetiva;
+            locacao.ValorTotal = registro.ValorTotal;
+            StatusVeiculo? statusFinal = RegrasDevolucao.StatusVeiculoAposDevolucao(locacao.Veiculo.Status, OutraReservaEmAberto);
+
+            if (statusFinal == null)
+            {
+                throw new BusinessException(ConstantsMessage.ErroDevolucaoVeiculoEstadoInvalido);
+            }
+
+            locacao.Veiculo.Status = statusFinal.Value;
+            locacao.Veiculo.KmAtual = registro.KmChegada;
+
+            Pagamento? caucao = registro.IdPagamentoCaucao.HasValue
+                ? locacao.Pagamentos.FirstOrDefault(x => x.IdPagamento == registro.IdPagamentoCaucao.Value)
+                : null;
+
+            if (caucao != null && caucao.Status == StatusPagamento.PENDENTE && registro.NovoStatusCaucao.HasValue)
+            {
+                caucao.Status = registro.NovoStatusCaucao.Value;
+                caucao.Valor = registro.ValorCaucaoGravado ?? caucao.Valor;
+            }
+
+            if (registro.QuitarAlvo && registro.IdPagamentoAlvo.HasValue)
+            {
+                Pagamento alvo = locacao.Pagamentos.First(x => x.IdPagamento == registro.IdPagamentoAlvo.Value);
+                alvo.Status = StatusPagamento.PAGO;
+                alvo.Forma = ConstantsValues.FormaCartao;
+                alvo.DataPagamento = registro.Hoje;
+                alvo.IdTransacao = null;
+            }
+
+            Pagamento? faltante = null;
+            if (registro.LancarCobrancaFaltante)
+            {
+                faltante = AdicionarPagamento(locacao, TipoPagamento.COBRANCA_EXTRA, registro.ValorCobrancaFaltante, registro.CobrancaFaltanteRetida ? StatusPagamento.PAGO : StatusPagamento.PENDENTE, registro.Hoje);
+            }
+
+            Pagamento? diaria = null;
+            bool diariaAtiva = locacao.Pagamentos.Any(x => x.Tipo == TipoPagamento.DIARIA && x.DisabledAt == null);
+            if (registro.LancarDiaria && !diariaAtiva && registro.ValorDiaria > 0m)
+            {
+                diaria = AdicionarPagamento(locacao, TipoPagamento.DIARIA, registro.ValorDiaria, StatusPagamento.PENDENTE, registro.Hoje);
+            }
+
+            ResultadoEncerramento resultado = new ResultadoEncerramento
+            {
+                Locacao = Copiar(locacao),
+                Criada = true,
+                StatusVeiculo = locacao.Veiculo.Status,
+                KmAtualVeiculo = locacao.Veiculo.KmAtual,
+                IdPagamentoDiaria = diaria?.IdPagamento,
+                IdPagamentoCobrancaFaltante = faltante?.IdPagamento
+            };
+
+            return Task.FromResult(resultado);
+        }
+
+        private Pagamento AdicionarPagamento(Locacao locacao, TipoPagamento tipo, decimal valor, StatusPagamento status, DateOnly hoje)
+        {
+            Pagamento pagamento = new Pagamento
+            {
+                IdPagamento = ProximoIdPagamento(),
+                IdLocacao = locacao.IdLocacao,
+                Tipo = tipo,
+                Valor = valor,
+                DataVencimento = hoje,
+                Status = status,
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            };
+            locacao.Pagamentos.Add(pagamento);
+
+            return pagamento;
+        }
+
+        /// <summary>Proximo id de pagamento: acima do maior id ja existente nas locacoes (ids semeados pelo teste nao colidem).</summary>
+        private int ProximoIdPagamento()
+        {
+            int maior = _locacoes.SelectMany(x => x.Pagamentos).Select(x => x.IdPagamento).DefaultIfEmpty(0).Max();
+            int proximo = Math.Max(_proximoIdPagamento, maior + 1);
+            _proximoIdPagamento = proximo + 1;
+
+            return proximo;
+        }
+
         public Task<bool> ExisteCaucaoGravadaAsync(int idReserva, string idTransacao)
         {
             ChamadasExisteCaucaoGravada++;
@@ -288,6 +444,55 @@ namespace AutoVia.Tests.Fakes
             return copia;
         }
 
+        /// <summary>Chamadas da contagem das devolucoes pendentes (para o teste confirmar que o servico consulta o repositorio).</summary>
+        public int ChamadasContarDevolucoesPendentes { get; private set; }
+
+        /// <summary>Falha programada da leitura das devolucoes pendentes (contagem e listagem lancam esta excecao quando nao e nula).</summary>
+        public Exception? FalhaNaListagemDevolucoes { get; set; }
+
+        public Task<int> ContarDevolucoesPendentesAsync(bool somenteAtrasadas, DateTime agora)
+        {
+            ChamadasContarDevolucoesPendentes++;
+
+            if (FalhaNaListagemDevolucoes != null)
+            {
+                throw FalhaNaListagemDevolucoes;
+            }
+
+            int total = FiltrarDevolucoesPendentes(somenteAtrasadas, agora).Count;
+
+            return Task.FromResult(total);
+        }
+
+        public Task<List<Locacao>> ListarDevolucoesPendentesAsync(bool somenteAtrasadas, DateTime agora, int deslocamento, int quantidade)
+        {
+            if (FalhaNaListagemDevolucoes != null)
+            {
+                throw FalhaNaListagemDevolucoes;
+            }
+
+            List<Locacao> pagina = FiltrarDevolucoesPendentes(somenteAtrasadas, agora)
+                .OrderBy(locacao => RegrasCobrancasExtras.DevolucaoPrevistaEfetiva(locacao.DataRetirada, locacao.DataDevolucaoPrevista))
+                .ThenBy(locacao => locacao.IdLocacao)
+                .Skip(deslocamento)
+                .Take(quantidade)
+                .ToList();
+
+            return Task.FromResult(pagina);
+        }
+
+        /// <summary>Locacoes ativas em andamento (ou so as atrasadas, pela mesma regra pura do servico), sem copia: a leitura do fake devolve a propria locacao.</summary>
+        private List<Locacao> FiltrarDevolucoesPendentes(bool somenteAtrasadas, DateTime agora)
+        {
+            List<Locacao> filtradas = _locacoes
+                .Where(locacao => locacao.DisabledAt == null
+                    && (locacao.Status == StatusLocacao.EM_ANDAMENTO || locacao.Status == StatusLocacao.ATRASADA)
+                    && (!somenteAtrasadas || RegrasDevolucoesPendentes.EhAtrasada(locacao.Status, locacao.DataRetirada, locacao.DataDevolucaoPrevista, agora)))
+                .ToList();
+
+            return filtradas;
+        }
+
         private static Locacao Copiar(Locacao origem)
         {
             Locacao copia = new Locacao
@@ -296,6 +501,7 @@ namespace AutoVia.Tests.Fakes
                 IdReserva = origem.IdReserva,
                 IdCliente = origem.IdCliente,
                 Cliente = origem.Cliente,
+                Veiculo = origem.Veiculo,
                 IdVeiculo = origem.IdVeiculo,
                 IdFuncionario = origem.IdFuncionario,
                 DataRetirada = origem.DataRetirada,

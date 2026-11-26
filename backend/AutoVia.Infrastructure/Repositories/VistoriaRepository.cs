@@ -32,7 +32,7 @@ namespace AutoVia.Infrastructure.Repositories
         {
             try
             {
-                return _db.Vistorias.AsNoTracking().Where(x => x.IdLocacao == idLocacao &&
+                return _db.Vistorias.AsNoTracking().Include(x => x.Funcionario).Where(x => x.IdLocacao == idLocacao &&
                     x.Tipo == TipoVistoria.ENTRADA && x.DisabledAt == null && x.Locacao.DisabledAt == null);
             }
             catch (Exception ex)

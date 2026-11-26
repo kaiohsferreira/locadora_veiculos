@@ -9,6 +9,7 @@ namespace AutoVia.Helpers
         // --- Pagamento: validacao do lancamento (LancarPagamentoVO) ---
         public const string ErroPagamentoOrigemObrigatoria = "Informe a locação ou a venda do pagamento.";
         public const string ErroPagamentoOrigemDupla = "O pagamento refere-se a uma locação ou a uma venda, nunca às duas.";
+        public const string ErroPagamentoTipoGeradoPelaLocacao = "Diária e cobrança extra da locação são lançadas pelo sistema, não por esta rota.";
         public const string ErroPagamentoTipoObrigatorio = "Informe o tipo do pagamento.";
         public const string ErroPagamentoTipoInvalido = "Tipo de pagamento inválido. Use DIARIA, COBRANCA_EXTRA ou VENDA.";
         public const string ErroPagamentoCaucaoPorRota = "A caução é lançada na retirada do veículo, não por esta rota.";

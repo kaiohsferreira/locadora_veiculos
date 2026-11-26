@@ -12,6 +12,19 @@ namespace AutoVia.Communication.Regras
     /// </summary>
     public static class RegrasEntradaPagamento
     {
+        /// <summary>
+        /// N4 (26/11/2026): a rota manual recusa DIARIA e COBRANCA_EXTRA quando vem com locacao (idLocacao maior que zero). A
+        /// apuracao e o encerramento lancam por outro caminho e nao passam por aqui.
+        /// </summary>
+        public static bool TipoRecusadoNaRotaManual(string? tipo, int? idLocacao)
+        {
+            bool temLocacao = idLocacao.HasValue && idLocacao.Value > 0;
+            string? nome = tipo?.Trim();
+            bool recusado = temLocacao && (nome == nameof(TipoPagamento.DIARIA) || nome == nameof(TipoPagamento.COBRANCA_EXTRA));
+
+            return recusado;
+        }
+
         /// <summary>Verdadeiro quando o texto, sem as pontas, e CAUCAO (a caucao nao entra pela rota de lancamento).</summary>
         public static bool EhCaucao(string? texto)
         {

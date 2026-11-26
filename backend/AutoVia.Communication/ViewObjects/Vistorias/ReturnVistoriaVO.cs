@@ -12,5 +12,8 @@ namespace AutoVia.Communication.ViewObjects.Vistorias
         public int KmRegistrado { get; set; }
         public decimal? NivelCombustivel { get; set; }
         public string? Observacoes { get; set; }
+
+        /// <summary>Nome abreviado de quem registrou a vistoria (ex.: "Rogerio V."); nulo quando o cadastro nao tem nome.</summary>
+        public string? OperadorStr { get; set; }
     }
 }

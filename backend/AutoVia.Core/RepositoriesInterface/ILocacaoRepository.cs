@@ -28,5 +28,28 @@ namespace AutoVia.Core.RepositoriesInterface
         /// SEM trava e com o filtro da locadora do contexto; usada pela compensacao para nunca cancelar a caucao gravada.
         /// </summary>
         Task<bool> ExisteCaucaoGravadaAsync(int idReserva, string idTransacao);
+
+        /// <summary>
+        /// Locacao ativa da locadora do contexto com o veiculo, sem rastreamento e sem trava (leitura da devolucao). Nulo = 404.
+        /// </summary>
+        Task<Locacao?> FindParaEncerramentoAsync(int idLocacao);
+
+        /// <summary>Pagamentos ativos da locacao (locacao ativa), sem rastreamento e sem trava.</summary>
+        Task<List<Pagamento>> ListarPagamentosAtivosDaLocacaoAsync(int idLocacao);
+
+        /// <summary>Cobrancas extras ativas da locacao, de qualquer apuracao, sem rastreamento e sem trava.</summary>
+        Task<List<CobrancaExtra>> ListarCobrancasExtrasAtivasDaLocacaoAsync(int idLocacao);
+
+        /// <summary>
+        /// Transacao final do encerramento (devolucao-encerramento v4, passo 10): trava veiculo, reserva, locacao e pagamentos na
+        /// ordem global, reconfere sob trava e grava tudo num SaveChanges. Repeticao (locacao ja FINALIZADA) devolve Criada = falso.
+        /// </summary>
+        Task<ResultadoEncerramento> EncerrarAtomicamenteAsync(EncerramentoRegistro registro);
+
+        /// <summary>Total de locacoes em andamento (ou so as atrasadas) da locadora do contexto, de qualquer data; sem rastreamento.</summary>
+        Task<int> ContarDevolucoesPendentesAsync(bool somenteAtrasadas, DateTime agora);
+
+        /// <summary>Pagina das locacoes em andamento (ou so as atrasadas), ordenada pela devolucao prevista efetiva e depois pelo id.</summary>
+        Task<List<Locacao>> ListarDevolucoesPendentesAsync(bool somenteAtrasadas, DateTime agora, int deslocamento, int quantidade);
     }
 }

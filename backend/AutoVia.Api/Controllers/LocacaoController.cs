@@ -1,6 +1,7 @@
 using AutoVia.Api.Extensions;
 using AutoVia.Communication.CustomExceptions;
 using AutoVia.Communication.ViewObjects.Locacoes;
+using AutoVia.Communication.ViewObjects.Utils;
 using AutoVia.Core.Options;
 using AutoVia.Core.ServicesInterface;
 using AutoVia.Helpers;
@@ -100,6 +101,33 @@ namespace AutoVia.Api.Controllers
             catch (Exception ex)
             {
                 _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Lista as locacoes em andamento e as atrasadas, de qualquer data, da locadora do funcionario.</summary>
+        /// <remarks>
+        /// Status EM_ANDAMENTO (ou ausente) traz todas as em andamento, atrasadas inclusive; ATRASADA traz so as que passaram da
+        /// devolucao prevista efetiva. Qualquer cargo de funcionario ve a lista; so ATENDENTE e ADMINISTRADOR encerram a devolucao.
+        /// </remarks>
+        [HttpGet]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+        [ProducesResponseType(typeof(PaginaVO<ReturnDevolucaoPendenteVO>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> ListarDevolucoesPendentes([FromQuery] FiltroDevolucaoPendenteVO filtro, [FromServices] IDevolucoesPendentesService devolucoesPendentesService)
+        {
+            try
+            {
+                PaginaVO<ReturnDevolucaoPendenteVO> pagina = await devolucoesPendentesService.ListarAsync(filtro);
+
+                return Ok(pagina);
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroListarDevolucoesPendentes, GetType().ToString());
                 throw;
             }
         }

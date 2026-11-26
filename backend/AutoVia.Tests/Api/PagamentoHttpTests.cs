@@ -180,6 +180,12 @@ namespace AutoVia.Tests.Api
             return new LancarPagamentoVO { IdLocacao = IdLocacaoDoTeste, Tipo = "DIARIA", Valor = 395.60m, DataVencimento = new DateOnly(2026, 11, 25) };
         }
 
+        /// <summary>Lancamento valido de venda (a rota manual aceita VENDA; DIARIA e COBRANCA_EXTRA de locacao ficam de fora pela N4).</summary>
+        private static LancarPagamentoVO LancamentoDeVenda()
+        {
+            return new LancarPagamentoVO { IdVenda = 4, Tipo = "VENDA", Valor = 395.60m, DataVencimento = new DateOnly(2026, 11, 25) };
+        }
+
         private static HttpRequestMessage Requisicao(HttpMethod metodo, string rota, string? token, object? corpo)
         {
             HttpRequestMessage requisicao = new HttpRequestMessage(metodo, rota);
@@ -273,7 +279,7 @@ namespace AutoVia.Tests.Api
         {
             DefinirCargo(cargo);
 
-            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Post, RotaPagamentos, GerarToken(PerfilUsuario.FUNCIONARIO, cargo, IdFuncionarioDoTeste), LancamentoValido()));
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Post, RotaPagamentos, GerarToken(PerfilUsuario.FUNCIONARIO, cargo, IdFuncionarioDoTeste), LancamentoDeVenda()));
 
             Assert.Equal(HttpStatusCode.Created, resposta.StatusCode);
             Assert.Null(resposta.Headers.Location);
@@ -311,15 +317,26 @@ namespace AutoVia.Tests.Api
         }
 
         [Fact]
-        public async Task Lancar_LocacaoDeOutraLocadoraOuInexistente_Devolve404()
+        public async Task Lancar_VendaDeOutraLocadoraOuInexistente_Devolve404()
         {
-            LancarPagamentoVO entrada = LancamentoValido();
-            entrada.IdLocacao = 999;
+            LancarPagamentoVO entrada = LancamentoDeVenda();
+            entrada.IdVenda = 999;
 
             HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Post, RotaPagamentos, TokenFinanceiro(), entrada));
 
             Assert.Equal(HttpStatusCode.NotFound, resposta.StatusCode);
             Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
+        }
+
+        /// <summary>N4 (26/11/2026): DIARIA de locacao pela rota manual e recusada com o texto aprovado; nada e gravado.</summary>
+        [Fact]
+        public async Task Lancar_DiariaDeLocacao_Devolve400ComTextoAprovadoPeloSistema()
+        {
+            HttpResponseMessage resposta = await _cliente.SendAsync(Requisicao(HttpMethod.Post, RotaPagamentos, TokenFinanceiro(), LancamentoValido()));
+
+            Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+            JsonElement corpo = await LerJsonAsync(resposta);
+            Assert.Equal(ConstantsMessage.ErroPagamentoTipoGeradoPelaLocacao, corpo.GetProperty("detail").GetString());
         }
 
         [Fact]

@@ -119,6 +119,14 @@ namespace AutoVia.Api.Extensions
                     policy.AddRequirements(new RequisitoApuradorCobrancasExtras());
                 });
 
+                // Encerramento da locacao (P5-BE-04, D6): ATENDENTE ou ADMINISTRADOR da locadora do contexto (cargo lido do banco).
+                options.AddPolicy(ConstantsValues.PoliticaEncerramentoLocacao, policy =>
+                {
+                    policy.RequireAuthenticatedUser();
+                    policy.RequireRole(nameof(PerfilUsuario.FUNCIONARIO));
+                    policy.AddRequirements(new RequisitoEncerramentoLocacao());
+                });
+
                 // Abertura da locacao (decisao 4 de 24/11/2026): com caucao exigida, ATENDENTE ou ADMINISTRADOR da locadora do
                 // contexto; sem caucao exigida, qualquer funcionario (RF-17 como hoje). Aplicada so na acao do POST.
                 options.AddPolicy(ConstantsValues.PoliticaAberturaLocacao, policy =>
@@ -142,6 +150,7 @@ namespace AutoVia.Api.Extensions
             services.AddScoped<IAuthorizationHandler, AutorizacaoVerificadorCadastroHandler>();
             services.AddScoped<IAuthorizationHandler, AutorizacaoGestorFrotaHandler>();
             services.AddScoped<IAuthorizationHandler, AutorizacaoFinanceiroHandler>();
+            services.AddScoped<IAuthorizationHandler, AutorizacaoEncerramentoLocacaoHandler>();
             services.AddScoped<IAuthorizationHandler, AutorizacaoApuradorCobrancasExtrasHandler>();
             services.AddScoped<IAuthorizationHandler, AutorizacaoAberturaLocacaoHandler>();
 

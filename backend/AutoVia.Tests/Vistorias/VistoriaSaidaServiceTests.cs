@@ -21,7 +21,8 @@ public class VistoriaSaidaServiceTests
     private static VistoriaSaidaService Criar(FakeVistoriaSaidaRepository saidas, StatusLocacao status = StatusLocacao.EM_ANDAMENTO)
     {
         FakeLocacaoRepository locacoes = new FakeLocacaoRepository();
-        locacoes.Adicionar(new Locacao { IdLocacao = 10, KmSaida = 100, Status = status, DataRetirada = Agora.AddDays(-1) });
+        Veiculo veiculo = new Veiculo { IdVeiculo = 5, IdCategoria = 1, Placa = "ABC1D23", Marca = "Fiat", Modelo = "Uno", ValorDiaria = 100m, KmAtual = 100 };
+        locacoes.Adicionar(new Locacao { IdLocacao = 10, KmSaida = 100, Status = status, DataRetirada = Agora.AddDays(-1), DataDevolucaoPrevista = Agora.AddDays(1), ValorDiaria = 100m, Veiculo = veiculo, IdVeiculo = 5 });
         locacoes.Adicionar(new Funcionario { IdFuncionario = 20, Ativo = true });
         MapperConfiguration configuracao = new MapperConfiguration(cfg =>
         {
@@ -30,7 +31,8 @@ public class VistoriaSaidaServiceTests
             cfg.AddProfile<LocacaoProfile>();
         }, NullLoggerFactory.Instance);
         return new VistoriaSaidaService(saidas, saidas.Vistorias, locacoes,
-            new FakeRelogio(Agora), configuracao.CreateMapper(), new FakeLogService());
+            new FakeRelogio(Agora), configuracao.CreateMapper(), new FakeLogService(),
+            new FakeApuracaoCobrancasExtrasService(), new CaucaoDevolucaoService(new FakeCaucaoGateway(), new FakeLogService()));
     }
 
     private static FakeVistoriaSaidaRepository Preparar()

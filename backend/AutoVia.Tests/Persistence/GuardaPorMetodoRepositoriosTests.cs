@@ -18,6 +18,7 @@ namespace AutoVia.Tests.Persistence
         private const string CaminhoDisponibilidade = "AutoVia.Infrastructure/Repositories/VeiculoRepository.Disponibilidade.cs";
         private const string CaminhoCatalogo = "AutoVia.Infrastructure/Repositories/VeiculoRepository.Catalogo.cs";
         private const string CaminhoLocacaoRepository = "AutoVia.Infrastructure/Repositories/LocacaoRepository.cs";
+        private const string CaminhoLocacaoEncerramento = "AutoVia.Infrastructure/Repositories/LocacaoRepository.Encerramento.cs";
         private const string CaminhoStatusVeiculo = "AutoVia.Infrastructure/Repositories/VeiculoRepository.Status.cs";
         private const string CaminhoClienteDocumento = "AutoVia.Infrastructure/Repositories/ClienteDocumentoRepository.cs";
         private const string CaminhoManutencao = "AutoVia.Infrastructure/Repositories/ManutencaoRepository.cs";
@@ -63,6 +64,7 @@ namespace AutoVia.Tests.Persistence
             {
                 "ConsultaTravaStatusVeiculo" + SeparadorMetodoSimbolo + "FromSql"
             },
+            [CaminhoLocacaoEncerramento] = new string[] { },
             [CaminhoClienteDocumento] = new string[] { },
             [CaminhoManutencao] = new string[]
             {
@@ -136,6 +138,7 @@ namespace AutoVia.Tests.Persistence
         [InlineData(CaminhoDisponibilidade)]
         [InlineData(CaminhoCatalogo)]
         [InlineData(CaminhoLocacaoRepository)]
+        [InlineData(CaminhoLocacaoEncerramento)]
         [InlineData(CaminhoStatusVeiculo)]
         [InlineData(CaminhoClienteDocumento)]
         [InlineData(CaminhoManutencao)]

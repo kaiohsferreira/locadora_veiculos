@@ -64,6 +64,8 @@ namespace AutoVia.Api.Extensions
 
             // --- Locacao ---
             services.AddScoped<ILocacaoService, LocacaoService>();
+            // Devolucoes pendentes (GET /api/locacoes): leitura, sem trava; usa o relogio e o repositorio da requisicao.
+            services.AddScoped<IDevolucoesPendentesService, DevolucoesPendentesService>();
             // Caucao na abertura (P4-BE-04, RF-20): Scoped, usa o gateway da caucao e o repositorio da requisicao.
             services.AddScoped<ICaucaoRetiradaService, CaucaoRetiradaService>();
             services.AddScoped<IVistoriaService, VistoriaService>();
@@ -103,6 +105,9 @@ namespace AutoVia.Api.Extensions
 
             services.AddScoped<IConfiguracoesCobrancasExtrasService, ConfiguracoesCobrancasExtrasService>();
             services.AddScoped<IApuracaoCobrancasExtrasService, ApuracaoCobrancasExtrasService>();
+            // Encerramento da locacao (P5-BE-04, RF-25): caucao na devolucao e o servico do POST e do GET de cobrancas.
+            services.AddScoped<ICaucaoDevolucaoService, CaucaoDevolucaoService>();
+            services.AddScoped<IDevolucaoService, DevolucaoService>();
             return services;
         }
     }

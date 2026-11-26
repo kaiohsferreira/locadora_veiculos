@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 namespace AutoVia.Infrastructure.Repositories
 {
     /// <summary>Persistencia das locacoes com transacao e bloqueio das linhas envolvidas.</summary>
-    public class LocacaoRepository : ILocacaoRepository
+    public partial class LocacaoRepository : ILocacaoRepository
     {
         /// <summary>Trava de linha do veiculo (ordem global de travas: veiculo, depois reserva). Sem filtro "Empresa": a reserva ja foi conferida antes.</summary>
         private const string SqlBloquearVeiculoAtivo = "SELECT id_veiculo FROM veiculo WHERE id_veiculo = @id AND disabled_at IS NULL FOR UPDATE";

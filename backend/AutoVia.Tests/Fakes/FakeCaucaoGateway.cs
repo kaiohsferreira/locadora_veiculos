@@ -70,6 +70,21 @@ namespace AutoVia.Tests.Fakes
         /// <summary>Gancho chamado no inicio do cancelamento.</summary>
         public Action<string>? AoCancelar { get; set; }
 
+        /// <summary>Identificadores capturados, na ordem (Capturar nunca e chamado quando a tabela nao manda).</summary>
+        public List<string> Capturas { get; } = new List<string>();
+
+        /// <summary>Valor pedido em cada captura (nulo = integral), na ordem.</summary>
+        public List<decimal?> ValoresCapturados { get; } = new List<decimal?>();
+
+        /// <summary>Quem decide o retorno da captura (sem ExcecaoCaptura).</summary>
+        public Func<string, decimal?, CaucaoResultado>? ResponderCaptura { get; set; }
+
+        /// <summary>Excecao que a captura lanca.</summary>
+        public Exception? ExcecaoCaptura { get; set; }
+
+        /// <summary>Gancho chamado no inicio da captura.</summary>
+        public Action<string>? AoCapturar { get; set; }
+
         /// <summary>Configuracao do cartao devolvida (padrao: FAKE em simulacao).</summary>
         public CaucaoConfiguracaoCartao Configuracao { get; set; } = new CaucaoConfiguracaoCartao
         {
@@ -143,8 +158,27 @@ namespace AutoVia.Tests.Fakes
         {
             Chamadas.Add(nameof(CapturarAsync));
             TokensRecebidos.Add(cancellationToken);
+            Capturas.Add(identificadorProvedor);
+            ValoresCapturados.Add(valor);
+            AoCapturar?.Invoke(identificadorProvedor);
 
-            throw new NotSupportedException();
+            if (ExcecaoCaptura != null)
+            {
+                throw ExcecaoCaptura;
+            }
+
+            CaucaoResultado resultado = ResponderCaptura != null ? ResponderCaptura(identificadorProvedor, valor) : CapturaCompleta(identificadorProvedor, valor);
+
+            return Task.FromResult(resultado);
+        }
+
+        /// <summary>Captura padrao: CAPTURADA com o valor pedido (integral quando nao ha valor).</summary>
+        private static CaucaoResultado CapturaCompleta(string identificador, decimal? valor)
+        {
+            CaucaoResultado resultado = RetornoNoEstado(identificador, CaucaoStatus.CAPTURADA, valor ?? 0m, string.Empty);
+            resultado.ValorCapturado = valor ?? 0m;
+
+            return resultado;
         }
 
         public Task<CaucaoResultado> CancelarAsync(string identificadorProvedor, CancellationToken cancellationToken = default)

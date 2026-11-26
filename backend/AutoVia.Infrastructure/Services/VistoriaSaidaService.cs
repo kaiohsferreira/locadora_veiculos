@@ -21,9 +21,12 @@ public sealed class VistoriaSaidaService : IVistoriaSaidaService
     private readonly IRelogio _relogio;
     private readonly IMapper _mapper;
     private readonly ILogService _logService;
+    private readonly IApuracaoCobrancasExtrasService _apuracao;
+    private readonly ICaucaoDevolucaoService _caucao;
 
     public VistoriaSaidaService(IVistoriaSaidaRepository saidaRepository, IVistoriaRepository vistoriaRepository,
-        ILocacaoRepository locacaoRepository, IRelogio relogio, IMapper mapper, ILogService logService)
+        ILocacaoRepository locacaoRepository, IRelogio relogio, IMapper mapper, ILogService logService,
+        IApuracaoCobrancasExtrasService apuracao, ICaucaoDevolucaoService caucao)
     {
         _saidaRepository = saidaRepository;
         _vistoriaRepository = vistoriaRepository;
@@ -31,6 +34,8 @@ public sealed class VistoriaSaidaService : IVistoriaSaidaService
         _relogio = relogio;
         _mapper = mapper;
         _logService = logService;
+        _apuracao = apuracao;
+        _caucao = caucao;
     }
 
     public async Task<ContextoDevolucaoVO> GetContextoAsync(int idLocacao)
@@ -41,13 +46,15 @@ public sealed class VistoriaSaidaService : IVistoriaSaidaService
             Vistoria? entrada = await _vistoriaRepository.FindEntradaByLocacaoAsync(idLocacao);
             Vistoria? saida = await _saidaRepository.FindSaidaByLocacaoAsync(idLocacao);
             List<Avaria> avariasEntrada = entrada == null ? new List<Avaria>() : await _saidaRepository.FindAvariasAtivasAsync(entrada.IdVistoria);
-            return new ContextoDevolucaoVO
+            ContextoDevolucaoVO contexto = new ContextoDevolucaoVO
             {
                 Locacao = _mapper.Map<ReturnLocacaoVO>(locacao),
                 Entrada = entrada == null ? null : _mapper.Map<ReturnVistoriaVO>(entrada),
                 AvariasEntrada = _mapper.Map<List<AvariaComparacaoVO>>(avariasEntrada),
                 Comparacao = saida == null ? null : await MontarComparacaoAsync(entrada, saida)
             };
+            await PreencherAditivosDevolucaoAsync(contexto, locacao);
+            return contexto;
         }
         catch (BusinessException) { throw; }
         catch (NotFoundException) { throw; }
@@ -83,10 +90,13 @@ public sealed class VistoriaSaidaService : IVistoriaSaidaService
         {
             VistoriaSaidaVOValidator validator = new VistoriaSaidaVOValidator();
             await validator.ValidateAndThrowAsync(model);
-            Vistoria saida = await _vistoriaRepository.ExecutarComLocacaoBloqueadaAsync(idLocacao,
+            await _vistoriaRepository.ExecutarComLocacaoBloqueadaAsync(idLocacao,
                 () => RegistrarSobTravaAsync(idLocacao, model, idFuncionario));
+            // Relida com o Funcionario (Include do repositorio): o objeto da gravacao nao traz o operador (operadorStr no 201).
+            Vistoria saidaGravada = await _saidaRepository.FindSaidaByLocacaoAsync(idLocacao)
+                ?? throw new NotFoundException(ConstantsMessage.ErroVistoriaSaidaNaoEncontrada);
             Vistoria? entrada = await _vistoriaRepository.FindEntradaByLocacaoAsync(idLocacao);
-            return await MontarComparacaoAsync(entrada, saida);
+            return await MontarComparacaoAsync(entrada, saidaGravada);
         }
         catch (BusinessException) { throw; }
         catch (NotFoundException) { throw; }
@@ -153,11 +163,57 @@ public sealed class VistoriaSaidaService : IVistoriaSaidaService
         }
     }
 
+    /// <summary>
+    /// Campos aditivos do GET devolucao (vistoria-saida v4, O-5): diarias, totais da caixa de confirmacao, politica, placa, marca,
+    /// modelo e caucao. Nada grava, nada chama o provedor e nunca traz id_transacao. Totais nulos sem vistoria ou politica.
+    /// </summary>
+    private async Task PreencherAditivosDevolucaoAsync(ContextoDevolucaoVO contexto, Locacao locacao)
+    {
+        try
+        {
+            int diarias = RegrasDevolucao.CalcularDiarias(locacao.DataRetirada, locacao.DataDevolucaoPrevista);
+            decimal totalDiarias = RegrasDevolucao.ValorDaDiaria(diarias, locacao.ValorDiaria);
+            TotaisContextoApuracaoRegistro totais = await _apuracao.TotaisDoContextoAsync(locacao.IdLocacao);
+            List<Pagamento> pagamentos = await _locacaoRepository.ListarPagamentosAtivosDaLocacaoAsync(locacao.IdLocacao);
+            Pagamento? linhaCaucao = pagamentos.FirstOrDefault(x => x.Tipo == TipoPagamento.CAUCAO);
+
+            contexto.DiariasPrevistas = diarias;
+            contexto.ValorDiaria = locacao.ValorDiaria;
+            contexto.ValorDiariaStr = StaticMethods.FormateToMonetary(locacao.ValorDiaria);
+            contexto.TotalDiarias = totalDiarias;
+            contexto.TotalDiariasStr = StaticMethods.FormateToMonetary(totalDiarias);
+            contexto.TotalExtras = totais.TotalExtras;
+            contexto.TotalExtrasStr = totais.TotalExtras.HasValue ? StaticMethods.FormateToMonetary(totais.TotalExtras.Value) : null;
+            decimal? valorTotalPrevisto = totais.TotalExtras.HasValue
+                ? RegrasDevolucao.CalcularValorTotal(diarias, locacao.ValorDiaria, totais.TotalExtras.Value)
+                : null;
+            contexto.ValorTotalPrevisto = valorTotalPrevisto;
+            contexto.ValorTotalPrevistoStr = valorTotalPrevisto.HasValue ? StaticMethods.FormateToMonetary(valorTotalPrevisto.Value) : null;
+            contexto.IdConfiguracao = totais.IdConfiguracao;
+            contexto.VersaoEsperada = totais.VersaoEsperada;
+            contexto.Placa = locacao.Veiculo.Placa;
+            contexto.Marca = locacao.Veiculo.Marca;
+            contexto.Modelo = locacao.Veiculo.Modelo;
+            contexto.Caucao = new ReturnCaucaoContextoVO
+            {
+                Situacao = linhaCaucao == null ? AcaoCaucaoDevolucao.SEM_CAUCAO.ToString() : linhaCaucao.Status.ToString(),
+                Acao = locacao.Status == StatusLocacao.FINALIZADA ? _caucao.AcaoDoBanco(linhaCaucao, locacao.ValorCaucao).ToString() : null
+            };
+        }
+        catch (BusinessException) { throw; }
+        catch (NotFoundException) { throw; }
+        catch (Exception ex)
+        {
+            _logService.Write(ex, ConstantsMessage.ErroBuscarVistoriaSaida, GetType().ToString());
+            throw;
+        }
+    }
+
     private async Task<Locacao> ObterLocacaoAsync(int idLocacao)
     {
         try
         {
-            Locacao? locacao = await _locacaoRepository.FindByIdAsync(idLocacao);
+            Locacao? locacao = await _locacaoRepository.FindParaEncerramentoAsync(idLocacao);
             if (locacao == null) throw new NotFoundException(ConstantsMessage.ErroLocacaoNaoEncontrada);
             return locacao;
         }

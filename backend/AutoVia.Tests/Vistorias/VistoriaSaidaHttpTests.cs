@@ -84,6 +84,65 @@ public sealed class VistoriaSaidaHttpTests : IDisposable
         Assert.Equal(2, _fabrica.Saidas.Vistorias.Vistorias.Count);
     }
 
+    [Fact]
+    public async Task RegistroDaSaidaDevolveOOperadorAbreviadoNoCreated()
+    {
+        using HttpResponseMessage post = await Enviar(HttpMethod.Post, Rota, Token(), Payload);
+        Assert.Equal(HttpStatusCode.Created, post.StatusCode);
+        JsonElement saida = (await Ler(post)).GetProperty("saida");
+        Assert.Equal("Ana S.", saida.GetProperty("operadorStr").GetString());
+    }
+
+    [Fact]
+    public async Task ContextoDevolucaoTrazOsTotaisPrevistosComOsCamposAditivos()
+    {
+        _fabrica.Apuracao.Totais = new TotaisContextoApuracaoRegistro { TotalExtras = 150m, IdConfiguracao = 1, VersaoEsperada = 1 };
+
+        using HttpResponseMessage resposta = await Enviar(HttpMethod.Get, "/api/locacoes/10/devolucao", Token());
+
+        Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+        JsonElement contexto = await Ler(resposta);
+        Assert.Equal(2, contexto.GetProperty("diariasPrevistas").GetInt32());
+        Assert.Equal(100m, contexto.GetProperty("valorDiaria").GetDecimal());
+        Assert.Equal(StaticMethods.FormateToMonetary(100m), contexto.GetProperty("valorDiariaStr").GetString());
+        Assert.Equal(200m, contexto.GetProperty("totalDiarias").GetDecimal());
+        Assert.Equal(StaticMethods.FormateToMonetary(200m), contexto.GetProperty("totalDiariasStr").GetString());
+        Assert.Equal(150m, contexto.GetProperty("totalExtras").GetDecimal());
+        Assert.Equal(StaticMethods.FormateToMonetary(150m), contexto.GetProperty("totalExtrasStr").GetString());
+        Assert.Equal(350m, contexto.GetProperty("valorTotalPrevisto").GetDecimal());
+        Assert.Equal(StaticMethods.FormateToMonetary(350m), contexto.GetProperty("valorTotalPrevistoStr").GetString());
+        Assert.Equal(1, contexto.GetProperty("idConfiguracao").GetInt32());
+        Assert.Equal(1, contexto.GetProperty("versaoEsperada").GetInt32());
+    }
+
+    [Fact]
+    public async Task ContextoDevolucaoSemTotaisDaApuracaoDevolve200ComTotaisExtrasNulos()
+    {
+        _fabrica.Apuracao.Totais = new TotaisContextoApuracaoRegistro();
+
+        using HttpResponseMessage resposta = await Enviar(HttpMethod.Get, "/api/locacoes/10/devolucao", Token());
+
+        Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+        JsonElement contexto = await Ler(resposta);
+        Assert.Equal(JsonValueKind.Null, contexto.GetProperty("totalExtras").ValueKind);
+        Assert.Equal(JsonValueKind.Null, contexto.GetProperty("totalExtrasStr").ValueKind);
+        Assert.Equal(JsonValueKind.Null, contexto.GetProperty("valorTotalPrevisto").ValueKind);
+        Assert.Equal(JsonValueKind.Null, contexto.GetProperty("valorTotalPrevistoStr").ValueKind);
+        Assert.Equal(JsonValueKind.Null, contexto.GetProperty("idConfiguracao").ValueKind);
+        Assert.Equal(200m, contexto.GetProperty("totalDiarias").GetDecimal());
+    }
+
+    [Fact]
+    public async Task ContextoDevolucaoSemCaucaoTrazSemCaucaoESemAcao()
+    {
+        using HttpResponseMessage resposta = await Enviar(HttpMethod.Get, "/api/locacoes/10/devolucao", Token());
+
+        Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+        JsonElement caucao = (await Ler(resposta)).GetProperty("caucao");
+        Assert.Equal(AcaoCaucaoDevolucao.SEM_CAUCAO.ToString(), caucao.GetProperty("situacao").GetString());
+        Assert.Equal(JsonValueKind.Null, caucao.GetProperty("acao").ValueKind);
+    }
+
     [Theory]
     [InlineData("{}")]
     [InlineData("{\"kmRegistrado\":150,\"nivelCombustivel\":0.5}")]
@@ -224,11 +283,14 @@ public sealed class VistoriaSaidaHttpTests : IDisposable
         public static readonly DateTime Agora = new DateTime(2026, 11, 18, 12, 0, 0);
         public FakeVistoriaSaidaRepository Saidas { get; } = new FakeVistoriaSaidaRepository();
         public FakeLocacaoRepository Locacoes { get; } = new FakeLocacaoRepository();
+        public FakeApuracaoCobrancasExtrasService Apuracao { get; } = new FakeApuracaoCobrancasExtrasService();
 
         public SaidaWebFactory()
         {
-            Locacoes.Adicionar(new Locacao { IdLocacao = 10, KmSaida = 100, Status = StatusLocacao.EM_ANDAMENTO, DataRetirada = Agora.AddDays(-1) });
+            Veiculo veiculo = new Veiculo { IdVeiculo = 5, IdCategoria = 1, Placa = "ABC1D23", Marca = "Fiat", Modelo = "Uno", ValorDiaria = 100m, KmAtual = 100 };
+            Locacoes.Adicionar(new Locacao { IdLocacao = 10, KmSaida = 100, Status = StatusLocacao.EM_ANDAMENTO, DataRetirada = Agora.AddDays(-1), DataDevolucaoPrevista = Agora.AddDays(1), ValorDiaria = 100m, Veiculo = veiculo, IdVeiculo = 5 });
             Locacoes.Adicionar(new Funcionario { IdFuncionario = 20, Ativo = true });
+            Saidas.Funcionarios.Add(new Funcionario { IdFuncionario = 20, Nome = "Ana Paula Souza", Ativo = true });
             Saidas.Vistorias.Vistorias.Add(new Vistoria { IdVistoria = 1, IdLocacao = 10, Tipo = TipoVistoria.ENTRADA, KmRegistrado = 110, DataHora = Agora.AddHours(-2) });
             Saidas.Avarias.Add(new Avaria { IdAvaria = 10, IdVistoria = 1, Descricao = "Risco", Gravidade = GravidadeAvaria.LEVE, ValorEstimado = 20m });
         }
@@ -242,6 +304,8 @@ public sealed class VistoriaSaidaHttpTests : IDisposable
                 services.RemoveAll<IVistoriaRepository>();
                 services.RemoveAll<IVistoriaSaidaRepository>();
                 services.RemoveAll<IRelogio>();
+                services.RemoveAll<IApuracaoCobrancasExtrasService>();
+                services.AddSingleton<IApuracaoCobrancasExtrasService>(Apuracao);
                 services.AddSingleton<ILocacaoRepository>(Locacoes);
                 services.AddSingleton<IVistoriaRepository>(Saidas.Vistorias);
                 services.AddSingleton<IVistoriaSaidaRepository>(Saidas);
