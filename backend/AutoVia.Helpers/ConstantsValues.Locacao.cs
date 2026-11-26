@@ -14,5 +14,11 @@ namespace AutoVia.Helpers
 
         /// <summary>Separador entre a cidade e a UF do endereco da locadora (ex.: Campinas - SP).</summary>
         public const string SeparadorUfEnderecoLocadora = " - ";
+
+        /// <summary>Situacao "Em andamento" da lista de locacoes do cliente (aba inicial): EM_ANDAMENTO e ATRASADA.</summary>
+        public const string SituacaoMinhasLocacoesEmAndamento = "EM_ANDAMENTO";
+
+        /// <summary>Situacao "Historico" da lista de locacoes do cliente: FINALIZADA e CANCELADA.</summary>
+        public const string SituacaoMinhasLocacoesHistorico = "HISTORICO";
     }
 }

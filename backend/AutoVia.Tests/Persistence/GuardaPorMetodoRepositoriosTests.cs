@@ -58,6 +58,7 @@ namespace AutoVia.Tests.Persistence
             },
             [CaminhoLocacaoRepository] = new string[]
             {
+                "ConsultaLocacoesDoClienteLogado" + SeparadorMetodoSimbolo + "SemEscopoEmpresa(",
                 "LockActiveRowAsync" + SeparadorMetodoSimbolo + "GetDbConnection("
             },
             [CaminhoStatusVeiculo] = new string[]

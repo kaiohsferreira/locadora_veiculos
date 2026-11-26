@@ -13,5 +13,7 @@ namespace AutoVia.Helpers
         public const string ErroSalvarLocacao = "Não foi possível iniciar a locação.";
         public const string ErroFiltroDevolucaoPendenteInvalido = "O filtro de devoluções é inválido. Escolha em andamento ou atrasada.";
         public const string ErroListarDevolucoesPendentes = "Erro ao listar as devoluções pendentes.";
+        public const string ErroSituacaoLocacaoInvalida = "A situação das locações é inválida. Escolha em andamento ou histórico.";
+        public const string ErroListarMinhasLocacoes = "Erro ao listar as locações do cliente.";
     }
 }

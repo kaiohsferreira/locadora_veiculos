@@ -481,6 +481,95 @@ namespace AutoVia.Tests.Fakes
             return Task.FromResult(pagina);
         }
 
+        /// <summary>Falha programada da leitura das locacoes do cliente (contagem e listagem lancam esta excecao quando nao e nula).</summary>
+        public Exception? FalhaNaListagemMinhas { get; set; }
+
+        /// <summary>Total das locacoes do cliente nos status pedidos (mesma regra de filtro da consulta real, sem a posse do contexto).</summary>
+        public Task<int> ContarMinhasLocacoesAsync(int idCliente, IReadOnlyCollection<StatusLocacao> status)
+        {
+            if (FalhaNaListagemMinhas != null)
+            {
+                throw FalhaNaListagemMinhas;
+            }
+
+            int total = FiltrarMinhasLocacoes(idCliente, status).Count;
+
+            return Task.FromResult(total);
+        }
+
+        /// <summary>Pagina das locacoes do cliente, mais recentes primeiro, em linhas achatadas (como a projecao real).</summary>
+        public Task<List<LocacaoClienteRegistro>> ListarMinhasLocacoesAsync(int idCliente, IReadOnlyCollection<StatusLocacao> status, int deslocamento, int quantidade)
+        {
+            if (FalhaNaListagemMinhas != null)
+            {
+                throw FalhaNaListagemMinhas;
+            }
+
+            List<LocacaoClienteRegistro> pagina = FiltrarMinhasLocacoes(idCliente, status)
+                .OrderByDescending(locacao => locacao.DataRetirada)
+                .ThenByDescending(locacao => locacao.IdLocacao)
+                .Skip(deslocamento)
+                .Take(quantidade)
+                .Select(MontarRegistroMinhasLocacoes)
+                .ToList();
+
+            return Task.FromResult(pagina);
+        }
+
+        /// <summary>Locacoes nao desativadas do cliente, em status pedido, de locadora ativa e nao desativada.</summary>
+        private List<Locacao> FiltrarMinhasLocacoes(int idCliente, IReadOnlyCollection<StatusLocacao> status)
+        {
+            List<Locacao> filtradas = _locacoes
+                .Where(locacao => locacao.IdCliente == idCliente
+                    && locacao.DisabledAt == null
+                    && status.Contains(locacao.Status)
+                    && locacao.Veiculo.Empresa != null
+                    && locacao.Veiculo.Empresa.Ativo
+                    && locacao.Veiculo.Empresa.DisabledAt == null)
+                .ToList();
+
+            return filtradas;
+        }
+
+        /// <summary>Achata a locacao na linha de leitura. Tolerancia e combustivel ficam nulos (a consulta real e provada em SQL).</summary>
+        private static LocacaoClienteRegistro MontarRegistroMinhasLocacoes(Locacao locacao)
+        {
+            LocacaoClienteRegistro registro = new LocacaoClienteRegistro
+            {
+                IdLocacao = locacao.IdLocacao,
+                IdReserva = locacao.IdReserva,
+                Status = locacao.Status,
+                DataRetirada = locacao.DataRetirada,
+                DataDevolucaoPrevista = locacao.DataDevolucaoPrevista,
+                DataDevolucaoEfetiva = locacao.DataDevolucaoEfetiva,
+                KmSaida = locacao.KmSaida,
+                ValorDiaria = locacao.ValorDiaria,
+                ValorTotal = locacao.ValorTotal,
+                IdVeiculo = locacao.IdVeiculo,
+                Placa = locacao.Veiculo.Placa,
+                Marca = locacao.Veiculo.Marca,
+                Modelo = locacao.Veiculo.Modelo,
+                AnoModelo = locacao.Veiculo.AnoModelo,
+                Cor = locacao.Veiculo.Cor,
+                CategoriaNome = locacao.Veiculo.Categoria?.Nome ?? string.Empty,
+                LocadoraNomeFantasia = locacao.Veiculo.Empresa.NomeFantasia,
+                LocadoraLogradouro = locacao.Veiculo.Empresa.Logradouro,
+                LocadoraNumero = locacao.Veiculo.Empresa.Numero,
+                LocadoraBairro = locacao.Veiculo.Empresa.Bairro,
+                LocadoraCidade = locacao.Veiculo.Empresa.Cidade,
+                LocadoraUf = locacao.Veiculo.Empresa.Uf,
+                Veiculo = locacao.Veiculo,
+                FotosCapa = locacao.Veiculo.Fotos
+                    .Where(foto => foto.DisabledAt == null)
+                    .OrderBy(foto => foto.Ordem)
+                    .ThenBy(foto => foto.IdVeiculoFoto)
+                    .Take(ConstantsValues.QuantidadeFotoCapaPorVeiculo)
+                    .ToList()
+            };
+
+            return registro;
+        }
+
         /// <summary>Locacoes ativas em andamento (ou so as atrasadas, pela mesma regra pura do servico), sem copia: a leitura do fake devolve a propria locacao.</summary>
         private List<Locacao> FiltrarDevolucoesPendentes(bool somenteAtrasadas, DateTime agora)
         {

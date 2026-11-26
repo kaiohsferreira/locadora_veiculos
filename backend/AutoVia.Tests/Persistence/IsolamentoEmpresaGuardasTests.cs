@@ -89,7 +89,7 @@ namespace AutoVia.Tests.Persistence
             ["AutoVia.Infrastructure/Persistence/EscopoEmpresa.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/AutenticacaoRepository.cs"] = 3,
             ["AutoVia.Infrastructure/Repositories/EmpresaRepository.cs"] = 1,
-            ["AutoVia.Infrastructure/Repositories/LocacaoRepository.cs"] = 1,
+            ["AutoVia.Infrastructure/Repositories/LocacaoRepository.cs"] = 2,
             ["AutoVia.Infrastructure/Repositories/ManutencaoRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/PagamentoRepository.cs"] = 7,
             // Trava por locacao, precedida e seguida de consulta sob o filtro Empresa.

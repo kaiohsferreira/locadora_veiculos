@@ -9,6 +9,7 @@ using AutoVia.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using System;
+using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
@@ -390,6 +391,153 @@ namespace AutoVia.Infrastructure.Repositories
             catch (Exception ex)
             {
                 _logService.Write(ex, ConstantsMessage.ErroBuscarLocacao, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta nomeada: locacoes do proprio cliente, em qualquer locadora ativa. A posse e a propria consulta: vale so com
+        /// contexto de cliente positivo, igual ao id pedido e igual ao dono; sem isso nada volta. Locadora desativada fica fora.
+        /// </summary>
+        public IQueryable<Locacao> ConsultaLocacoesDoClienteLogado(int idCliente)
+        {
+            try
+            {
+                int idClienteContexto = _db.IdClienteContexto;
+                bool posseDoCliente = idClienteContexto > 0 && idClienteContexto == idCliente;
+
+                IQueryable<Locacao> consulta = _db.Locacoes
+                    .SemEscopoEmpresa()
+                    .Where(x => posseDoCliente && x.IdCliente == idCliente && x.DisabledAt == null
+                        && x.Veiculo.Empresa.Ativo && x.Veiculo.Empresa.DisabledAt == null);
+
+                return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroListarMinhasLocacoes, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Projeta a consulta do cliente em linhas achatadas. A tolerancia (configuracao ativa da categoria na locadora do
+        /// veiculo), o combustivel da retirada (vistoria de entrada ativa) e as fotos de capa entram como subconsultas da
+        /// mesma instrucao; nao ha consulta extra.
+        /// </summary>
+        private IQueryable<LocacaoClienteRegistro> ProjetarRegistrosDoCliente(IQueryable<Locacao> consulta)
+        {
+            try
+            {
+                IQueryable<LocacaoClienteRegistro> projetada = consulta.Select(x => new LocacaoClienteRegistro
+                {
+                    IdLocacao = x.IdLocacao,
+                    IdReserva = x.IdReserva,
+                    Status = x.Status,
+                    DataRetirada = x.DataRetirada,
+                    DataDevolucaoPrevista = x.DataDevolucaoPrevista,
+                    DataDevolucaoEfetiva = x.DataDevolucaoEfetiva,
+                    KmSaida = x.KmSaida,
+                    ValorDiaria = x.ValorDiaria,
+                    ValorTotal = x.ValorTotal,
+                    IdVeiculo = x.IdVeiculo,
+                    Placa = x.Veiculo.Placa,
+                    Marca = x.Veiculo.Marca,
+                    Modelo = x.Veiculo.Modelo,
+                    AnoModelo = x.Veiculo.AnoModelo,
+                    Cor = x.Veiculo.Cor,
+                    CategoriaNome = x.Veiculo.Categoria.Nome,
+                    ToleranciaAtrasoMinutos = _db.ConfiguracoesCobrancasExtras
+                        .Where(c => c.IdEmpresa == x.Veiculo.IdEmpresa && c.IdCategoria == x.Veiculo.IdCategoria && c.DisabledAt == null && c.Categoria.DisabledAt == null)
+                        .OrderBy(c => c.IdConfiguracao)
+                        .Select(c => (int?)c.ToleranciaAtrasoMinutos)
+                        .FirstOrDefault(),
+                    CombustivelRetirada = x.Vistorias
+                        .Where(v => v.Tipo == TipoVistoria.ENTRADA && v.DisabledAt == null)
+                        .OrderBy(v => v.IdVistoria)
+                        .Select(v => v.NivelCombustivel)
+                        .FirstOrDefault(),
+                    LocadoraNomeFantasia = x.Veiculo.Empresa.NomeFantasia,
+                    LocadoraLogradouro = x.Veiculo.Empresa.Logradouro,
+                    LocadoraNumero = x.Veiculo.Empresa.Numero,
+                    LocadoraBairro = x.Veiculo.Empresa.Bairro,
+                    LocadoraCidade = x.Veiculo.Empresa.Cidade,
+                    LocadoraUf = x.Veiculo.Empresa.Uf,
+                    Veiculo = x.Veiculo,
+                    FotosCapa = x.Veiculo.Fotos
+                        .Where(foto => foto.DisabledAt == null)
+                        .OrderBy(foto => foto.Ordem)
+                        .ThenBy(foto => foto.IdVeiculoFoto)
+                        .Take(ConstantsValues.QuantidadeFotoCapaPorVeiculo)
+                        .ToList(),
+                });
+
+                return projetada;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroListarMinhasLocacoes, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Total das locacoes do cliente nos status pedidos, sem rastreamento.</summary>
+        public async Task<int> ContarMinhasLocacoesAsync(int idCliente, IReadOnlyCollection<StatusLocacao> status)
+        {
+            try
+            {
+                StatusLocacao[] statusFiltro = status.ToArray();
+                int total = await ConsultaLocacoesDoClienteLogado(idCliente)
+                    .AsNoTracking()
+                    .Where(x => statusFiltro.Contains(x.Status))
+                    .CountAsync();
+
+                return total;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroListarMinhasLocacoes, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Consulta paginada das locacoes do cliente nos status pedidos, mais recentes primeiro (retirada e depois id), sem
+        /// rastreamento e sem executar. Usada pela leitura e pelo teste de SQL.
+        /// </summary>
+        public IQueryable<LocacaoClienteRegistro> ConsultaPaginaMinhasLocacoes(int idCliente, IReadOnlyCollection<StatusLocacao> status, int deslocamento, int quantidade)
+        {
+            try
+            {
+                StatusLocacao[] statusFiltro = status.ToArray();
+                IQueryable<Locacao> pagina = ConsultaLocacoesDoClienteLogado(idCliente)
+                    .AsNoTracking()
+                    .Where(x => statusFiltro.Contains(x.Status))
+                    .OrderByDescending(x => x.DataRetirada)
+                    .ThenByDescending(x => x.IdLocacao)
+                    .Skip(deslocamento)
+                    .Take(quantidade);
+
+                return ProjetarRegistrosDoCliente(pagina);
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroListarMinhasLocacoes, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Pagina das locacoes do cliente nos status pedidos, sem rastreamento.</summary>
+        public async Task<List<LocacaoClienteRegistro>> ListarMinhasLocacoesAsync(int idCliente, IReadOnlyCollection<StatusLocacao> status, int deslocamento, int quantidade)
+        {
+            try
+            {
+                List<LocacaoClienteRegistro> registros = await ConsultaPaginaMinhasLocacoes(idCliente, status, deslocamento, quantidade).ToListAsync();
+                return registros;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroListarMinhasLocacoes, GetType().ToString());
                 throw;
             }
         }

@@ -1,5 +1,7 @@
+using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace AutoVia.Core.RepositoriesInterface
@@ -51,5 +53,11 @@ namespace AutoVia.Core.RepositoriesInterface
 
         /// <summary>Pagina das locacoes em andamento (ou so as atrasadas), ordenada pela devolucao prevista efetiva e depois pelo id.</summary>
         Task<List<Locacao>> ListarDevolucoesPendentesAsync(bool somenteAtrasadas, DateTime agora, int deslocamento, int quantidade);
+
+        /// <summary>Total das locacoes do proprio cliente (posse pela consulta) nos status pedidos, de qualquer locadora ativa.</summary>
+        Task<int> ContarMinhasLocacoesAsync(int idCliente, IReadOnlyCollection<StatusLocacao> status);
+
+        /// <summary>Pagina das locacoes do proprio cliente, mais recentes primeiro (retirada e depois id), sem rastreamento.</summary>
+        Task<List<LocacaoClienteRegistro>> ListarMinhasLocacoesAsync(int idCliente, IReadOnlyCollection<StatusLocacao> status, int deslocamento, int quantidade);
     }
 }
