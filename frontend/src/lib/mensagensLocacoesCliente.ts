@@ -30,6 +30,8 @@ export const MENSAGEM_LOCACOES_VAZIO_HISTORICO_TITULO = 'Nenhuma locação no hi
 export const MENSAGEM_LOCACOES_VAZIO_HISTORICO_DESCRICAO = 'Locações encerradas e canceladas aparecem aqui.';
 export const MENSAGEM_LOCACOES_VER_RESERVAS = 'Ver minhas reservas';
 export const MENSAGEM_LOCACOES_ERRO_TITULO = 'Não foi possível carregar suas locações.';
+/** Texto do erro da lista quando não há resposta do servidor ou ele falhou (500): aprovado em 26/11/2026 (ERRO-1). */
+export const MENSAGEM_LOCACOES_ERRO_LISTA = 'Não foi possível carregar suas locações agora. Tente novamente em instantes.';
 /** Rodapé da paginação, com o total: "{n} locações" (aprovado em 26/11/2026). */
 export const MENSAGEM_LOCACOES_RODAPE_ITENS = 'locações';
 
@@ -87,7 +89,8 @@ export const MENSAGEM_LOCACOES_PRAZO_VENCIDO = 'Prazo de devolução vencido. O 
 
 /** "Dentro do prazo • Tolerância: 59 min"; sem tolerância da categoria, só "Dentro do prazo". */
 export function mensagemLocacoesDentroDoPrazo(toleranciaMinutos: number | null): string {
-  if (toleranciaMinutos === null) return 'Dentro do prazo';
+  // == null: chave ausente na resposta (undefined) também é "sem tolerância", e não "undefined min".
+  if (toleranciaMinutos == null) return 'Dentro do prazo';
   return `Dentro do prazo • Tolerância: ${toleranciaMinutos} min`;
 }
 
