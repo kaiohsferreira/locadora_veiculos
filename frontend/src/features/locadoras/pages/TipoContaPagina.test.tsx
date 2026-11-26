@@ -100,3 +100,12 @@ describe('TipoContaPagina (tela 35): sessão ativa', () => {
     expect(marcado).not.toContain('Como você quer usar a AutoVia?');
   });
 });
+
+describe('TipoContaPagina (tela 35): círculos de fundo', () => {
+  it('a raiz corta os círculos decorativos com overflow-clip (sem criar rolagem lateral no celular)', () => {
+    const marcado = renderizarTipoConta();
+
+    expect(marcado.startsWith('<div class="relative w-full overflow-clip py-8">')).toBe(true);
+    expect(marcado).not.toContain('relative w-full overflow-hidden py-8');
+  });
+});

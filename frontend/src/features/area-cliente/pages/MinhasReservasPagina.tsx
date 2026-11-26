@@ -29,9 +29,9 @@ import type { ErroApi } from '@/types/api';
 import type { ReservaCliente, RespostaReservas, SituacaoReserva } from '@/types/reservas';
 
 /**
- * T-FE-03 · Minhas reservas (tela 29, RF-46). Mostra só as reservas do próprio cliente (o servidor decide quais),
- * em duas abas: Ativas e Próximas, e Histórico. Cancelar uma reserva ativa pede confirmação; o cancelamento
- * atualiza as abas.
+ * T-FE-03 · T-FE-04 · Minhas reservas (RF-46): tela 28 no celular e tela 29 no computador (a troca é pelo CSS, abaixo
+ * e a partir de md). Mostra só as reservas do próprio cliente (o servidor decide quais), em duas abas: Ativas e
+ * Próximas, e Histórico. Cancelar uma reserva ativa pede confirmação; o cancelamento atualiza as abas.
  */
 export default function MinhasReservasPagina() {
   useTituloDocumento(MENSAGEM_RESERVAS_TITULO_PAGINA);
@@ -133,8 +133,10 @@ export default function MinhasReservasPagina() {
     HISTORICO: contagemDe(totalHistorico.data, totalHistorico.isError),
   };
 
+  // overflow-clip (não overflow-hidden): os círculos decorativos passam da largura do celular, e overflow-hidden ainda
+  // deixa a página rolar de lado quando uma aba ganha foco (a página saía uns 70 px para a esquerda em 360 e 375 px).
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-clip">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -top-32 right-1/4 h-[500px] w-[500px] rounded-full bg-orange/5 blur-3xl"

@@ -7,6 +7,7 @@ import { urlDaImagem } from '@/lib/fotosVeiculo';
 import { formatarPlaca, VALOR_AUSENTE } from '@/lib/formatters';
 import {
   mensagemReservasDiarias,
+  mensagemReservasLocalOuDiarias,
   mensagemReservasPeriodoDatas,
   MENSAGEM_RESERVAS_COLUNA_LOCADORA,
   MENSAGEM_RESERVAS_COLUNA_PERIODO,
@@ -43,6 +44,10 @@ const COLUNAS: readonly ColunaHistorico[] = [
 
 const LINHAS_ESQUELETO = 5;
 
+/**
+ * Histórico da tela Minhas reservas (desenho 29 na tabela, desenho 28 em cartões). Abaixo de md, cartões; a partir
+ * de md, a tabela de 6 colunas. Os dois são renderizados e o CSS escolhe qual aparece.
+ */
 export function ListaHistoricoReservas({ itens, carregando, aoFalharFotoCapa }: ListaHistoricoReservasProps) {
   const registros = itens.map((reserva) => ({
     id: reserva.idReserva,
@@ -65,7 +70,7 @@ export function ListaHistoricoReservas({ itens, carregando, aoFalharFotoCapa }: 
               </li>
             ))
           : itens.map((reserva) => (
-              <li key={reserva.idReserva} className="space-y-2 p-4">
+              <li key={reserva.idReserva} className="p-4">
                 <CartaoHistoricoReserva reserva={reserva} aoFalharFotoCapa={aoFalharFotoCapa} />
               </li>
             ))}
@@ -112,6 +117,12 @@ export function ListaHistoricoReservas({ itens, carregando, aoFalharFotoCapa }: 
   );
 }
 
+/**
+ * Cartão do histórico no celular (desenho 28): situação, código (cinza, pequeno) e valor na primeira linha; foto
+ * miniatura com o nome, o período e a última linha "cidade • Placa XXX" (sem cidade: "Placa XXX"; sem placa: "N
+ * diárias"). Reserva cancelada: 85% de opacidade e valor riscado, pequeno e cinza (11 px, texto-apoio), como no
+ * desenho 28. Locadora e diárias ficam de fora do celular, como no desenho.
+ */
 function CartaoHistoricoReserva({
   reserva,
   aoFalharFotoCapa,
@@ -120,17 +131,23 @@ function CartaoHistoricoReserva({
   aoFalharFotoCapa?: () => void;
 }) {
   const cidadeUf = montarCidadeUf(reserva);
-  const placa = reserva.placa?.trim();
+  const placa = reserva.placa?.trim() ?? '';
   const diarias = calcularDiarias(reserva.dataRetirada, reserva.dataDevolucao);
-  const localOuDiarias =
-    cidadeUf && placa ? `${cidadeUf} • ${formatarPlaca(placa)}` : mensagemReservasDiarias(diarias);
+  const localOuDiarias = mensagemReservasLocalOuDiarias(cidadeUf, placa ? formatarPlaca(placa) : '', diarias);
+  const cancelada = reserva.status === 'CANCELADA';
 
   return (
-    <>
+    <div className={cancelada ? 'space-y-2 opacity-85' : 'space-y-2'}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <ChipSituacaoReserva status={reserva.status} variante="tabela" />
-        <span className="text-corpo-denso font-bold tabular-nums text-navy">{reserva.codigo}</span>
-        <span className="ml-auto text-corpo-denso font-bold tabular-nums text-navy">
+        <ChipSituacaoReserva status={reserva.status} variante="celular" />
+        <span className="text-micro text-texto-apoio">{reserva.codigo}</span>
+        <span
+          className={
+            cancelada
+              ? 'ml-auto text-micro font-medium tabular-nums text-texto-apoio line-through'
+              : 'ml-auto text-corpo-denso font-bold tabular-nums text-navy'
+          }
+        >
           {reserva.valorEstimadoStr || VALOR_AUSENTE}
         </span>
       </div>
@@ -151,7 +168,7 @@ function CartaoHistoricoReserva({
           <p className="text-micro text-texto-suave">{localOuDiarias}</p>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

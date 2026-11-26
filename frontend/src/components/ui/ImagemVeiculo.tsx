@@ -21,6 +21,8 @@ export interface ImagemVeiculoProps {
   ajuste?: AjusteImagemVeiculo;
   /** Tamanho e proporção da caixa (ex.: "aspect-[16/10] w-full"). */
   className?: string;
+  /** Cor de fundo da caixa, como classe de token (ex.: "bg-steel-alto"). Padrão: bg-steel-fundo. */
+  classeFundo?: string;
   /** Tamanho do ícone de carro quando não há foto. Padrão: 64. */
   tamanhoIcone?: number;
   /** Chamado quando a imagem carrega. Opcional: quem precisa esperar a imagem (ex.: prévia por cima) usa. */
@@ -38,6 +40,7 @@ export function ImagemVeiculo({
   alt,
   ajuste = 'cover',
   className = '',
+  classeFundo = 'bg-steel-fundo',
   tamanhoIcone = TAMANHO_ICONE_PADRAO,
   aoCarregar,
   aoFalhar,
@@ -46,7 +49,7 @@ export function ImagemVeiculo({
   const urlExibida = urlImagemExibida(url, urlComFalha);
 
   return (
-    <div className={`relative flex items-center justify-center overflow-hidden bg-steel-fundo ${className}`}>
+    <div className={`relative flex items-center justify-center overflow-hidden ${classeFundo} ${className}`}>
       {urlExibida ? (
         <img
           src={urlExibida}

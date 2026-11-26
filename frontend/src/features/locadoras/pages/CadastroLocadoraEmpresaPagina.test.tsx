@@ -115,3 +115,12 @@ describe('CadastroLocadoraEmpresaPagina (tela 36): conteúdo', () => {
     expect(marcado).not.toContain('criptografia de ponta a ponta');
   });
 });
+
+describe('CadastroLocadoraEmpresaPagina (tela 36): círculos de fundo', () => {
+  it('a raiz corta os círculos decorativos com overflow-clip (sem criar rolagem lateral no celular)', () => {
+    const marcado = renderizarEmpresa();
+
+    expect(marcado.startsWith('<div class="relative w-full overflow-clip py-8">')).toBe(true);
+    expect(marcado).not.toContain('relative w-full overflow-hidden py-8');
+  });
+});

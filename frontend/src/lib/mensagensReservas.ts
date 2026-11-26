@@ -19,6 +19,8 @@ export function mensagemReservasBoasVindas(nome: string): string {
 export const MENSAGEM_RESERVAS_NAVEGACAO = 'Navegação de reservas';
 export const MENSAGEM_RESERVAS_ABA_ATIVAS = 'Ativas e Próximas';
 export const MENSAGEM_RESERVAS_ABA_HISTORICO = 'Histórico de Locações';
+/** Aba Histórico no celular (desenho 28). No computador vale MENSAGEM_RESERVAS_ABA_HISTORICO (desenho 29). */
+export const MENSAGEM_RESERVAS_ABA_HISTORICO_CELULAR = 'Histórico';
 
 export function mensagemReservasAtualizadoHoje(hora: string): string {
   return `Atualizado hoje às ${hora}`;
@@ -50,6 +52,28 @@ export const MENSAGEM_RESERVAS_COMO_CHEGAR_NOVA_ABA = ' (abre o mapa em outra ab
 /** "1 diária" ou "4 diárias". */
 export function mensagemReservasDiarias(quantidade: number): string {
   return quantidade === 1 ? '1 diária' : `${quantidade} diárias`;
+}
+
+/** "Placa BRA2E19" (a placa já vem formatada). */
+export function mensagemReservasPlaca(placaFormatada: string): string {
+  return `Placa ${placaFormatada}`;
+}
+
+/** Separador entre o local e a placa (ou as diárias) no cartão do histórico do celular. */
+const SEPARADOR_LOCAL_HISTORICO = ' • ';
+
+/**
+ * Última linha do cartão do histórico no celular (desenho 28). Com cidade e placa: "Rio de Janeiro - RJ • Placa GHI4J56".
+ * Cidade sem placa: "São Paulo - SP • 3 diárias". Sem cidade, com placa: "Placa GHI4J56". Sem cidade nem placa: "3 diárias".
+ * Textos vazios ou só com espaços contam como ausentes. Recebe a placa já formatada (formatarPlaca).
+ */
+export function mensagemReservasLocalOuDiarias(cidadeUf: string, placaFormatada: string, diarias: number): string {
+  const cidade = cidadeUf.trim();
+  const placa = placaFormatada.trim();
+  const textoPlacaOuDiarias = placa === '' ? mensagemReservasDiarias(diarias) : mensagemReservasPlaca(placa);
+  if (cidade === '') return textoPlacaOuDiarias;
+  if (placa === '') return `${cidade}${SEPARADOR_LOCAL_HISTORICO}${mensagemReservasDiarias(diarias)}`;
+  return `${cidade}${SEPARADOR_LOCAL_HISTORICO}${textoPlacaOuDiarias}`;
 }
 
 /** "18/10/2026 a 21/10/2026" (as datas já vêm formatadas). */

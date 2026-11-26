@@ -93,6 +93,12 @@ describe('MinhasReservasPagina (T-FE-03)', () => {
     vi.mocked(useCancelarReserva).mockReset();
   });
 
+  it('a raiz da página corta os círculos decorativos com overflow-clip (não rola de lado ao focar uma aba)', () => {
+    const html = renderizar({ lista: consultaCom({ data: pagina([RESERVA_ATIVA], 1) }) });
+    expect(html.startsWith('<div class="relative overflow-clip">')).toBe(true);
+    expect(html).not.toContain('relative overflow-hidden');
+  });
+
   it('cumprimenta pelo nome da sessão e mostra o texto verdadeiro da descrição', () => {
     const html = renderizar({ lista: consultaCom({ data: pagina([RESERVA_ATIVA], 1) }) });
     expect(html).toContain('Bem-vindo de volta, Marina Costa');
@@ -121,9 +127,22 @@ describe('MinhasReservasPagina (T-FE-03)', () => {
       historico: consultaCom({ isError: true, error: new ErroApi({ status: 500, mensagem: 'Falha.' }) }),
     });
     // A aba Histórico sai sem número (o rótulo fica, o contador não).
-    expect(html).toMatch(/<span>Histórico de Locações<\/span><\/button>/);
+    expect(html).toMatch(/Histórico de Locações<\/span><\/button>/);
     expect(html).not.toMatch(/Histórico de Locações<\/span><span/);
     expect(html).toContain('Bem-vindo de volta, Marina Costa');
+  });
+
+  it('no celular a segunda aba tem o rótulo curto "Histórico"; o rótulo longo só aparece no computador', () => {
+    const html = renderizar({ lista: consultaCom({ data: pagina([RESERVA_ATIVA], 1) }) });
+    expect(html).toMatch(/<span class="md:hidden">Histórico<\/span><span class="hidden md:inline">Histórico de Locações<\/span>/);
+    // A primeira aba não tem rótulo curto: o mesmo texto vale em todas as larguras.
+    expect(html).toMatch(/<span>Ativas e Próximas<\/span>/);
+  });
+
+  it('as abas ficam lado a lado no celular: o trilho ocupa a largura e cada aba divide o espaço', () => {
+    const html = renderizar({ lista: consultaCom({ data: pagina([RESERVA_ATIVA], 1) }) });
+    expect(html).toMatch(/role="tablist"[^>]*class="flex w-full[^"]*"/);
+    expect(html.match(/role="tab"[^>]*class="[^"]*flex-1/g)?.length).toBe(2);
   });
 
   it('carregando a primeira lista: o cabeçalho e as abas aparecem na hora, com a área ocupada', () => {

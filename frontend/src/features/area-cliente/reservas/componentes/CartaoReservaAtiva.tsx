@@ -29,8 +29,10 @@ export interface CartaoReservaAtivaProps {
 }
 
 /**
- * Cartão grande da reserva (desenho 29). Mostra só o que o contrato sustenta: código, criação, veículo, roteiro,
- * condutor titular e valor estimado. A única ação é o cancelamento (com confirmação, no modal).
+ * Cartão da reserva ativa da tela Minhas reservas. Computador (md para cima): o desenho 29, com o cabeçalho, o
+ * veículo, o roteiro, o condutor e o valor em colunas. Celular (abaixo de md): o desenho 28, sem Condutor nem
+ * "Criada em"; a placa vai abaixo do nome, a foto fica ao lado, e "Como chegar" vai para o rodapé (no computador
+ * ele fica dentro do roteiro). As ações são o cancelamento (com confirmação, no modal) e o "Como chegar".
  */
 export function CartaoReservaAtiva({ reserva, nomeCondutor, aoCancelar, aoFalharFoto }: CartaoReservaAtivaProps) {
   const diarias = calcularDiarias(reserva.dataRetirada, reserva.dataDevolucao);
@@ -45,44 +47,48 @@ export function CartaoReservaAtiva({ reserva, nomeCondutor, aoCancelar, aoFalhar
       className="overflow-hidden rounded-cartao bg-branco shadow-md [overflow-wrap:anywhere]"
     >
       <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-steel-fundo px-4 py-3 md:gap-4 md:px-6 md:py-4">
-        <div className="flex min-w-0 flex-wrap items-center gap-4">
-          <div className="flex min-w-0 flex-wrap items-center gap-1">
+        {/* Celular (desenho 28): rótulo em cima, código e copiar embaixo, situação à direita. Computador: uma linha. */}
+        <div className="flex min-w-0 flex-col gap-1 md:flex-row md:flex-wrap md:items-center md:gap-4">
+          <div className="flex min-w-0 flex-col gap-1 md:flex-row md:flex-wrap md:items-center md:gap-1">
             <span className="text-micro font-semibold uppercase tracking-wider text-texto-suave">
               {MENSAGEM_RESERVAS_CODIGO_ROTULO}
             </span>
-            <span className="min-w-0 text-corpo font-bold tabular-nums text-navy" id={`reserva-${reserva.idReserva}-titulo`}>
-              {reserva.codigo}
-            </span>
-            <BotaoCopiarCodigo codigo={reserva.codigo} />
+            <div className="flex min-w-0 flex-wrap items-center gap-1 md:contents">
+              <span className="min-w-0 text-corpo font-bold tabular-nums text-navy" id={`reserva-${reserva.idReserva}-titulo`}>
+                {reserva.codigo}
+              </span>
+              <BotaoCopiarCodigo codigo={reserva.codigo} />
+            </div>
           </div>
           <span aria-hidden="true" className="hidden h-4 w-px bg-borda-forte md:block" />
           <span className="hidden text-legenda text-status-neutro md:inline">{mensagemReservasCriadaEm(reserva.dataReservaStr)}</span>
         </div>
-        <ChipSituacaoReserva status={reserva.status} />
+        <div>
+          <ChipSituacaoReserva status={reserva.status} />
+        </div>
       </header>
 
       <div className="grid grid-cols-1 items-stretch gap-4 p-4 md:gap-8 md:p-6 lg:grid-cols-12">
-        <div className="flex min-w-0 flex-row-reverse items-center justify-end gap-3 md:flex-col md:items-stretch md:justify-between md:gap-4 lg:col-span-4">
+        <div className="flex min-w-0 flex-row-reverse items-center justify-end gap-3 rounded bg-steel-fundo p-3 md:flex-col md:items-stretch md:justify-between md:gap-4 md:rounded-none md:bg-transparent md:p-0 lg:col-span-4">
           <div className="flex min-w-0 flex-1 flex-col md:flex-initial">
             <div className="mb-1 flex flex-wrap items-center justify-between gap-1">
               <span className="inline-block min-w-0 rounded-sm bg-steel-suave px-2.5 py-0.5 text-micro font-semibold uppercase tracking-wider text-navy">
                 {reserva.categoriaNome}
               </span>
-              <span className="inline-flex h-6 items-center gap-1.5 overflow-hidden rounded-sm bg-branco px-2 shadow-sm">
-                <span aria-hidden="true" className="inline-block h-2 w-2.5 rounded-sm bg-navy-claro" />
-                <span className="text-micro font-bold tracking-widest text-navy">{formatarPlaca(reserva.placa)}</span>
-              </span>
+              <SeloPlaca placa={reserva.placa} className="hidden md:inline-flex" />
             </div>
             <h2 className="break-words text-corpo font-bold leading-tight tracking-tighter text-navy md:text-nome-veiculo">
               {reserva.marca} {reserva.modelo}
             </h2>
             <p className="text-legenda text-status-neutro">{legendaVeiculo}</p>
+            <SeloPlaca placa={reserva.placa} className="mt-1 inline-flex self-start md:hidden" />
           </div>
           <FotoVeiculo
             fotoCapa={reserva.fotoCapa}
             descricao={`${reserva.marca} ${reserva.modelo}`}
             compacta
             aoFalhar={aoFalharFoto}
+            classeFundo={CLASSE_FUNDO_FOTO_CELULAR}
           />
         </div>
 
@@ -130,7 +136,7 @@ export function CartaoReservaAtiva({ reserva, nomeCondutor, aoCancelar, aoFalhar
             <button
               type="button"
               onClick={() => aoCancelar(reserva)}
-              className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-sm bg-branco px-3 text-corpo-denso font-semibold text-navy shadow-sm transition-colors hover:bg-steel-suave focus-visible:outline focus-visible:outline-2 focus-visible:outline-steel md:flex-none md:px-4"
+              className="inline-flex min-h-10 flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-sm bg-branco px-2 text-corpo-denso font-semibold text-navy shadow-sm transition-colors hover:bg-steel-suave focus-visible:outline focus-visible:outline-2 focus-visible:outline-steel md:flex-none md:px-4"
             >
               <Icone nome="event_busy" tamanho={18} />
               <span>{MENSAGEM_RESERVAS_BOTAO_CANCELAR}</span>
@@ -139,11 +145,27 @@ export function CartaoReservaAtiva({ reserva, nomeCondutor, aoCancelar, aoFalhar
           {temEndereco && (
             <LinkMapaReserva
               reserva={reserva}
-              className="inline-flex min-h-10 flex-1 justify-center rounded-sm bg-steel-suave px-3 md:hidden"
+              className="inline-flex min-h-10 flex-auto justify-center whitespace-nowrap rounded-sm bg-steel-suave px-3 md:hidden"
             />
           )}
         </div>
       )}
     </article>
+  );
+}
+
+/**
+ * Caixa da foto sem foto, só no celular: o tom do desenho 28 (surface-container, que é steel-suave), um tom acima do
+ * painel (steel-fundo), para não sumir nele. No computador (md para cima) volta ao tom de sempre, como no desenho 29.
+ */
+const CLASSE_FUNDO_FOTO_CELULAR = 'bg-steel-suave md:bg-steel-fundo';
+
+/** Placa no formato da tela (BRA2E19). Aparece no cabeçalho (computador) e abaixo do nome (celular). */
+function SeloPlaca({ placa, className }: { placa: string; className: string }) {
+  return (
+    <span className={`h-6 items-center gap-1.5 overflow-hidden rounded-sm bg-branco px-2 shadow-sm ${className}`}>
+      <span aria-hidden="true" className="inline-block h-2 w-2.5 rounded-sm bg-navy-claro" />
+      <span className="text-micro font-bold tracking-widest text-navy">{formatarPlaca(placa)}</span>
+    </span>
   );
 }

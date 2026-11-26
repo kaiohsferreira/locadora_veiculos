@@ -320,7 +320,7 @@ export default function CadastroDadosPessoaisPagina() {
   }
 
   return (
-    <div className="relative w-full overflow-hidden py-8">
+    <div className="relative w-full overflow-clip py-8">
       {/* Brilhos de fundo do design (decorativos). */}
       <div
         aria-hidden="true"
