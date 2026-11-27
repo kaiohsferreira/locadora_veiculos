@@ -82,6 +82,9 @@ namespace AutoVia.Infrastructure.Persistence
 
         // --- Venda e pagamentos ---
         public DbSet<Venda> Vendas { get; set; } = null!;
+
+        /// <summary>Propostas de compra de seminovos (proposta_compra, P6-BE-02, desvio aprovado por Kaio em 21/11/2026). Filtro "Empresa" pelo Veiculo.</summary>
+        public DbSet<PropostaCompra> PropostasCompra { get; set; } = null!;
         public DbSet<Pagamento> Pagamentos { get; set; } = null!;
 
         // --- Manutencao, seguros e sinistros ---

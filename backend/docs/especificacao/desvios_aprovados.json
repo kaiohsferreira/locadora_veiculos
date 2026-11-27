@@ -412,5 +412,61 @@
     },
     "regra_no_servico": "um contrato ativo por locacao: a assinatura roda sob a trava da locacao (FOR UPDATE) e recusa com 409 o que ja foi assinado; sem indice unico, pela decisao de 04/11/2026; sem IP gravado (D10)",
     "nao_muda": "demais tabelas, colunas e CHECKs; nenhum CHECK novo; nenhum indice unico; nenhuma linha existente muda; a migration AdicionarContratoLocacao so cria a tabela e o indice"
+  },
+  "proposta_compra": {
+    "aprovado_por": "Kaio Henrique dos Santos Ferreira",
+    "migration": [
+      "20261121151200_AdicionarPropostaCompra"
+    ],
+    "cobre": [
+      "tabela:proposta_compra",
+      "check:ck_proposta_compra_valor",
+      "check:ck_proposta_compra_entrada",
+      "check:ck_proposta_compra_parcelas",
+      "check:ck_proposta_compra_parcela",
+      "check:ck_proposta_compra_status",
+      "fk:fk_proposta_compra_veiculo",
+      "fk:fk_proposta_compra_cliente",
+      "indice:idx_proposta_compra_veiculo",
+      "indice:idx_proposta_compra_cliente"
+    ],
+    "data": "2026-11-21",
+    "tarefa": "P6-BE-02 / RF-27 / Semana 2",
+    "fonte": "Plano da P6-BE-02 da Maria Eduarda (opcao A: tabela nova), aprovado pelo Kaio em 21/11/2026",
+    "origem": "Kaio aprovou a tabela proposta_compra (informado pela Maria Eduarda no chat, 21/11/2026)",
+    "motivo": "O RF-27 pede registrar a proposta de compra com simulacao de entrada e parcelamento, mas a especificacao so tem a tabela venda (venda efetivada, uma por veiculo). A proposta fica guardada para a negociacao (P6-FE-03) e a efetivacao da venda (P6-BE-03).",
+    "tabelas_novas": {
+      "proposta_compra": {
+        "colunas": {
+          "id_proposta_compra": "SERIAL PK",
+          "id_veiculo": "INT NOT NULL, fk_proposta_compra_veiculo (NO ACTION)",
+          "id_cliente": "INT NOT NULL, fk_proposta_compra_cliente (NO ACTION)",
+          "valor_venda": "NUMERIC(12,2) NOT NULL (copia do veiculo.valor_venda no momento da proposta)",
+          "valor_entrada": "NUMERIC(12,2) NOT NULL",
+          "numero_parcelas": "INT NOT NULL",
+          "valor_parcela": "NUMERIC(12,2) NOT NULL ((valor_venda - valor_entrada) / numero_parcelas, arredondado para baixo no centavo)",
+          "valor_ultima_parcela": "NUMERIC(12,2) NOT NULL (valor_parcela mais a diferenca de centavos; soma das parcelas = valor_venda - valor_entrada)",
+          "status": "VARCHAR(20) NOT NULL DEFAULT 'ENVIADA'"
+        },
+        "checks": {
+          "ck_proposta_compra_valor": "valor_venda > 0",
+          "ck_proposta_compra_entrada": "valor_entrada >= 0 AND valor_entrada < valor_venda",
+          "ck_proposta_compra_parcelas": "numero_parcelas BETWEEN 1 AND 60",
+          "ck_proposta_compra_parcela": "valor_parcela > 0 AND valor_ultima_parcela >= valor_parcela",
+          "ck_proposta_compra_status": "status IN ('ENVIADA', 'ACEITA', 'RECUSADA', 'CANCELADA')"
+        },
+        "indices": [
+          "idx_proposta_compra_veiculo (id_veiculo) (comum)",
+          "idx_proposta_compra_cliente (id_cliente) (comum)"
+        ],
+        "auditoria": "created_at, updated_at, disabled_at (BaseEntities)"
+      }
+    },
+    "filters": "Filtro nomeado Empresa, fail-closed: PropostaCompra pelo Veiculo.IdEmpresa (mesmo caminho de Venda). A locadora so ve propostas dos proprios veiculos.",
+    "regra_no_servico": "veiculo DISPONIVEL e com valor_venda; cadastro do cliente APROVADO na locadora do veiculo (como na reserva); parcelas de 1 a 60; parcela minima de R$ 0,01. Valores recalculados no servidor, nunca aceitos do cliente.",
+    "migrations": "Gerada em 21/11/2026 e ainda nao aplicada (computador sem PostgreSQL); manter todas as anteriores",
+    "dados_existentes": "Nenhum backfill (tabela nova)",
+    "unicidade": "Nenhuma: o cliente pode mandar mais de uma proposta; nenhum indice unico",
+    "nao_muda": "demais tabelas, colunas e CHECKs; venda continua sendo a venda efetivada"
   }
 }

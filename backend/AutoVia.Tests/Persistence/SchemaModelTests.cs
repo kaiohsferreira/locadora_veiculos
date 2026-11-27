@@ -40,9 +40,11 @@ namespace AutoVia.Tests.Persistence
             "cliente_documento",
             // RF-23: cadastro e apuracao autorizados por Eduardo em 18/11/2026.
             "configuracao_cobranca_extra", "apuracao_cobranca_extra",
-            // Desvio D10 do contrato-locacao v5 (RF-21, contrato digital): tabela contrato_locacao. Aprovacao do desvio em
-            // backend/docs/especificacao/desvios_aprovados.json pendente com o orquestrador (ainda nao registrada la).
-            "contrato_locacao"
+            // Desvio D10 do contrato-locacao v5 (RF-21, contrato digital): tabela contrato_locacao, registrada no bloco
+            // contrato_locacao de backend/docs/especificacao/desvios_aprovados.json (aprovado por Kaio em 26/11/2026).
+            "contrato_locacao",
+            // Desvio aprovado por Kaio em 21/11/2026 (P6-BE-02, RF-27): proposta de compra de seminovo.
+            "proposta_compra"
         };
 
         private static readonly string[] TabelasIntegracao = new string[] { "integration", "integration_setting" };
@@ -77,7 +79,9 @@ namespace AutoVia.Tests.Persistence
             // RF-23: indices comuns do desvio autorizado.
             "idx_configuracao_extra_empresa_categoria", "idx_apuracao_extra_locacao", "idx_cobranca_apuracao",
             // Desvio D10 (contrato-locacao v5): indice comum por locacao, sem UNIQUE (decisao de 04/11/2026).
-            "idx_contrato_locacao_locacao"
+            "idx_contrato_locacao_locacao",
+            // Desvio aprovado por Kaio em 21/11/2026 (P6-BE-02): indices comuns, sem UNIQUE.
+            "idx_proposta_compra_veiculo", "idx_proposta_compra_cliente"
         };
 
         /// <summary>
@@ -197,8 +201,9 @@ namespace AutoVia.Tests.Persistence
 
             // 35 anteriores + 4 da sinistro_historico (desvio aprovado por Kaio em 16/11/2026) + 1 da veiculo_foto (mesmo desvio de fotos)
             // + 1 da cliente_documento (desvio aprovado por Kaio em 19/11/2026) + 7 do RF-23 (5 da configuracao e 2 da apuracao de cobrancas extras)
-            // + 3 da avaria (ck_avaria_angulo, ck_avaria_pos_x e ck_avaria_pos_y; desvio D9 aprovado por Kaio em 26/11/2026, P4-BE-03).
-            Assert.Equal(51, totalChecks);
+            // + 3 da avaria (ck_avaria_angulo, ck_avaria_pos_x e ck_avaria_pos_y; desvio D9 aprovado por Kaio em 26/11/2026, P4-BE-03)
+            // + 5 da proposta_compra (valor, entrada, parcelas, parcela e status; desvio aprovado por Kaio em 21/11/2026, P6-BE-02).
+            Assert.Equal(56, totalChecks);
         }
 
         [Fact]

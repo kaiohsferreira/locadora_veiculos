@@ -4,9 +4,10 @@ using System.Text.RegularExpressions;
 namespace AutoVia.Tests.Persistence
 {
     /// <summary>
-    /// Guarda POR METODO dos nove repositorios desta entrega (ClienteLocadoraRepository, ReservaRepository, VeiculoRepository.Disponibilidade,
-    /// VeiculoRepository.Catalogo, LocacaoRepository, VeiculoRepository.Status, ClienteDocumentoRepository, ManutencaoRepository e PagamentoRepository (ClienteDocumentoRepository nao tem nenhum
-    /// simbolo: a lista vazia prova isso)). Cada ocorrencia dos simbolos de bypass da lista de
+    /// Guarda POR METODO dos onze repositorios desta entrega (ClienteLocadoraRepository, ReservaRepository, VeiculoRepository.Disponibilidade,
+    /// VeiculoRepository.Catalogo, LocacaoRepository, LocacaoRepository.Encerramento, VeiculoRepository.Status, ClienteDocumentoRepository,
+    /// ManutencaoRepository, PagamentoRepository e PropostaCompraRepository (ClienteDocumentoRepository e LocacaoRepository.Encerramento nao tem
+    /// nenhum simbolo: a lista vazia prova isso)). Cada ocorrencia dos simbolos de bypass da lista de
     /// IsolamentoEmpresaGuardasTests (filtro desligado, SQL bruto, busca por chave, conexao crua) e atribuida ao metodo
     /// que a contem. O teste falha se um simbolo aparecer em metodo fora da lista fechada, se um metodo listado perder
     /// o simbolo, ou se a quantidade dentro de um metodo mudar. A contagem por arquivo continua em IsolamentoEmpresaGuardasTests.
@@ -24,6 +25,7 @@ namespace AutoVia.Tests.Persistence
         private const string CaminhoManutencao = "AutoVia.Infrastructure/Repositories/ManutencaoRepository.cs";
         private const string CaminhoPagamento = "AutoVia.Infrastructure/Repositories/PagamentoRepository.cs";
         private const string CaminhoClienteLocadora = "AutoVia.Infrastructure/Repositories/ClienteLocadoraRepository.cs";
+        private const string CaminhoPropostaCompraRepository = "AutoVia.Infrastructure/Repositories/PropostaCompraRepository.cs";
         private const string SeparadorMetodoSimbolo = "|";
         private const string PadraoDeclaracaoDeMetodo = @"^        (public|private)\s[^=]*?\s(\w+)\(";
 
@@ -36,7 +38,8 @@ namespace AutoVia.Tests.Persistence
         /// publicas entre locadoras, sempre com locadora ativa); LocacaoRepository (trava de linha pela conexao crua, so no
         /// metodo que faz a trava); VeiculoRepository.Status (trava FOR UPDATE da troca manual de status, no metodo
         /// ConsultaTravaStatusVeiculo, com o id da locadora por parametro); ClienteLocadoraRepository (trava FOR UPDATE da linha do
-        /// cliente no metodo ConsultaTravaCliente, item 6 de 20/11, com o id por parametro).
+        /// cliente no metodo ConsultaTravaCliente, item 6 de 20/11, com o id por parametro); PropostaCompraRepository (propostas
+        /// do proprio cliente, com a posse pelo cliente do contexto).
         /// </summary>
         private static readonly Dictionary<string, string[]> OcorrenciasEsperadas = new Dictionary<string, string[]>
         {
@@ -84,6 +87,10 @@ namespace AutoVia.Tests.Persistence
                 "AtualizarAtrasosTodasLocadorasAsync" + SeparadorMetodoSimbolo + "SemEscopoEmpresa(",
                 "AtualizarAtrasosTodasLocadorasAsync" + SeparadorMetodoSimbolo + "ExecuteUpdate",
                 "AtualizarAtrasosDaLocadoraAsync" + SeparadorMetodoSimbolo + "ExecuteUpdate"
+            },
+            [CaminhoPropostaCompraRepository] = new string[]
+            {
+                "ConsultaPropostasDoClienteLogado" + SeparadorMetodoSimbolo + "SemEscopoEmpresa("
             }
         };
 
@@ -145,6 +152,7 @@ namespace AutoVia.Tests.Persistence
         [InlineData(CaminhoManutencao)]
         [InlineData(CaminhoPagamento)]
         [InlineData(CaminhoClienteLocadora)]
+        [InlineData(CaminhoPropostaCompraRepository)]
         public void Repositorio_SimbolosDeBypassSoNosMetodosNomeadosNaQuantidadeExata(string caminhoRelativo)
         {
             string conteudo = File.ReadAllText(Path.Combine(RaizDoBackend(), caminhoRelativo.Replace('/', Path.DirectorySeparatorChar)));

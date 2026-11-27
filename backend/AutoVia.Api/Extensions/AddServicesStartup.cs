@@ -59,6 +59,9 @@ namespace AutoVia.Api.Extensions
             services.AddScoped<IReservaService, ReservaService>();
             services.AddScoped<INotificacaoTransacionalService, NotificacaoTransacionalService>();
 
+            // --- Proposta de compra (P6-BE-02) ---
+            services.AddScoped<IPropostaCompraService, PropostaCompraService>();
+
             // --- Painel operacional ---
             services.AddScoped<IPainelOperacionalService, PainelOperacionalService>();
 

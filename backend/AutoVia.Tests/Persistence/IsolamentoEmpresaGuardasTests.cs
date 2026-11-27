@@ -83,6 +83,8 @@ namespace AutoVia.Tests.Persistence
         /// (empresa e locacao), com o escopo validado antes da trava).
         /// ClienteLocadoraRepository (trava FOR UPDATE da linha do cliente no teto de pedidos, item 6 de 20/11; SQL provado em
         /// ClienteLocadoraConsultasSqlTests; a tabela cliente nao tem filtro Empresa, e as demais consultas do repositorio seguem pelo DbSet).
+        /// PropostaCompraRepository (propostas do proprio cliente, P6-BE-02, com a posse pelo cliente do contexto; SQL provado em
+        /// PropostaCompraConsultasSqlTests).
         /// </summary>
         private static readonly Dictionary<string, int> OcorrenciasPermitidas = new Dictionary<string, int>
         {
@@ -92,6 +94,8 @@ namespace AutoVia.Tests.Persistence
             ["AutoVia.Infrastructure/Repositories/LocacaoRepository.cs"] = 2,
             ["AutoVia.Infrastructure/Repositories/ManutencaoRepository.cs"] = 1,
             ["AutoVia.Infrastructure/Repositories/PagamentoRepository.cs"] = 7,
+            // P6-BE-02: propostas do proprio cliente (ConsultaPropostasDoClienteLogado), com a posse pelo cliente do contexto.
+            ["AutoVia.Infrastructure/Repositories/PropostaCompraRepository.cs"] = 1,
             // Trava por locacao, precedida e seguida de consulta sob o filtro Empresa.
             ["AutoVia.Infrastructure/Repositories/VistoriaRepository.cs"] = 1,
             // RF-23: uma conexao crua compartilhada apenas pelos locks parametrizados, com escopo validado antes.

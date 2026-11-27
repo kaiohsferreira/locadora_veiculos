@@ -19,6 +19,12 @@ namespace AutoVia.Core.ServicesInterface
         /// </summary>
         Task ExigirCadastroAprovadoAsync(int idCliente, int idEmpresa);
 
+        /// <summary>
+        /// Igual a ExigirCadastroAprovadoAsync(idCliente, idEmpresa), mas o 409 do cadastro PENDENTE usa a mensagem informada
+        /// ({0} = nome fantasia da locadora). Usado pela proposta de compra, que tem mensagem propria.
+        /// </summary>
+        Task ExigirCadastroAprovadoAsync(int idCliente, int idEmpresa, string mensagemCadastroEmAnalise);
+
         /// <summary>Registra a decisao da locadora do contexto sobre o cadastro do cliente (APROVADO ou RECUSADO).</summary>
         Task DecidirAsync(int idCliente, VerificacaoCadastroVO verificacaoVO);
 
