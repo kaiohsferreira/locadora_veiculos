@@ -38,6 +38,9 @@ namespace AutoVia.Tests.Api
         private const string CampoIdReserva = "idReserva";
         private const string CampoCodigo = "codigo";
         private const string CampoValorEstimado = "valorEstimado";
+        private const string CampoDetalhe = "detail";
+        private const string MediaProblema = "application/problem+json";
+        private const string SufixoRp02 = "(RP-02)";
         private const string Destinatario = "titular.t-int-01@example.test";
         private const string Remetente = "autovia@example.test";
         private const string NomeRemetente = "AutoVia de teste";
@@ -150,6 +153,38 @@ namespace AutoVia.Tests.Api
             Assert.Empty(fila.Snapshot());
         }
 
+        [Fact]
+        public async Task Post_ComCadastroPendente_Devolve409ComRP02EmProblemDetails()
+        {
+            using FabricaEmailSandbox fabrica = new FabricaEmailSandbox(Path.GetTempPath(), StatusCadastroCliente.PENDENTE);
+            using HttpClient cliente = fabrica.CriarClienteAutenticado();
+            using HttpResponseMessage resposta = await CriarReservaAsync(cliente);
+
+            await AssertRecusaDeCadastroAsync(resposta, fabrica, string.Format(ConstantsMessage.ErroReservaCadastroEmAnalise, NomeLocadora));
+        }
+
+        [Fact]
+        public async Task Post_ComCadastroRecusado_Devolve409ComRP02EmProblemDetails()
+        {
+            using FabricaEmailSandbox fabrica = new FabricaEmailSandbox(Path.GetTempPath(), StatusCadastroCliente.RECUSADO);
+            using HttpClient cliente = fabrica.CriarClienteAutenticado();
+            using HttpResponseMessage resposta = await CriarReservaAsync(cliente);
+
+            await AssertRecusaDeCadastroAsync(resposta, fabrica, string.Format(ConstantsMessage.ErroReservaCadastroRecusado, NomeLocadora));
+        }
+
+        /// <summary>Confere o 409 de cadastro na reserva: ProblemDetails com a mensagem da locadora e o RP-02, e nada gravado.</summary>
+        private static async Task AssertRecusaDeCadastroAsync(HttpResponseMessage resposta, FabricaEmailSandbox fabrica, string mensagemEsperada)
+        {
+            Assert.Equal(HttpStatusCode.Conflict, resposta.StatusCode);
+            Assert.Equal(MediaProblema, resposta.Content.Headers.ContentType?.MediaType);
+            using JsonDocument corpo = JsonDocument.Parse(await resposta.Content.ReadAsStringAsync());
+            string detalhe = corpo.RootElement.GetProperty(CampoDetalhe).GetString()!;
+            Assert.Contains(SufixoRp02, detalhe, StringComparison.Ordinal);
+            Assert.Equal(mensagemEsperada, detalhe);
+            Assert.Equal(0, fabrica.Reservas.ChamadasDeInsercao);
+        }
+
         private static async Task<HttpResponseMessage> CriarReservaAsync(HttpClient cliente)
         {
             using JsonContent entrada = JsonContent.Create(new { idVeiculo = IdVeiculo, dataRetirada = Retirada, dataDevolucao = Devolucao });
@@ -169,6 +204,15 @@ namespace AutoVia.Tests.Api
                 bool clienteAprovado,
                 FakeEmailFila? filaDeTeste = null,
                 INotificacaoTransacionalService? notificacaoDeTeste = null)
+                : this(raizDaCaixa, clienteAprovado ? StatusCadastroCliente.APROVADO : StatusCadastroCliente.RECUSADO, filaDeTeste, notificacaoDeTeste)
+            {
+            }
+
+            public FabricaEmailSandbox(
+                string raizDaCaixa,
+                StatusCadastroCliente statusCadastro,
+                FakeEmailFila? filaDeTeste = null,
+                INotificacaoTransacionalService? notificacaoDeTeste = null)
             {
                 _raizDaCaixa = raizDaCaixa;
                 _filaDeTeste = filaDeTeste;
@@ -178,7 +222,7 @@ namespace AutoVia.Tests.Api
                 titular.Email = Destinatario;
                 Empresa locadora = new Empresa { IdEmpresa = IdEmpresa, NomeFantasia = NomeLocadora, Ativo = true };
                 _locadoras.AdicionarEmpresa(locadora);
-                _locadoras.Semear(titular.IdCliente, IdEmpresa, clienteAprovado ? StatusCadastroCliente.APROVADO : StatusCadastroCliente.RECUSADO);
+                _locadoras.Semear(titular.IdCliente, IdEmpresa, statusCadastro);
                 Reservas.VincularVeiculo(new Veiculo
                 {
                     IdVeiculo = IdVeiculo,

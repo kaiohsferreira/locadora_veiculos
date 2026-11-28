@@ -236,7 +236,9 @@ namespace AutoVia.Tests.Frota
 
             Assert.Equal(ConstantsMessage.ErroManutencaoDataEntradaFutura, excecao.Errors.First().ErrorMessage);
             Assert.Empty(repositorio.Manutencoes);
-            Assert.Empty(log.Snapshot());
+            string linhaDeLog = Assert.Single(log.Snapshot());
+            Assert.StartsWith(ConstantsMessage.ErroAbrirManutencao, linhaDeLog, StringComparison.Ordinal);
+            Assert.Contains(ConstantsMessage.ErroManutencaoDataEntradaFutura, linhaDeLog, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -244,11 +246,15 @@ namespace AutoVia.Tests.Frota
         {
             FakeManutencaoRepository repositorio = new FakeManutencaoRepository { IdEmpresaDoContexto = IdEmpresaDoContexto };
             Veiculo veiculo = SemearVeiculo(repositorio, StatusVeiculo.DISPONIVEL);
-            ManutencaoService servico = CriarServico(repositorio, new FakeLogService(), HojeDoTeste);
+            FakeLogService log = new FakeLogService();
+            ManutencaoService servico = CriarServico(repositorio, log, HojeDoTeste);
 
             ValidationException excecao = await Assert.ThrowsAsync<ValidationException>(() => servico.AbrirAsync(Abertura(veiculo.IdVeiculo, "1")));
 
             Assert.Equal(ConstantsMessage.ErroManutencaoTipoInvalido, excecao.Errors.First().ErrorMessage);
+            string linhaDeLog = Assert.Single(log.Snapshot());
+            Assert.StartsWith(ConstantsMessage.ErroAbrirManutencao, linhaDeLog, StringComparison.Ordinal);
+            Assert.Contains(ConstantsMessage.ErroManutencaoTipoInvalido, linhaDeLog, StringComparison.Ordinal);
         }
 
         [Fact]

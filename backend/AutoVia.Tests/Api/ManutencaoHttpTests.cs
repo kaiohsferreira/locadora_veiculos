@@ -614,4 +614,226 @@ namespace AutoVia.Tests.Api
             });
         }
     }
+
+    /// <summary>
+    /// Servidor de teste da RF-37 (A3b): a abertura de ordem e a busca publica de disponiveis leem o mesmo veiculo. Os dois
+    /// repositorios sao fakes separados; a ordem aberta leva o status MANUTENCAO para a vitrine de disponiveis, como a
+    /// transacao do banco faz para o mesmo veiculo. Nao acessa o PostgreSQL.
+    /// </summary>
+    public class ManutencaoDisponibilidadeWebFactory : ManutencaoWebFactory
+    {
+        public ManutencaoDisponibilidadeWebFactory()
+        {
+            Vitrine = new FakeVeiculoRepository();
+        }
+
+        /// <summary>Repositorio de veiculos da busca publica de disponiveis; a abertura de ordem atualiza o status dele.</summary>
+        public FakeVeiculoRepository Vitrine { get; }
+
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            base.ConfigureWebHost(builder);
+
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IVeiculoRepository>();
+                services.AddSingleton<IVeiculoRepository>(Vitrine);
+                services.RemoveAll<IManutencaoRepository>();
+                services.AddSingleton<IManutencaoRepository>(new ManutencaoComVitrine(Manutencoes, Vitrine));
+            });
+        }
+
+        /// <summary>
+        /// Repositorio de manutencao do teste: a ordem sai pelo FakeManutencaoRepository (regras do real) e, aberta a ordem,
+        /// o veiculo vai para MANUTENCAO tambem na vitrine. Os demais metodos so repassam ao fake.
+        /// </summary>
+        private sealed class ManutencaoComVitrine : IManutencaoRepository
+        {
+            private readonly FakeManutencaoRepository _manutencoes;
+            private readonly FakeVeiculoRepository _vitrine;
+
+            public ManutencaoComVitrine(FakeManutencaoRepository manutencoes, FakeVeiculoRepository vitrine)
+            {
+                _manutencoes = manutencoes;
+                _vitrine = vitrine;
+            }
+
+            public async Task<Manutencao> AbrirAtomicamenteAsync(Manutencao manutencao)
+            {
+                Manutencao gravada = await _manutencoes.AbrirAtomicamenteAsync(manutencao);
+                await _vitrine.AlterarStatusAtomicamenteAsync(gravada.IdVeiculo, StatusVeiculo.MANUTENCAO);
+
+                return gravada;
+            }
+
+            public Task<Manutencao> EncerrarAtomicamenteAsync(int idManutencao, DateOnly dataSaida, int kmAtual, decimal? custo)
+            {
+                return _manutencoes.EncerrarAtomicamenteAsync(idManutencao, dataSaida, kmAtual, custo);
+            }
+
+            public Task<(List<VeiculoRevisaoRegistro> Itens, int Total)> ListarAlertasRevisaoAsync()
+            {
+                return _manutencoes.ListarAlertasRevisaoAsync();
+            }
+
+            public Task<(List<Manutencao> Itens, int Total)> ListarManutencoesAsync(string? textoBusca, string? placaBusca, int? idOsBusca, TipoManutencao? tipo, bool? aberta, int? idVeiculo, int deslocamento, int quantidade)
+            {
+                return _manutencoes.ListarManutencoesAsync(textoBusca, placaBusca, idOsBusca, tipo, aberta, idVeiculo, deslocamento, quantidade);
+            }
+
+            public Task<int> ContarOrdensAbertasAsync()
+            {
+                return _manutencoes.ContarOrdensAbertasAsync();
+            }
+
+            public Task<decimal> SomarCustoEncerradasAsync(DateOnly dataInicio, DateOnly dataFim)
+            {
+                return _manutencoes.SomarCustoEncerradasAsync(dataInicio, dataFim);
+            }
+
+            public Task<List<Veiculo>> ListarVeiculosDosAlertasAsync(IReadOnlyCollection<int> idsVeiculos)
+            {
+                return _manutencoes.ListarVeiculosDosAlertasAsync(idsVeiculos);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Teste HTTP da RF-37 (A3b): com a ordem de manutencao aberta por POST /api/manutencoes, o veiculo deixa de aparecer na
+    /// busca publica de disponiveis do mesmo periodo. Antes da abertura o mesmo veiculo aparece (controle), para o teste nao
+    /// passar por engano.
+    /// </summary>
+    public class ManutencaoDisponibilidadeHttpTests : IDisposable
+    {
+        private const string RotaManutencoes = "/api/manutencoes";
+        private const string RotaDisponiveis = "/api/veiculos/disponiveis?dataRetirada=2026-12-10&dataDevolucao=2026-12-12";
+        private const string TipoCorretiva = "CORRETIVA";
+        private const string PlacaDoTeste = "ABC1D23";
+        private const string ChassiDoTeste = "9BWZZZ377VT004251";
+        private const string RenavamDoTeste = "12345678901";
+        private const string VersaoSessaoDeTeste = "versao-de-teste";
+        private const string NomeCampoItens = "itens";
+        private const string NomeCampoIdVeiculo = "idVeiculo";
+        private const string TipoJson = "application/json";
+        private const int IdEmpresaDoTeste = 1;
+        private const int KmDoVeiculo = 4500;
+
+        private static readonly DateTime MomentoFixo = new DateTime(2020, 1, 1, 10, 0, 0);
+
+        private readonly ManutencaoDisponibilidadeWebFactory _fabrica;
+        private readonly HttpClient _cliente;
+
+        public ManutencaoDisponibilidadeHttpTests()
+        {
+            _fabrica = new ManutencaoDisponibilidadeWebFactory();
+            _fabrica.Manutencoes.IdEmpresaDoContexto = IdEmpresaDoTeste;
+            _fabrica.Vitrine.IdEmpresaDoContexto = IdEmpresaDoTeste;
+            _fabrica.Sessao.Situacao = new SessaoSituacaoVO
+            {
+                Ativo = true,
+                IdEmpresa = IdEmpresaDoTeste,
+                Cargo = CargoFuncionario.GESTOR_FROTA,
+                EmpresaAtiva = true,
+                EmpresaOperadora = false
+            };
+            _cliente = _fabrica.CreateClient();
+        }
+
+        public void Dispose()
+        {
+            _cliente.Dispose();
+            _fabrica.Dispose();
+        }
+
+        [Fact]
+        public async Task AbrirOrdem_VeiculoSaiDaBuscaDeDisponiveisDoMesmoPeriodo()
+        {
+            Veiculo veiculo = SemearVeiculo();
+
+            JsonElement antes = await LerDisponiveisAsync();
+            Assert.Contains(veiculo.IdVeiculo, IdsDosDisponiveis(antes));
+
+            HttpResponseMessage abertura = await _cliente.SendAsync(Requisicao(HttpMethod.Post, RotaManutencoes, GerarTokenDeGestor(), new AbrirManutencaoVO { IdVeiculo = veiculo.IdVeiculo, Tipo = TipoCorretiva }));
+            Assert.Equal(HttpStatusCode.Created, abertura.StatusCode);
+
+            JsonElement depois = await LerDisponiveisAsync();
+            Assert.DoesNotContain(veiculo.IdVeiculo, IdsDosDisponiveis(depois));
+            Assert.Equal(StatusVeiculo.MANUTENCAO, _fabrica.Vitrine.Veiculos.Single(x => x.IdVeiculo == veiculo.IdVeiculo).Status);
+        }
+
+        private Veiculo SemearVeiculo()
+        {
+            Veiculo veiculo = new Veiculo
+            {
+                IdCategoria = 1,
+                Categoria = new Categoria { IdCategoria = 1, Nome = "SUV", ValorDiariaBase = 200m },
+                IdEmpresa = IdEmpresaDoTeste,
+                Placa = PlacaDoTeste,
+                Chassi = ChassiDoTeste,
+                Renavam = RenavamDoTeste,
+                Marca = "Fiat",
+                Modelo = "Toro",
+                AnoFabricacao = 2022,
+                AnoModelo = 2023,
+                KmAtual = KmDoVeiculo,
+                ValorDiaria = 150m,
+                Status = StatusVeiculo.DISPONIVEL,
+                CreatedAt = MomentoFixo,
+                UpdatedAt = MomentoFixo
+            };
+
+            _fabrica.Manutencoes.SemearVeiculo(veiculo);
+            _fabrica.Vitrine.Adicionar(veiculo);
+
+            return veiculo;
+        }
+
+        private async Task<JsonElement> LerDisponiveisAsync()
+        {
+            using HttpResponseMessage resposta = await _cliente.GetAsync(RotaDisponiveis);
+
+            Assert.Equal(HttpStatusCode.OK, resposta.StatusCode);
+
+            string texto = await resposta.Content.ReadAsStringAsync();
+            using JsonDocument documento = JsonDocument.Parse(texto);
+
+            return documento.RootElement.Clone();
+        }
+
+        private static List<int> IdsDosDisponiveis(JsonElement corpo)
+        {
+            List<int> ids = new List<int>();
+
+            foreach (JsonElement item in corpo.GetProperty(NomeCampoItens).EnumerateArray())
+            {
+                ids.Add(item.GetProperty(NomeCampoIdVeiculo).GetInt32());
+            }
+
+            return ids;
+        }
+
+        private string GerarTokenDeGestor()
+        {
+            JwtOptions opcoes = new JwtOptions
+            {
+                Emissor = ManutencaoWebFactory.Emissor,
+                Audiencia = ManutencaoWebFactory.Audiencia,
+                ExpiracaoMinutos = 120,
+                Chave = _fabrica.ChaveJwt
+            };
+
+            TokenService tokens = new TokenService(opcoes, new FakeLogService());
+
+            return tokens.GerarToken(PerfilUsuario.FUNCIONARIO, 1, "Usuario de teste", CargoFuncionario.GESTOR_FROTA, VersaoSessaoDeTeste, false, 1).Token;
+        }
+
+        private static HttpRequestMessage Requisicao(HttpMethod metodo, string rota, string token, object corpo)
+        {
+            HttpRequestMessage requisicao = new HttpRequestMessage(metodo, rota);
+            requisicao.Headers.Authorization = new AuthenticationHeaderValue(ConstantsValues.TipoTokenBearer, token);
+            requisicao.Content = new StringContent(JsonSerializer.Serialize(corpo), Encoding.UTF8, TipoJson);
+
+            return requisicao;
+        }
+    }
 }

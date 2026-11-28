@@ -93,8 +93,9 @@ namespace AutoVia.Infrastructure.Services
             {
                 throw;
             }
-            catch (ValidationException)
+            catch (ValidationException ex)
             {
+                _logService.Write(ex, ConstantsMessage.ErroAbrirManutencao, GetType().ToString());
                 throw;
             }
             catch (Exception ex)

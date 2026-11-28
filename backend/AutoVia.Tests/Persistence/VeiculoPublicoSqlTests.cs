@@ -46,6 +46,9 @@ namespace AutoVia.Tests.Persistence
         private const string OrdemDaPrimeiraFotoNaJanela = @"ROW_NUMBER\(\) OVER\(PARTITION BY \w+\.id_veiculo ORDER BY \w+\.ordem, \w+\.id_veiculo_foto\)";
         private const string LimiteDaPrimeiraFoto = "row <= 1";
         private const string JuncaoEsquerdaDasFotos = "LEFT JOIN";
+        private const string NomeStatusDisponivel = "DISPONIVEL";
+        private const string NomeStatusReservado = "RESERVADO";
+        private const string NomeStatusManutencao = "MANUTENCAO";
 
         private static readonly DateOnly RetiradaDoTeste = new DateOnly(2026, 12, 10);
         private static readonly DateOnly DevolucaoDoTeste = new DateOnly(2026, 12, 12);
@@ -283,6 +286,38 @@ namespace AutoVia.Tests.Persistence
             AssertVeiculoAtivoNoWhere(sql);
             AssertLocadoraAtivaNoWhere(sql);
             AssertSemColunasDaLocadoraNoSelect(sql);
+        }
+
+        [Fact]
+        public void ConsultaDisponiveis_SoEntraDisponivelEReservado_ManutencaoFicaDeFora()
+        {
+            using AutoViaDbContext db = CriarDbComContextoDeFuncionario(IdEmpresaDoTeste);
+            VeiculoRepository repositorio = new VeiculoRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaDisponiveis(RetiradaDoTeste, DevolucaoDoTeste, null, null, null).ToQueryString();
+
+            HashSet<string> statusNoSql = StatusDeVeiculoNoSql(sql);
+            Assert.Equal(new HashSet<string> { NomeStatusDisponivel, NomeStatusReservado }, statusNoSql);
+            Assert.DoesNotContain(NomeStatusManutencao, statusNoSql);
+        }
+
+        /// <summary>
+        /// Nomes de StatusVeiculo que aparecem no SQL como texto entre aspas: literal no WHERE ou valor do parametro no
+        /// cabecalho do ToQueryString (-- @__p='VALOR'). Confere o que a consulta filtra, sem depender de como o EF nomeia o parametro.
+        /// </summary>
+        private static HashSet<string> StatusDeVeiculoNoSql(string sql)
+        {
+            HashSet<string> presentes = new HashSet<string>();
+
+            foreach (string nome in Enum.GetNames(typeof(StatusVeiculo)))
+            {
+                if (sql.Contains("'" + nome + "'", StringComparison.Ordinal))
+                {
+                    presentes.Add(nome);
+                }
+            }
+
+            return presentes;
         }
 
         [Fact]
