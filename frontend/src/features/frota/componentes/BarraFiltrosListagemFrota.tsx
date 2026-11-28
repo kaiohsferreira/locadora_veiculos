@@ -11,6 +11,7 @@ import {
 } from '@/lib/mensagens';
 import { STATUS_FILTRO_LISTAGEM_FROTA, opcoesStatusListagemFrota } from '@/features/frota/listagem/opcoesListagemFrota';
 import { TAMANHO_MAXIMO_BUSCA_FROTA } from '@/features/frota/listagem/parametrosListagemFrota';
+import { AvisoCategoriasFrota } from '@/features/frota/componentes/AvisoCategoriasFrota';
 import type { StatusVeiculo } from '@/types/enums';
 
 export interface BarraFiltrosListagemFrotaProps {
@@ -22,6 +23,10 @@ export interface BarraFiltrosListagemFrotaProps {
   /** Id da categoria escolhida, ou vazio para todas. */
   idCategoria: number | '';
   aoMudarCategoria: (idCategoria: number | '') => void;
+  /** As categorias falharam ao carregar: o aviso aparece ao lado do filtro de categoria. */
+  erroCategorias: boolean;
+  /** Tenta carregar as categorias de novo (botão do aviso). */
+  aoTentarCategorias: () => void;
   /** Status escolhido, ou vazio para todos. */
   status: StatusVeiculo | '';
   aoMudarStatus: (status: StatusVeiculo | '') => void;
@@ -41,6 +46,8 @@ export function BarraFiltrosListagemFrota({
   opcoesCategoria,
   idCategoria,
   aoMudarCategoria,
+  erroCategorias,
+  aoTentarCategorias,
   status,
   aoMudarStatus,
   podeLimpar,
@@ -76,6 +83,7 @@ export function BarraFiltrosListagemFrota({
               aoMudarCategoria(valor === '' ? '' : Number(valor));
             }}
           />
+          {erroCategorias && <AvisoCategoriasFrota aoTentarNovamente={aoTentarCategorias} />}
         </div>
         <div className="w-full sm:w-52">
           <Select

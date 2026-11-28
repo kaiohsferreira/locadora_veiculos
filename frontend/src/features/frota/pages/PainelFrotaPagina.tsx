@@ -80,6 +80,8 @@ export default function PainelFrotaPagina() {
             opcoesCategoria={opcoesCategoria}
             idCategoria={estado.filtros.idCategoria}
             aoMudarCategoria={(idCategoria) => filtros.mudarFiltro({ idCategoria })}
+            erroCategorias={categorias.isError}
+            aoTentarCategorias={() => void categorias.refetch()}
           />
         </section>
 

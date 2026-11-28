@@ -26,6 +26,7 @@ import {
   mensagemErroVerificacao,
   mensagemSucessoDecisao,
   montarFiltroFila,
+  paginaAposRespostaFila,
   requisicaoDecisao,
   situacaoDoSeletor,
   TAMANHO_PAGINA_FILA,
@@ -83,13 +84,10 @@ export default function VerificacaoCadastrosPagina() {
   const decisao = useDecidirVerificacao();
 
   const dados = fila.data;
-  // Página além da última (ex.: a última linha saiu do filtro): volta para a última existente. Só vale com a resposta da
-  // consulta atual, nunca com a resposta anterior que o TanStack Query mantém na tela enquanto a nova carrega.
-  if (dados !== undefined && !fila.isPlaceholderData) {
-    const ultimaPagina = Math.max(1, Math.ceil(dados.total / TAMANHO_PAGINA_FILA));
-    if (estado.pagina > ultimaPagina) {
-      setEstado((atual) => alterarListagemFila(atual, { tipo: 'pagina', pagina: ultimaPagina }));
-    }
+  // Página além da última (ex.: a última linha saiu do filtro): volta para a última existente (regra em paginaAposRespostaFila).
+  const paginaCorrigida = paginaAposRespostaFila(estado.pagina, dados?.total, !fila.isPlaceholderData);
+  if (paginaCorrigida !== estado.pagina) {
+    setEstado((atual) => alterarListagemFila(atual, { tipo: 'pagina', pagina: paginaCorrigida }));
   }
 
   function aoMudarBusca(texto: string) {

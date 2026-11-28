@@ -71,6 +71,8 @@ export default function ListagemFrotaPagina() {
         opcoesCategoria={opcoesCategoria}
         idCategoria={estado.filtros.idCategoria}
         aoMudarCategoria={(idCategoria) => filtros.mudarFiltro({ idCategoria })}
+        erroCategorias={categorias.isError}
+        aoTentarCategorias={() => void categorias.refetch()}
         status={estado.filtros.status}
         aoMudarStatus={(status) => filtros.mudarFiltro({ status })}
         podeLimpar={podeLimpar}

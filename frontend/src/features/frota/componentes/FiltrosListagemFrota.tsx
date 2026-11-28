@@ -6,6 +6,7 @@ import {
   MENSAGEM_FROTA_CATEGORIA_TODAS,
 } from '@/lib/mensagens';
 import { TAMANHO_MAXIMO_BUSCA_FROTA } from '@/features/frota/listagem/parametrosListagemFrota';
+import { AvisoCategoriasFrota } from '@/features/frota/componentes/AvisoCategoriasFrota';
 
 export interface FiltrosListagemFrotaProps {
   /** Texto digitado na busca (o pai decide quando ele vai para a consulta). */
@@ -16,6 +17,10 @@ export interface FiltrosListagemFrotaProps {
   /** Id da categoria escolhida, ou vazio para todas. */
   idCategoria: number | '';
   aoMudarCategoria: (idCategoria: number | '') => void;
+  /** As categorias falharam ao carregar: o aviso aparece ao lado do filtro de categoria. */
+  erroCategorias: boolean;
+  /** Tenta carregar as categorias de novo (botão do aviso). */
+  aoTentarCategorias: () => void;
 }
 
 /**
@@ -28,6 +33,8 @@ export function FiltrosListagemFrota({
   opcoesCategoria,
   idCategoria,
   aoMudarCategoria,
+  erroCategorias,
+  aoTentarCategorias,
 }: FiltrosListagemFrotaProps) {
   return (
     <div className="grid grid-cols-1 items-center gap-2 pt-2 md:grid-cols-12">
@@ -58,6 +65,7 @@ export function FiltrosListagemFrota({
             aoMudarCategoria(valor === '' ? '' : Number(valor));
           }}
         />
+        {erroCategorias && <AvisoCategoriasFrota aoTentarNovamente={aoTentarCategorias} />}
       </div>
     </div>
   );

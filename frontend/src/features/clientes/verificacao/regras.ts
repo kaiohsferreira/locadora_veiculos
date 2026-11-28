@@ -102,6 +102,17 @@ export function montarFiltroFila(estado: EstadoListagemFila): FiltroFilaVerifica
   return filtro;
 }
 
+/**
+ * Página que a tela deve mostrar depois da resposta da fila: a pedida, ou a última existente quando a pedida passa do total
+ * (ex.: a última linha saiu do filtro). Só vale com a resposta da consulta atual (`respostaAtual`): a anterior, que o
+ * TanStack Query mantém enquanto a nova carrega, não corrige nada. Sem resposta (total indefinido), devolve a pedida.
+ */
+export function paginaAposRespostaFila(pagina: number, total: number | undefined, respostaAtual: boolean): number {
+  if (total === undefined || !respostaAtual) return pagina;
+  const ultimaPagina = Math.max(1, Math.ceil(total / TAMANHO_PAGINA_FILA));
+  return pagina > ultimaPagina ? ultimaPagina : pagina;
+}
+
 /** Há busca ou status aplicado (escolhe a mensagem de lista vazia e o botão de limpar). */
 export function temFiltroFila(estado: EstadoListagemFila): boolean {
   return estado.busca !== '' || estado.status !== '';

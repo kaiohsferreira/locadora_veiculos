@@ -129,10 +129,11 @@ function renderizar(
   listagem: Partial<ConsultaListagem>,
   painel: Partial<ConsultaPainel> = {},
   cargo: CargoFuncionario | null = 'GESTOR_FROTA',
+  categorias: Partial<ConsultaCategorias> = {},
 ): string {
   vi.mocked(useListarVeiculos).mockReturnValue(consultaListagem(listagem));
   vi.mocked(usePainelVisaoGeral).mockReturnValue(consultaPainel(painel));
-  vi.mocked(useCategorias).mockReturnValue({ data: CATEGORIAS, isPending: false } as unknown as ConsultaCategorias);
+  vi.mocked(useCategorias).mockReturnValue({ data: CATEGORIAS, isPending: false, ...categorias } as unknown as ConsultaCategorias);
   vi.mocked(useAlterarStatusVeiculo).mockReturnValue({
     mutate: vi.fn(),
     isPending: false,
@@ -307,5 +308,37 @@ describe('ListagemFrotaPagina: barra de filtros e tabela', () => {
 
     expect(marcado).toContain('Não foi possível carregar a frota.');
     expect(marcado).toContain('Tentar novamente');
+  });
+});
+
+describe('ListagemFrotaPagina: erro das categorias (aviso ao lado do filtro)', () => {
+  beforeEach(() => {
+    vi.mocked(useListarVeiculos).mockReset();
+    vi.mocked(usePainelVisaoGeral).mockReset();
+    vi.mocked(useCategorias).mockReset();
+  });
+
+  it('com erro nas categorias, aparecem o aviso e o botão Tentar novamente dentro do mesmo alerta', () => {
+    const marcado = renderizar({ data: LISTA }, {}, 'GESTOR_FROTA', { data: undefined, isPending: false, isError: true });
+
+    expect(marcado).toMatch(
+      /role="alert"[^>]*>(?:(?!<\/div>)[\s\S])*Não foi possível carregar as categorias\.(?:(?!<\/div>)[\s\S])*<button[^>]*>(?:(?!<\/button>)[\s\S])*Tentar novamente/,
+    );
+  });
+
+  it('com as categorias carregadas, aparecem as opções e nenhum aviso de categoria', () => {
+    const marcado = renderizar({ data: LISTA });
+
+    expect(marcado).toContain('Grupo B - Hatch Compacto 1.0');
+    expect(marcado).not.toContain('Não foi possível carregar as categorias.');
+    expect(marcado).not.toContain('role="alert"');
+  });
+
+  it('com erro só nas categorias, a lista de veículos continua aparecendo', () => {
+    const marcado = renderizar({ data: LISTA }, {}, 'GESTOR_FROTA', { data: undefined, isPending: false, isError: true });
+
+    expect(marcado).toContain('Não foi possível carregar as categorias.');
+    expect(marcado).toContain('Fiat Argo Drive 1.0');
+    expect(marcado).not.toContain('Não foi possível carregar a frota.');
   });
 });

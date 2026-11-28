@@ -17,6 +17,7 @@ import {
   mostrarDecisao,
   montarFiltroFila,
   OPCOES_STATUS_FILA,
+  paginaAposRespostaFila,
   recusaHabilitada,
   requisicaoDecisao,
   situacaoDoSeletor,
@@ -63,6 +64,32 @@ const CLIENTE: ClienteVerificacao = {
   uf: 'SP',
   cep: '01415000',
 };
+
+describe('paginaAposRespostaFila (volta à última página)', () => {
+  it('página dentro do total: a pedida fica', () => {
+    expect(paginaAposRespostaFila(2, 25, true)).toBe(2);
+  });
+
+  it('página além do total: volta para a última (25 cadastros = 3 páginas de 10)', () => {
+    expect(paginaAposRespostaFila(5, 25, true)).toBe(3);
+  });
+
+  it('a última linha saiu do filtro (total zero): volta para a página 1, nunca para 0', () => {
+    expect(paginaAposRespostaFila(4, 0, true)).toBe(1);
+  });
+
+  it('exatamente 10 cadastros: a página 2 passa do total e volta para 1', () => {
+    expect(paginaAposRespostaFila(2, 10, true)).toBe(1);
+  });
+
+  it('resposta anterior (enquanto a nova carrega): não corrige a página', () => {
+    expect(paginaAposRespostaFila(5, 25, false)).toBe(5);
+  });
+
+  it('sem resposta (total indefinido): devolve a página pedida', () => {
+    expect(paginaAposRespostaFila(5, undefined, true)).toBe(5);
+  });
+});
 
 describe('termoBuscaFila', () => {
   it('apara o texto e devolve vazio para espaços', () => {
