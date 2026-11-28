@@ -4,6 +4,7 @@ import {
   alterarStatusVeiculo,
   buscarVeiculo,
   buscarVeiculosDisponiveis,
+  buscarVeiculoLocacao,
   cadastrarVeiculo,
   editarVeiculo,
   listarVeiculos,
@@ -49,6 +50,28 @@ describe('buscarVeiculo', () => {
 
     expect(getMock.mock.calls[0][0]).toBe('/api/veiculos/7');
     expect(veiculo).toEqual({ idVeiculo: 7 });
+  });
+});
+
+describe('buscarVeiculoLocacao', () => {
+  beforeEach(() => {
+    getMock.mockReset();
+    getMock.mockResolvedValue({ data: { idVeiculo: 7, disponivelNoPeriodo: null, fotos: [], erroFotos: null } });
+  });
+
+  it('consulta a ficha pública diretamente, sem filtro de datas', async () => {
+    const detalhe = await buscarVeiculoLocacao(7);
+
+    expect(getMock).toHaveBeenCalledWith('/api/veiculos/locacao/7', { params: undefined, signal: undefined });
+    expect(detalhe).toEqual({ idVeiculo: 7, disponivelNoPeriodo: null, fotos: [], erroFotos: null });
+  });
+
+  it('envia só o par de datas do contrato e repassa cancelamento', async () => {
+    const periodo = { dataRetirada: '2026-12-12', dataDevolucao: '2026-12-16' };
+    const signal = new AbortController().signal;
+    await buscarVeiculoLocacao(7, periodo, signal);
+
+    expect(getMock).toHaveBeenCalledWith('/api/veiculos/locacao/7', { params: periodo, signal });
   });
 });
 

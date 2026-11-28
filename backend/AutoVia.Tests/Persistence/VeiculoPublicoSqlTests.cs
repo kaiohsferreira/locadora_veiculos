@@ -1,4 +1,5 @@
 using AutoVia.Communication.Enums;
+using AutoVia.Helpers;
 using AutoVia.Infrastructure.Persistence;
 using AutoVia.Infrastructure.Repositories;
 using AutoVia.Infrastructure.Services;
@@ -240,6 +241,49 @@ namespace AutoVia.Tests.Persistence
             Assert.False(Regex.IsMatch(select, @"\." + Regex.Escape(ColunaNomeFantasia) + @"\b"), $"O SELECT nao deveria trazer nome_fantasia. SQL: {sql}");
             Assert.False(Regex.IsMatch(select, @"\." + Regex.Escape(ColunaCidade) + @"\b"), $"O SELECT nao deveria trazer cidade. SQL: {sql}");
             Assert.False(Regex.IsMatch(select, @"\." + Regex.Escape(ColunaUf) + @"\b"), $"O SELECT nao deveria trazer uf. SQL: {sql}");
+        }
+
+        [Fact]
+        public void ConsultaVeiculoLocacao_CompartilhaRecortePublicoEProjetaConflitoSemFiltrarAFicha()
+        {
+            foreach (AutoViaDbContext db in CriarTresContextos())
+            {
+                using AutoViaDbContext contextoDoTeste = db;
+                VeiculoRepository repositorio = new VeiculoRepository(contextoDoTeste, new FakeLogService());
+
+                string sql = repositorio.ConsultaVeiculoLocacao(42, RetiradaDoTeste, DevolucaoDoTeste).ToQueryString();
+
+                Assert.DoesNotContain(ParametroEmpresa, sql);
+                Assert.DoesNotContain(Offset, sql);
+                AssertVeiculoAtivoNoWhere(sql);
+                AssertLocadoraAtivaNoWhere(sql);
+                Assert.Contains(JoinCategoria, sql);
+                Assert.Contains("DISPONIVEL", sql);
+                Assert.Contains("RESERVADO", sql);
+                Assert.Matches(@"\.id_veiculo = @\w*idVeiculo", sql);
+                Assert.Contains("NOT EXISTS", sql.Substring(0, sql.IndexOf("FROM reserva", StringComparison.Ordinal)));
+                Assert.Contains("ATIVA", sql);
+                Assert.Contains("CONFIRMADA", sql);
+                Assert.Matches(@"\.data_retirada_prevista < @", sql);
+                Assert.Matches(@"\.data_devolucao_prevista > @", sql);
+                string galeria = TrechoDaSubconsultaDeFotos(sql);
+                AssertFotoAtivaNaSubconsulta(galeria);
+                Assert.Matches(OrdemDaPrimeiraFotoNaJanela, galeria);
+                Assert.Contains($"row <= {ConstantsValues.MaximoFotosPorVeiculo}", galeria);
+            }
+        }
+
+        [Fact]
+        public void ConsultaVeiculoLocacao_SemDatasNaoConsultaReservas()
+        {
+            using AutoViaDbContext db = CriarDbSemContexto();
+            VeiculoRepository repositorio = new VeiculoRepository(db, new FakeLogService());
+
+            string sql = repositorio.ConsultaVeiculoLocacao(42, null, null).ToQueryString();
+
+            Assert.DoesNotContain("FROM reserva", sql);
+            Assert.DoesNotContain(ParametroEmpresa, sql);
+            AssertLocadoraAtivaNoWhere(sql);
         }
 
         [Fact]

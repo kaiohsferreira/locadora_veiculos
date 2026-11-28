@@ -53,7 +53,7 @@ namespace AutoVia.Tests.Persistence
             },
             [CaminhoDisponibilidade] = new string[]
             {
-                "ConsultaDisponiveis" + SeparadorMetodoSimbolo + "SemEscopoEmpresa("
+                "ConsultaFrotaPublicaLocacao" + SeparadorMetodoSimbolo + "SemEscopoEmpresa("
             },
             [CaminhoCatalogo] = new string[]
             {

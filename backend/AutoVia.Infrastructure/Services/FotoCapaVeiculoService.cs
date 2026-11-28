@@ -80,6 +80,84 @@ namespace AutoVia.Infrastructure.Services
             }
         }
 
+        /// <summary>Assina apenas as fotos ativas do veículo consultado em um lote e conserva os arquivos disponíveis.</summary>
+        public async Task PreencherGaleriaAsync(Veiculo veiculo, ReturnVeiculoLocacaoVO ficha, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                List<VeiculoFoto> fotos = veiculo.Fotos
+                    .Where(foto => foto.IdVeiculo == veiculo.IdVeiculo && foto.DisabledAt == null)
+                    .OrderBy(foto => foto.Ordem).ThenBy(foto => foto.IdVeiculoFoto)
+                    .Take(ConstantsValues.MaximoFotosPorVeiculo)
+                    .ToList();
+
+                if (fotos.Count == 0)
+                {
+                    return;
+                }
+
+                HashSet<string> chaves = new HashSet<string>(StringComparer.Ordinal);
+                foreach (VeiculoFoto foto in fotos)
+                {
+                    chaves.Add(foto.ChaveObjeto);
+                    if (!string.IsNullOrWhiteSpace(foto.ChaveMiniatura))
+                    {
+                        chaves.Add(foto.ChaveMiniatura);
+                    }
+                }
+
+                IReadOnlyDictionary<string, ArquivoArmazenado> assinadas = await _armazenamentoGateway.AssinarUrlsAsync(chaves, cancellationToken);
+                bool arquivoAusente = false;
+                foreach (VeiculoFoto foto in fotos)
+                {
+                    if (!assinadas.TryGetValue(foto.ChaveObjeto, out ArquivoArmazenado? original) || string.IsNullOrWhiteSpace(original?.Url))
+                    {
+                        arquivoAusente = true;
+                        continue;
+                    }
+
+                    FotoCapaVeiculoVO imagem = MontarFotoCapa(original);
+                    if (!string.IsNullOrWhiteSpace(foto.ChaveMiniatura))
+                    {
+                        if (assinadas.TryGetValue(foto.ChaveMiniatura, out ArquivoArmazenado? miniatura) && !string.IsNullOrWhiteSpace(miniatura?.Url))
+                        {
+                            imagem.UrlMiniatura = miniatura.Url;
+                            if (miniatura.ExpiraEm < original.ExpiraEm)
+                            {
+                                imagem.ExpiraEm = RegrasVeiculoFoto.FormatarExpiraEm(miniatura.ExpiraEm);
+                            }
+                        }
+                        else
+                        {
+                            arquivoAusente = true;
+                        }
+                    }
+
+                    ficha.Fotos.Add(imagem);
+                }
+
+                if (arquivoAusente)
+                {
+                    ficha.ErroFotos = ConstantsMessage.ErroCarregarGaleriaVeiculo;
+                    _logService.Write(ConstantsMessage.ErroGaleriaVeiculoSemUrlAssinada, ConstantsMessage.ErroCarregarGaleriaVeiculo, GetType().ToString());
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (IntegrationException ex)
+            {
+                ficha.ErroFotos = ConstantsMessage.ErroCarregarGaleriaVeiculo;
+                _logService.Write(new Exception(ex.GetType().Name), ConstantsMessage.ErroCarregarGaleriaVeiculo, GetType().ToString());
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroCarregarGaleriaVeiculo, GetType().ToString());
+                throw;
+            }
+        }
+
         /// <summary>Uma capa por veiculo (repetido conta uma vez). Veiculo nulo, desativado, de locadora desativada ou sem foto ativa fica fora.</summary>
         private static Dictionary<int, VeiculoFoto> MontarCapasPorVeiculo(IReadOnlyCollection<Veiculo?> veiculos)
         {

@@ -8,8 +8,10 @@ import type {
   DestinoManualStatusVeiculo,
   FiltroListagemVeiculos,
   FiltroVeiculosDisponiveis,
+  PeriodoLocacaoVeiculo,
   RequisicaoStatusVeiculo,
   VeiculoDisponivel,
+  VeiculoLocacao,
   VeiculoRequisicao,
   VeiculoRetorno,
 } from '@/types/veiculos';
@@ -79,6 +81,19 @@ export async function buscarVeiculosDisponiveis(
 ): Promise<Pagina<VeiculoDisponivel>> {
   const resposta = await api.get<Pagina<VeiculoDisponivel>>(CAMINHO_VEICULOS_DISPONIVEIS, {
     params: filtro,
+    signal,
+  });
+  return resposta.data;
+}
+
+/** Consulta pública da ficha, galeria e disponibilidade opcional de um veículo (P3-FE-03). */
+export async function buscarVeiculoLocacao(
+  idVeiculo: number,
+  periodo?: PeriodoLocacaoVeiculo,
+  signal?: AbortSignal,
+): Promise<VeiculoLocacao> {
+  const resposta = await api.get<VeiculoLocacao>(`${CAMINHO_VEICULOS}/locacao/${idVeiculo}`, {
+    params: periodo,
     signal,
   });
   return resposta.data;

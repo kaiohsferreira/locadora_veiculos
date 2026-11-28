@@ -9,7 +9,7 @@ namespace AutoVia.Communication.ViewObjects.Frota
         /// <summary>URL https temporaria da capa.</summary>
         public string Url { get; set; } = string.Empty;
 
-        /// <summary>Reservado para a miniatura da fatia completa; nesta fatia sai sempre nulo.</summary>
+        /// <summary>URL temporária da miniatura, quando disponível.</summary>
         public string? UrlMiniatura { get; set; }
 
         /// <summary>Instante em que a URL expira, em UTC, no formato de ida e volta do .NET com fuso.</summary>

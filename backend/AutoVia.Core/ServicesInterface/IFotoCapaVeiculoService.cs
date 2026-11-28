@@ -13,6 +13,9 @@ namespace AutoVia.Core.ServicesInterface
     /// </summary>
     public interface IFotoCapaVeiculoService
     {
+        /// <summary>Assina em lote a galeria pública do veículo e preserva as fotos disponíveis.</summary>
+        Task PreencherGaleriaAsync(Veiculo veiculo, ReturnVeiculoLocacaoVO ficha, CancellationToken cancellationToken = default);
+
         /// <summary>
         /// Preenche fotoCapa e erroFotoCapa de cada item pelo IdVeiculo, usando a capa (primeira foto ativa) de cada veiculo
         /// carregado com as fotos. Veiculo nulo ou sem capa ativa deixa o item como esta (nulo).

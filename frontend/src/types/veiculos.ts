@@ -133,3 +133,17 @@ export interface VeiculoDisponivel {
   fotoCapa?: FotoCapaVeiculo | null;
   erroFotoCapa?: string | null;
 }
+
+/** Par validado de datas AAAA-MM-DD, com retirada inclusiva e devolução exclusiva. */
+export interface PeriodoLocacaoVeiculo {
+  dataRetirada: string;
+  dataDevolucao: string;
+}
+
+/** Ficha pública retornada pelo endpoint individual de locação. */
+export interface VeiculoLocacao extends Omit<VeiculoDisponivel, 'fotoCapa' | 'erroFotoCapa'> {
+  anoFabricacao: number;
+  disponivelNoPeriodo: boolean | null;
+  fotos: FotoCapaVeiculo[];
+  erroFotos: string | null;
+}

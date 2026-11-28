@@ -1,5 +1,6 @@
 using AutoVia.Communication.Enums;
 using AutoVia.Core.Entities.PgSql;
+using AutoVia.Core.Regras;
 using AutoVia.Helpers;
 using AutoVia.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -12,9 +13,8 @@ namespace AutoVia.Infrastructure.Repositories
 {
     /// <summary>
     /// Busca publica de veiculos disponiveis (P3-BE-01, RF-11 e RF-72). Arquivo parcial do VeiculoRepository.
-    /// A busca le os veiculos de TODAS as locadoras ativas: o unico ponto que desliga o filtro de locadora e
-    /// ConsultaDisponiveis, junto com a condicao de locadora ativa e nao desativada. Os quatro metodos do arquivo
-    /// registram log e relancam a excecao.
+    /// A busca e o detalhe leem veiculos de todas as locadoras ativas pelo mesmo recorte publico e compartilham a
+    /// checagem de reservas sobrepostas.
     /// </summary>
     public partial class VeiculoRepository
     {
@@ -58,13 +58,9 @@ namespace AutoVia.Infrastructure.Repositories
         {
             try
             {
-                DateTime inicio = retirada.ToDateTime(TimeOnly.MinValue);
-                DateTime fim = devolucao.ToDateTime(TimeOnly.MinValue);
-                IQueryable<Veiculo> consulta = _db.Veiculos.AsNoTracking().SemEscopoEmpresa().ApenasEmpresasAtivas()
-                    .Where(x => x.DisabledAt == null && (x.Status == StatusVeiculo.DISPONIVEL || x.Status == StatusVeiculo.RESERVADO))
-                    .Where(x => !x.Reservas.Any(r => r.DisabledAt == null
-                        && (r.Status == StatusReserva.ATIVA || r.Status == StatusReserva.CONFIRMADA)
-                        && r.DataRetiradaPrevista < fim && r.DataDevolucaoPrevista > inicio));
+                IQueryable<Reserva> reservas = ConsultaReservasSobrepostas(retirada, devolucao);
+                IQueryable<Veiculo> consulta = ConsultaFrotaPublicaLocacao()
+                    .Where(x => !reservas.Any(r => r.IdVeiculo == x.IdVeiculo));
 
                 if (idCategoria.HasValue)
                 {
@@ -93,6 +89,39 @@ namespace AutoVia.Infrastructure.Repositories
                 }
 
                 return consulta;
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarDisponibilidade, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Recorte público compartilhado pela busca e pelo detalhe de locação.</summary>
+        private IQueryable<Veiculo> ConsultaFrotaPublicaLocacao()
+        {
+            try
+            {
+                return _db.Veiculos.AsNoTracking().SemEscopoEmpresa().ApenasEmpresasAtivas()
+                    .Where(x => x.DisabledAt == null && (x.Status == StatusVeiculo.DISPONIVEL || x.Status == StatusVeiculo.RESERVADO));
+            }
+            catch (Exception ex)
+            {
+                _logService.Write(ex, ConstantsMessage.ErroConsultarDisponibilidade, GetType().ToString());
+                throw;
+            }
+        }
+
+        /// <summary>Reservas ativas ou confirmadas que interceptam o intervalo de retirada inclusiva e devolução exclusiva.</summary>
+        private IQueryable<Reserva> ConsultaReservasSobrepostas(DateOnly retirada, DateOnly devolucao)
+        {
+            try
+            {
+                DateTime inicio = retirada.ToDateTime(TimeOnly.MinValue);
+                DateTime fim = devolucao.ToDateTime(TimeOnly.MinValue);
+                return _db.Reservas.Where(r => r.DisabledAt == null
+                    && (r.Status == StatusReserva.ATIVA || r.Status == StatusReserva.CONFIRMADA))
+                    .Where(RegrasReserva.SobrepoePeriodo(inicio, fim));
             }
             catch (Exception ex)
             {

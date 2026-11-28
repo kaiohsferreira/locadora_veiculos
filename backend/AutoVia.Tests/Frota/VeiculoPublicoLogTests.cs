@@ -18,7 +18,8 @@ namespace AutoVia.Tests.Frota
         private const string LogDaBusca = "_logService.Write(ex, ConstantsMessage.ErroConsultarDisponibilidade";
         private const string LogDoCatalogo = "_logService.Write(ex, ConstantsMessage.ErroListarCatalogo";
         private const string Relancamento = "throw;";
-        private const int MetodosComCatchNoRepositorioDeLeitura = 4;
+        private const int MetodosComCatchNaBusca = 6;
+        private const int MetodosComCatchNoCatalogo = 4;
 
         private static string RaizDoBackend()
         {
@@ -49,9 +50,9 @@ namespace AutoVia.Tests.Frota
         {
             string codigo = LerArquivo(ArquivoDisponibilidade);
 
-            Assert.Equal(MetodosComCatchNoRepositorioDeLeitura, Ocorrencias(codigo, CatchGenerico));
-            Assert.Equal(MetodosComCatchNoRepositorioDeLeitura, Ocorrencias(codigo, LogDaBusca));
-            Assert.Equal(MetodosComCatchNoRepositorioDeLeitura, Ocorrencias(codigo, Relancamento));
+            Assert.Equal(MetodosComCatchNaBusca, Ocorrencias(codigo, CatchGenerico));
+            Assert.Equal(MetodosComCatchNaBusca, Ocorrencias(codigo, LogDaBusca));
+            Assert.Equal(MetodosComCatchNaBusca, Ocorrencias(codigo, Relancamento));
             Assert.Equal(0, Ocorrencias(codigo, CatchDeRegraNegocio));
             Assert.Equal(0, Ocorrencias(codigo, CatchDeNaoEncontrado));
         }
@@ -61,9 +62,9 @@ namespace AutoVia.Tests.Frota
         {
             string codigo = LerArquivo(ArquivoCatalogo);
 
-            Assert.Equal(MetodosComCatchNoRepositorioDeLeitura, Ocorrencias(codigo, CatchGenerico));
-            Assert.Equal(MetodosComCatchNoRepositorioDeLeitura, Ocorrencias(codigo, LogDoCatalogo));
-            Assert.Equal(MetodosComCatchNoRepositorioDeLeitura, Ocorrencias(codigo, Relancamento));
+            Assert.Equal(MetodosComCatchNoCatalogo, Ocorrencias(codigo, CatchGenerico));
+            Assert.Equal(MetodosComCatchNoCatalogo, Ocorrencias(codigo, LogDoCatalogo));
+            Assert.Equal(MetodosComCatchNoCatalogo, Ocorrencias(codigo, Relancamento));
             Assert.Equal(0, Ocorrencias(codigo, CatchDeRegraNegocio));
             Assert.Equal(0, Ocorrencias(codigo, CatchDeNaoEncontrado));
         }
